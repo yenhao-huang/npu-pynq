@@ -19,6 +19,8 @@ vivado_pid*.*
 
 # Build outputs
 build/
+*.bit
+*.bin
 *.dcp
 *.ltx
 *.xsa
@@ -33,9 +35,13 @@ xsim.dir/
 obj_dir/
 
 # Deploy staging: sw/ is the source, mount/ is the mirrored payload.
-# Only the overlay pair and notebooks are tracked here.
+# Board-runtime Python is staged here by deploy_and_test.ps1, not authored here.
 mount/mac_npu/*.py
 mount/mac_npu/*.ipynb
+
+# Overlay bitstreams are deploy payload the board cannot be provisioned without.
+!mount/mac_npu/overlay/*.bit
+!mount/led_lightening/*.bit
 
 # Controller runtime state
 logs/*.json
