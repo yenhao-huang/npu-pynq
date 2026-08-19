@@ -1,0 +1,54 @@
+# Vivado project directories: regenerate from src/vivado_tcl/
+vivado_projects/
+vivado/
+results/
+*.cache/
+*.gen/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.xpr
+.Xil/
+
+# Vivado logs and journals
+*.jou
+*.log
+*.str
+vivado_pid*.*
+
+# Build outputs
+build/
+*.dcp
+*.ltx
+*.xsa
+
+# Simulation
+sim/build/
+sim/waves/
+*.vcd
+*.fst
+*.wdb
+xsim.dir/
+obj_dir/
+
+# Deploy staging: sw/ is the source, mount/ is the mirrored payload.
+# Only the overlay pair and notebooks are tracked here.
+mount/mac_npu/*.py
+mount/mac_npu/*.ipynb
+
+# Controller runtime state
+logs/*.json
+logs/*.tmp
+!logs/.gitkeep
+
+# Python and notebook caches
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Editor and OS
+*.swp
+*~
+Thumbs.db
+.DS_Store

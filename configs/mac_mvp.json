@@ -1,0 +1,27 @@
+{
+  "operand_a_width": 8,
+  "operand_b_width": 8,
+  "accumulator_width": 32,
+  "signed": true,
+  "overflow": "twos-complement-wrap",
+  "priority": ["reset", "clear", "valid"],
+  "maximum_input_rate": "one-pair-per-clock",
+  "axi4_lite": {
+    "address_width": 5,
+    "data_width": 32,
+    "registers": {
+      "control": "0x00",
+      "operand_a": "0x04",
+      "operand_b": "0x08",
+      "status": "0x0c",
+      "accumulator": "0x10"
+    },
+    "control_bits": {
+      "clear": 0,
+      "start": 1
+    },
+    "status_bits": {
+      "done": 0
+    }
+  }
+}

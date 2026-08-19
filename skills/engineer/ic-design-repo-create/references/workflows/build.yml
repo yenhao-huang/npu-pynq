@@ -1,0 +1,35 @@
+# Requires a self-hosted runner with Vivado installed and licensed.
+# GitHub-hosted runners cannot run this job.
+name: build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  bitstream:
+    runs-on: [self-hosted, vivado]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate project and build bitstream
+        shell: bash
+        run: |
+          vivado -mode batch -nojournal -nolog \
+            -source src/vivado_tcl/${DESIGN}/build_overlay.tcl
+        env:
+          DESIGN: mac_npu
+
+      - name: Collect overlay
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          find vivado_projects -name '*.bit' -exec cp {} artifacts/ \;
+          find vivado_projects -name '*.hwh' -exec cp {} artifacts/ \;
+
+      - name: Publish overlay
+        uses: actions/upload-artifact@v4
+        with:
+          name: overlay-${{ github.ref_name }}
+          path: artifacts/

@@ -1,0 +1,15 @@
+{
+  "localRoot": "mount",
+  "remoteHost": "192.168.2.99",
+  "remoteUser": "xilinx",
+  "remoteRoot": "/home/xilinx/jupyter_notebooks/pynq_z1_repo",
+  "intervalSeconds": 10,
+  "statePath": "logs/pynq-sync-state.json",
+  "exclude": [
+    ".gitkeep",
+    "*.tmp",
+    "*.swp",
+    "*~",
+    ".ipynb_checkpoints/*"
+  ]
+}
