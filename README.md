@@ -8,12 +8,21 @@ See [AGENTS.md](AGENTS.md) for the directory structure and working rules.
 ## Directory
 
 ```text
-src/rtl/        synthesizable HDL          src/tb/          testbenches
-src/vivado_tcl/ project-regenerating Tcl   src/constraints/ .xdc
-sim/            Makefile and cocotb        sw/              drivers, models
-docs/           specifications             mount/           board deploy staging
-skills/         agent skills
+npu_repo_in_pynq/
+|-- src/
+|   |-- rtl/            synthesizable HDL, one directory per design
+|   |-- tb/             testbenches, never synthesized
+|   |-- constraints/    .xdc timing and pin constraints
+|   `-- vivado_tcl/     project-regenerating Tcl
+|-- sim/                Makefile and cocotb tests
+|-- sw/                 PYNQ drivers, golden models, host tests
+|-- docs/               specifications and repository rules
+|-- skills/             agent skills
+`-- mount/              board deploy staging, empty by design
 ```
+
+[docs/rules/filetree.md](docs/rules/filetree.md) has the full tree and the rules
+for what may be added where.
 
 Vivado projects and bitstreams are never committed. Regenerate projects from
 `src/vivado_tcl/`; bitstreams attach to a GitHub Release.

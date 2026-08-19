@@ -19,6 +19,9 @@ fresh start: the earlier MAC prototype is not carried over.
 | `mount/` | deploy staging, mirrored to the board | no, empty by design |
 | `vivado_projects/`, `results/` | Vivado output | no |
 
+[docs/rules/filetree.md](docs/rules/filetree.md) is the authority on the tree and
+on what may not be added.
+
 ## Rules
 
 - Never commit a Vivado project directory or a bitstream. Regenerate the
