@@ -11,7 +11,8 @@ can regenerate it, it does not belong in Git.**
 
 ## Workflow
 
-1. Read `references/rules/env.md` and `references/directory.md`.
+1. Read `references/rules/env.md` and `references/directory.md`. Read
+   `references/rules/git/` before any commit, branch, pull request, or issue.
 2. Inventory the target directory. Separate every existing path into `source`,
    `tool product`, or `deploy payload`. Run
    `git ls-files` and `git status --short` together — untracked design sources
@@ -30,7 +31,7 @@ can regenerate it, it does not belong in Git.**
 7. Create `sim/Makefile` from `references/simulation.md` and confirm
    `make -C sim lint` passes locally before committing.
 8. Write `AGENTS.md`, and a `CLAUDE.md` whose entire body is `See @AGENTS.md`.
-9. Set up branches per `references/branching.md`.
+9. Set up branches per `references/rules/git/git-branch.md`.
 10. Report what moved, what is now ignored, and what CI cannot run.
 
 ## Guardrails
@@ -46,5 +47,7 @@ can regenerate it, it does not belong in Git.**
   script in the same change. Grep for the old name first.
 - Stop and ask when a directory serves both as a source location and as a
   deploy payload staging area; splitting it changes runtime behaviour.
+- Never merge `dev` into `main`. That is a deploy decision a person makes; an
+  agent may prepare and report it, never perform it.
 - Do not add a `scripts/` directory at the repository root, a changelog, or a
   contributor guide unless the user asks.

@@ -7,7 +7,6 @@ npu_repo_in_pynq/skills/engineer/ic-design-repo-create/
 |-- SKILL.md
 |-- STATE.md
 `-- references/
-    |-- branching.md
     |-- ci-cd.md
     |-- directory.md
     |-- gitignore.md
@@ -15,7 +14,12 @@ npu_repo_in_pynq/skills/engineer/ic-design-repo-create/
     |-- rules/
     |   |-- env.md
     |   |-- filetree.md
-    |   `-- state-rules.md
+    |   |-- state-rules.md
+    |   `-- git/
+    |       |-- git-branch.md
+    |       |-- git-commit.md
+    |       |-- git-issues.md
+    |       `-- git-pr.md
     |-- template/
     |   |-- AGENTS.template.md
     |   `-- STATE.template.md

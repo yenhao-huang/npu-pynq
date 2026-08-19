@@ -42,7 +42,15 @@ on what may not be added.
 - Run `make -C src/test lint sim` before pushing. CI runs the same two targets.
 - Synthesis is self-hosted only. Do not add Vivado steps to `ci.yml`; GitHub
   hosted runners cannot run Vivado.
-- Releases are tags (`v0.1.0-<design>`).
+- Work on an agent branch (`claude/<task>`) cut from `dev`, and merge it back
+  into `dev` through a pull request. Never commit directly to `main` or `dev`.
+- Never merge `dev` into `main`. `main` is the deploy version and that merge is
+  a person's decision; prepare it and report what you could not verify.
+- Releases are tags on `main` (`v0.1.0-<design>`).
+
+Full rules:
+[skills/engineer/ic-design-repo-create/references/rules/git/](skills/engineer/ic-design-repo-create/references/rules/git/)
+— branches, commits, pull requests, issues.
 
 ## Commands
 
