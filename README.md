@@ -3,9 +3,9 @@
 NPU accelerator for the PYNQ-Z1 (Zynq-7020, `xc7z020clg400-1`). RTL, testbenches,
 simulation, and host software.
 
-See [AGENTS.md](AGENTS.md) for the layout and working rules.
+See [AGENTS.md](AGENTS.md) for the directory structure and working rules.
 
-## Layout
+## Directory
 
 ```text
 src/rtl/        synthesizable HDL          src/tb/          testbenches

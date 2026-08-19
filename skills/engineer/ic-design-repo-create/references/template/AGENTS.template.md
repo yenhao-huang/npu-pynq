@@ -1,6 +1,6 @@
 # AGENTS
 
-## Layout
+## Directory
 
 | Path | Contents | Tracked |
 | --- | --- | --- |

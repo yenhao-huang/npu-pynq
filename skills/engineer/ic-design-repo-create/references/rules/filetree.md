@@ -9,8 +9,8 @@ npu_repo_in_pynq/skills/engineer/ic-design-repo-create/
 `-- references/
     |-- branching.md
     |-- ci-cd.md
+    |-- directory.md
     |-- gitignore.md
-    |-- layout.md
     |-- simulation.md
     |-- rules/
     |   |-- env.md

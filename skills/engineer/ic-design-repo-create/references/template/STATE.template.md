@@ -12,7 +12,7 @@ Last updated:
 | 0. Define Scope | pending |  |  |
 | 1. Inventory Sources and Products | pending |  |  |
 | 2. Confirm Move Plan | pending |  |  |
-| 3. Create Layout and Move | pending |  |  |
+| 3. Create Directories and Move | pending |  |  |
 | 4. Install Ignore Rules | pending |  |  |
 | 5. Install CI and CD | pending |  |  |
 | 6. Verify Simulation Locally | pending |  |  |

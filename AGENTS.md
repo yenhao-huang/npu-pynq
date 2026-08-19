@@ -4,7 +4,7 @@ NPU accelerator for the PYNQ-Z1 (Zynq-7020, `xc7z020clg400-1`). This repository
 holds the RTL, its testbenches, and the host-side software for the NPU. It is a
 fresh start: the earlier MAC prototype is not carried over.
 
-## Layout
+## Directory
 
 | Path | Contents | Tracked |
 | --- | --- | --- |

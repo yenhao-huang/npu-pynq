@@ -11,15 +11,16 @@ can regenerate it, it does not belong in Git.**
 
 ## Workflow
 
-1. Read `references/rules/env.md` and `references/layout.md`.
+1. Read `references/rules/env.md` and `references/directory.md`.
 2. Inventory the target directory. Separate every existing path into `source`,
    `tool product`, or `deploy payload`. Run
    `git ls-files` and `git status --short` together — untracked design sources
    are the most common defect and must be reported before any move.
 3. Show the user the inventory and the proposed destination for each path.
    Do not move anything until they confirm.
-4. Create the layout in `references/layout.md`. Move sources with `git mv` when
-   tracked and a plain move when untracked, so history survives where it exists.
+4. Create the directory structure in `references/directory.md`. Move tracked
+   sources with `git mv` and untracked ones with a plain move, so history
+   survives where it exists.
 5. Install `.gitignore` from `references/gitignore.md`. Verify no tool product
    is tracked: `git ls-files | grep -E '\.(bit|dcp|jou|log|pb|rpx|wdb)$'`
    must print nothing.
