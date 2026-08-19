@@ -1,19 +1,31 @@
 # Simulation entry points. CI runs `lint` and `sim`; both must work with only
 # apt-installable tools (verilator, iverilog).
+#
+# TOP   overrides the module verilator lints as the design root.
+# TESTS lists testbench basenames without the tb_ prefix; each must exist as
+#       src/tb/<design>/tb_<name>.sv.
 
 RTL    := $(wildcard ../src/rtl/*/*.sv)
 TB_DIR := ../src/tb
 BUILD  := build
-TESTS  := mac_unit mac_axi_lite
+TOP    ?=
+TESTS  ?= $(patsubst tb_%.sv,%,$(notdir $(wildcard $(TB_DIR)/*/tb_*.sv)))
 
 .PHONY: all lint sim clean
 all: lint sim
 
 lint:
+ifeq ($(strip $(RTL)),)
+	@echo "no RTL under src/rtl yet, nothing to lint"
+else
 	verilator --lint-only -Wall -Wno-DECLFILENAME \
-	  --top-module mac_axi_lite $(RTL)
+	  $(if $(TOP),--top-module $(TOP),) $(RTL)
+endif
 
 sim: $(addprefix $(BUILD)/,$(addsuffix .ok,$(TESTS)))
+ifeq ($(strip $(TESTS)),)
+	@echo "no testbenches under src/tb yet, nothing to simulate"
+endif
 
 $(BUILD)/%.ok: $(RTL)
 	@mkdir -p $(BUILD)

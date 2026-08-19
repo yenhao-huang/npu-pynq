@@ -1,6 +1,5 @@
 # Vivado project directories: regenerate from src/vivado_tcl/
 vivado_projects/
-vivado/
 results/
 *.cache/
 *.gen/
@@ -27,26 +26,17 @@ build/
 
 # Simulation
 sim/build/
-sim/waves/
+sim/waves/*
+!sim/waves/.gitkeep
 *.vcd
 *.fst
 *.wdb
 xsim.dir/
 obj_dir/
 
-# Deploy staging: sw/ is the source, mount/ is the mirrored payload.
-# Board-runtime Python is staged here by deploy_and_test.ps1, not authored here.
-mount/mac_npu/*.py
-mount/mac_npu/*.ipynb
-
-# Overlay bitstreams are deploy payload the board cannot be provisioned without.
-!mount/mac_npu/overlay/*.bit
-!mount/led_lightening/*.bit
-
-# Controller runtime state
-logs/*.json
-logs/*.tmp
-!logs/.gitkeep
+# Deploy staging: mount/ mirrors to the board and holds only build products.
+mount/*
+!mount/.gitkeep
 
 # Python and notebook caches
 __pycache__/

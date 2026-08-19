@@ -6,6 +6,10 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      design:
+        description: Design under src/vivado_tcl to build
+        required: true
 
 jobs:
   bitstream:
@@ -17,9 +21,7 @@ jobs:
         shell: bash
         run: |
           vivado -mode batch -nojournal -nolog \
-            -source src/vivado_tcl/${DESIGN}/build_overlay.tcl
-        env:
-          DESIGN: mac_npu
+            -source "src/vivado_tcl/${{ inputs.design }}/build_overlay.tcl"
 
       - name: Collect overlay
         shell: bash
