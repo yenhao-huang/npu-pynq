@@ -1,4 +1,4 @@
-# Vivado project directories: regenerate from src/vivado_tcl/
+# Vivado project directories: regenerate from src/hw/vivado_tcl/
 vivado_projects/
 results/
 *.cache/
@@ -25,9 +25,9 @@ build/
 *.xsa
 
 # Simulation
-sim/build/
-sim/waves/*
-!sim/waves/.gitkeep
+src/test/build/
+src/test/waves/*
+!src/test/waves/.gitkeep
 *.vcd
 *.fst
 *.wdb

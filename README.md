@@ -1,37 +1,46 @@
 # npu_repo_in_pynq
 
-NPU accelerator for the PYNQ-Z1 (Zynq-7020, `xc7z020clg400-1`). RTL, testbenches,
-simulation, and host software.
+NPU accelerator for the PYNQ-Z1 (Zynq-7020, `xc7z020clg400-1`): the hardware
+design, its verification, the model export path, and the on-board runtime.
 
-See [AGENTS.md](AGENTS.md) for the directory structure and working rules.
+See [AGENTS.md](AGENTS.md) for working rules and
+[docs/rules/filetree.md](docs/rules/filetree.md) for the full tree.
 
 ## Directory
 
 ```text
 npu_repo_in_pynq/
 |-- src/
-|   |-- rtl/            synthesizable HDL, one directory per design
-|   |-- tb/             testbenches, never synthesized
-|   |-- constraints/    .xdc timing and pin constraints
-|   `-- vivado_tcl/     project-regenerating Tcl
-|-- sim/                Makefile and cocotb tests
-|-- sw/                 PYNQ drivers, golden models, host tests
+|   |-- hw/             NPU hardware design
+|   |   |-- rtl/            synthesizable SystemVerilog
+|   |   |-- tb/             testbenches, never synthesized
+|   |   |-- constraints/    .xdc timing and pin constraints
+|   |   `-- vivado_tcl/     project-regenerating Tcl
+|   |-- test/           verification
+|   |   |-- Makefile        make lint / make sim
+|   |   |-- model/          numpy golden reference
+|   |   |-- cocotb/         Python tests comparing RTL against the model
+|   |   `-- vectors/        test data
+|   |-- export/         trained model -> NPU executable format
+|   `-- runtime/        loads the overlay and runs a model on the board
+|-- examples/           demos built on export and runtime
 |-- docs/               specifications and repository rules
 |-- skills/             agent skills
 `-- mount/              board deploy staging, empty by design
 ```
 
-[docs/rules/filetree.md](docs/rules/filetree.md) has the full tree and the rules
-for what may be added where.
+The data flows one way: `export` produces what `runtime` consumes, `runtime`
+drives the circuit synthesized from `hw`, and `examples` ties the three
+together.
 
 Vivado projects and bitstreams are never committed. Regenerate projects from
-`src/vivado_tcl/`; bitstreams attach to a GitHub Release.
+`src/hw/vivado_tcl/`; bitstreams attach to a GitHub Release.
 
-## Simulate
+## Verify
 
 ```bash
-make -C sim lint
-make -C sim sim
+make -C src/test lint
+make -C src/test sim
 ```
 
 Both targets run on open-source tools only (`verilator`, `iverilog`), which is
@@ -43,7 +52,7 @@ present yet, both report that there is nothing to do and exit clean.
 Requires Vivado locally; this cannot run on a GitHub-hosted runner.
 
 ```bash
-vivado -mode batch -source src/vivado_tcl/<design>/build_overlay.tcl
+vivado -mode batch -source src/hw/vivado_tcl/<design>/build_overlay.tcl
 ```
 
 ## CI and CD

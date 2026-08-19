@@ -18,15 +18,15 @@ jobs:
           sudo apt-get install -y verilator iverilog
 
       - name: Lint RTL
-        run: make -C sim lint
+        run: make -C src/test lint
 
       - name: Run simulations
-        run: make -C sim sim
+        run: make -C src/test sim
 
       - name: Upload waveforms on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: waves
-          path: sim/waves/
+          path: src/test/waves/
           if-no-files-found: ignore

@@ -1,12 +1,12 @@
-# Simulation entry points. CI runs `lint` and `sim`; both must work with only
+# Verification entry points. CI runs `lint` and `sim`; both must work with only
 # apt-installable tools (verilator, iverilog).
 #
 # TOP   overrides the module verilator lints as the design root.
 # TESTS lists testbench basenames without the tb_ prefix; each must exist as
-#       src/tb/<design>/tb_<name>.sv.
+#       ../hw/tb/<design>/tb_<name>.sv.
 
-RTL    := $(wildcard ../src/rtl/*/*.sv)
-TB_DIR := ../src/tb
+RTL    := $(wildcard ../hw/rtl/*/*.sv)
+TB_DIR := ../hw/tb
 BUILD  := build
 TOP    ?=
 TESTS  ?= $(patsubst tb_%.sv,%,$(notdir $(wildcard $(TB_DIR)/*/tb_*.sv)))
@@ -16,7 +16,7 @@ all: lint sim
 
 lint:
 ifeq ($(strip $(RTL)),)
-	@echo "no RTL under src/rtl yet, nothing to lint"
+	@echo "no RTL under src/hw/rtl yet, nothing to lint"
 else
 	verilator --lint-only -Wall -Wno-DECLFILENAME \
 	  $(if $(TOP),--top-module $(TOP),) $(RTL)
@@ -24,7 +24,7 @@ endif
 
 sim: $(addprefix $(BUILD)/,$(addsuffix .ok,$(TESTS)))
 ifeq ($(strip $(TESTS)),)
-	@echo "no testbenches under src/tb yet, nothing to simulate"
+	@echo "no testbenches under src/hw/tb yet, nothing to simulate"
 endif
 
 $(BUILD)/%.ok: $(RTL)
@@ -36,4 +36,4 @@ $(BUILD)/%.ok: $(RTL)
 	@touch $@
 
 clean:
-	rm -rf $(BUILD) waves
+	rm -rf $(BUILD) waves/*.vcd waves/*.fst
