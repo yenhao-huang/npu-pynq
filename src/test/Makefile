@@ -10,9 +10,13 @@ TB_DIR := ../hw/tb
 BUILD  := build
 TOP    ?=
 TESTS  ?= $(patsubst tb_%.sv,%,$(notdir $(wildcard $(TB_DIR)/*/tb_*.sv)))
+PYTHON ?= python
 
-.PHONY: all lint sim clean
-all: lint sim
+.PHONY: all model lint sim clean
+all: model lint sim
+
+model:
+	cd ../.. && $(PYTHON) -m unittest discover -s src/test/tests -v
 
 lint:
 ifeq ($(strip $(RTL)),)
