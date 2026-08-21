@@ -17,12 +17,17 @@ on-board runtime.
 | `src/runtime/` | on-board overlay loading and execution | yes |
 | `examples/` | demos built on export and runtime | yes |
 | `docs/` | specifications and repository rules | yes |
-| `skills/` | agent skills | yes |
+| `docs/human/` | human-confirmed features, roadmap, and weekly changelog | yes |
+| `.codex/skills/dev/` | shared development workflow skills | yes |
+| `.codex/skills/deploy/` | setup and deployment skills | yes |
+| `.codex/skills/custom/ic_design/` | repository-specific IC design skills | yes |
+| `openspec/` | change proposals and specifications | yes |
 | `mount/` | deploy staging, mirrored to the board | no, empty by design |
 | `vivado_projects/`, `results/` | Vivado output | no |
 
-[docs/rules/filetree.md](docs/rules/filetree.md) is the authority on the tree and
-on what may not be added.
+[docs/rules/index.md](docs/rules/index.md) is the repository-wide rule index;
+[docs/rules/filetree.md](docs/rules/filetree.md) is the authority on the tree
+and on what may not be added.
 
 ## Rules
 
@@ -42,15 +47,19 @@ on what may not be added.
 - Run `make -C src/test lint sim` before pushing. CI runs the same two targets.
 - Synthesis is self-hosted only. Do not add Vivado steps to `ci.yml`; GitHub
   hosted runners cannot run Vivado.
-- Work on an agent branch (`claude/<task>`) cut from `dev`, and merge it back
-  into `dev` through a pull request. Never commit directly to `main` or `dev`.
+- Work from one claimed issue in a dedicated worktree on branch
+  `npu/npu-<issue-id>-<agent-id>` cut from `dev`, and merge it back into `dev`
+  through a pull request. Never commit directly to `main` or `dev`.
 - Never merge `dev` into `main`. `main` is the deploy version and that merge is
   a person's decision; prepare it and report what you could not verify.
 - Releases are tags on `main` (`v0.1.0-<design>`).
+- Agents may read `docs/human/`, but must obtain explicit human confirmation
+  for the exact batch before creating, editing, appending, formatting,
+  renaming, moving, or deleting anything under it. Code, issue, PR, merge, and
+  release approval do not imply approval to update human documents.
 
-Full rules:
-[skills/engineer/ic-design-repo-create/references/rules/git/](skills/engineer/ic-design-repo-create/references/rules/git/)
-— branches, commits, pull requests, issues.
+Full Git rules:
+[docs/rules/git/](docs/rules/git/) — branches, commits, pull requests, issues.
 
 ## Commands
 
@@ -67,5 +76,5 @@ vivado -mode batch -source src/hw/vivado_tcl/<design>/build_overlay.tcl
 ## Board
 
 PYNQ-Z1 at `192.168.2.99`, user `xilinx`, over direct Ethernet. Transfers use
-the `send-to-pynq-board` skill under `skills/operations/`. Credentials are never
-stored in this repository.
+the `send-to-pynq-board` skill under `.codex/skills/deploy/`. Credentials are
+never stored in this repository.
