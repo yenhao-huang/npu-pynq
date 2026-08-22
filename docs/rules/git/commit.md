@@ -19,6 +19,40 @@ under 72 characters. The body explains why, numeric or interface consequences,
 measured timing/resource impact when available, and which tests cover the
 change.
 
+## Required `feat` and `fix` outline
+
+Every `feat` and `fix` commit must use the following ordered body headings so a
+reader can locate the context, approach, implementation, and evidence without
+inferring them from the diff:
+
+```text
+feat(<scope>): <imperative description>
+
+Background
+<problem, motivation, constraints, and relevant prior behavior>
+
+Solution
+<chosen approach, important design decisions, and compatibility impact>
+
+Changes
+- <concrete implementation or documentation change>
+- <tests, interfaces, contracts, or tooling changed>
+
+Validation
+- PASS: `<command>` — <result>
+- BLOCKED: `<command>` — <reason>, when applicable
+- NOT RUN: `<check>` — <reason>, when applicable
+
+Refs #<issue-id>
+```
+
+Use the same outline for `fix` commits with a `fix(<scope>): ...` subject.
+Headings must not be omitted, renamed, reordered, or left as placeholders.
+Each section must contain information specific to the commit. Validation must
+record the exact commands and outcomes; relevant checks that were blocked or
+not run must be named with their reason. Do not claim a check passed without
+evidence.
+
 Mark changes to the register map, AXI interface, serialized model format, or
 numeric contract as breaking:
 
