@@ -4,9 +4,9 @@
 
 ### Requirement: Public runtime-only notebook
 
-The repository SHALL provide `examples/matrix_multiplication.ipynb` as a clean,
-output-free notebook that loads the overlay and performs multiplication only
-through public `src.runtime` APIs.
+The repository SHALL provide `examples/matrix-multiplication/matrix_multiplication.ipynb` as a clean,
+output-free notebook that loads the overlay and performs multiplication through
+the generic `src.runtime` API and the example-local matrix multiplier.
 
 #### Scenario: No hardware bypass
 

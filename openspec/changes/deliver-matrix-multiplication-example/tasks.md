@@ -6,13 +6,13 @@
 
 ## 2. Runtime implementation
 
-- [x] 2.1 Implement immutable result/metrics types and a dependency-injected logical matrix multiplier under `src/runtime/`.
+- [x] 2.1 Implement immutable result/metrics types and a dependency-injected logical matrix multiplier under `examples/matrix-multiplication/runtime/`.
 - [x] 2.2 Implement M/N edge tiling, dense tile normalization, exact INT32 assembly, one logical deadline, and deterministic performance accounting.
 - [x] 2.3 Export the public Phase 1C API and verify all focused host tests pass.
 
 ## 3. Public example
 
-- [x] 3.1 Add `examples/matrix_multiplication.ipynb` as a thin public-runtime consumer with normal, non-tile-aligned, and repeated NumPy comparisons.
+- [x] 3.1 Add `examples/matrix-multiplication/matrix_multiplication.ipynb` as a thin public-runtime consumer with normal, non-tile-aligned, and repeated NumPy comparisons.
 - [x] 3.2 Add non-secret board performance/provenance output and keep the notebook free of saved outputs and direct hardware control.
 
 ## 4. Validation and handoff

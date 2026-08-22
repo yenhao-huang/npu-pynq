@@ -9,18 +9,20 @@ the same validated DMA path and to compare every result with NumPy.
 
 ## What Changes
 
-- Add a runtime-level logical matrix multiplier that tiles arbitrary positive
+- Add an example-local logical matrix multiplier that tiles arbitrary positive
   M and N dimensions over the discovered physical array dimensions.
 - Preserve the signed INT8/INT32 numeric contract and require K to fit the
   hardware `MAX_K` until a separately specified exact K-tiling contract exists.
 - Add deterministic host tests for validation, edge tiles, deadline handling,
   repeated execution, result assembly, and performance accounting.
-- Add `examples/matrix_multiplication.ipynb` as a thin public consumer of the
-  repository runtime, including NumPy comparison and board evidence output.
+- Add `examples/matrix-multiplication/matrix_multiplication.ipynb` as a thin
+  public consumer of the generic repository runtime, including NumPy comparison
+  and board evidence output.
 
 ## Impact
 
-- Affected code: `src/runtime/`, `src/test/tests/`, and `examples/`.
+- Affected code: `src/runtime/`, `examples/matrix-multiplication/`, and the
+  example test entry point in `src/test/Makefile`.
 - No RTL, ABI, register-map, Vivado, exporter, or human-owned documentation
   changes.
 - Physical board performance remains an explicit acceptance gate and cannot be

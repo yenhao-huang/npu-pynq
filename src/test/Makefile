@@ -17,6 +17,7 @@ all: model lint sim
 
 model:
 	cd ../.. && $(PYTHON) -m unittest discover -s src/test/tests -v
+	cd ../.. && $(PYTHON) -m unittest discover -s examples/matrix-multiplication/tests -v
 
 lint:
 ifeq ($(strip $(RTL)),)

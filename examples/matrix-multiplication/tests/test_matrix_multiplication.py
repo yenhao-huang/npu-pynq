@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 import unittest
 
 import numpy as np
 
-from src.runtime import (
+EXAMPLE_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLE_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLE_ROOT))
+
+from runtime.matrix_multiplication import (
     MatrixMultiplicationMetrics,
     MatrixMultiplicationResult,
     TiledMatrixMultiplier,
@@ -174,7 +179,7 @@ class MatrixMultiplicationTests(unittest.TestCase):
 
 class MatrixMultiplicationNotebookTests(unittest.TestCase):
     def test_notebook_is_output_free_and_uses_only_public_runtime(self):
-        notebook_path = Path("examples/matrix_multiplication.ipynb")
+        notebook_path = EXAMPLE_ROOT / "matrix_multiplication.ipynb"
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
         self.assertEqual(notebook["nbformat"], 4)
         code_cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
