@@ -105,6 +105,14 @@ and finite deadlines before or during the fixed transfer sequence. It performs
 best-effort SOFT_RESET and bounded DMA recovery on failure and never returns C
 unless all status and length conditions succeed.
 
+PYNQ 3.1 simple-DMA channels update their public `transferred` byte count in
+`wait()` rather than when the hardware first reports idle. Runtime therefore
+polls idle to enforce its monotonic deadline, then calls `wait()` only after the
+channel is already idle so driver error, cache, and length bookkeeping completes
+without adding an unbounded hardware wait. Recovery does not call the driver's
+potentially blocking `stop()` on an active channel; it surfaces the original
+failure and requires overlay reload when channel quiescence cannot be proven.
+
 Importing `src/test/model` from production was rejected. Runtime constants will
 be defined in the runtime boundary and parity-tested against the Phase 0 model
 until a later exporter change promotes a shared contract module.

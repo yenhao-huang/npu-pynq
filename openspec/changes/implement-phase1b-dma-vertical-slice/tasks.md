@@ -15,6 +15,7 @@
 - [x] 3.1 Add failing host tests for HWH/IP discovery, ABI negotiation, physical limits, signed INT8 shape/dtype validation, 64-byte buffer rules, non-aliasing, and invalid-job no-write/no-DMA behavior.
 - [x] 3.2 Implement the dependency-injected runtime and real PYNQ overlay factory; verify metadata, preflight, signed conversion, and Phase 0 ABI parity tests pass without importing `pynq` on the host.
 - [x] 3.3 Add fake-MMIO/DMA tests for the exact S2MM→START→A→B→status sequence, cache flush/invalidate, finite deadlines, ABI errors, DMA failures, soft-reset recovery, and no result on failure; verify the focused runtime suite passes.
+- [x] 3.4 Add PYNQ 3.1-compatible DMA completion and recovery regressions, finalize completed channel bookkeeping before validating byte counts, and avoid unbounded `stop()` calls for active channels.
 
 ## 4. Reproducible Vivado Overlay
 
