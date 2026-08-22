@@ -8,7 +8,7 @@ plane, reproducible PYNQ-Z1 Vivado Tcl, host runtime, and physical-board matrix
 vertical slice for Issue #4.
 OpenSpec change: `implement-phase1b-dma-vertical-slice`
 
-Last updated: 2026-08-22T22:26:07+08:00
+Last updated: 2026-08-22T22:54:00+08:00
 
 | Step | Status | Evidence | Notes |
 | --- | --- | --- | --- |
@@ -24,8 +24,18 @@ Last updated: 2026-08-22T22:26:07+08:00
 - PYNQ 3.1 post-idle DMA bookkeeping and active-channel recovery guards are
   implemented with regression coverage.
 - `python -m unittest discover -s src/test/tests -v`: 59/59 PASS.
-- Strict OpenSpec validation: PASS with 16/18 tasks complete.
+- Strict OpenSpec validation: PASS with 17/18 tasks complete.
 - Repository `make -C src/test lint sim`: BLOCKED because GNU Make and Verilator
   are unavailable on this host; task 6.2 remains incomplete.
-- Current-source Vivado regeneration, deployment, and the unmodified formal
-  board smoke are pending; task 5.2 remains incomplete.
+- Clean Vivado 2026.1 build from source commit
+  `7d3018fd143087237e983f0b981e038962f00203`: PASS with WNS 0.345 ns, zero
+  setup-failing paths, 7,697/7,697 fully routed nets, zero routing errors, and
+  zero DRC errors.
+- Current-source BIT SHA-256
+  `d03c3c3983d0c49a3d5fc0af026d6931a53e4f4bdbf40914123b1981e9bd1df4`
+  and HWH SHA-256
+  `ade8502a905d4ec2005a05f3ea3a27ba9acaad4e702c6ea4bd2aa7b3d1c2142a`
+  match on host and board.
+- Unmodified formal board smoke: `PASS: NPU DMA matrix vertical slice`; result
+  `[[636,-891],[-19,29]]`, status 2, error 0, stable cycles 93983, accelerator
+  `0x43C00000`, DMA `0x40400000`, and limits 2x2x256. Task 5.2 is complete.

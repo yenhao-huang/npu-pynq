@@ -26,7 +26,7 @@
 ## 5. Physical Board Vertical Slice
 
 - [x] 5.1 Implement a board smoke entry point that records non-secret provenance/metadata, runs the signed 2x2 endpoint matrix through real PYNQ buffers/MMIO/DMA/PL, checks every result/status/cycle assertion, and prints only the specified PASS marker on success; verify host syntax and failure-path tests pass.
-- [ ] 5.2 Use the repository board-transfer workflow with the current matching artifacts, run the smoke command on PYNQ-Z1, and record the exact `PASS: NPU DMA matrix vertical slice` output plus PYNQ/IP/address evidence.
+- [x] 5.2 Use the repository board-transfer workflow with the current matching artifacts, run the smoke command on PYNQ-Z1, and record the exact `PASS: NPU DMA matrix vertical slice` output plus PYNQ/IP/address evidence.
 
 ## 6. Integration and Handoff
 
