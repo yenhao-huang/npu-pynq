@@ -18,5 +18,5 @@
 ## 4. Validation and handoff
 
 - [x] 4.1 Run all Python tests, seven direct Icarus testbenches, strict OpenSpec validation, notebook JSON/source checks, whitespace/generated-artifact/secret/human-document scans, and record evidence in `STATE.md`.
-- [ ] 4.2 Publish an Issue #5-linked Conventional Commit and draft PR without rewriting Issue #4 history; keep CI and dependency gates explicit.
+- [x] 4.2 Publish an Issue #5-linked Conventional Commit and draft PR without rewriting Issue #4 history; keep CI and dependency gates explicit.
 - [ ] 4.3 Execute the notebook on PYNQ-Z1 with matching Issue #4 artifacts and record exact result/performance evidence; keep this task incomplete while the board or Issue #4 is blocked.

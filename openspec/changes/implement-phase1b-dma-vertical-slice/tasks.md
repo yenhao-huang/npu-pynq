@@ -19,8 +19,8 @@
 ## 4. Reproducible Vivado Overlay
 
 - [x] 4.1 Implement repository-relative `npu_matrix` Vivado Tcl for PS7, GP0 control, HP0 DDR access, simple AXI DMA, module-reference accelerator, resets, interrupts, fixed addresses, reports, and same-build artifacts; verify a narrow Vivado batch parse/elaboration command succeeds.
-- [ ] 4.2 Run the clean full Vivado batch build and verify synthesis/implementation success, zero DRC errors, fully routed design, WNS >= 0, zero setup-failing endpoints, expected utilization, successful bitstream generation, and exact accelerator/DMA HWH metadata.
-- [ ] 4.3 Add source-controlled provenance/HWH verification that rejects stale or mismatched artifacts; verify it passes for the current generated `npu_matrix.bit`/`npu_matrix.hwh` pair and generated files remain ignored.
+- [x] 4.2 Run the clean full Vivado batch build and verify synthesis/implementation success, zero DRC errors, fully routed design, WNS >= 0, zero setup-failing endpoints, expected utilization, successful bitstream generation, and exact accelerator/DMA HWH metadata.
+- [x] 4.3 Add source-controlled provenance/HWH verification that rejects stale or mismatched artifacts; verify it passes for the current generated `npu_matrix.bit`/`npu_matrix.hwh` pair and generated files remain ignored.
 
 ## 5. Physical Board Vertical Slice
 
@@ -31,4 +31,4 @@
 
 - [x] 6.1 Run all Python tests, every direct Icarus simulation, strict OpenSpec validation, whitespace/path/generated-artifact/secret/human-document scans, and record exact pass/fail/blocked evidence in `STATE.md`.
 - [ ] 6.2 Run repository `make -C src/test lint sim` and CI for the published head; keep this task incomplete if GNU Make, Verilator, or CI evidence is unavailable or failing.
-- [ ] 6.3 Inspect numeric/ABI/runtime/Tcl/HWH parity and the complete diff, create issue-linked Conventional Commits, publish one draft PR to `dev`, and preserve all unresolved Vivado/board/dependency gates without merging or closing Issue #4.
+- [x] 6.3 Inspect numeric/ABI/runtime/Tcl/HWH parity and the complete diff, create issue-linked Conventional Commits, publish one draft PR to `dev`, and preserve all unresolved Vivado/board/dependency gates without merging or closing Issue #4.

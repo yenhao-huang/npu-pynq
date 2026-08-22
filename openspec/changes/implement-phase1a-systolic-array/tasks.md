@@ -17,4 +17,4 @@
 
 - [x] 4.1 Update simulation entry points only as required for reliable testbench discovery; verify all 36 Phase 0 Python tests plus new vector tests pass.
 - [x] 4.2 Run focused direct Icarus PE/array/random simulations, strict OpenSpec validation, whitespace, generated-artifact, secret, and repository lint/simulation gates; record exact pass, blocked, and not-applicable outcomes in `STATE.md`.
-- [ ] 4.3 Inspect Phase 1A contract parity and complete diff, mark all tasks with objective evidence, and prepare issue-linked Conventional Commits without modifying human-owned documents.
+- [x] 4.3 Inspect Phase 1A contract parity and complete diff, mark all tasks with objective evidence, and prepare issue-linked Conventional Commits without modifying human-owned documents.

@@ -25,7 +25,12 @@ npu_repo_in_pynq/
 |   `-- runtime/        loads the overlay and runs a model on the board
 |-- examples/           demos built on export and runtime
 |-- docs/               specifications and repository rules
-|-- skills/             agent skills
+|-- .codex/
+|   `-- skills/
+|       |-- dev/                 shared development workflows
+|       |-- deploy/              setup and deployment workflows
+|       `-- custom/ic_design/    repository-specific IC design workflows
+|-- openspec/           change proposals and specifications
 `-- mount/              board deploy staging, empty by design
 ```
 
