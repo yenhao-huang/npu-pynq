@@ -52,7 +52,10 @@ and on what may not be added.
   through a pull request. Never commit directly to `main` or `dev`.
 - Never merge `dev` into `main`. `main` is the deploy version and that merge is
   a person's decision; prepare it and report what you could not verify.
-- Releases are tags on `main` (`v0.1.0-<design>`).
+- Every approved `dev` → `main` deployment merge must be followed by a GitHub
+  Release. Releases are semantic-version tags on `main`, using the default
+  patch sequence `v0.1.0` → `v0.1.1` → `v0.1.2` unless a release decision
+  explicitly selects a new major or minor version.
 - Agents may read `docs/human/`, but must obtain explicit human confirmation
   for the exact batch before creating, editing, appending, formatting,
   renaming, moving, or deleting anything under it. Code, issue, PR, merge, and
