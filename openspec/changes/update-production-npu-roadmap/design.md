@@ -31,7 +31,7 @@ that approval applies only to `docs/human/roadmap.md` in this change.
   makes readers pass operating rules before reaching the plan.
 - Preserve the user's phase identifiers (`0`, `1A`, `1B`, `1C`, `2A`, `2B`,
   `2C`, `3`) verbatim so later OpenSpec changes and issues can reference them.
-- Keep technical identifiers such as `examples/matrix_multiplication`, ResNet-18,
+- Keep technical identifiers such as `examples/matrix-multiplication`, ResNet-18,
   and Small Transformer because they define milestone boundaries without
   prescribing implementation.
 

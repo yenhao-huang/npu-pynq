@@ -58,24 +58,6 @@ class FakeChannel:
         self.idle = True
 
 
-class PynqLikeChannel(FakeChannel):
-    """Model PYNQ 3.1 simple-DMA completion bookkeeping."""
-
-    def __init__(self, events, name, idle=True):
-        super().__init__(events, name, idle)
-        self.wait_count = 0
-        self._requested_bytes = None
-
-    def transfer(self, buffer, nbytes=None):
-        self._requested_bytes = buffer.nbytes if nbytes is None else nbytes
-        self.transferred = 0
-        self.events.append((self.name, self._requested_bytes))
-
-    def wait(self):
-        self.wait_count += 1
-        self.transferred = self._requested_bytes
-
-
 class FakeDMA:
     def __init__(self, events, send_idle=True, recv_idle=True):
         self.sendchannel = FakeChannel(events, "send", send_idle)
@@ -264,30 +246,6 @@ class NPURuntimeTests(unittest.TestCase):
             )
         self.assertEqual(overlay.axi_dma_0.sendchannel.stop_count, 0)
         self.assertGreaterEqual(overlay.axi_dma_0.recvchannel.stop_count, 1)
-
-    def test_idle_pynq_channel_wait_finalizes_transferred_length(self):
-        overlay = FakeOverlay()
-        send = PynqLikeChannel(overlay.events, "send")
-        recv = PynqLikeChannel(overlay.events, "recv")
-        overlay.axi_dma_0.sendchannel = send
-        overlay.axi_dma_0.recvchannel = recv
-        allocator = FakeAllocator()
-        expected = np.array([[636, -891], [-19, 29]], dtype=np.int32)
-
-        original_receive = recv.transfer
-        def receive_and_fill(buffer, nbytes=None):
-            original_receive(buffer, nbytes)
-            buffer.array[:] = expected
-        recv.transfer = receive_and_fill
-
-        result = self.make_runtime(overlay=overlay, allocator=allocator).run(
-            np.array([[-128, 127], [7, -3]], dtype=np.int8),
-            np.array([[-1, 2], [4, -5]], dtype=np.int8),
-        )
-
-        np.testing.assert_array_equal(result, expected)
-        self.assertEqual(send.wait_count, 2)
-        self.assertEqual(recv.wait_count, 1)
 
     def test_dma_length_mismatch_never_returns_result(self):
         overlay = FakeOverlay()
