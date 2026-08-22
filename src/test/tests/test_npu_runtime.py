@@ -244,7 +244,7 @@ class NPURuntimeTests(unittest.TestCase):
                 np.ones((1, 1), dtype=np.int8), np.ones((1, 1), dtype=np.int8),
                 software_timeout=0.2,
             )
-        self.assertGreaterEqual(overlay.axi_dma_0.sendchannel.stop_count, 1)
+        self.assertEqual(overlay.axi_dma_0.sendchannel.stop_count, 0)
         self.assertGreaterEqual(overlay.axi_dma_0.recvchannel.stop_count, 1)
 
     def test_dma_length_mismatch_never_returns_result(self):

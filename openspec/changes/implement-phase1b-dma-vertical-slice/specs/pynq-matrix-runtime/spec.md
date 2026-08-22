@@ -53,6 +53,14 @@ Every poll or DMA wait SHALL have a finite monotonic software deadline.
 - **WHEN** DMA or hardware completion does not occur before the software deadline
 - **THEN** the runtime issues accelerator SOFT_RESET, attempts bounded DMA recovery, and raises TimeoutError without hanging the Python process
 
+#### Scenario: PYNQ simple-DMA completion bookkeeping
+- **WHEN** a PYNQ 3.1 simple-DMA channel reports idle before its public transferred-byte count is finalized
+- **THEN** the runtime completes the driver's nonblocking post-idle bookkeeping before validating the exact transfer length
+
+#### Scenario: Active DMA cannot be proven quiescent
+- **WHEN** recovery begins while a DMA channel still reports non-idle and its driver stop operation has no finite deadline
+- **THEN** the runtime does not invoke that unbounded stop operation, raises the original failure, and requires overlay reload before reuse
+
 ### Requirement: Exact hardware error propagation
 After completion or abnormal termination, the runtime SHALL read STATUS and
 ERROR and map every ABI v1 error code to a typed exception carrying the numeric

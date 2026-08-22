@@ -252,6 +252,11 @@ class NPURuntime:
         while not bool(getattr(channel, "idle", False)):
             if self.monotonic() >= deadline:
                 raise TimeoutError(f"{label} timed out")
+        wait = getattr(channel, "wait", None)
+        if callable(wait):
+            # PYNQ 3.1 finalizes error, cache, and transferred-byte state here.
+            # The idle poll above makes this driver call nonblocking.
+            wait()
 
     @staticmethod
     def _check_length(channel: Any, expected: int, label: str) -> None:
@@ -273,6 +278,11 @@ class NPURuntime:
         except Exception:
             pass
         for channel in (self.send_channel, self.recv_channel):
+            try:
+                if not bool(getattr(channel, "idle", False)):
+                    continue
+            except Exception:
+                continue
             stop = getattr(channel, "stop", None)
             if callable(stop):
                 try:
