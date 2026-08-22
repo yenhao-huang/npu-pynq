@@ -86,14 +86,14 @@ module tb_npu_pe;
         rst_n = 1'b1;
 
         step(-8'sd128, 8'sd127, 1'b1, 1'b1, 1'b1, 1'b0);
-        check(accumulator === -32'sd16256, "signed endpoint MAC");
+        check(accumulator === 32'sd0, "MAC product is pipelined");
         check(a_out === -8'sd128 && b_out === 8'sd127,
               "signed operands forward exactly");
         check(a_valid_out && b_valid_out, "both valids forward");
 
         step(8'sd5, 8'sd6, 1'b1, 1'b0, 1'b1, 1'b0);
         check(accumulator === -32'sd16256,
-              "one invalid operand does not accumulate");
+              "pipelined signed endpoint MAC");
         check(a_out === 8'sd5 && b_out === 8'sd6,
               "independent-valid operands still forward");
         check(a_valid_out && !b_valid_out, "valids forward independently");
@@ -120,8 +120,12 @@ module tb_npu_pe;
         clear = 1'b0;
         @(posedge clk);
         #1;
+        check(accumulator === 32'sh7ffffffe,
+              "positive overflow operand is pipelined");
+        step(8'sd0, 8'sd0, 1'b0, 1'b0, 1'b1, 1'b0);
         check(accumulator === 32'sh7fffffff, "positive overflow saturates");
 
+        step(8'sd0, 8'sd0, 1'b0, 1'b0, 1'b0, 1'b1);
         @(negedge clk);
         dut.accumulator = -32'sd2147483647;
         a_in = -8'sd1;
@@ -132,6 +136,9 @@ module tb_npu_pe;
         clear = 1'b0;
         @(posedge clk);
         #1;
+        check(accumulator === -32'sd2147483647,
+              "negative overflow operand is pipelined");
+        step(8'sd0, 8'sd0, 1'b0, 1'b0, 1'b1, 1'b0);
         check(accumulator === -32'sd2147483648, "negative overflow saturates");
 
         step(8'sd3, 8'sd4, 1'b1, 1'b1, 1'b1, 1'b0);
