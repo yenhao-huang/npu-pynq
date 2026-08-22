@@ -108,7 +108,7 @@ module tb_npu_systolic_array_rect;
 
         @(negedge clk);
         rst_n = 1'b1;
-        for (logical_step = 0; logical_step <= 4; logical_step = logical_step + 1) begin
+        for (logical_step = 0; logical_step <= 5; logical_step = logical_step + 1) begin
             drive_step(logical_step);
         end
 

@@ -182,7 +182,7 @@ module tb_npu_systolic_array_random;
             clear_array();
             for (
                 logical_step = 0;
-                logical_step <= active_m + active_n + active_k - 3;
+                logical_step <= active_m + active_n + active_k - 2;
                 logical_step = logical_step + 1
             ) begin
                 if (logical_step == stall_step) begin

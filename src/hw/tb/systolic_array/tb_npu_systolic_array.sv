@@ -150,6 +150,7 @@ module tb_npu_systolic_array;
             end
             drive_active_step(logical_step, 1'b1);
         end
+        drive_active_step(5, 1'b1);
         check_accumulator(0, 0, -8);
         check_accumulator(0, 1, 48);
         check_accumulator(1, 0, 83);
@@ -171,6 +172,7 @@ module tb_npu_systolic_array;
         for (logical_step = 0; logical_step <= 1; logical_step = logical_step + 1) begin
             drive_active_step(logical_step, 1'b1);
         end
+        drive_active_step(2, 1'b1);
         check_accumulator(0, 0, -7);
         check_accumulator(0, 1, 0);
         check_accumulator(1, 0, 0);
