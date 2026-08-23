@@ -10,7 +10,9 @@ module npu_matrix_accelerator #(
     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 s_axi_aclk CLK" *)
     (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi_aclk, ASSOCIATED_BUSIF s_axi:s_axis:m_axis, ASSOCIATED_RESET s_axi_aresetn, FREQ_HZ 100000000" *)
     input  logic                              s_axi_aclk,
+    /* verilator lint_off SYNCASYNCNET */
     input  logic                              s_axi_aresetn,
+    /* verilator lint_on SYNCASYNCNET */
     input  logic [C_S_AXI_ADDR_WIDTH-1:0]     s_axi_awaddr,
     input  logic [2:0]                        s_axi_awprot,
     input  logic                              s_axi_awvalid,
