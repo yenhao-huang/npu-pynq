@@ -46,3 +46,6 @@ ordinary branch pushes cannot rebuild or overwrite the board.
   trusted runner with SSH access to the PYNQ-Z1 (which may be the same host).
 - GitHub Release assets and board-validation evidence; no numeric, register-map,
   AXI, or RTL behavior changes.
+- Existing `npu_matrix` RTL lint cleanup required for the repository CI gate;
+  explicit width handling, complete combinational defaults, and narrowly scoped
+  annotations MUST preserve the current hardware behavior.

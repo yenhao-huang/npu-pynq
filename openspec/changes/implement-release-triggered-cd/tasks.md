@@ -32,3 +32,17 @@
 - BLOCKED: Vivado synthesis, implementation, routed timing, DRC, BIT/HWH generation, and `build_evidence.txt` require the trusted `self-hosted, vivado` runner. The `build-overlay` job runs `vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl` after Release validation.
 - BLOCKED: GitHub Release asset publication requires this change on the default branch and publication of the next stable `vMAJOR.MINOR.PATCH` Release whose commit is contained in `origin/main`.
 - BLOCKED: SSH transfer and physical PYNQ-Z1 execution require approval of the protected `pynq-z1-production` environment and an online `self-hosted, pynq-z1` runner with SSH configured. The `board-validation` job must upload `board-evidence.json`; a missing runner, missing evidence, or failed normal/non-aligned/repeated case keeps CD failed and leaves `current` unchanged.
+
+## 5. PR CI Follow-up
+
+- [x] 5.1 Record the failing PR and `dev` baseline lint evidence, classify every warning, and freeze the fix as behavior-preserving RTL cleanup.
+- [ ] 5.2 Eliminate controller width/latch warnings and narrowly annotate intentional AXI protection/reset warnings without global suppression or interface changes.
+- [ ] 5.3 Run all `npu_matrix` simulations and repository regressions, then require the current PR head's GitHub `lint-and-simulate` check to pass before merge.
+
+### Follow-up Evidence
+
+- FAILED (2026-08-23): PR runs `32617736644` and `32617836376` exit in `make -C src/test lint` with the same 16 Verilator warnings.
+- BASELINE FAILED (2026-08-23): `dev` run `32617753539` reports the identical width, unused AXI protection, combinational latch, and mixed reset warnings.
+- CONTRACT: No numeric, register-map, AXI, reset implementation, or board-visible behavior change is authorized; existing RTL simulations must remain exact.
+- PASS (2026-08-23): all seven direct `iverilog -g2012 -Wall` simulations passed, including the AXI-Lite, controller, accelerator, PE, rectangular, deterministic, and 128-case random systolic tests.
+- PASS (2026-08-23): 58 repository Python tests and 14 matrix-example/CD tests passed after the RTL cleanup.

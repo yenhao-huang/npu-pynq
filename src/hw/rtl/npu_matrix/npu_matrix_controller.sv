@@ -36,6 +36,9 @@ module npu_matrix_controller #(
     localparam logic [7:0] ERR_STREAM_LENGTH = 8'd4;
     localparam logic [7:0] ERR_TIMEOUT = 8'd5;
     localparam logic [7:0] ERR_INVALID_TIMEOUT = 8'd6;
+    localparam logic [31:0] ROWS_U32 = ROWS;
+    localparam logic [31:0] COLUMNS_U32 = COLUMNS;
+    localparam logic [31:0] MAX_K_U32 = MAX_K;
 
     typedef enum logic [2:0] {
         STATE_IDLE,
@@ -72,6 +75,13 @@ module npu_matrix_controller #(
     integer column_index;
     integer reduction_index;
 
+    function automatic [31:0] widen_u16;
+        input [15:0] value;
+        begin
+            widen_u16 = {16'd0, value};
+        end
+    endfunction
+
     npu_systolic_array #(
         .ROWS(ROWS),
         .COLUMNS(COLUMNS),
@@ -102,7 +112,8 @@ module npu_matrix_controller #(
         m_axis_tlast = 1'b0;
         if (state == STATE_OUTPUT) begin
             m_axis_tdata = array_accumulators[
-                (output_row_count*COLUMNS+output_column_count)*32 +: 32
+                (widen_u16(output_row_count) * COLUMNS +
+                 widen_u16(output_column_count)) * 32 +: 32
             ];
             m_axis_tlast = (output_row_count == active_m - 1) &&
                 (output_column_count == active_n - 1);
@@ -114,6 +125,7 @@ module npu_matrix_controller #(
         scheduled_a_valid = '0;
         scheduled_b = '0;
         scheduled_b_valid = '0;
+        reduction_index = 0;
         if (state == STATE_COMPUTE) begin
             for (row_index = 0; row_index < ROWS; row_index = row_index + 1) begin
                 reduction_index = compute_step - row_index;
@@ -176,7 +188,7 @@ module npu_matrix_controller #(
                 error_code <= ERR_BUSY_START;
             end
 
-            if (((cycles + 1) >= active_timeout) &&
+            if (((cycles + 1) >= {32'd0, active_timeout}) &&
                 !((state == STATE_OUTPUT) && m_axis_tvalid &&
                   m_axis_tready && m_axis_tlast)) begin
                 state <= STATE_IDLE;
@@ -251,7 +263,8 @@ module npu_matrix_controller #(
                     end
                     STATE_COMPUTE: begin
                         if (compute_step >=
-                            (active_k + active_m + active_n - 1)) begin
+                            (widen_u16(active_k) + widen_u16(active_m) +
+                             widen_u16(active_n) - 32'd1)) begin
                             output_row_count <= 0;
                             output_column_count <= 0;
                             state <= STATE_OUTPUT;
@@ -291,14 +304,14 @@ module npu_matrix_controller #(
             compute_step <= 0;
             output_row_count <= 0;
             output_column_count <= 0;
-            if ((cfg_m < 1) || (cfg_m > ROWS) ||
-                (cfg_n < 1) || (cfg_n > COLUMNS) ||
-                (cfg_k < 1) || (cfg_k > MAX_K)) begin
+            if ((cfg_m < 1) || (widen_u16(cfg_m) > ROWS_U32) ||
+                (cfg_n < 1) || (widen_u16(cfg_n) > COLUMNS_U32) ||
+                (cfg_k < 1) || (widen_u16(cfg_k) > MAX_K_U32)) begin
                 status_error <= 1'b1;
                 error_code <= ERR_INVALID_DIMENSION;
-            end else if ((cfg_a_stride != cfg_k) ||
-                         (cfg_b_stride != cfg_n) ||
-                         (cfg_c_stride != (4 * cfg_n))) begin
+            end else if ((cfg_a_stride != widen_u16(cfg_k)) ||
+                         (cfg_b_stride != widen_u16(cfg_n)) ||
+                         (cfg_c_stride != (32'd4 * widen_u16(cfg_n)))) begin
                 status_error <= 1'b1;
                 error_code <= ERR_INVALID_STRIDE;
             end else if (cfg_timeout_cycles == 0) begin
@@ -320,13 +333,15 @@ module npu_matrix_controller #(
             s_axis_tvalid && s_axis_tready &&
             (s_axis_tlast == ((load_outer == active_m - 1) &&
                               (load_inner == active_k - 1)))) begin
-            a_buffer[load_outer*MAX_K + load_inner] <= s_axis_tdata;
+            a_buffer[widen_u16(load_outer) * MAX_K +
+                     widen_u16(load_inner)] <= s_axis_tdata;
         end
         if (status_busy && (state == STATE_LOAD_B) &&
             s_axis_tvalid && s_axis_tready &&
             (s_axis_tlast == ((load_outer == active_k - 1) &&
                               (load_inner == active_n - 1)))) begin
-            b_buffer[load_outer*COLUMNS + load_inner] <= s_axis_tdata;
+            b_buffer[widen_u16(load_outer) * COLUMNS +
+                     widen_u16(load_inner)] <= s_axis_tdata;
         end
     end
 

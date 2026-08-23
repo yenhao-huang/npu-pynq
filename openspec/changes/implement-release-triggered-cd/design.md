@@ -86,6 +86,20 @@ runner configuration. The workflow never echoes credentials. A release-tagged
 path preserves previous deployments and makes rollback a directory selection
 rather than an untracked overwrite.
 
+### Restore the existing RTL lint gate without changing hardware behavior
+
+The PR exposed a baseline Verilator `-Wall` failure already present on `dev`.
+Resolve arithmetic-width warnings with explicit zero-extension, initialize the
+temporary combinational reduction index on every path, and annotate only the
+AXI protection inputs and mixed reset observation that are intentional parts of
+the existing interface. Do not suppress width or latch warnings globally and
+do not change the register map, reset implementation, timing protocol, or
+numeric behavior.
+
+The existing controller, AXI-Lite, and accelerator testbenches are the behavior
+regression. GitHub's `make -C src/test lint sim` run is the authoritative
+Verilator gate because Verilator is unavailable on the local Windows host.
+
 ## Risks / Trade-offs
 
 - [Release is already public while hardware jobs run] -> Release notes and
