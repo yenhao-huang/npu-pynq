@@ -7,7 +7,9 @@ module npu_axi_lite_regs #(
     input  logic                              s_axi_aclk,
     input  logic                              s_axi_aresetn,
     input  logic [C_S_AXI_ADDR_WIDTH-1:0]     s_axi_awaddr,
+    /* verilator lint_off UNUSEDSIGNAL */
     input  logic [2:0]                        s_axi_awprot,
+    /* verilator lint_on UNUSEDSIGNAL */
     input  logic                              s_axi_awvalid,
     output logic                              s_axi_awready,
     input  logic [C_S_AXI_DATA_WIDTH-1:0]     s_axi_wdata,
@@ -18,7 +20,9 @@ module npu_axi_lite_regs #(
     output logic                              s_axi_bvalid,
     input  logic                              s_axi_bready,
     input  logic [C_S_AXI_ADDR_WIDTH-1:0]     s_axi_araddr,
+    /* verilator lint_off UNUSEDSIGNAL */
     input  logic [2:0]                        s_axi_arprot,
+    /* verilator lint_on UNUSEDSIGNAL */
     input  logic                              s_axi_arvalid,
     output logic                              s_axi_arready,
     output logic [C_S_AXI_DATA_WIDTH-1:0]     s_axi_rdata,

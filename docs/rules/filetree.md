@@ -10,7 +10,7 @@ npu_repo_in_pynq/
 |-- .gitignore
 |-- .github/
 |   `-- workflows/
-|       |-- build.yml
+|       |-- cd.yml
 |       `-- ci.yml
 |-- .codex/
 |   `-- skills/
@@ -44,7 +44,16 @@ npu_repo_in_pynq/
 |   `-- runtime/
 |       `-- *.py
 |-- examples/
-|   `-- *.ipynb
+|   `-- matrix-multiplication/
+|       |-- README.md
+|       |-- matrix_multiplication.ipynb
+|       |-- package_example.py
+|       |-- run_on_board.py
+|       |-- deploy_release.ps1
+|       |-- runtime/
+|       |   `-- matrix_multiplication.py
+|       `-- tests/
+|           `-- test_*.py
 |-- docs/
 |   |-- rules/
 |   |   |-- index.md
@@ -85,6 +94,10 @@ against it, and `Makefile` is what CI invokes.
 `src/runtime/` loads an overlay on the board and runs an exported model on it.
 
 `examples/` consumes the three above. Nothing under `src/` may import from it.
+An example owns its application-specific runtime, notebooks, package builder,
+board acceptance entry point, deployment wrapper, and focused host tests. The
+package builder may copy an explicit allowlist of shared `src/runtime/` modules
+into generated deploy output, but those copies are never committed.
 
 `.codex/skills/` contains repository-local Codex skills and is the only allowed
 top-level location for them. Classify reusable development workflows under

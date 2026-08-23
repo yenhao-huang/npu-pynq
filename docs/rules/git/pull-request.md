@@ -49,6 +49,37 @@ issues when the PR targets the repository's default branch, so use `Refs
 is merged into `dev`. Only then may the clean worktree and exact local/remote
 issue branches be removed under the authorized cleanup rules.
 
+## Release after merging into `main`
+
+Every approved `dev` → `main` deployment merge MUST be followed by a GitHub
+Release. The release tag MUST point to the merge result on `main`, never to a
+feature branch or `dev`.
+
+Use semantic version tags in the form `vMAJOR.MINOR.PATCH`. The default patch
+release sequence is:
+
+```text
+v0.1.0 → v0.1.1 → v0.1.2 → ...
+```
+
+Unless a release decision explicitly selects a new major or minor version,
+increment only `PATCH` from the latest existing tag. Before tagging, fetch the
+latest `main` and verify that the working tree is clean:
+
+```bash
+git fetch origin --tags
+git switch main
+git pull --ff-only origin main
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin v0.1.0
+```
+
+Replace `v0.1.0` with the next unused version. Create the GitHub Release from
+that tag and attach deployable BIT/HWH/provenance artifacts when applicable.
+Vivado projects, generated reports, credentials, and board secrets MUST NOT
+be committed to Git. Record the exact tag, commit, validation evidence, and
+known blockers in the release notes.
+
 Hard limits:
 
 - Do not push unless publishing the branch or pull request is authorized.

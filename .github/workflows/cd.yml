@@ -1,0 +1,209 @@
+name: cd
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pynq-z1-production-cd
+  cancel-in-progress: false
+
+jobs:
+  validate-release:
+    if: github.event.release.draft == false && github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      release_commit: ${{ steps.release.outputs.release_commit }}
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Validate stable release source
+        id: release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must match vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          release_commit="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          if ! git merge-base --is-ancestor "$release_commit" origin/main; then
+            echo "release commit is not contained in origin/main" >&2
+            exit 1
+          fi
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
+
+  build-overlay:
+    needs: validate-release
+    runs-on: [self-hosted, vivado]
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the validated release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.validate-release.outputs.release_tag }}
+
+      - name: Build routed overlay and bitstream
+        shell: pwsh
+        run: |
+          vivado -mode batch -nojournal -nolog `
+            -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
+          if ($LASTEXITCODE -ne 0) {
+            throw "Vivado failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Verify BIT HWH and provenance manifest
+        shell: pwsh
+        run: |
+          python src/runtime/verify_overlay.py `
+            build/vivado/npu_matrix/artifacts
+          if ($LASTEXITCODE -ne 0) {
+            throw "overlay verification failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Verify build evidence exists
+        shell: pwsh
+        run: |
+          $evidence = 'build/vivado/npu_matrix/reports/build_evidence.txt'
+          if (-not (Test-Path -LiteralPath $evidence -PathType Leaf)) {
+            throw "missing build evidence: $evidence"
+          }
+
+      - name: Assemble standalone matrix example
+        shell: pwsh
+        run: |
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
+          $commit = '${{ needs.validate-release.outputs.release_commit }}'
+          $package = "mount/matrix-multiplication/$tag"
+          python examples/matrix-multiplication/package_example.py `
+            --repository-root . `
+            --artifact-dir build/vivado/npu_matrix/artifacts `
+            --output-dir $package `
+            --release-tag $tag `
+            --source-commit $commit
+          if ($LASTEXITCODE -ne 0) {
+            throw "package assembly failed with exit code $LASTEXITCODE"
+          }
+          New-Item -ItemType Directory -Force 'build/cd' | Out-Null
+          tar -czf "build/cd/npu-matrix-$tag.tar.gz" -C $package .
+          if ($LASTEXITCODE -ne 0) {
+            throw "package archive failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Retain overlay and build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: npu-matrix-build-${{ needs.validate-release.outputs.release_tag }}
+          if-no-files-found: error
+          path: |
+            build/vivado/npu_matrix/artifacts/npu_matrix.bit
+            build/vivado/npu_matrix/artifacts/npu_matrix.hwh
+            build/vivado/npu_matrix/artifacts/npu_matrix.manifest.json
+            build/vivado/npu_matrix/reports/build_evidence.txt
+
+      - name: Retain standalone deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: npu-matrix-package-${{ needs.validate-release.outputs.release_tag }}
+          if-no-files-found: error
+          path: build/cd/npu-matrix-${{ needs.validate-release.outputs.release_tag }}.tar.gz
+
+      - name: Publish deterministic Release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
+          gh release upload $tag `
+            'build/vivado/npu_matrix/artifacts/npu_matrix.bit' `
+            'build/vivado/npu_matrix/artifacts/npu_matrix.hwh' `
+            'build/vivado/npu_matrix/artifacts/npu_matrix.manifest.json' `
+            'build/vivado/npu_matrix/reports/build_evidence.txt' `
+            "build/cd/npu-matrix-$tag.tar.gz" `
+            --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "gh release upload failed with exit code $LASTEXITCODE"
+          }
+
+  board-validation:
+    needs: [validate-release, build-overlay]
+    runs-on: [self-hosted, pynq-z1]
+    timeout-minutes: 30
+    environment: pynq-z1-production
+    permissions:
+      contents: write
+    steps:
+      - name: Check out deployment wrapper
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-release.outputs.release_tag }}
+
+      - name: Download standalone deployment package
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-matrix-package-${{ needs.validate-release.outputs.release_tag }}
+          path: build/cd-download
+
+      - name: Extract standalone deployment package
+        shell: pwsh
+        run: |
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
+          New-Item -ItemType Directory -Force 'build/cd-package' | Out-Null
+          tar -xzf "build/cd-download/npu-matrix-$tag.tar.gz" `
+            -C 'build/cd-package'
+          if ($LASTEXITCODE -ne 0) {
+            throw "package extraction failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Deploy and execute Phase 1C example
+        shell: pwsh
+        env:
+          PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
+          PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
+          PYNQ_REMOTE_ROOT: ${{ vars.PYNQ_REMOTE_ROOT }}
+        run: |
+          $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { 'pynq_board' }
+          $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
+          $remoteRoot = if ($env:PYNQ_REMOTE_ROOT) { $env:PYNQ_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_matrix' }
+          & examples/matrix-multiplication/deploy_release.ps1 `
+            -PackagePath 'build/cd-package' `
+            -ReleaseTag '${{ needs.validate-release.outputs.release_tag }}' `
+            -DeploymentId '${{ github.run_id }}-${{ github.run_attempt }}' `
+            -EvidencePath 'build/board/board-evidence.json' `
+            -BoardHost $hostName `
+            -BoardUser $userName `
+            -RemoteRoot $remoteRoot
+
+      - name: Retain board evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: npu-matrix-board-${{ needs.validate-release.outputs.release_tag }}
+          if-no-files-found: error
+          path: build/board/board-evidence.json
+
+      - name: Publish board evidence to Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload '${{ needs.validate-release.outputs.release_tag }}' `
+            'build/board/board-evidence.json' `
+            --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "board evidence upload failed with exit code $LASTEXITCODE"
+          }
