@@ -137,7 +137,9 @@ module tb_npu_systolic_array_random;
         a_valid_in = '0;
         b_valid_in = '0;
 
-        vector_file = $fopen("src/test/vectors/systolic_2x2_k8.txt", "r");
+        vector_file = $fopen("vectors/systolic_2x2_k8.txt", "r");
+        if (vector_file == 0)
+            vector_file = $fopen("src/test/vectors/systolic_2x2_k8.txt", "r");
         if (vector_file == 0) begin
             $display("FAIL random: unable to open vector fixture");
             $fatal(1);

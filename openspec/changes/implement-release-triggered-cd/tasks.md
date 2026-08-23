@@ -36,7 +36,7 @@
 ## 5. PR CI Follow-up
 
 - [x] 5.1 Record the failing PR and `dev` baseline lint evidence, classify every warning, and freeze the fix as behavior-preserving RTL cleanup.
-- [ ] 5.2 Eliminate controller width/latch warnings and narrowly annotate intentional AXI protection/reset warnings without global suppression or interface changes.
+- [x] 5.2 Eliminate controller width/latch warnings and narrowly annotate intentional AXI protection/reset warnings without global suppression or interface changes.
 - [ ] 5.3 Run all `npu_matrix` simulations and repository regressions, then require the current PR head's GitHub `lint-and-simulate` check to pass before merge.
 
 ### Follow-up Evidence
@@ -46,3 +46,5 @@
 - CONTRACT: No numeric, register-map, AXI, reset implementation, or board-visible behavior change is authorized; existing RTL simulations must remain exact.
 - PASS (2026-08-23): all seven direct `iverilog -g2012 -Wall` simulations passed, including the AXI-Lite, controller, accelerator, PE, rectangular, deterministic, and 128-case random systolic tests.
 - PASS (2026-08-23): 58 repository Python tests and 14 matrix-example/CD tests passed after the RTL cleanup.
+- PASS (2026-08-23): current-head GitHub run `32619694272` completed `make -C src/test lint` with zero Verilator warnings and advanced to simulation.
+- FAILED (2026-08-23): run `32619694272` exposed a testbench fixture path that assumed repo-root execution while the official Makefile runs from `src/test`; add a dual working-directory lookup and rerun CI.
