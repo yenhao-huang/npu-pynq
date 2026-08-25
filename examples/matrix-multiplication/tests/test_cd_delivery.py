@@ -285,6 +285,17 @@ class DeploymentWrapperTests(unittest.TestCase):
         for forbidden in ("password", "private_key", "sshpass"):
             self.assertNotIn(forbidden, script.lower())
 
+    def test_deploy_sources_pynq_venv_before_board_execution(self) -> None:
+        script = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(encoding="utf-8")
+        venv_path = "/etc/profile.d/pynq_venv.sh"
+        source_command = f"source {venv_path}"
+        board_command = "python3 run_on_board.py"
+
+        self.assertIn(f"test -r {venv_path}", script)
+        self.assertIn(source_command, script)
+        self.assertIn(board_command, script)
+        self.assertLess(script.index(source_command), script.index(board_command))
+
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
     def test_release_only_cd_contract(self) -> None:
