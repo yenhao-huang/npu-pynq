@@ -285,16 +285,29 @@ class DeploymentWrapperTests(unittest.TestCase):
         for forbidden in ("password", "private_key", "sshpass"):
             self.assertNotIn(forbidden, script.lower())
 
-    def test_deploy_sources_pynq_venv_before_board_execution(self) -> None:
+    def test_deploy_sources_xrt_and_pynq_venv_before_board_execution(self) -> None:
         script = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(encoding="utf-8")
+        xrt_path = "/etc/profile.d/xrt_setup.sh"
         venv_path = "/etc/profile.d/pynq_venv.sh"
+        xrt_source_command = f"source {xrt_path}"
         source_command = f"source {venv_path}"
         board_command = "python3 run_on_board.py"
 
+        self.assertIn(f"test -r {xrt_path}", script)
+        self.assertIn(xrt_source_command, script)
         self.assertIn(f"test -r {venv_path}", script)
         self.assertIn(source_command, script)
         self.assertIn(board_command, script)
+        self.assertLess(script.index(xrt_source_command), script.index(source_command))
         self.assertLess(script.index(source_command), script.index(board_command))
+
+    def test_deploy_uses_root_pynq_for_mmio_and_supports_local_prompt(self) -> None:
+        script = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("[switch]$InteractiveSudo", script)
+        self.assertIn("sudo ${sudoArguments}XILINX_XRT=/usr", script)
+        self.assertIn("/usr/local/share/pynq-venv/bin/python3", script)
+        self.assertIn("$validationSshArguments += '-tt'", script)
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
