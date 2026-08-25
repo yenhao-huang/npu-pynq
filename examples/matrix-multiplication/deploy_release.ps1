@@ -23,9 +23,7 @@ param(
     [ValidatePattern('^/[A-Za-z0-9._/-]+$')]
     [string]$RemoteRoot = '/home/xilinx/jupyter_notebooks/npu_matrix',
 
-    [switch]$DryRun,
-
-    [switch]$InteractiveSudo
+    [switch]$DryRun
 )
 
 Set-StrictMode -Version Latest
@@ -119,14 +117,10 @@ try {
     Invoke-CheckedCommand -Command 'scp' -Arguments @(
         '--', $archivePath, "${target}:$remoteStaging/package.tar.gz"
     )
-    $sudoArguments = if ($InteractiveSudo) { '' } else { '-n ' }
-    $validationCommand = "set -eu; tar -xzf '$remoteStaging/package.tar.gz' -C '$remoteStaging'; cd '$remoteStaging'; test -r /etc/profile.d/xrt_setup.sh; source /etc/profile.d/xrt_setup.sh; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; test -x /usr/local/share/pynq-venv/bin/python3; sudo ${sudoArguments}XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 run_on_board.py --artifact-dir artifacts --release-tag '$ReleaseTag' --evidence board-evidence.json; test -s board-evidence.json; mv '$remoteStaging' '$remoteDeployment'; ln -sfn '$DeploymentId' '$remoteVersionRoot/current'"
-    $validationSshArguments = @()
-    if ($InteractiveSudo) {
-        $validationSshArguments += '-tt'
-    }
-    $validationSshArguments += @($target, $validationCommand)
-    Invoke-CheckedCommand -Command 'ssh' -Arguments $validationSshArguments
+    Invoke-CheckedCommand -Command 'ssh' -Arguments @(
+        $target,
+        "set -eu; tar -xzf '$remoteStaging/package.tar.gz' -C '$remoteStaging'; cd '$remoteStaging'; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; python3 run_on_board.py --artifact-dir artifacts --release-tag '$ReleaseTag' --evidence board-evidence.json; test -s board-evidence.json; mv '$remoteStaging' '$remoteDeployment'; ln -sfn '$DeploymentId' '$remoteVersionRoot/current'"
+    )
     Invoke-CheckedCommand -Command 'scp' -Arguments @(
         '--', "${target}:$remoteEvidence", $resolvedEvidence
     )
