@@ -119,7 +119,7 @@ try {
     )
     Invoke-CheckedCommand -Command 'ssh' -Arguments @(
         $target,
-        "set -eu; tar -xzf '$remoteStaging/package.tar.gz' -C '$remoteStaging'; cd '$remoteStaging'; python3 run_on_board.py --artifact-dir artifacts --release-tag '$ReleaseTag' --evidence board-evidence.json; test -s board-evidence.json; mv '$remoteStaging' '$remoteDeployment'; ln -sfn '$DeploymentId' '$remoteVersionRoot/current'"
+        "set -eu; tar -xzf '$remoteStaging/package.tar.gz' -C '$remoteStaging'; cd '$remoteStaging'; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; python3 run_on_board.py --artifact-dir artifacts --release-tag '$ReleaseTag' --evidence board-evidence.json; test -s board-evidence.json; mv '$remoteStaging' '$remoteDeployment'; ln -sfn '$DeploymentId' '$remoteVersionRoot/current'"
     )
     Invoke-CheckedCommand -Command 'scp' -Arguments @(
         '--', "${target}:$remoteEvidence", $resolvedEvidence
