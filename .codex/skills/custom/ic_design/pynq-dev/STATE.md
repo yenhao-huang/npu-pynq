@@ -1,20 +1,20 @@
 # PYNQ Development State
 
-Run ID: issue34-resnet-export-20260826
+Run ID: issue35-bounded-lowering-20260826
 Instance: .codex/skills/custom/ic_design/pynq-dev
-Started: 2026-08-26T12:33:00+08:00
-Scope: Implement deterministic activation-memory planning, accumulator-safety
-certificates, canonical two-file model packages, and failure-safe publication
-for Issue #34 and OpenSpec tasks 3.1-3.4.
+Started: 2026-08-26T12:56:00+08:00
+Scope: Implement certified bounded convolution and fully connected lowering,
+M/N edge tiling, ordered K slicing, and one model-operation deadline for Issue
+#35 and OpenSpec tasks 4.1-4.4.
 OpenSpec change: implement-phase2a-resnet-enablement
 
-Last updated: 2026-08-26T12:53:00+08:00
+Last updated: 2026-08-26T13:10:00+08:00
 
 | Step | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| 0. Define Scope | completed | Issue #34 is open, assigned to yenhao-huang, claimed by agent-id a, and blocked by #33; branch npu/issue34-a and a dedicated worktree were created from origin/dev at 5bcfdf8. | Scope is OpenSpec tasks 3.1-3.4 only. |
-| 1. Read Context and Rules | completed | Reused the fully read repository rules, pynq-dev references, OpenSpec context/apply instructions, and verified #33 graph/numeric contract tests on the predecessor worktree. | Affected areas: export/compiler, shared package schema, numeric ABI consumption, and Python tests; no RTL or board-visible change. |
-| 2. Prepare OpenSpec Change | completed | Private stacked branch carries tracking commit e2b8f89 and predecessor #33 commit 2a8dcda; OpenSpec tasks 2.1-2.3 are complete. | Before publication, rebase onto dev after predecessors merge so only #34 scope remains. |
-| 3. Implement | completed | Failing baseline: memory/export modules were missing. Task 3.1 planner passes 4/4 tests; tasks 3.2-3.4 certificates, deterministic packaging, validation, ABI parity, and rollback pass 8/8; combined focused suite passes 12/12. | OpenSpec tasks 3.1-3.4 are checked complete. |
-| 4. Validate | completed | PASS: focused planner/export 12/12; full core Python 86/86; matrix examples 16/16; seven direct Icarus simulations; compileall; OpenSpec strict; git diff --check and scoped secret scan. BLOCKED: make -C src/test lint because make and Verilator are absent from PATH. | No RTL, Tcl, overlay, MMIO, or board-visible behavior changed. |
-| 5. Handoff | in_progress | Local #34 feature commit is being prepared on private branch npu/issue34-a. | Push/PR requires explicit authorization; rebase after tracking and #33 merge so the published diff contains #34 only. |
+| 0. Define Scope | completed | Issue #35 is open, assigned to yenhao-huang, claimed by agent-id a, and blocked by #33/#34; branch npu/issue35-a and dedicated worktree were created from origin/dev at 5bcfdf8. | Scope is OpenSpec tasks 4.1-4.4 only. |
+| 1. Read Context and Rules | completed | Reused fully read repository/pynq-dev/OpenSpec context and inspected the predecessor graph, golden operators, certificates, Phase 1 runtime API, and matrix example tiling semantics. | Affected area: PYNQ runtime software and numeric lowering tests; no direct MMIO, RTL, Tcl, or board changes. |
+| 2. Prepare OpenSpec Change | completed | Private stack carries tracking eacf5bb, #33 0e3babd, and #34 a1ae10b; OpenSpec reports tasks 2.1-3.4 complete. | Rebase onto dev after predecessors merge before publication. |
+| 3. Implement | completed | Failing baseline: src.runtime.lowering was missing. Six focused tests now pass: bounded/padded convolution trace, certified K slices, preflight rejection, incompatible physical results, bounded FC, next-submission deadline, and final completion deadline. | OpenSpec tasks 4.1-4.4 are checked complete; all matrix work calls only runtime.run. |
+| 4. Validate | completed | PASS: focused lowering 6/6; full core Python 92/92; matrix examples 16/16; seven direct Icarus simulations; compileall; OpenSpec strict; git diff --check and scoped secret scan. BLOCKED: make -C src/test lint because make and Verilator are absent from PATH. | No RTL, Tcl, overlay, MMIO, or direct DMA code changed. |
+| 5. Handoff | in_progress | Local #35 feature commit is being prepared on private branch npu/issue35-a. | Push/PR requires explicit authorization; rebase after predecessors merge so published diff contains #35 only. |
