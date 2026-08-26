@@ -11,10 +11,10 @@
 
 ## 3. Memory planner and deterministic exporter
 
-- [ ] 3.1 Implement deterministic live-interval and 64-byte-aligned first-fit arena planning; verify residual lifetimes, safe reuse, stable offsets, peak size, overflow, and capacity failures.
-- [ ] 3.2 Implement per-output-channel accumulator-safety certificates; verify exact boundary acceptance and unsafe convolution/fully-connected rejection.
-- [ ] 3.3 Implement stable little-endian weight packing and canonical manifest serialization; verify repeated exports in different directories are byte-identical and contain no host paths or timestamps.
-- [ ] 3.4 Implement two-file atomic publication and package structure validation; verify a failed export preserves an existing valid pair and leaves no final partial package.
+- [x] 3.1 Implement deterministic live-interval and 64-byte-aligned first-fit arena planning; verify residual lifetimes, safe reuse, stable offsets, peak size, overflow, and capacity failures (4 memory-planner tests PASS).
+- [x] 3.2 Implement per-output-channel accumulator-safety certificates; verify exact boundary acceptance and unsafe convolution/fully-connected rejection (3 certificate tests PASS).
+- [x] 3.3 Implement stable little-endian weight packing and canonical manifest serialization; verify repeated exports with reversed declaration order in different directories are byte-identical and contain no host paths or timestamps.
+- [x] 3.4 Implement two-file atomic publication and package structure validation; verify ABI parity, corrupt digests/ranges/bounds fail, and a failed export preserves an existing valid pair with no final partial package (8 exporter tests PASS; 12 combined planner/export tests PASS).
 
 ## 4. Bounded matrix lowering
 

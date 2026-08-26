@@ -36,6 +36,13 @@ from .operators import (
     relu_int8,
     residual_add_int8,
 )
+from .package import (
+    PACKAGE_MAGIC,
+    PACKAGE_MAJOR,
+    PACKAGE_MINOR,
+    PackageValidationError,
+    validate_package_data,
+)
 
 __all__ = [
     "INT8_MAX",
@@ -68,4 +75,9 @@ __all__ = [
     "max_pool_int8",
     "relu_int8",
     "residual_add_int8",
+    "PACKAGE_MAGIC",
+    "PACKAGE_MAJOR",
+    "PACKAGE_MINOR",
+    "PackageValidationError",
+    "validate_package_data",
 ]
