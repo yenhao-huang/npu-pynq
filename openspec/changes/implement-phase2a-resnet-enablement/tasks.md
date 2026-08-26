@@ -18,10 +18,10 @@
 
 ## 4. Bounded matrix lowering
 
-- [ ] 4.1 Implement on-demand NHWC/HWIO convolution patch lowering with M/N edge tiles and input-zero-point padding; verify fake-runtime calls stay within discovered physical limits and match the golden convolution.
-- [ ] 4.2 Implement certified ordered K slicing with INT64 partial assembly, one-time bias, and Phase 0 requantization; verify multi-slice and edge K cases match the unsliced reference and missing/invalid proofs fail before runtime calls.
-- [ ] 4.3 Implement fully connected lowering through the same bounded path; verify M=1, N edges, and K slices match the golden fully connected operator.
-- [ ] 4.4 Enforce one finite monotonic deadline across all tiles and slices; verify expiration between submissions prevents the next physical call.
+- [x] 4.1 Implement on-demand NHWC/HWIO convolution patch lowering with M/N edge tiles and input-zero-point padding; verify 30 bounded dense fake-runtime calls match the golden convolution.
+- [x] 4.2 Implement certified ordered K slicing with INT64 partial assembly, one-time bias, and Phase 0 requantization; verify multi-slice and edge K cases match the unsliced reference and missing/invalid proofs fail before runtime calls.
+- [x] 4.3 Implement fully connected lowering through the same bounded path; verify M=1, N edges, and K slices produce six bounded calls and match the golden fully connected operator.
+- [x] 4.4 Enforce one finite monotonic deadline across all tiles and slices; verify expiration between submissions prevents the next physical call and final completion after the deadline is rejected (6 combined lowering tests PASS).
 
 ## 5. Package loader and model runtime
 
