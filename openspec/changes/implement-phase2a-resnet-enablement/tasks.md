@@ -5,9 +5,9 @@
 
 ## 2. Quantized graph and operator contract
 
-- [ ] 2.1 Promote Phase 0 integer primitives to production-visible src/model code with compatibility imports, and verify existing numeric tests plus signed endpoint, rounding, saturation, and overflow tests pass.
-- [ ] 2.2 Implement immutable tensor, quantization, command, and graph records with complete graph/operator validation; verify unsupported ranks, layouts, operators, parameters, duplicate ids, cycles, and shape mismatches fail before export.
-- [ ] 2.3 Implement integer-only golden convolution, residual add, ReLU, max pool, global average pool, flatten, and fully connected operators; verify focused vectors match independent scalar references.
+- [x] 2.1 Promote Phase 0 integer primitives to production-visible src/model code with compatibility imports, and verify existing numeric tests plus signed endpoint, rounding, saturation, and overflow tests pass (15 focused/existing tests PASS).
+- [x] 2.2 Implement immutable tensor, quantization, command, and graph records with complete graph/operator validation; verify unsupported ranks, layouts, operators, parameters, duplicate ids, cycles, and shape mismatches fail before export (7 graph validation tests PASS).
+- [x] 2.3 Implement integer-only golden convolution, residual add, ReLU, max pool, global average pool, flatten, and fully connected operators; verify focused vectors match independent scalar references (6 operator tests and 16 combined Phase 2A focused tests PASS).
 
 ## 3. Memory planner and deterministic exporter
 
