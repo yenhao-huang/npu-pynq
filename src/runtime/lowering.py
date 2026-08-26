@@ -24,6 +24,21 @@ class LoweringValidationError(ValueError):
     """Inputs or safety evidence cannot be lowered without contract drift."""
 
 
+class MatrixTileError(RuntimeError):
+    """One bounded physical matrix tile failed."""
+
+    def __init__(self, row_range, column_range, k_range, cause):
+        self.row_range = row_range
+        self.column_range = column_range
+        self.k_range = k_range
+        super().__init__(
+            "physical tile "
+            f"M[{row_range[0]}:{row_range[1]}] "
+            f"N[{column_range[0]}:{column_range[1]}] "
+            f"K[{k_range[0]}:{k_range[1]}] failed: {cause}"
+        )
+
+
 @dataclass(frozen=True)
 class LoweringMetrics:
     physical_jobs: int
@@ -456,14 +471,21 @@ class MatrixLowerer:
                         ],
                         dtype=np.int8,
                     )
-                    partial = np.asarray(
-                        self.runtime.run(
+                    try:
+                        physical_result = self.runtime.run(
                             a_tile,
                             b_tile,
                             hardware_timeout_cycles=hardware_timeout_cycles,
                             software_timeout=remaining,
                         )
-                    )
+                    except Exception as error:
+                        raise MatrixTileError(
+                            (row_start, row_stop),
+                            (column_start, column_stop),
+                            (k_start, k_stop),
+                            error,
+                        ) from error
+                    partial = np.asarray(physical_result)
                     expected_shape = (
                         row_stop - row_start,
                         column_stop - column_start,

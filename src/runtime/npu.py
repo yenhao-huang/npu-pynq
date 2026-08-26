@@ -157,6 +157,8 @@ class NPURuntime:
             raise ABIError(f"unsupported ABI major {major}")
         if capabilities & REQUIRED_CAPABILITIES != REQUIRED_CAPABILITIES:
             raise ABIError(f"missing capabilities 0x{REQUIRED_CAPABILITIES & ~capabilities:08x}")
+        self.abi_major = major
+        self.capabilities = capabilities
 
     def preflight(self, a_matrix: np.ndarray, b_matrix: np.ndarray) -> MatrixJob:
         if not isinstance(a_matrix, np.ndarray) or not isinstance(b_matrix, np.ndarray):

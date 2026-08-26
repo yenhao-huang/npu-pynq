@@ -5,7 +5,18 @@ from .lowering import (
     LoweringMetrics,
     LoweringResult,
     LoweringValidationError,
+    MatrixTileError,
     MatrixLowerer,
+)
+from .model import (
+    LoadedModel,
+    ModelExecutionError,
+    ModelLoadError,
+    ModelMetrics,
+    ModelResult,
+    ModelRuntimeError,
+    NPUModelRuntime,
+    load_model_package,
 )
 
 __all__ = [
@@ -14,5 +25,14 @@ __all__ = [
     "LoweringMetrics",
     "LoweringResult",
     "LoweringValidationError",
+    "MatrixTileError",
     "MatrixLowerer",
+    "LoadedModel",
+    "ModelExecutionError",
+    "ModelLoadError",
+    "ModelMetrics",
+    "ModelResult",
+    "ModelRuntimeError",
+    "NPUModelRuntime",
+    "load_model_package",
 ]
