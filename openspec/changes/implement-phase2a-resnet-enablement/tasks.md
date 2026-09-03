@@ -1,7 +1,7 @@
 ## 1. Tracking and decomposition
 
 - [x] 1.1 Create four dependency-linked Phase 2A implementation sub-issues for graph/numeric contracts, planner/exporter, matrix lowering, and model runtime; verify Issue #6 reads them back as sub-issues with explicit dependency order (#33 -> #34 -> #35 -> #36, with #35 also blocked by #33 and #36 also blocked by #34).
-- [ ] 1.2 Validate this tracking change with OpenSpec strict mode, commit it on the Issue #6 branch, and verify its pull request targets dev with Issue #6 and all sub-issues linked.
+- [x] 1.2 Validate this tracking change with OpenSpec strict mode, commit it on the Issue #6 branch, and verify its pull request targets dev with Issue #6 and all sub-issues linked.
 
 ## 2. Quantized graph and operator contract
 
