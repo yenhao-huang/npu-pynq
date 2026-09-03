@@ -112,6 +112,21 @@ This command performs the SSH/SCP deployment and then invokes the board-side
 command using the PYNQ Python environment. Use `-DryRun` first to validate all
 local model and artifact inputs without contacting the board.
 
+For development only, an older trusted overlay can be exercised without
+pretending that it matches the checkout:
+
+```powershell
+& examples/resnet18/deploy_release.ps1 `
+  -BoardHost pynq_board `
+  -DeploymentId (Get-Date -Format yyyyMMdd-HHmmss) `
+  -EvidencePath build/board/resnet18-development.json `
+  -AllowArtifactCommitMismatch
+```
+
+This mode emits `physical-pynq-z1-development` evidence and never the trusted
+`physical-pynq-z1` acceptance label. Release and Issue #7 acceptance still
+require artifacts rebuilt from the exact deployed commit.
+
 ## 7B. [PYNQ-Z1 board only] Execute physical acceptance
 
 The deployment wrapper executes the following command through SSH. Run it
@@ -124,7 +139,8 @@ cd /home/xilinx/jupyter_notebooks/npu_resnet18/releases/<deployment-id>
 sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 \
   examples/resnet18/run_on_board.py \
   --artifact-dir build/vivado/npu_matrix/artifacts \
-  --expected-source-commit <40-character-deployed-commit> \
+  --expected-source-commit <40-character-artifact-commit> \
+  --deployed-source-commit <40-character-deployed-commit> \
   --evidence board-evidence.json
 ```
 

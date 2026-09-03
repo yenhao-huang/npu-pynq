@@ -24,6 +24,9 @@ from src.runtime.verify_overlay import verify_artifacts
 
 
 PASS_MARKER = "PASS [physical-pynq-z1]: real ResNet-18 board acceptance"
+DEVELOPMENT_PASS_MARKER = (
+    "PASS [physical-pynq-z1-development]: real ResNet-18 board execution"
+)
 COMMIT_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
 
 
@@ -67,12 +70,34 @@ def _write_new(path: Path, value: object) -> None:
             temporary.unlink()
 
 
+def _source_binding(
+    overlay: dict[str, object],
+    expected_source_commit: str,
+    deployed_source_commit: str,
+    allow_source_mismatch: bool,
+) -> tuple[str, str, bool]:
+    expected = expected_source_commit.strip().lower()
+    deployed = deployed_source_commit.strip().lower()
+    if COMMIT_PATTERN.fullmatch(expected) is None:
+        raise ValueError("expected source commit must be a full Git object ID")
+    if COMMIT_PATTERN.fullmatch(deployed) is None:
+        raise ValueError("deployed source commit must be a full Git object ID")
+    if str(overlay.get("source_commit", "")).lower() != expected:
+        raise RuntimeError("overlay source commit differs from its expected commit")
+    mismatch = expected != deployed
+    if mismatch and not allow_source_mismatch:
+        raise RuntimeError("overlay source commit differs from deployed source")
+    return expected, deployed, mismatch
+
+
 def run_board(
     *,
     model_dir: Path,
     source_metadata_path: Path,
     artifact_dir: Path,
     expected_source_commit: str,
+    deployed_source_commit: str,
+    allow_source_mismatch: bool,
     evidence_path: Path,
     software_timeout: float,
 ) -> dict[str, object]:
@@ -80,11 +105,12 @@ def run_board(
     model_dir = model_dir.resolve()
     artifact_dir = artifact_dir.resolve()
     overlay = verify_artifacts(artifact_dir)
-    expected_commit = expected_source_commit.strip().lower()
-    if COMMIT_PATTERN.fullmatch(expected_commit) is None:
-        raise ValueError("expected source commit must be a full Git object ID")
-    if str(overlay.get("source_commit", "")).lower() != expected_commit:
-        raise RuntimeError("overlay source commit differs from deployed source")
+    expected_commit, deployed_commit, source_mismatch = _source_binding(
+        overlay,
+        expected_source_commit,
+        deployed_source_commit,
+        allow_source_mismatch,
+    )
     physical = load_pynq_runtime(artifact_dir / "npu_matrix.bit")
     if not isinstance(physical, NPURuntime):
         raise RuntimeError("physical evidence requires the public NPURuntime")
@@ -110,15 +136,21 @@ def run_board(
             }
             for name in model.graph.outputs
         },
-        "evidence_type": "physical-pynq-z1",
+        "evidence_type": (
+            "physical-pynq-z1-development"
+            if source_mismatch
+            else "physical-pynq-z1"
+        ),
         "format": {"major": 1, "minor": 0},
         "host_acceptance_sha256": _sha256(model_dir / "acceptance.json"),
         "magic": "NPU_RESNET18_BOARD_ACCEPTANCE",
         "model_manifest_sha256": _sha256(model_dir / "resnet18.npu.json"),
         "overlay": {
             "bit_sha256": overlay["bit"]["sha256"],
+            "deployed_source_commit": deployed_commit,
             "hwh_sha256": overlay["hwh"]["sha256"],
             "source_commit": overlay["source_commit"],
+            "source_mismatch_allowed": source_mismatch,
             "target_part": overlay["target_part"],
         },
         "result": "pass",
@@ -143,22 +175,30 @@ def main() -> int:
     )
     parser.add_argument("--artifact-dir", type=Path, required=True)
     parser.add_argument("--expected-source-commit", required=True)
+    parser.add_argument("--deployed-source-commit", required=True)
+    parser.add_argument("--allow-source-mismatch", action="store_true")
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--software-timeout", type=float, default=86400.0)
     arguments = parser.parse_args()
     try:
-        run_board(
+        evidence = run_board(
             model_dir=arguments.model_dir,
             source_metadata_path=arguments.source_metadata,
             artifact_dir=arguments.artifact_dir,
             expected_source_commit=arguments.expected_source_commit,
+            deployed_source_commit=arguments.deployed_source_commit,
+            allow_source_mismatch=arguments.allow_source_mismatch,
             evidence_path=arguments.evidence,
             software_timeout=arguments.software_timeout,
         )
     except Exception as error:
         print(f"physical PYNQ-Z1 acceptance failed: {error}", file=sys.stderr)
         return 1
-    print(PASS_MARKER)
+    print(
+        DEVELOPMENT_PASS_MARKER
+        if evidence["evidence_type"] == "physical-pynq-z1-development"
+        else PASS_MARKER
+    )
     return 0
 
 

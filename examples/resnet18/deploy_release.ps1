@@ -20,6 +20,8 @@ param(
 
     [string]$ModelDir = 'examples/resnet18/model',
 
+    [switch]$AllowArtifactCommitMismatch,
+
     [switch]$DryRun,
 
     [switch]$InteractiveSudo
@@ -88,9 +90,15 @@ try {
     $artifactManifest = Get-Content -Raw -LiteralPath (
         Join-Path $resolvedArtifacts 'npu_matrix.manifest.json'
     ) | ConvertFrom-Json
-    $artifactCommit = [string]$artifactManifest.source_commit
-    if ($artifactCommit.ToLowerInvariant() -ne $sourceCommit) {
+    $artifactCommit = ([string]$artifactManifest.source_commit).ToLowerInvariant()
+    if (
+        $artifactCommit -ne $sourceCommit -and
+        -not $AllowArtifactCommitMismatch
+    ) {
         throw "Vivado artifacts use $artifactCommit but this checkout uses $sourceCommit; rebuild the overlay from this commit"
+    }
+    if ($artifactCommit -ne $sourceCommit) {
+        Write-Warning "Development-only source mismatch: artifacts=$artifactCommit checkout=$sourceCommit"
     }
     Invoke-CheckedCommand -Command 'python' -Arguments @(
         '-m', 'src.runtime.verify_overlay', $resolvedArtifacts
@@ -140,7 +148,12 @@ Invoke-CheckedCommand -Command 'scp' -Arguments @(
 )
 
 $sudoOption = if ($InteractiveSudo) { '' } else { '-n ' }
-$remoteCommand = "set -eu; cd '$remoteDeployment'; test -r /etc/profile.d/xrt_setup.sh; source /etc/profile.d/xrt_setup.sh; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; test -x /usr/local/share/pynq-venv/bin/python3; sudo ${sudoOption}XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 examples/resnet18/run_on_board.py --artifact-dir build/vivado/npu_matrix/artifacts --expected-source-commit '$sourceCommit' --evidence board-evidence.json"
+$mismatchOption = if ($AllowArtifactCommitMismatch) {
+    ' --allow-source-mismatch'
+} else {
+    ''
+}
+$remoteCommand = "set -eu; cd '$remoteDeployment'; test -r /etc/profile.d/xrt_setup.sh; source /etc/profile.d/xrt_setup.sh; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; test -x /usr/local/share/pynq-venv/bin/python3; sudo ${sudoOption}XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 examples/resnet18/run_on_board.py --artifact-dir build/vivado/npu_matrix/artifacts --expected-source-commit '$artifactCommit' --deployed-source-commit '$sourceCommit'$mismatchOption --evidence board-evidence.json"
 $sshArguments = @()
 if ($InteractiveSudo) {
     $sshArguments += '-tt'

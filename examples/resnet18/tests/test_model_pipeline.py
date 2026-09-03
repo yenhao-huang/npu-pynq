@@ -184,6 +184,8 @@ class ModelDownloadTests(unittest.TestCase):
         self.assertIn("PASS [physical-pynq-z1]", board_runner)
         self.assertIn("isinstance(physical, NPURuntime)", board_runner)
         self.assertIn("--expected-source-commit", board_runner)
+        self.assertIn("physical-pynq-z1-development", board_runner)
+        self.assertIn("--allow-source-mismatch", board_runner)
         deployment = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(
             encoding="utf-8"
         )
@@ -191,6 +193,7 @@ class ModelDownloadTests(unittest.TestCase):
         self.assertIn("source /etc/profile.d/xrt_setup.sh", deployment)
         self.assertIn("Invoke-CheckedCommand -Command 'scp'", deployment)
         self.assertIn("overlay from this commit", deployment)
+        self.assertIn("AllowArtifactCommitMismatch", deployment)
 
 
 class ModelPackageTests(unittest.TestCase):
@@ -320,6 +323,39 @@ class ModelPackageTests(unittest.TestCase):
                 output_archive=substituted_output,
             )
         self.assertFalse(substituted_output.exists())
+
+
+class BoardSourceBindingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.runner = load_module(
+            "resnet18_run_on_board",
+            EXAMPLE_ROOT / "run_on_board.py",
+        )
+
+    def test_mismatch_requires_explicit_development_mode(self):
+        artifact_commit = "a" * 40
+        deployed_commit = "b" * 40
+        overlay = {"source_commit": artifact_commit}
+        with self.assertRaisesRegex(RuntimeError, "deployed source"):
+            self.runner._source_binding(
+                overlay, artifact_commit, deployed_commit, False
+            )
+        expected, deployed, mismatch = self.runner._source_binding(
+            overlay, artifact_commit, deployed_commit, True
+        )
+        self.assertEqual(expected, artifact_commit)
+        self.assertEqual(deployed, deployed_commit)
+        self.assertTrue(mismatch)
+
+    def test_matching_source_remains_trusted_mode(self):
+        commit = "c" * 40
+        expected, deployed, mismatch = self.runner._source_binding(
+            {"source_commit": commit}, commit, commit, False
+        )
+        self.assertEqual(expected, commit)
+        self.assertEqual(deployed, commit)
+        self.assertFalse(mismatch)
 
 
 if __name__ == "__main__":
