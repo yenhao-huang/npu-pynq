@@ -43,6 +43,22 @@ from .package import (
     PackageValidationError,
     validate_package_data,
 )
+from .resnet18 import (
+    ACCEPTANCE_MAGIC,
+    ACCEPTANCE_MAJOR,
+    ACCEPTANCE_MINOR,
+    AcceptanceAsset,
+    AcceptanceBundle,
+    AcceptanceCorpus,
+    AcceptanceDescriptor,
+    AcceptanceReference,
+    AcceptanceThresholds,
+    AcceptanceValidationError,
+    ResNet18Block,
+    ResNet18Topology,
+    load_acceptance_bundle,
+    validate_resnet18_topology,
+)
 
 __all__ = [
     "INT8_MAX",
@@ -80,4 +96,18 @@ __all__ = [
     "PACKAGE_MINOR",
     "PackageValidationError",
     "validate_package_data",
+    "ACCEPTANCE_MAGIC",
+    "ACCEPTANCE_MAJOR",
+    "ACCEPTANCE_MINOR",
+    "AcceptanceAsset",
+    "AcceptanceBundle",
+    "AcceptanceCorpus",
+    "AcceptanceDescriptor",
+    "AcceptanceReference",
+    "AcceptanceThresholds",
+    "AcceptanceValidationError",
+    "ResNet18Block",
+    "ResNet18Topology",
+    "load_acceptance_bundle",
+    "validate_resnet18_topology",
 ]
