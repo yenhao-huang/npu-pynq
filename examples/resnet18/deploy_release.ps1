@@ -8,7 +8,7 @@ param(
     [string]$EvidencePath,
 
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
-    [string]$BoardHost = 'pynq_board',
+    [string]$BoardHost = '192.168.2.99',
 
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
     [string]$BoardUser = 'xilinx',
@@ -24,7 +24,7 @@ param(
 
     [switch]$DryRun,
 
-    [switch]$InteractiveSudo
+    [switch]$NonInteractiveSudo
 )
 
 Set-StrictMode -Version Latest
@@ -147,7 +147,7 @@ Invoke-CheckedCommand -Command 'scp' -Arguments @(
     "${target}:$remoteDeployment/build/vivado/npu_matrix/"
 )
 
-$sudoOption = if ($InteractiveSudo) { '' } else { '-n ' }
+$sudoOption = if ($NonInteractiveSudo) { '-n ' } else { '' }
 $mismatchOption = if ($AllowArtifactCommitMismatch) {
     ' --allow-source-mismatch'
 } else {
@@ -155,7 +155,7 @@ $mismatchOption = if ($AllowArtifactCommitMismatch) {
 }
 $remoteCommand = "set -eu; cd '$remoteDeployment'; test -r /etc/profile.d/xrt_setup.sh; source /etc/profile.d/xrt_setup.sh; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; test -x /usr/local/share/pynq-venv/bin/python3; sudo ${sudoOption}XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 examples/resnet18/run_on_board.py --artifact-dir build/vivado/npu_matrix/artifacts --expected-source-commit '$artifactCommit' --deployed-source-commit '$sourceCommit'$mismatchOption --evidence board-evidence.json"
 $sshArguments = @()
-if ($InteractiveSudo) {
+if (-not $NonInteractiveSudo) {
     $sshArguments += '-tt'
 }
 $sshArguments += @($target, $remoteCommand)

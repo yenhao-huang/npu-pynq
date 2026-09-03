@@ -98,23 +98,25 @@ with the matching trusted overlay for standalone board delivery.
 `run_on_board.py` must not be launched from the Windows virtual environment.
 Use the deployment wrapper to copy the required Python sources, ignored model
 workspace, and verified Vivado artifacts to the board. The default
-`pynq_board` host is an SSH configuration name; override it when necessary:
+board endpoint is `xilinx@192.168.2.99`; override `-BoardHost` or
+`-BoardUser` when necessary:
 
 ```powershell
 & examples/resnet18/deploy_release.ps1 `
-  -BoardHost pynq_board `
   -DeploymentId (Get-Date -Format yyyyMMdd-HHmmss) `
   -EvidencePath build/board/resnet18-development.json `
   -AllowArtifactCommitMismatch
 ```
 
 This command performs the SSH/SCP deployment and then invokes the board-side
-command using the PYNQ Python environment. Use `-DryRun` first to validate all
-local model and artifact inputs without contacting the board. The documented
-flow permits an artifact/check-out commit mismatch and records the result as
-`physical-pynq-z1-development`. Remove `-AllowArtifactCommitMismatch` when the
-artifacts were rebuilt from the exact checkout commit and trusted
-`physical-pynq-z1` evidence is required.
+command using the PYNQ Python environment. SSH allocates a terminal by default,
+so enter the board user's sudo password when prompted. Use
+`-NonInteractiveSudo` only after configuring passwordless sudo on the board.
+Use `-DryRun` first to validate all local model and artifact inputs without
+contacting the board. The documented flow permits an artifact/check-out commit
+mismatch and records the result as `physical-pynq-z1-development`. Remove
+`-AllowArtifactCommitMismatch` when the artifacts were rebuilt from the exact
+checkout commit and trusted `physical-pynq-z1` evidence is required.
 
 ## 8. Now execute physical acceptance on the board
 
@@ -125,7 +127,7 @@ manually only from a terminal on the PYNQ-Z1, never from Windows:
 source /etc/profile.d/xrt_setup.sh
 source /etc/profile.d/pynq_venv.sh
 cd /home/xilinx/jupyter_notebooks/npu_resnet18/releases/<deployment-id>
-sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 \
+sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 \
   examples/resnet18/run_on_board.py \
   --artifact-dir build/vivado/npu_matrix/artifacts \
   --expected-source-commit <40-character-artifact-commit> \

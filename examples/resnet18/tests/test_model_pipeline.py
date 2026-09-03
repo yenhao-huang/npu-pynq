@@ -194,6 +194,10 @@ class ModelDownloadTests(unittest.TestCase):
         self.assertIn("Invoke-CheckedCommand -Command 'scp'", deployment)
         self.assertIn("overlay from this commit", deployment)
         self.assertIn("AllowArtifactCommitMismatch", deployment)
+        self.assertIn("[string]$BoardHost = '192.168.2.99'", deployment)
+        self.assertNotIn("'pynq_board'", deployment)
+        self.assertIn("[switch]$NonInteractiveSudo", deployment)
+        self.assertIn("if (-not $NonInteractiveSudo)", deployment)
 
 
 class ModelPackageTests(unittest.TestCase):
