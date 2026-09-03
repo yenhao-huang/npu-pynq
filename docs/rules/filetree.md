@@ -44,14 +44,18 @@ npu_repo_in_pynq/
 |   `-- runtime/
 |       `-- *.py
 |-- examples/
-|   `-- matrix-multiplication/
+|   `-- <example>/
 |       |-- README.md
-|       |-- matrix_multiplication.ipynb
+|       |-- *.ipynb
 |       |-- package_example.py
 |       |-- run_on_board.py
 |       |-- deploy_release.ps1
+|       |-- model/
+|       |   `-- .gitkeep
+|       |-- scripts/
+|       |   `-- *.py
 |       |-- runtime/
-|       |   `-- matrix_multiplication.py
+|       |   `-- *.py
 |       `-- tests/
 |           `-- test_*.py
 |-- docs/
@@ -98,6 +102,11 @@ An example owns its application-specific runtime, notebooks, package builder,
 board acceptance entry point, deployment wrapper, and focused host tests. The
 package builder may copy an explicit allowlist of shared `src/runtime/` modules
 into generated deploy output, but those copies are never committed.
+Every user-facing example includes an output-free `.ipynb` demo. Download and
+conversion commands belong under its `scripts/`; generated checkpoints,
+converted model packages, corpora, and model evidence go under its `model/`
+workspace and remain ignored except for `.gitkeep`.
+The canonical generated-data path is `examples/<example>/model/`.
 
 `.codex/skills/` contains repository-local Codex skills and is the only allowed
 top-level location for them. Classify reusable development workflows under

@@ -1,19 +1,20 @@
 # PYNQ Development State
 
-Run ID: issue6-phase2a-resnet-20260826
+Run ID: issue47-real-resnet18-20260903
 Instance: `.codex/skills/custom/ic_design/pynq-dev`
-Started: 2026-08-26T11:56:09+08:00
-Scope: Define and implement Phase 2A ResNet-18 operator lowering, bounded tiling,
-memory planning, deterministic export, and runtime consumption for Issue #6.
-OpenSpec change: `implement-phase2a-resnet-enablement`
+Started: 2026-09-03T23:42:00+08:00
+Scope: Download a pinned public pretrained ResNet-18, convert it into the
+repository QuantizedGraph/NPU package, validate real input execution, and make
+the example package consume its gitignored model workspace for Issue #47.
+OpenSpec change: `add-real-resnet18-import-export`
 
-Last updated: 2026-09-03T11:16:18+08:00
+Last updated: 2026-09-04T00:27:40+08:00
 
 | Step | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| 0. Define Scope | completed | Issue #6 (`https://github.com/yenhao-huang/npu_in_pynq/issues/6`) is open, assigned to `yenhao-huang`, and claimed by agent-id `a`; branch `npu/issue6-a` and dedicated worktree were created from `origin/dev` at `5bcfdf8`. | Issue #6 covers Phase 2A only; Phase 2B #7 and Phase 2C #8 remain dependent follow-up units. |
-| 1. Read Context and Rules | completed | Read `AGENTS.md`, repository filetree/environment/issue/branch rules, `pynq-dev` skill and all references, Phase 2 roadmap, Issues #6/#7, and current source/OpenSpec inventory. | Affected areas: numeric model, export/compiler, PYNQ runtime, tests, and examples/docs; RTL impact remains subject to the OpenSpec design. |
-| 2. Prepare OpenSpec Change | completed | OpenSpec CLI 1.12.0 reports 4/4 artifacts complete and strict validation passes for `implement-phase2a-resnet-enablement`. Issue #6 reads back sub-issues #33-#36; blocked-by edges are #34<-#33, #35<-#33/#34, and #36<-#34/#35. PR #41 was read back with base `dev`, head `npu/issue6-a`, and links to #6 and #33-#36. | Tracking tasks 1.1 and 1.2 are complete. |
-| 3. Implement | pending |  | Establish failing tests before product changes; implement one verified task at a time. |
-| 4. Validate | pending |  | Required gates will be selected from the development matrix after contracts are frozen. |
-| 5. Handoff | completed | Branch `npu/issue6-a` is published and PR #41 targets `dev`; implementation PRs #37-#40 are linked in its body. | PR review, CI, and merge remain external follow-up actions. |
+| 0. Define Scope | completed | Issue #47 is open, assigned to `yenhao-huang`, claimed by agent-id `a`, and formally blocks #7. | Branch `npu/issue47-a`; worktree `worktrees/npu-issue47-a`; base `origin/dev` at `5625a28`. |
+| 1. Read Context and Rules | completed | Read `AGENTS.md`, `docs/rules/filetree.md`, pynq-dev skill and all required references, Issue #47, and Phase 2A source/OpenSpec inventory. | Affected areas: export/compiler, numeric conversion, examples/docs; runtime and board gates depend on observed behavior. |
+| 2. Prepare OpenSpec Change | completed | OpenSpec CLI 1.12.0 reports 4/4 artifacts complete; strict validation passed for `add-real-resnet18-import-export`. | Two new capabilities freeze acquisition/conversion and example-workspace behavior. |
+| 3. Implement | completed | OpenSpec tasks 1.1-4.4 complete. Official checkpoint: 46,830,571 bytes, SHA-256 `f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec`. Two conversions produced byte-identical manifest, payload, input, and provenance. Full real model exported and reloaded; independent vectorized reference and `NPUModelRuntime` agreed exactly for `stem.relu`, `layer1.1.relu`, and `logits` over a `(1, 224, 224, 3)` signed-INT8 input. | Export certificate found and the converter corrected a near-dead stem channel that initially exceeded INT32 by 302,207; the safety certificate was preserved, not weakened. Model archives and acceptance JSON are independently byte-reproducible. |
+| 4. Validate | completed with external gates recorded | Focused Issue #47 tests: 16 passed. Full suites: 107 `src/test`, 16 matrix example, 8 ResNet example tests passed (131 total). Seven Icarus RTL simulations passed. Strict OpenSpec validation and `git diff --check` passed. Generated files are ignored and no credential literal was found. | Local Verilator gate is blocked because the installed launcher lacks `verilator_bin`; GitHub CI must run the authoritative Linux lint. Physical command failed closed before execution because `build/vivado/npu_matrix/artifacts/npu_matrix.bit` (and matching HWH/manifest) is absent; no board evidence was written and no host result was relabeled. |
+| 5. Handoff | pending |  | Commit, push, PR to `dev`, and current-head CI evidence; do not merge. |
