@@ -8,9 +8,9 @@ production model runtime, and creates a deterministic model archive.
 The calibration image is synthetic and unlabeled. A host PASS proves importer
 and runtime agreement; it is not ImageNet accuracy or physical-board evidence.
 
-Steps 1 through 7 run from the Windows development host. Step 8 explains the
-command that executes inside the PYNQ-Z1 Linux environment, where the `pynq`
-package, Overlay, MMIO, and DMA are available.
+Steps 1 through 7 prepare and copy the release from the Windows development
+host. Step 8 is the human demo and runs from the deployed `.ipynb` on the
+PYNQ-Z1, where the `pynq` package, Overlay, MMIO, and DMA are available.
 
 ```
 python -m venv build/resnet18-venv
@@ -104,24 +104,42 @@ board endpoint is `xilinx@192.168.2.99`; override `-BoardHost` or
 ```powershell
 & examples/resnet18/deploy_release.ps1 `
   -DeploymentId (Get-Date -Format yyyyMMdd-HHmmss) `
-  -EvidencePath build/board/resnet18-development.json `
   -AllowArtifactCommitMismatch
 ```
 
-This command performs the SSH/SCP deployment and then invokes the board-side
-command using the PYNQ Python environment. SSH allocates a terminal by default,
-so enter the board user's sudo password when prompted. Use
-`-NonInteractiveSudo` only after configuring passwordless sudo on the board.
-Use `-DryRun` first to validate all local model and artifact inputs without
-contacting the board. The documented flow permits an artifact/check-out commit
-mismatch and records the result as `physical-pynq-z1-development`. Remove
-`-AllowArtifactCommitMismatch` when the artifacts were rebuilt from the exact
-checkout commit and trusted `physical-pynq-z1` evidence is required.
+This wrapper only creates an immutable release directory and copies the
+example, shared runtime/export/model sources, Vivado artifacts, and deployment
+metadata. It does not run the model, invoke `sudo`, claim a PASS, or retrieve
+evidence. The `-AllowArtifactCommitMismatch` choice is recorded for the later
+human validation; omit it when the artifacts were built from this exact
+checkout.
 
-## 8. Now execute physical acceptance on the board
+## 8. Open the notebook and perform human validation
 
-The deployment wrapper executes the following command through SSH. Run it
-manually only from a terminal on the PYNQ-Z1, never from Windows:
+In the PYNQ Jupyter interface, open the release directory printed by the
+deployment wrapper, then open:
+
+```text
+examples/resnet18/resnet18.ipynb
+```
+
+Select the board's PYNQ Python kernel and run the cells in order. The notebook
+shows the deployed and artifact commits before starting, invokes the physical
+runtime, writes a new `notebook-evidence-<UTC timestamp>.json`, and leaves the
+evidence visible for human review. The final cell must report a positive
+`physical_jobs` count and one of these markers:
+
+```text
+PASS [physical-pynq-z1]: human-reviewed notebook demo
+PASS [physical-pynq-z1-development]: human-reviewed notebook demo
+```
+
+The development marker means an artifact/check-out commit mismatch was
+explicitly allowed. It is execution evidence, not trusted release acceptance.
+
+For terminal-oriented verification, `run_on_board.py` remains an alternative
+low-level entry point. Run it only on the PYNQ-Z1, using the commit values from
+`deployment.json`:
 
 ```bash
 source /etc/profile.d/xrt_setup.sh
@@ -135,13 +153,10 @@ sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 \
   --evidence board-evidence.json
 ```
 
-Only this command, using an actual `NPURuntime`, can print
-`PASS [physical-pynq-z1]`. Host backends cannot emit that marker.
-
-Physical execution has not been claimed by Issue #47 in this workspace: no
-board address or board credentials were configured, so no SSH deployment was
-performed. Issue #7 owns formal model/board acceptance after this import
-pipeline lands.
+Both notebook and CLI routes use `run_on_board.py` and require an actual
+`NPURuntime`; host backends cannot emit a physical PASS marker. Automated
+deployment and evidence collection belong to the CD script under
+`.github/cd/`, not to this human demo workflow.
 
 ## Re-running generated steps
 

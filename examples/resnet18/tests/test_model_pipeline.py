@@ -172,6 +172,16 @@ class ModelDownloadTests(unittest.TestCase):
         self.assertTrue(
             all(cell["execution_count"] is None for cell in code_cells)
         )
+        notebook_source = "\n".join(
+            line
+            for cell in notebook["cells"]
+            for line in cell.get("source", [])
+        )
+        self.assertIn("canonical human demo", notebook_source)
+        self.assertIn("deployment.json", notebook_source)
+        self.assertIn("run_on_board.py", notebook_source)
+        self.assertIn("physical_jobs", notebook_source)
+        self.assertNotIn("download_model.py", notebook_source)
 
     def test_only_physical_runner_owns_physical_pass_marker(self):
         verifier = (EXAMPLE_ROOT / "scripts" / "verify_model.py").read_text(
@@ -189,15 +199,26 @@ class ModelDownloadTests(unittest.TestCase):
         deployment = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(
             encoding="utf-8"
         )
-        self.assertIn("source /etc/profile.d/pynq_venv.sh", deployment)
-        self.assertIn("source /etc/profile.d/xrt_setup.sh", deployment)
         self.assertIn("Invoke-CheckedCommand -Command 'scp'", deployment)
-        self.assertIn("overlay from this commit", deployment)
         self.assertIn("AllowArtifactCommitMismatch", deployment)
         self.assertIn("[string]$BoardHost = '192.168.2.99'", deployment)
         self.assertNotIn("'pynq_board'", deployment)
-        self.assertIn("[switch]$NonInteractiveSudo", deployment)
-        self.assertIn("if (-not $NonInteractiveSudo)", deployment)
+        self.assertIn("deployment.json", deployment)
+        self.assertNotIn("sudo", deployment)
+        self.assertNotIn("$remoteCommand", deployment)
+        self.assertNotIn("--evidence", deployment)
+        self.assertNotIn("EvidencePath", deployment)
+        cd = (
+            REPOSITORY_ROOT
+            / ".github"
+            / "cd"
+            / "resnet18_deploy_and_accept.ps1"
+        ).read_text(encoding="utf-8")
+        self.assertIn("source /etc/profile.d/pynq_venv.sh", cd)
+        self.assertIn("source /etc/profile.d/xrt_setup.sh", cd)
+        self.assertIn("sudo", cd)
+        self.assertIn("run_on_board.py", cd)
+        self.assertIn("EvidencePath", cd)
 
 
 class ModelPackageTests(unittest.TestCase):
