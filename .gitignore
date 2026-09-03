@@ -38,6 +38,10 @@ obj_dir/
 mount/*
 !mount/.gitkeep
 
+# Example-local downloaded and converted model workspaces
+examples/*/model/*
+!examples/*/model/.gitkeep
+
 # Python and notebook caches
 __pycache__/
 *.pyc

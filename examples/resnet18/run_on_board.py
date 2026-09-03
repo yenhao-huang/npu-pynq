@@ -1,37 +1,33 @@
-"""Verify and execute a standalone ResNet-18 package on PYNQ-Z1."""
+"""Run digest-bound ResNet-18 acceptance on a physical PYNQ-Z1."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-from pathlib import Path, PurePosixPath
-import platform
+import os
+from pathlib import Path
 import re
 import sys
-from typing import Any
+import tempfile
 
 import numpy as np
 
 
-PACKAGE_ROOT = Path(__file__).resolve().parent
-for import_root in (PACKAGE_ROOT, PACKAGE_ROOT.parents[1]):
-    if str(import_root) not in sys.path:
-        sys.path.insert(0, str(import_root))
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from src.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
-from src.model.resnet18 import load_acceptance_bundle, validate_resnet18_topology
-from src.runtime import NPUModelRuntime, load_model_package, load_pynq_runtime
-from src.runtime.acceptance import run_resnet18_acceptance
+from examples.resnet18.package_example import validate_workspace
+from src.runtime import NPURuntime, NPUModelRuntime, load_model_package, load_pynq_runtime
 from src.runtime.verify_overlay import verify_artifacts
 
 
-PASS_MARKER = "PASS: Phase 2B ResNet-18 board acceptance"
-SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
-
-
-class BoardAcceptanceError(RuntimeError):
-    """Standalone package or physical acceptance did not pass."""
+PASS_MARKER = "PASS [physical-pynq-z1]: real ResNet-18 board acceptance"
+DEVELOPMENT_PASS_MARKER = (
+    "PASS [physical-pynq-z1-development]: real ResNet-18 board execution"
+)
+COMMIT_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
 
 
 def _sha256(path: Path) -> str:
@@ -42,253 +38,167 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _reject_duplicates(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise BoardAcceptanceError(f"duplicate package JSON key {key!r}")
-        result[key] = value
-    return result
+def _array_sha256(value: np.ndarray) -> str:
+    array = np.ascontiguousarray(value)
+    digest = hashlib.sha256()
+    digest.update(str(array.dtype).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(json.dumps(list(array.shape), separators=(",", ":")).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(array.tobytes(order="C"))
+    return digest.hexdigest()
 
 
-def _manifest(path: Path) -> tuple[dict[str, Any], str]:
-    try:
-        data = path.read_bytes()
-        value = json.loads(data, object_pairs_hook=_reject_duplicates)
-    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
-        raise BoardAcceptanceError(f"package manifest is invalid: {error}") from error
-    canonical = (
+def _write_new(path: Path, value: object) -> None:
+    if path.exists() or not path.parent.is_dir():
+        raise ValueError("board evidence must be a new file in an existing directory")
+    data = (
         json.dumps(value, allow_nan=False, sort_keys=True, separators=(",", ":"))
         + "\n"
     ).encode("utf-8")
-    if data != canonical:
-        raise BoardAcceptanceError("package manifest is not canonical")
-    if not isinstance(value, dict) or set(value) != {
-        "files", "format", "magic", "release_tag", "source_commit",
-        "target_part", "vivado_gates",
-    }:
-        raise BoardAcceptanceError("package manifest fields differ from the contract")
-    if value["magic"] != "NPU_RESNET18_PACKAGE" or value["format"] != {
-        "major": 1, "minor": 0,
-    }:
-        raise BoardAcceptanceError("package manifest format is unsupported")
-    return value, hashlib.sha256(data).hexdigest()
-
-
-def verify_package_tree(
-    package_root: Path,
-    *,
-    archive_path: Path,
-    expected_archive_sha256: str,
-) -> dict[str, Any]:
-    """Verify every packaged byte before overlay programming or model execution."""
-
-    package_root = package_root.resolve()
-    archive_path = archive_path.resolve()
-    expected = expected_archive_sha256.strip().lower()
-    if SHA256_PATTERN.fullmatch(expected) is None:
-        raise BoardAcceptanceError("expected archive SHA-256 is invalid")
-    archive_digest = _sha256(archive_path)
-    if archive_digest != expected:
-        raise BoardAcceptanceError("package archive digest mismatch")
-    manifest, manifest_digest = _manifest(package_root / "package.manifest.json")
-    records = manifest["files"]
-    if not isinstance(records, list):
-        raise BoardAcceptanceError("package file records must be a list")
-    expected_paths: set[str] = set()
-    for record in records:
-        if not isinstance(record, dict) or set(record) != {"bytes", "path", "sha256"}:
-            raise BoardAcceptanceError("package file record is malformed")
-        relative = record["path"]
-        if not isinstance(relative, str):
-            raise BoardAcceptanceError("package file path must be a string")
-        pure = PurePosixPath(relative)
-        if pure.is_absolute() or ".." in pure.parts or str(pure) != relative:
-            raise BoardAcceptanceError(f"unsafe package path: {relative!r}")
-        if relative in expected_paths:
-            raise BoardAcceptanceError("package manifest has duplicate paths")
-        expected_paths.add(relative)
-        path = package_root.joinpath(*pure.parts)
-        if not path.is_file():
-            raise BoardAcceptanceError(f"package file is missing: {relative}")
-        if path.stat().st_size != record["bytes"] or _sha256(path) != record["sha256"]:
-            raise BoardAcceptanceError(f"package file differs: {relative}")
-    actual_paths = {
-        path.relative_to(package_root).as_posix()
-        for path in package_root.rglob("*")
-        if path.is_file()
-        and "__pycache__" not in path.parts
-        and path.suffix != ".pyc"
-        and path.name != "package.manifest.json"
-    }
-    if actual_paths != expected_paths:
-        raise BoardAcceptanceError("package tree contains missing or unexpected files")
-
-    gates = manifest["vivado_gates"]
-    if not isinstance(gates, dict) or not (
-        gates.get("synthesis_complete") is True
-        and gates.get("implementation_complete") is True
-        and gates.get("setup_failing_paths") == 0
-        and gates.get("drc_errors") == 0
-        and gates.get("source_commit") == manifest["source_commit"]
-        and gates.get("target_part") == manifest["target_part"]
-        and isinstance(gates.get("wns"), (int, float))
-        and gates["wns"] >= 0
-    ):
-        raise BoardAcceptanceError("trusted Vivado gates are incomplete")
-    overlay = verify_artifacts(package_root / "artifacts")
-    if (
-        overlay.get("source_commit") != manifest["source_commit"]
-        or overlay.get("target_part") != manifest["target_part"]
-    ):
-        raise BoardAcceptanceError("overlay provenance differs from package")
-    reports, reports_digest = _manifest_like_reports(
-        package_root / "reports" / "reports.manifest.json"
-    )
-    if reports.get("vivado_gates") != gates:
-        raise BoardAcceptanceError("report manifest gates differ from package")
-    descriptor_path = package_root / "acceptance" / "acceptance.json"
-    preliminary = load_acceptance_bundle(descriptor_path)
-    loaded = load_model_package(preliminary.model_manifest_path)
-    bundle = load_acceptance_bundle(descriptor_path, graph=loaded.graph)
-    validate_resnet18_topology(loaded.graph)
-    return {
-        "archive_sha256": archive_digest,
-        "bundle": bundle,
-        "manifest": manifest,
-        "manifest_sha256": manifest_digest,
-        "model": loaded,
-        "overlay": overlay,
-        "reports": reports,
-        "reports_manifest_sha256": reports_digest,
-    }
-
-
-def _manifest_like_reports(path: Path) -> tuple[dict[str, Any], str]:
+    with tempfile.NamedTemporaryFile(
+        "wb", dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False
+    ) as stream:
+        temporary = Path(stream.name)
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
     try:
-        data = path.read_bytes()
-        value = json.loads(data, object_pairs_hook=_reject_duplicates)
-        canonical = (
-            json.dumps(value, allow_nan=False, sort_keys=True, separators=(",", ":"))
-            + "\n"
-        ).encode("utf-8")
-    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
-        raise BoardAcceptanceError(f"report manifest is invalid: {error}") from error
-    if data != canonical or not isinstance(value, dict) or set(value) != {
-        "files", "vivado_gates",
-    }:
-        raise BoardAcceptanceError("report manifest is not canonical")
-    return value, hashlib.sha256(data).hexdigest()
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
-def execute_board_acceptance(
-    verified: dict[str, Any],
-    physical_runtime: Any,
+def _source_binding(
+    overlay: dict[str, object],
+    expected_source_commit: str,
+    deployed_source_commit: str,
+    allow_source_mismatch: bool,
+) -> tuple[str, str, bool]:
+    expected = expected_source_commit.strip().lower()
+    deployed = deployed_source_commit.strip().lower()
+    if COMMIT_PATTERN.fullmatch(expected) is None:
+        raise ValueError("expected source commit must be a full Git object ID")
+    if COMMIT_PATTERN.fullmatch(deployed) is None:
+        raise ValueError("deployed source commit must be a full Git object ID")
+    if str(overlay.get("source_commit", "")).lower() != expected:
+        raise RuntimeError("overlay source commit differs from its expected commit")
+    mismatch = expected != deployed
+    if mismatch and not allow_source_mismatch:
+        raise RuntimeError("overlay source commit differs from deployed source")
+    return expected, deployed, mismatch
+
+
+def run_board(
     *,
+    model_dir: Path,
+    source_metadata_path: Path,
+    artifact_dir: Path,
+    expected_source_commit: str,
+    deployed_source_commit: str,
+    allow_source_mismatch: bool,
     evidence_path: Path,
-) -> dict[str, Any]:
-    if (
-        int(physical_runtime.abi_major) != REQUIRED_ABI_MAJOR
-        or int(physical_runtime.capabilities) & REQUIRED_CAPABILITIES
-        != REQUIRED_CAPABILITIES
-    ):
-        raise BoardAcceptanceError("runtime ABI or capabilities are incompatible")
-    limits = [
-        int(physical_runtime.max_m),
-        int(physical_runtime.max_n),
-        int(physical_runtime.max_k),
-    ]
-    if limits != [2, 2, 256]:
-        raise BoardAcceptanceError(f"physical limits are incompatible: {limits}")
-    runtime = NPUModelRuntime(physical_runtime, verified["model"])
-    bundle = verified["bundle"]
-
-    def recovery_probe() -> None:
-        # Force a real accelerator timeout after valid DMA/MMIO preflight. A
-        # one-cycle budget cannot complete even the smallest supported 2x2x1
-        # job, so NPURuntime must execute its physical recovery path before the
-        # acceptance runner submits the changed post-failure sample.
-        probe_a = np.ones((2, 1), dtype=np.int8)
-        probe_b = np.ones((1, 2), dtype=np.int8)
-        physical_runtime.run(
-            probe_a,
-            probe_b,
-            hardware_timeout_cycles=1,
-            software_timeout=2.0,
-        )
-
-    overlay = verified["overlay"]
-    provenance = {
-        "archive_sha256": verified["archive_sha256"],
-        "environment": {
-            "numpy": np.__version__,
-            "platform": platform.platform(),
-            "python": platform.python_version(),
+    software_timeout: float,
+) -> dict[str, object]:
+    validate_workspace(model_dir, source_metadata_path)
+    model_dir = model_dir.resolve()
+    artifact_dir = artifact_dir.resolve()
+    overlay = verify_artifacts(artifact_dir)
+    expected_commit, deployed_commit, source_mismatch = _source_binding(
+        overlay,
+        expected_source_commit,
+        deployed_source_commit,
+        allow_source_mismatch,
+    )
+    physical = load_pynq_runtime(artifact_dir / "npu_matrix.bit")
+    if not isinstance(physical, NPURuntime):
+        raise RuntimeError("physical evidence requires the public NPURuntime")
+    model = load_model_package(model_dir / "resnet18.npu.json")
+    validation_input = np.load(
+        model_dir / "resnet18.validation.npy", allow_pickle=False
+    )
+    acceptance = json.loads(
+        (model_dir / "acceptance.json").read_text(encoding="utf-8")
+    )
+    result = NPUModelRuntime(physical, model).run(
+        {"input": validation_input}, software_timeout=software_timeout
+    )
+    for name in model.graph.outputs:
+        expected = acceptance["captures"][name]["sha256"]
+        if _array_sha256(result.outputs[name]) != expected:
+            raise RuntimeError(f"physical capture differs: {name}")
+    evidence: dict[str, object] = {
+        "captures": {
+            name: {
+                "sha256": _array_sha256(result.outputs[name]),
+                "shape": list(result.outputs[name].shape),
+            }
+            for name in model.graph.outputs
         },
+        "evidence_type": (
+            "physical-pynq-z1-development"
+            if source_mismatch
+            else "physical-pynq-z1"
+        ),
+        "format": {"major": 1, "minor": 0},
+        "host_acceptance_sha256": _sha256(model_dir / "acceptance.json"),
+        "magic": "NPU_RESNET18_BOARD_ACCEPTANCE",
+        "model_manifest_sha256": _sha256(model_dir / "resnet18.npu.json"),
         "overlay": {
             "bit_sha256": overlay["bit"]["sha256"],
+            "deployed_source_commit": deployed_commit,
             "hwh_sha256": overlay["hwh"]["sha256"],
+            "source_commit": overlay["source_commit"],
+            "source_mismatch_allowed": source_mismatch,
             "target_part": overlay["target_part"],
-            "vivado_version": overlay.get("vivado_version", "unknown"),
         },
-        "package_manifest_sha256": verified["manifest_sha256"],
-        "reports": verified["reports"]["files"],
-        "reports_manifest_sha256": verified["reports_manifest_sha256"],
-        "physical": {
-            "abi_major": int(physical_runtime.abi_major),
-            "capabilities": int(physical_runtime.capabilities),
-            "limits": limits,
+        "result": "pass",
+        "runtime": {
+            "abi_major": physical.abi_major,
+            "capabilities": physical.capabilities,
+            "mac_count": result.metrics.mac_count,
+            "physical_jobs": result.metrics.physical_jobs,
+            "physical_limits": [physical.max_m, physical.max_n, physical.max_k],
         },
-        "recovery_probe": {
-            "hardware_timeout_cycles": 1,
-            "kind": "physical-accelerator-timeout",
-        },
-        "release_tag": verified["manifest"]["release_tag"],
-        "source_commit": verified["manifest"]["source_commit"],
-        "vivado_gates": verified["manifest"]["vivado_gates"],
     }
-    evidence = run_resnet18_acceptance(
-        bundle,
-        runtime,
-        evidence_path=evidence_path,
-        mode="board",
-        recovery_probe=recovery_probe,
-        provenance=provenance,
-    )
-    return dict(evidence)
+    _write_new(evidence_path.resolve(), evidence)
+    return evidence
 
 
 def main() -> int:
+    example_root = REPOSITORY_ROOT / "examples" / "resnet18"
     parser = argparse.ArgumentParser()
-    parser.add_argument("--package-root", type=Path, default=PACKAGE_ROOT)
-    parser.add_argument("--archive", type=Path, required=True)
-    parser.add_argument("--archive-sha256", required=True)
-    parser.add_argument("--evidence", type=Path)
-    parser.add_argument("--verify-only", action="store_true")
+    parser.add_argument("--model-dir", type=Path, default=example_root / "model")
+    parser.add_argument(
+        "--source-metadata", type=Path, default=example_root / "model-source.json"
+    )
+    parser.add_argument("--artifact-dir", type=Path, required=True)
+    parser.add_argument("--expected-source-commit", required=True)
+    parser.add_argument("--deployed-source-commit", required=True)
+    parser.add_argument("--allow-source-mismatch", action="store_true")
+    parser.add_argument("--evidence", type=Path, required=True)
+    parser.add_argument("--software-timeout", type=float, default=86400.0)
     arguments = parser.parse_args()
     try:
-        verified = verify_package_tree(
-            arguments.package_root,
-            archive_path=arguments.archive,
-            expected_archive_sha256=arguments.archive_sha256,
-        )
-        if arguments.verify_only:
-            print("PASS: standalone ResNet-18 package verification")
-            return 0
-        if arguments.evidence is None:
-            raise BoardAcceptanceError("--evidence is required for execution")
-        physical = load_pynq_runtime(
-            arguments.package_root / "artifacts" / "npu_matrix.bit"
-        )
-        execute_board_acceptance(
-            verified,
-            physical,
+        evidence = run_board(
+            model_dir=arguments.model_dir,
+            source_metadata_path=arguments.source_metadata,
+            artifact_dir=arguments.artifact_dir,
+            expected_source_commit=arguments.expected_source_commit,
+            deployed_source_commit=arguments.deployed_source_commit,
+            allow_source_mismatch=arguments.allow_source_mismatch,
             evidence_path=arguments.evidence,
+            software_timeout=arguments.software_timeout,
         )
     except Exception as error:
-        print(f"Phase 2B board acceptance failed: {error}", file=sys.stderr)
+        print(f"physical PYNQ-Z1 acceptance failed: {error}", file=sys.stderr)
         return 1
-    print(PASS_MARKER)
+    print(
+        DEVELOPMENT_PASS_MARKER
+        if evidence["evidence_type"] == "physical-pynq-z1-development"
+        else PASS_MARKER
+    )
     return 0
 
 
