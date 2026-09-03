@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -23,12 +24,13 @@ def bounds_for(weights, bias=None):
 
 
 class FakeRuntime:
-    def __init__(self, *, max_m=2, max_n=2, max_k=3):
+    def __init__(self, *, max_m=2, max_n=2, max_k=3, cycles=None):
         self.max_m = max_m
         self.max_n = max_n
         self.max_k = max_k
         self.calls = []
         self.bad_result = None
+        self.cycles = None if cycles is None else iter(cycles)
 
     def run(
         self,
@@ -48,6 +50,11 @@ class FakeRuntime:
         )
         if self.bad_result is not None:
             return self.bad_result
+        if self.cycles is not None:
+            value = next(self.cycles)
+            self.last_metrics = (
+                None if value is None else SimpleNamespace(cycles=value)
+            )
         return np.asarray(
             a_matrix.astype(np.int64) @ b_matrix.astype(np.int64),
             dtype=np.int32,
@@ -209,6 +216,25 @@ class FullyConnectedLoweringTests(unittest.TestCase):
         np.testing.assert_array_equal(result.output, expected)
         self.assertEqual(result.metrics.physical_jobs, 6)
         self.assertEqual(len(runtime.calls), 6)
+
+    def test_cycle_sum_requires_telemetry_from_every_physical_job(self):
+        source = np.ones((1, 3), dtype=np.int8)
+        weights = np.ones((3, 2), dtype=np.int8)
+        kwargs = dict(
+            accumulator_bounds=bounds_for(weights),
+            multipliers_q31=(INT32_MAX, INT32_MAX),
+            shifts=(0, 0),
+            output_zero_point=0,
+        )
+        complete = MatrixLowerer(
+            FakeRuntime(max_n=1, max_k=1, cycles=(1, 2, 3, 4, 5, 6))
+        ).fully_connected(source, weights, **kwargs)
+        self.assertEqual(complete.metrics.physical_cycles, 21)
+
+        incomplete = MatrixLowerer(
+            FakeRuntime(max_n=1, max_k=1, cycles=(1, None, 3, 4, 5, 6))
+        ).fully_connected(source, weights, **kwargs)
+        self.assertIsNone(incomplete.metrics.physical_cycles)
 
 
 class DeadlineTests(unittest.TestCase):

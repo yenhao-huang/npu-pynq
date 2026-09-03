@@ -1,6 +1,6 @@
 """Generic runtime boundaries for the PYNQ NPU overlay."""
 
-from .npu import NPURuntime, load_pynq_runtime
+from .npu import NPURuntime, PhysicalJobMetrics, load_pynq_runtime
 from .lowering import (
     LoweringMetrics,
     LoweringResult,
@@ -18,9 +18,11 @@ from .model import (
     NPUModelRuntime,
     load_model_package,
 )
+from .acceptance import AcceptanceRunError, run_resnet18_acceptance
 
 __all__ = [
     "NPURuntime",
+    "PhysicalJobMetrics",
     "load_pynq_runtime",
     "LoweringMetrics",
     "LoweringResult",
@@ -35,4 +37,6 @@ __all__ = [
     "ModelRuntimeError",
     "NPUModelRuntime",
     "load_model_package",
+    "AcceptanceRunError",
+    "run_resnet18_acceptance",
 ]

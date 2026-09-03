@@ -1,19 +1,19 @@
 # PYNQ Development State
 
-Run ID: issue6-phase2a-resnet-20260826
-Instance: `.codex/skills/custom/ic_design/pynq-dev`
-Started: 2026-08-26T11:56:09+08:00
-Scope: Define and implement Phase 2A ResNet-18 operator lowering, bounded tiling,
-memory planning, deterministic export, and runtime consumption for Issue #6.
-OpenSpec change: `implement-phase2a-resnet-enablement`
+Run ID: issue7-phase2b-acceptance-20260826
+Instance: .codex/skills/custom/ic_design/pynq-dev
+Started: 2026-08-26T14:15:00+08:00
+Scope: Define and implement complete ResNet-18 asset, topology, accuracy,
+performance, delivery, and PYNQ-Z1 acceptance for Issue #7.
+OpenSpec change: complete-phase2b-resnet18-acceptance
 
-Last updated: 2026-09-03T11:16:18+08:00
+Last updated: 2026-08-26T18:18:33+08:00
 
 | Step | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| 0. Define Scope | completed | Issue #6 (`https://github.com/yenhao-huang/npu_in_pynq/issues/6`) is open, assigned to `yenhao-huang`, and claimed by agent-id `a`; branch `npu/issue6-a` and dedicated worktree were created from `origin/dev` at `5bcfdf8`. | Issue #6 covers Phase 2A only; Phase 2B #7 and Phase 2C #8 remain dependent follow-up units. |
-| 1. Read Context and Rules | completed | Read `AGENTS.md`, repository filetree/environment/issue/branch rules, `pynq-dev` skill and all references, Phase 2 roadmap, Issues #6/#7, and current source/OpenSpec inventory. | Affected areas: numeric model, export/compiler, PYNQ runtime, tests, and examples/docs; RTL impact remains subject to the OpenSpec design. |
-| 2. Prepare OpenSpec Change | completed | OpenSpec CLI 1.12.0 reports 4/4 artifacts complete and strict validation passes for `implement-phase2a-resnet-enablement`. Issue #6 reads back sub-issues #33-#36; blocked-by edges are #34<-#33, #35<-#33/#34, and #36<-#34/#35. PR #41 was read back with base `dev`, head `npu/issue6-a`, and links to #6 and #33-#36. | Tracking tasks 1.1 and 1.2 are complete. |
-| 3. Implement | pending |  | Establish failing tests before product changes; implement one verified task at a time. |
-| 4. Validate | pending |  | Required gates will be selected from the development matrix after contracts are frozen. |
-| 5. Handoff | completed | Branch `npu/issue6-a` is published and PR #41 targets `dev`; implementation PRs #37-#40 are linked in its body. | PR review, CI, and merge remain external follow-up actions. |
+| 0. Define Scope | completed | GitHub connector read-back confirms Issue #7 is open, Phase 2B only, and blocked by #6; branch npu/issue7-a and a private worktree were created from origin/dev with the complete local Phase 2A stack. | Phase 2C remains Issue #8 and is blocked by #7. |
+| 1. Read Context and Rules | completed | Reused fully read repository/pynq-dev/OpenSpec rules; read Issue #7, roadmap, Phase 2A contracts, cycle-counter ABI/RTL, example boundary, and trusted delivery conventions. | Human docs remain read-only. No GitHub writes or tracked generated artifacts. The resumed run authorizes board testing through the repository delivery workflow. |
+| 2. Prepare OpenSpec Change | completed | Added proposal, design, 17 tasks, and four delta specs; OpenSpec strict validation passes. GitHub connector read works but issue creation is forbidden (403), and browser submission requires action-time user confirmation. | Remote sub-issue creation and PR read-back remain unchecked; local tracking artifacts are apply-ready. |
+| 3. Implement | completed | OpenSpec tasks 2.1-5.3 are complete locally: cycle/capture telemetry; content-addressed acceptance bundles; name-independent canonical topology; exact/repeated host acceptance with transactional evidence; and deterministic standalone PYNQ delivery with atomic promotion/rollback. Physical testing additionally exposed and fixed PYNQ 3.1.1's unbounded DMA `stop`/`start` loops, restored its private first-transfer state after raw restart, reset the shared AXI DMA core only once before restarting both channels, and made root-created evidence readable to the deployment user. Recovery/delivery commits: `39cf435`, `b5a85a6`, `e1200ca`, `47626e4`. | Synthetic fixture results remain smoke evidence, never trained-model accuracy evidence. Work remains on the private parent branch pending authorization to create formal sub-issues and publish PRs. |
+| 4. Validate | in_progress | PASS: prior GNU Make 4.4.1 and Verilator 5.050 literal gates (`make -C src/test lint`, `sim`, and `model`); current full core Python 113/113; matrix example 16/16; ResNet-18 delivery 5/5; compileall; seven RTL simulations; strict OpenSpec 9/9; and diff checks. Licensed Vivado 2026.1 clean build at `e1200ca804944ad446e47b46b16b169fa43c9312` passed: WNS `+0.345 ns`, TNS `0.000 ns`, setup failures `0`, WHS `+0.031 ns`, DRC errors `0`, routed nets complete, and BIT/HWH provenance PASS. PYNQ-Z1 `192.168.2.99:22` ran the provenance-bound reduced ResNet-18 smoke archive SHA-256 `e5d9b4e0ac42aa8f5baf466e2bfc2a9d911b2b1cc556e14fea3921f2d18186bb`; board evidence records exact/top1 `1.0`, repeatability PASS, injected physical timeout recovery PASS, `208` physical jobs, and `15,926,403` physical cycles on ARMv7/Python 3.10.4/PYNQ 3.1.1/NumPy 1.21.5. Evidence is retained outside Git at `build/board/resnet18-fixture-e1200ca-evidence.json`. | The `.env` credential path now permits protected root execution without exposing the password. The only acceptance blocker is the absence of an approved trained ResNet-18 package and corpus descriptor; the reduced fixture remains physical integration smoke, so formal accuracy task 6.2 stays open. The current Windows shell also cannot launch GNU Make/WSL, so the latest literal RTL gates rely on the prior recorded pass plus unchanged RTL and the new clean Vivado build. Generated local/board outputs remain outside Git. |
+| 5. Handoff | in_progress | Local Phase 2B implementation is committed on private branch `npu/issue7-a`; OpenSpec tasks 1.1, 1.2, 6.2, and 6.3 remain unchecked. | Remote sub-issue creation, push/PR operations, dependency merges, and Issue #7 closure require user authorization. Phase 2C must not consume a synthetic or unmerged Phase 2B result as accepted hardware evidence. |

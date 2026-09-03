@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -89,15 +90,18 @@ class FakeRuntime:
     max_n = 1
     max_k = 1
 
-    def __init__(self):
+    def __init__(self, *, cycles=None):
         self.calls = []
         self.fail_at = None
+        self.cycles = cycles
 
     def run(self, a, b, **timeouts):
         call = len(self.calls) + 1
         self.calls.append((a.copy(), b.copy(), dict(timeouts)))
         if self.fail_at == call:
             raise TimeoutError("injected physical failure")
+        if self.cycles is not None:
+            self.last_metrics = SimpleNamespace(cycles=self.cycles)
         return np.asarray(a, dtype=np.int32) @ np.asarray(b, dtype=np.int32)
 
 
@@ -179,6 +183,40 @@ class ModelRuntimeTests(unittest.TestCase):
         np.testing.assert_array_equal(first, golden(first_input))
         np.testing.assert_array_equal(second, golden(second_input))
         self.assertFalse(np.shares_memory(first, second))
+
+    def test_bounded_capture_is_owned_and_rejects_invalid_names_preflight(self):
+        physical, runtime = self.runtime(FakeRuntime(cycles=7))
+        source = np.ones((1, 2, 2, 1), dtype=np.int8)
+        result = runtime.run(
+            {"input": source}, capture_tensors=("stem_relu", "added")
+        )
+        self.assertEqual(tuple(result.captures), ("stem_relu", "added"))
+        self.assertEqual(
+            result.metrics.physical_cycles,
+            result.metrics.physical_jobs * 7,
+        )
+        added = result.captures["added"]
+        self.assertTrue(added.flags.c_contiguous)
+        self.assertTrue(added.flags.owndata)
+        runtime.run({"input": np.full_like(source, -4)})
+        np.testing.assert_array_equal(added, result.captures["added"])
+        with self.assertRaises(TypeError):
+            result.captures["other"] = added
+
+        calls = len(physical.calls)
+        for requested in (("missing",), ("input",), ("added", "added")):
+            with self.subTest(requested=requested):
+                with self.assertRaises(ValueError):
+                    runtime.run({"input": source}, capture_tensors=requested)
+        self.assertEqual(len(physical.calls), calls)
+
+    def test_no_capture_and_missing_physical_telemetry_are_explicit(self):
+        _, runtime = self.runtime()
+        result = runtime.run(
+            {"input": np.ones((1, 2, 2, 1), dtype=np.int8)}
+        )
+        self.assertEqual(dict(result.captures), {})
+        self.assertIsNone(result.metrics.physical_cycles)
 
     def test_mid_model_failure_is_contextual_and_next_run_recovers(self):
         physical, runtime = self.runtime()

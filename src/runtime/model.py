@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import math
 from pathlib import Path
@@ -80,6 +80,9 @@ class ModelMetrics:
 class ModelResult:
     outputs: Mapping[str, np.ndarray]
     metrics: ModelMetrics
+    captures: Mapping[str, np.ndarray] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
 
 
 _COMMAND_FIELDS = {
@@ -342,6 +345,18 @@ class NPUModelRuntime:
         self._arena = np.empty(model.memory_plan.arena_bytes, dtype=np.uint8)
         self._tensor_specs = {tensor.name: tensor for tensor in model.graph.tensors}
 
+    @property
+    def input_names(self) -> tuple[str, ...]:
+        """Declared model inputs in package order."""
+
+        return self._model.graph.inputs
+
+    @property
+    def output_names(self) -> tuple[str, ...]:
+        """Declared model outputs in package order."""
+
+        return self._model.graph.outputs
+
     def _views(self) -> dict[str, np.ndarray]:
         return {
             tensor.name: self._arena[
@@ -357,6 +372,7 @@ class NPUModelRuntime:
         *,
         hardware_timeout_cycles: int = 1_000_000,
         software_timeout: float = 5.0,
+        capture_tensors: tuple[str, ...] | None = None,
     ) -> ModelResult:
         if not isinstance(inputs, Mapping):
             raise TypeError("inputs must be a mapping")
@@ -376,6 +392,24 @@ class NPUModelRuntime:
                     f"input {name!r} must be signed INT8 with shape {spec.shape}"
                 )
             validated_inputs[name] = value
+        if capture_tensors is None:
+            capture_names = ()
+        elif not isinstance(capture_tensors, tuple):
+            raise TypeError("capture_tensors must be a tuple of tensor names")
+        else:
+            capture_names = capture_tensors
+        if any(not isinstance(name, str) for name in capture_names):
+            raise TypeError("capture tensor names must be strings")
+        if len(capture_names) != len(set(capture_names)):
+            raise ValueError("capture tensor names must be unique")
+        produced_names = {
+            command.output_id for command in self._model.graph.commands
+        }
+        for name in capture_names:
+            if name not in produced_names:
+                raise ValueError(
+                    f"capture tensor {name!r} is not a produced activation"
+                )
         if isinstance(software_timeout, bool) or not isinstance(software_timeout, (int, float)):
             raise TypeError("software timeout must be numeric")
         software_timeout = float(software_timeout)
@@ -392,6 +426,9 @@ class NPUModelRuntime:
         counts = Counter()
         physical_jobs = 0
         mac_count = 0
+        physical_cycles = 0
+        cycles_available = True
+        captured = {}
         graph = self._model.graph
         tensor_specs = self._tensor_specs
         constants = self._model.constants
@@ -425,6 +462,10 @@ class NPUModelRuntime:
                     output = result.output
                     physical_jobs += result.metrics.physical_jobs
                     mac_count += result.metrics.mac_count
+                    if result.metrics.physical_cycles is None:
+                        cycles_available = False
+                    else:
+                        physical_cycles += result.metrics.physical_cycles
                 elif isinstance(command, FullyConnected):
                     result = self._lowerer.fully_connected(
                         views[command.input_id], constants[command.weight_id],
@@ -443,6 +484,10 @@ class NPUModelRuntime:
                     output = result.output
                     physical_jobs += result.metrics.physical_jobs
                     mac_count += result.metrics.mac_count
+                    if result.metrics.physical_cycles is None:
+                        cycles_available = False
+                    else:
+                        physical_cycles += result.metrics.physical_cycles
                 elif isinstance(command, ResidualAdd):
                     output = residual_add_int8(
                         views[command.lhs_id], views[command.rhs_id],
@@ -469,6 +514,13 @@ class NPUModelRuntime:
                 if output.dtype != np.int8 or output.shape != views[command.output_id].shape:
                     raise RuntimeError("command produced an incompatible tensor")
                 np.copyto(views[command.output_id], output)
+                if command.output_id in capture_names:
+                    captured[command.output_id] = np.array(
+                        views[command.output_id],
+                        dtype=np.int8,
+                        order="C",
+                        copy=True,
+                    )
                 counts[_COMMAND_NAMES[type(command)]] += 1
             except BaseException as error:
                 if isinstance(error, (KeyboardInterrupt, SystemExit)):
@@ -487,7 +539,16 @@ class NPUModelRuntime:
             physical_jobs=physical_jobs,
             mac_count=mac_count,
             operation_count=2 * mac_count,
-            physical_cycles=None,
+            physical_cycles=(
+                physical_cycles if cycles_available else None
+            ),
             elapsed_seconds=finish - start,
         )
-        return ModelResult(outputs=outputs, metrics=metrics)
+        captures = MappingProxyType(
+            {name: captured[name] for name in capture_names}
+        )
+        return ModelResult(
+            outputs=outputs,
+            metrics=metrics,
+            captures=captures,
+        )
