@@ -1,19 +1,20 @@
 # PYNQ Development State
 
-Run ID: issue21-cd-lint-followup-20260823
-Instance: `.codex/skills/custom/ic_design/pynq-dev`
-Started: 2026-08-23T12:30:00+08:00
-Scope: Resolve the existing Verilator lint failures blocking Issue #21 PR #22
-without changing numeric, register-map, AXI, reset, or board-visible behavior.
-OpenSpec change: `implement-release-triggered-cd`
+Run ID: issue33-quantized-operators-20260826
+Instance: .codex/skills/custom/ic_design/pynq-dev
+Started: 2026-08-26T12:11:25+08:00
+Scope: Implement production-visible Phase 0 numeric primitives, immutable
+quantized ResNet graph contracts, validation, and integer-only golden operators
+for Issue #33 and OpenSpec tasks 2.1-2.3.
+OpenSpec change: implement-phase2a-resnet-enablement
 
-Last updated: 2026-08-23T13:15:00+08:00
+Last updated: 2026-08-26T12:31:00+08:00
 
 | Step | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| 0. Define Scope | completed | Issue #21, branch `npu/issue21-a`, worktree, OpenSpec change, and PR #22 are reused. PR runs `32617736644` and `32617836376` and `dev` run `32617753539` fail with identical 16-warning Verilator output. | CI follow-up only; do not create a second issue branch or change hardware contracts. |
-| 1. Read Context and Rules | completed | AGENTS.md, repository rules, pynq-dev context, development matrix, validation gates, issue workflow, OpenSpec context, RTL, and testbenches read. | Affected areas: RTL/interface and tests. Required gates: lint, all simulations, Python regressions, strict OpenSpec, and current-head GitHub CI. |
-| 2. Prepare OpenSpec Change | completed | Existing `implement-release-triggered-cd` proposal, design, and tasks updated with behavior-preserving lint follow-up and objective failing-run evidence. | Explicit widths and complete combinational defaults are fixes; annotations are permitted only for intentional AXI protection/reset observations. |
-| 3. Implement | completed | `npu_matrix_controller.sv` uses explicit zero-extension and a complete reduction-index default; AXI protection and mixed reset observations have narrowly scoped named Verilator annotations. The random testbench checks both official Makefile and repo-root fixture paths. | No global warning suppression, reset implementation, interface, register-map, or numeric change. |
-| 4. Validate | completed | All seven direct `iverilog -g2012 -Wall` simulations PASS; 58 core Python and 14 example/CD tests PASS; strict OpenSpec and diff check PASS. Current-head GitHub run `32619812743` completes `make -C src/test lint sim`; PR #22 is `CLEAN` and `MERGEABLE`. | Vivado and physical-board gates remain release-time CD gates and are not claimed locally. |
-| 5. Handoff | in_progress | PR #22 is ready for the user-authorized squash merge into `dev`. | Record the final merge SHA and GitHub read-back before completion. |
+| 0. Define Scope | completed | Issue #33 is open, assigned to yenhao-huang, and claimed by agent-id a; branch npu/issue33-a and dedicated worktree were created from origin/dev at 5bcfdf8. | Parent Issue #6; implementation is limited to OpenSpec tasks 2.1-2.3. |
+| 1. Read Context and Rules | completed | Read AGENTS.md, repository rules, pynq-dev skill and references, OpenSpec proposal/specs/design/tasks and apply instructions, current numeric model, tests, Makefile, and package exports. | Affected areas: numeric model and export/compiler graph contract; no RTL, Tcl, overlay, MMIO, or board-visible change. |
+| 2. Prepare OpenSpec Change | completed | Tracking OpenSpec commit eee8241 is temporarily carried on the private branch; CLI reports schema spec-driven and 1/20 tasks complete. | Rebase onto dev after the tracking PR merges so the duplicated planning commit is dropped before publication. |
+| 3. Implement | completed | Failing baseline: three new modules errored with ModuleNotFoundError. Task 2.1 numeric promotion passes 15/15 focused/existing tests; task 2.2 immutable graph validation passes 7/7 including wrong-reference-kind errors; task 2.3 integer-only operators passes 6/6 and the combined Phase 2A focused suite passes 16/16. | OpenSpec tasks 2.1-2.3 are checked complete. |
+| 4. Validate | completed | PASS: Phase 2A focused suite 16/16; full core Python suite 74/74; matrix example suite 16/16; seven direct Icarus simulations PASS; python compileall PASS; OpenSpec strict validation PASS; git diff --check and secret scan clean. BLOCKED: make -C src/test lint because make and Verilator are absent from PATH. | No RTL, Tcl, overlay, MMIO, or board-visible behavior changed. Direct simulations use the same seven discovered RTL testbenches and repository RTL set as the Makefile. |
+| 5. Handoff | in_progress | Local feature commit is being prepared on private branch npu/issue33-a. | Tracking and #33 pushes/PRs require explicit user authorization; before publication, rebase #33 onto dev after the tracking OpenSpec PR merges. |
