@@ -29,4 +29,4 @@
 - [x] 5.1 Run focused downloader/converter/example tests and the full Python suite; record exact counts and commands in `STATE.md`.
 - [x] 5.2 Run strict OpenSpec validation, `git diff --check`, secret/generated-artifact inspection, RTL lint, and RTL simulation; record passed, not-applicable, or blocked gates without substitution.
 - [x] 5.3 Attempt the documented PYNQ-Z1 real-model path with matching trusted overlay artifacts; record physical PASS evidence or the exact external blocker without relabeling host results.
-- [ ] 5.4 Commit logical changes with `Refs #47`, push `npu/issue47-a`, open one PR to `dev`, and verify current-head CI without merging.
+- [x] 5.4 Commit logical changes with `Refs #47`, push `npu/issue47-a`, open one PR to `dev`, and verify current-head CI without merging.
