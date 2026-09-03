@@ -44,9 +44,9 @@ npu_repo_in_pynq/
 |   `-- runtime/
 |       `-- *.py
 |-- examples/
-|   `-- matrix-multiplication/
+|   `-- <example>/
 |       |-- README.md
-|       |-- matrix_multiplication.ipynb
+|       |-- *.ipynb
 |       |-- package_example.py
 |       |-- run_on_board.py
 |       |-- deploy_release.ps1
@@ -98,6 +98,10 @@ An example owns its application-specific runtime, notebooks, package builder,
 board acceptance entry point, deployment wrapper, and focused host tests. The
 package builder may copy an explicit allowlist of shared `src/runtime/` modules
 into generated deploy output, but those copies are never committed.
+Every user-facing demo under `examples/` must include at least one tracked
+`.ipynb` notebook. Notebook code cells must be committed without outputs or
+execution counts, use public runtime interfaces, and be included in the
+example's deterministic package and focused tests.
 
 `.codex/skills/` contains repository-local Codex skills and is the only allowed
 top-level location for them. Classify reusable development workflows under

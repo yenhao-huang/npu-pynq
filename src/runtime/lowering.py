@@ -44,6 +44,7 @@ class LoweringMetrics:
     physical_jobs: int
     mac_count: int
     elapsed_seconds: float
+    physical_cycles: int | None = None
 
 
 @dataclass(frozen=True)
@@ -281,7 +282,7 @@ class MatrixLowerer:
                     )
             return tile
 
-        matrix, jobs, elapsed = self._run_matrix(
+        matrix, jobs, cycles, elapsed = self._run_matrix(
             make_a,
             weight_matrix,
             normalized_bias,
@@ -305,6 +306,7 @@ class MatrixLowerer:
             LoweringMetrics(
                 physical_jobs=jobs,
                 mac_count=logical_m * logical_n * logical_k,
+                physical_cycles=cycles,
                 elapsed_seconds=elapsed,
             ),
         )
@@ -357,7 +359,7 @@ class MatrixLowerer:
                 dtype=np.int8,
             )
 
-        matrix, jobs, elapsed = self._run_matrix(
+        matrix, jobs, cycles, elapsed = self._run_matrix(
             make_a,
             weight_matrix,
             normalized_bias,
@@ -375,6 +377,7 @@ class MatrixLowerer:
             LoweringMetrics(
                 physical_jobs=jobs,
                 mac_count=logical_n * logical_k,
+                physical_cycles=cycles,
                 elapsed_seconds=elapsed,
             ),
         )
@@ -442,6 +445,8 @@ class MatrixLowerer:
         deadline = start + timeout
         output = np.empty((logical_m, logical_n), dtype=np.int8, order="C")
         jobs = 0
+        cycle_total = 0
+        cycles_available = True
         for row_start in range(0, logical_m, self.max_m):
             row_stop = min(row_start + self.max_m, logical_m)
             for column_start in range(0, logical_n, self.max_n):
@@ -485,6 +490,20 @@ class MatrixLowerer:
                             (k_start, k_stop),
                             error,
                         ) from error
+                    physical_metrics = getattr(
+                        self.runtime, "last_metrics", None
+                    )
+                    physical_cycles = getattr(
+                        physical_metrics, "cycles", None
+                    )
+                    if (
+                        isinstance(physical_cycles, bool)
+                        or not isinstance(physical_cycles, (int, np.integer))
+                        or int(physical_cycles) < 0
+                    ):
+                        cycles_available = False
+                    else:
+                        cycle_total += int(physical_cycles)
                     partial = np.asarray(physical_result)
                     expected_shape = (
                         row_stop - row_start,
@@ -528,4 +547,9 @@ class MatrixLowerer:
             raise RuntimeError("monotonic clock is invalid")
         if finish > deadline:
             raise TimeoutError("bounded matrix lowering timed out")
-        return output, jobs, finish - start
+        return (
+            output,
+            jobs,
+            cycle_total if cycles_available else None,
+            finish - start,
+        )
