@@ -33,5 +33,5 @@
 ## 6. Phase 2A integration and handoff
 
 - [x] 6.1 Export and execute a deterministic synthetic ResNet-18-shaped operator sequence through a fake physical runtime; verify every supported layer matches the quantized reference and invalid variants fail explicitly.
-- [ ] 6.2 Run focused and full Python regressions, make -C src/test lint, make -C src/test sim, strict OpenSpec validation, path/diff/secret/generated-artifact checks, and record exact outcomes in STATE.md.
+- [x] 6.2 Run focused and full Python regressions, make -C src/test lint, make -C src/test sim, strict OpenSpec validation, path/diff/secret/generated-artifact checks, and record exact outcomes in STATE.md.
 - [ ] 6.3 Verify all implementation sub-issue PRs are merged into dev, update Issue #6 with reproducible evidence and the Phase 2B handoff contract, and leave physical-board accuracy/performance gates explicitly assigned to Issue #7.
