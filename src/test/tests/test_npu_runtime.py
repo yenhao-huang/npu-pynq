@@ -121,6 +121,8 @@ class NPURuntimeTests(unittest.TestCase):
     def test_metadata_and_abi_are_discovered(self):
         runtime = self.make_runtime()
         self.assertEqual((runtime.max_m, runtime.max_n, runtime.max_k), (2, 2, 256))
+        self.assertEqual(runtime.abi_major, self.runtime_module.VERSION_MAJOR)
+        self.assertEqual(runtime.capabilities, self.runtime_module.REQUIRED_CAPABILITIES)
 
     def test_phase_zero_abi_constants_remain_in_parity(self):
         from src.test.model import abi

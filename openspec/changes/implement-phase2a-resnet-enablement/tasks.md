@@ -18,20 +18,20 @@
 
 ## 4. Bounded matrix lowering
 
-- [ ] 4.1 Implement on-demand NHWC/HWIO convolution patch lowering with M/N edge tiles and input-zero-point padding; verify fake-runtime calls stay within discovered physical limits and match the golden convolution.
-- [ ] 4.2 Implement certified ordered K slicing with INT64 partial assembly, one-time bias, and Phase 0 requantization; verify multi-slice and edge K cases match the unsliced reference and missing/invalid proofs fail before runtime calls.
-- [ ] 4.3 Implement fully connected lowering through the same bounded path; verify M=1, N edges, and K slices match the golden fully connected operator.
-- [ ] 4.4 Enforce one finite monotonic deadline across all tiles and slices; verify expiration between submissions prevents the next physical call.
+- [x] 4.1 Implement on-demand NHWC/HWIO convolution patch lowering with M/N edge tiles and input-zero-point padding; verify 30 bounded dense fake-runtime calls match the golden convolution.
+- [x] 4.2 Implement certified ordered K slicing with INT64 partial assembly, one-time bias, and Phase 0 requantization; verify multi-slice and edge K cases match the unsliced reference and missing/invalid proofs fail before runtime calls.
+- [x] 4.3 Implement fully connected lowering through the same bounded path; verify M=1, N edges, and K slices produce six bounded calls and match the golden fully connected operator.
+- [x] 4.4 Enforce one finite monotonic deadline across all tiles and slices; verify expiration between submissions prevents the next physical call and final completion after the deadline is rejected (6 combined lowering tests PASS).
 
 ## 5. Package loader and model runtime
 
-- [ ] 5.1 Implement full manifest/payload preflight including version, digest, lengths, ranges, references, memory, ABI, capabilities, proofs, and physical limits; verify corrupt or unsupported packages fail before allocation or physical calls.
-- [ ] 5.2 Implement deterministic host activation, pooling, residual, and reshape command execution over planned tensor views; verify an integrated residual block equals command-by-command golden output.
-- [ ] 5.3 Implement convolution/fully-connected dispatch exclusively through the public Phase 1 runtime with contextual error propagation; verify fake-runtime call traces and mid-model failure recovery behavior.
-- [ ] 5.4 Implement owned output and immutable execution metrics; verify repeated changed inputs have no stale data and accounting matches observed commands and physical calls.
+- [x] 5.1 Implement full manifest/payload preflight including version, digest, lengths, ranges, references, memory, ABI, capabilities, proofs, and physical limits; verify corrupt or unsupported packages fail before allocation or physical calls.
+- [x] 5.2 Implement deterministic host activation, pooling, residual, and reshape command execution over planned tensor views; verify an integrated residual block equals command-by-command golden output.
+- [x] 5.3 Implement convolution/fully-connected dispatch exclusively through the public Phase 1 runtime with contextual error propagation; verify fake-runtime call traces and mid-model failure recovery behavior.
+- [x] 5.4 Implement owned output and immutable execution metrics; verify repeated changed inputs have no stale data and accounting matches observed commands and physical calls.
 
 ## 6. Phase 2A integration and handoff
 
-- [ ] 6.1 Export and execute a deterministic synthetic ResNet-18-shaped operator sequence through a fake physical runtime; verify every supported layer matches the quantized reference and invalid variants fail explicitly.
-- [ ] 6.2 Run focused and full Python regressions, make -C src/test lint, make -C src/test sim, strict OpenSpec validation, path/diff/secret/generated-artifact checks, and record exact outcomes in STATE.md.
+- [x] 6.1 Export and execute a deterministic synthetic ResNet-18-shaped operator sequence through a fake physical runtime; verify every supported layer matches the quantized reference and invalid variants fail explicitly.
+- [x] 6.2 Run focused and full Python regressions, make -C src/test lint, make -C src/test sim, strict OpenSpec validation, path/diff/secret/generated-artifact checks, and record exact outcomes in STATE.md.
 - [ ] 6.3 Verify all implementation sub-issue PRs are merged into dev, update Issue #6 with reproducible evidence and the Phase 2B handoff contract, and leave physical-board accuracy/performance gates explicitly assigned to Issue #7.
