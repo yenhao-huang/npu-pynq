@@ -248,7 +248,12 @@ def main() -> int:
         type=Path,
         default=REPOSITORY_ROOT / "mount" / "resnet18" / "resnet18-model.zip",
     )
+    parser.add_argument("--check-only", action="store_true")
     arguments = parser.parse_args()
+    if arguments.check_only:
+        validate_workspace(arguments.model_dir, arguments.source_metadata)
+        print("PASS [real-model-host]: model workspace is package-ready")
+        return 0
     build_archive(
         model_dir=arguments.model_dir,
         source_metadata_path=arguments.source_metadata,

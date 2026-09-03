@@ -8,12 +8,21 @@ production model runtime, and creates a deterministic model archive.
 The calibration image is synthetic and unlabeled. A host PASS proves importer
 and runtime agreement; it is not ImageNet accuracy or physical-board evidence.
 
-## 1. Prepare the conversion environment
+Steps 1 through 6 run on the **Windows development host**. Step 7A also starts
+on Windows, but deploys the files over SSH. Step 7B is the only computation
+that must run inside the **PYNQ-Z1 Linux environment**, where the `pynq`
+package, Overlay, MMIO, and DMA are available.
+
+```
+python -m venv build/resnet18-venv
+.\build\resnet18-venv\Scripts\activate
+```
+
+## 1. [Windows host] Prepare the conversion environment
 
 From the repository root in PowerShell:
 
 ```powershell
-python -m venv build/resnet18-venv
 & build/resnet18-venv/Scripts/python.exe -m pip install `
   --extra-index-url https://download.pytorch.org/whl/cpu `
   -r examples/resnet18/requirements-convert.txt
@@ -22,7 +31,7 @@ python -m venv build/resnet18-venv
 Stop if dependency installation fails. PyTorch is used only on the conversion
 host; the exported runtime remains NumPy-only.
 
-## 2. Download the pinned checkpoint
+## 2. [Windows host] Download the pinned checkpoint
 
 ```powershell
 & build/resnet18-venv/Scripts/python.exe `
@@ -34,7 +43,7 @@ The script rejects redirects to another host, incorrect length or SHA-256, and
 an existing destination. Generated files stay under
 `examples/resnet18/model/` and are ignored by Git.
 
-## 3. Convert the model
+## 3. [Windows host] Convert the model
 
 ```powershell
 & build/resnet18-venv/Scripts/python.exe `
@@ -45,7 +54,7 @@ Expected markers report `resnet18.npu.json` and
 `resnet18.conversion.json`. Stop on any source-schema, non-finite value,
 quantization, accumulator certificate, or exporter error.
 
-## 4. Validate the real model on the host
+## 4. [Windows host] Validate the real model
 
 ```powershell
 & examples/resnet18/scripts/verify.ps1 `
@@ -58,7 +67,7 @@ package and runs all 1,814,073,344 MACs through `NPUModelRuntime`. Its
 vectorized integer reference exactly. It writes `model/acceptance.json` only
 after every comparison passes.
 
-## 5. Build or select trusted Vivado artifacts
+## 5. [Windows/Vivado host] Build or select trusted Vivado artifacts
 
 This step requires a licensed Vivado host and cannot be replaced by CI fixture
 artifacts:
@@ -73,7 +82,7 @@ python -m src.runtime.verify_overlay `
 Stop unless the verification marker says the BIT/HWH provenance and metadata
 passed and the artifact manifest identifies the intended source commit.
 
-## 6. Build the model archive
+## 6. [Windows host] Build the model archive
 
 ```powershell
 python examples/resnet18/package_example.py `
@@ -85,24 +94,47 @@ redistributed. Missing, stale, substituted, incomplete, or unvalidated model
 workspaces publish no archive. Issue #7 combines this validated model boundary
 with the matching trusted overlay for standalone board delivery.
 
-## 7. Physical PYNQ-Z1 acceptance
+## 7A. [Windows host] Deploy to the PYNQ-Z1
 
-Copy this checkout's required Python sources, the ignored model workspace, and
-the verified artifact directory to the protected board environment, then run:
+`run_on_board.py` must not be launched from the Windows virtual environment.
+Use the deployment wrapper to copy the required Python sources, ignored model
+workspace, and verified Vivado artifacts to the board. The default
+`pynq_board` host is an SSH configuration name; override it when necessary:
 
 ```powershell
-python examples/resnet18/run_on_board.py `
-  --artifact-dir build/vivado/npu_matrix/artifacts `
-  --evidence build/board/resnet18-acceptance.json
+& examples/resnet18/deploy_release.ps1 `
+  -BoardHost pynq_board `
+  -DeploymentId (Get-Date -Format yyyyMMdd-HHmmss) `
+  -EvidencePath build/board/resnet18-acceptance.json
+```
+
+This command performs the SSH/SCP deployment and then invokes the board-side
+command using the PYNQ Python environment. Use `-DryRun` first to validate all
+local model and artifact inputs without contacting the board.
+
+## 7B. [PYNQ-Z1 board only] Execute physical acceptance
+
+The deployment wrapper executes the following command through SSH. Run it
+manually only from a terminal on the PYNQ-Z1, never from Windows:
+
+```bash
+source /etc/profile.d/xrt_setup.sh
+source /etc/profile.d/pynq_venv.sh
+cd /home/xilinx/jupyter_notebooks/npu_resnet18/releases/<deployment-id>
+sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 \
+  examples/resnet18/run_on_board.py \
+  --artifact-dir build/vivado/npu_matrix/artifacts \
+  --expected-source-commit <40-character-deployed-commit> \
+  --evidence board-evidence.json
 ```
 
 Only this command, using an actual `NPURuntime`, can print
 `PASS [physical-pynq-z1]`. Host backends cannot emit that marker.
 
 Physical execution has not been claimed by Issue #47 in this workspace: no
-matching trusted BIT/HWH or reachable PYNQ-Z1 was available. Issue #7 owns the
-trusted standalone delivery and formal model/board acceptance after this
-import pipeline lands.
+board address or board credentials were configured, so no SSH deployment was
+performed. Issue #7 owns formal model/board acceptance after this import
+pipeline lands.
 
 ## Re-running generated steps
 

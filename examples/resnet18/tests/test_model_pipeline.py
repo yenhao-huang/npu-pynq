@@ -183,6 +183,14 @@ class ModelDownloadTests(unittest.TestCase):
         self.assertNotIn("PASS [physical-pynq-z1]", verifier)
         self.assertIn("PASS [physical-pynq-z1]", board_runner)
         self.assertIn("isinstance(physical, NPURuntime)", board_runner)
+        self.assertIn("--expected-source-commit", board_runner)
+        deployment = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("source /etc/profile.d/pynq_venv.sh", deployment)
+        self.assertIn("source /etc/profile.d/xrt_setup.sh", deployment)
+        self.assertIn("Invoke-CheckedCommand -Command 'scp'", deployment)
+        self.assertIn("overlay from this commit", deployment)
 
 
 class ModelPackageTests(unittest.TestCase):

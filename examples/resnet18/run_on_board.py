@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 
@@ -23,6 +24,7 @@ from src.runtime.verify_overlay import verify_artifacts
 
 
 PASS_MARKER = "PASS [physical-pynq-z1]: real ResNet-18 board acceptance"
+COMMIT_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
 
 
 def _sha256(path: Path) -> str:
@@ -70,6 +72,7 @@ def run_board(
     model_dir: Path,
     source_metadata_path: Path,
     artifact_dir: Path,
+    expected_source_commit: str,
     evidence_path: Path,
     software_timeout: float,
 ) -> dict[str, object]:
@@ -77,6 +80,11 @@ def run_board(
     model_dir = model_dir.resolve()
     artifact_dir = artifact_dir.resolve()
     overlay = verify_artifacts(artifact_dir)
+    expected_commit = expected_source_commit.strip().lower()
+    if COMMIT_PATTERN.fullmatch(expected_commit) is None:
+        raise ValueError("expected source commit must be a full Git object ID")
+    if str(overlay.get("source_commit", "")).lower() != expected_commit:
+        raise RuntimeError("overlay source commit differs from deployed source")
     physical = load_pynq_runtime(artifact_dir / "npu_matrix.bit")
     if not isinstance(physical, NPURuntime):
         raise RuntimeError("physical evidence requires the public NPURuntime")
@@ -134,6 +142,7 @@ def main() -> int:
         "--source-metadata", type=Path, default=example_root / "model-source.json"
     )
     parser.add_argument("--artifact-dir", type=Path, required=True)
+    parser.add_argument("--expected-source-commit", required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--software-timeout", type=float, default=86400.0)
     arguments = parser.parse_args()
@@ -142,6 +151,7 @@ def main() -> int:
             model_dir=arguments.model_dir,
             source_metadata_path=arguments.source_metadata,
             artifact_dir=arguments.artifact_dir,
+            expected_source_commit=arguments.expected_source_commit,
             evidence_path=arguments.evidence,
             software_timeout=arguments.software_timeout,
         )
