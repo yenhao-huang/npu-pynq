@@ -116,18 +116,22 @@ checkout.
 
 ## 8. Open the notebook and perform human validation
 
-In the PYNQ Jupyter interface, open the release directory printed by the
+In the PYNQ Jupyter interface (e.g., http://192.168.2.99:9090/notebooks/), open the release directory printed by the
 deployment wrapper, then open:
 
 ```text
 examples/resnet18/resnet18.ipynb
 ```
 
-Select the board's PYNQ Python kernel and run the cells in order. The notebook
-shows the deployed and artifact commits before starting, invokes the physical
-runtime, writes a new `notebook-evidence-<UTC timestamp>.json`, and leaves the
-evidence visible for human review. The final cell must report a positive
-`physical_jobs` count and one of these markers:
+Select the board's PYNQ Python kernel and run one cell at a time. The notebook
+does not hide acceptance behind `run_on_board.py`. It separately exposes the
+deployment provenance, model file digests, BIT/HWH verification, reconstructed
+model graph, physical `NPURuntime` identity, execution metrics, and every
+expected/actual output hash.
+
+After reviewing those results, change `human_approves = False` to `True` in
+the final cell and execute that cell. Only this explicit approval writes a new
+`notebook-evidence-<UTC timestamp>.json` and prints one of these markers:
 
 ```text
 PASS [physical-pynq-z1]: human-reviewed notebook demo
@@ -153,10 +157,11 @@ sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 \
   --evidence board-evidence.json
 ```
 
-Both notebook and CLI routes use `run_on_board.py` and require an actual
-`NPURuntime`; host backends cannot emit a physical PASS marker. Automated
-deployment and evidence collection belong to the CD script under
-`.github/cd/`, not to this human demo workflow.
+The notebook calls the public verification and runtime APIs directly so each
+boundary remains visible; the CLI composes the same checks for terminal and CD
+use. Both routes require an actual `NPURuntime`, and host backends cannot emit
+a physical PASS marker. Automated deployment and evidence collection belong
+to the CD script under `.github/cd/`, not to this human demo workflow.
 
 ## Re-running generated steps
 

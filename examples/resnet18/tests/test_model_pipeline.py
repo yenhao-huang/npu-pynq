@@ -179,8 +179,17 @@ class ModelDownloadTests(unittest.TestCase):
         )
         self.assertIn("canonical human demo", notebook_source)
         self.assertIn("deployment.json", notebook_source)
-        self.assertIn("run_on_board.py", notebook_source)
+        self.assertIn("validate_workspace", notebook_source)
+        self.assertIn("verify_artifacts", notebook_source)
+        self.assertIn("load_model_package", notebook_source)
+        self.assertIn("load_pynq_runtime", notebook_source)
+        self.assertIn("NPUModelRuntime", notebook_source)
         self.assertIn("physical_jobs", notebook_source)
+        self.assertIn("expected_sha256", notebook_source)
+        self.assertIn("actual_sha256", notebook_source)
+        self.assertIn("human_approves = False", notebook_source)
+        self.assertNotIn("subprocess", notebook_source)
+        self.assertNotIn("run_on_board.py", notebook_source)
         self.assertNotIn("download_model.py", notebook_source)
 
     def test_only_physical_runner_owns_physical_pass_marker(self):
