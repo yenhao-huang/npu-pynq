@@ -36,6 +36,13 @@ STATUS_BUSY = 1
 STATUS_DONE = 2
 STATUS_ERROR = 4
 
+DMA_CONTROL_RUN = 0x0001
+DMA_CONTROL_RESET = 0x0004
+DMA_CONTROL_INTERRUPT_ENABLE = 0x1000
+DMA_STATUS_HALTED = 0x0001
+DMA_STATUS_OFFSET = 0x0004
+DMA_RECOVERY_TIMEOUT_SECONDS = 0.1
+
 ERROR_NAMES = {
     0: "NONE",
     1: "INVALID_DIMENSION",
@@ -90,6 +97,11 @@ class MatrixJob:
     c_buffer: Any
 
 
+@dataclass(frozen=True)
+class PhysicalJobMetrics:
+    cycles: int
+
+
 class NPURuntime:
     """Submit one physical MxK by KxN signed INT8 matrix job."""
 
@@ -131,6 +143,7 @@ class NPURuntime:
         except AttributeError as error:
             raise MetadataError("overlay IP objects or DMA channels are missing") from error
         self._negotiate_abi()
+        self.last_metrics: PhysicalJobMetrics | None = None
 
     @staticmethod
     def _positive_parameter(parameters: dict[str, Any], name: str) -> int:
@@ -157,6 +170,8 @@ class NPURuntime:
             raise ABIError(f"unsupported ABI major {major}")
         if capabilities & REQUIRED_CAPABILITIES != REQUIRED_CAPABILITIES:
             raise ABIError(f"missing capabilities 0x{REQUIRED_CAPABILITIES & ~capabilities:08x}")
+        self.abi_major = major
+        self.capabilities = capabilities
 
     def preflight(self, a_matrix: np.ndarray, b_matrix: np.ndarray) -> MatrixJob:
         if not isinstance(a_matrix, np.ndarray) or not isinstance(b_matrix, np.ndarray):
@@ -208,6 +223,7 @@ class NPURuntime:
         hardware_timeout_cycles: int = 1_000_000,
         software_timeout: float = 5.0,
     ) -> np.ndarray:
+        self.last_metrics = None
         if not isinstance(hardware_timeout_cycles, int) or hardware_timeout_cycles <= 0:
             raise ValidationError("hardware timeout must be a positive integer")
         if software_timeout <= 0:
@@ -242,8 +258,13 @@ class NPURuntime:
                 raise HardwareError(int(self.mmio.read(REG_ERROR)))
             if not status & STATUS_DONE:
                 raise HardwareError(int(self.mmio.read(REG_ERROR)), "DONE was not asserted")
+            cycles = self._read_cycles(deadline)
             job.c_buffer.invalidate()
-            return np.array(np.asarray(job.c_buffer), dtype=np.int32, copy=True).reshape(job.m, job.n)
+            result = np.array(
+                np.asarray(job.c_buffer), dtype=np.int32, copy=True
+            ).reshape(job.m, job.n)
+            self.last_metrics = PhysicalJobMetrics(cycles=cycles)
+            return result
         except Exception:
             self._recover()
             raise
@@ -272,23 +293,75 @@ class NPURuntime:
             if self.monotonic() >= deadline:
                 raise TimeoutError("accelerator status timed out")
 
+    def _read_cycles(self, deadline: float) -> int:
+        while True:
+            if self.monotonic() >= deadline:
+                raise TimeoutError("cycle counter read timed out")
+            high_before = int(self.mmio.read(REG_CYCLES_HI))
+            low = int(self.mmio.read(REG_CYCLES_LO))
+            high_after = int(self.mmio.read(REG_CYCLES_HI))
+            for value in (high_before, low, high_after):
+                if not 0 <= value <= 0xFFFFFFFF:
+                    raise HardwareError(0, "cycle counter word is invalid")
+            if high_before == high_after:
+                return (high_before << 32) | low
+
     def _recover(self) -> None:
         try:
             self.mmio.write(REG_CONTROL, CONTROL_SOFT_RESET)
         except Exception:
             pass
+        deadline = self.monotonic() + DMA_RECOVERY_TIMEOUT_SECONDS
+        if not self._reset_dma(self.send_channel, deadline):
+            return
         for channel in (self.send_channel, self.recv_channel):
-            try:
-                if not bool(getattr(channel, "idle", False)):
-                    continue
-            except Exception:
-                continue
-            stop = getattr(channel, "stop", None)
-            if callable(stop):
-                try:
-                    stop()
-                except Exception:
-                    pass
+            self._restart_dma_channel(channel, deadline)
+
+    def _dma_access(self, channel: Any) -> tuple[Any, int] | None:
+        dma_mmio = getattr(channel, "_mmio", None)
+        offset = getattr(channel, "_offset", None)
+        read = getattr(dma_mmio, "read", None)
+        write = getattr(dma_mmio, "write", None)
+        if not callable(read) or not callable(write) or not isinstance(offset, int):
+            return None
+        return dma_mmio, offset
+
+    def _reset_dma(self, channel: Any, deadline: float) -> bool:
+        """Reset the shared AXI DMA core once, with a bounded poll."""
+
+        access = self._dma_access(channel)
+        if access is None:
+            return False
+        dma_mmio, offset = access
+        try:
+            dma_mmio.write(offset, DMA_CONTROL_RESET)
+            while int(dma_mmio.read(offset)) & DMA_CONTROL_RESET:
+                if self.monotonic() >= deadline:
+                    return False
+            return True
+        except Exception:
+            return False
+
+    def _restart_dma_channel(self, channel: Any, deadline: float) -> bool:
+        """Restart one channel without PYNQ's unbounded start loop."""
+
+        access = self._dma_access(channel)
+        if access is None:
+            return False
+        dma_mmio, offset = access
+        try:
+            run_value = DMA_CONTROL_RUN
+            if bool(getattr(channel, "_interrupt", False)):
+                run_value |= DMA_CONTROL_INTERRUPT_ENABLE
+            dma_mmio.write(offset, run_value)
+            while int(dma_mmio.read(offset + DMA_STATUS_OFFSET)) & DMA_STATUS_HALTED:
+                if self.monotonic() >= deadline:
+                    return False
+            if hasattr(channel, "_first_transfer"):
+                channel._first_transfer = True
+            return True
+        except Exception:
+            return False
 
 
 def load_pynq_runtime(bitstream: str | Path, **runtime_kwargs: Any) -> NPURuntime:

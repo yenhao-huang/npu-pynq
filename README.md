@@ -23,6 +23,7 @@ See [AGENTS.md](AGENTS.md) for working rules and
 ```text
 npu_repo_in_pynq/
 |-- src/
+|   |-- model/          production model contracts and golden operators
 |   |-- hw/             NPU hardware design
 |   |   |-- rtl/            synthesizable SystemVerilog
 |   |   |-- tb/             testbenches, never synthesized
@@ -36,7 +37,10 @@ npu_repo_in_pynq/
 |   |-- export/         trained model -> NPU executable format
 |   `-- runtime/        loads the overlay and runs a model on the board
 |-- examples/           demos built on export and runtime
-|-- docs/               specifications and repository rules
+|-- docs/
+|   |-- manual/         developer manuals for repository subsystems
+|   |-- human/          human-confirmed feature, roadmap, and changelog
+|   `-- rules/          repository-wide contributor rules
 |-- .codex/
 |   `-- skills/
 |       |-- dev/                 shared development workflows
@@ -46,9 +50,10 @@ npu_repo_in_pynq/
 `-- mount/              board deploy staging, empty by design
 ```
 
-The data flows one way: `export` produces what `runtime` consumes, `runtime`
-drives the circuit synthesized from `hw`, and `examples` ties the three
-together.
+The data flows one way: [`model`](docs/manual/model.md) defines the shared
+numeric and graph contracts, `export` produces what `runtime` consumes,
+`runtime` drives the circuit synthesized from `hw`, and `examples` ties the
+subsystems together.
 
 Vivado projects and bitstreams are never committed. Regenerate projects from
 `src/hw/vivado_tcl/`; bitstreams attach to a GitHub Release.

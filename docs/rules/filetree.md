@@ -9,6 +9,8 @@ npu_repo_in_pynq/
 |-- README.md
 |-- .gitignore
 |-- .github/
+|   |-- cd/
+|   |   `-- *.ps1              automated deployment and acceptance scripts
 |   `-- workflows/
 |       |-- cd.yml
 |       `-- ci.yml
@@ -44,14 +46,18 @@ npu_repo_in_pynq/
 |   `-- runtime/
 |       `-- *.py
 |-- examples/
-|   `-- matrix-multiplication/
+|   `-- <example>/
 |       |-- README.md
-|       |-- matrix_multiplication.ipynb
+|       |-- *.ipynb
 |       |-- package_example.py
 |       |-- run_on_board.py
 |       |-- deploy_release.ps1
+|       |-- model/
+|       |   `-- .gitkeep
+|       |-- scripts/
+|       |   `-- *.py
 |       |-- runtime/
-|       |   `-- matrix_multiplication.py
+|       |   `-- *.py
 |       `-- tests/
 |           `-- test_*.py
 |-- docs/
@@ -98,6 +104,19 @@ An example owns its application-specific runtime, notebooks, package builder,
 board acceptance entry point, deployment wrapper, and focused host tests. The
 package builder may copy an explicit allowlist of shared `src/runtime/` modules
 into generated deploy output, but those copies are never committed.
+Every user-facing example includes an output-free `.ipynb` demo. The notebook
+is the canonical human validation entry point: its README may prepare and
+deploy inputs, but must ultimately direct the user to the notebook. CLI board
+entry points support the notebook and automation; they do not replace the
+human demo. Download and conversion commands belong under its `scripts/`;
+generated checkpoints, converted model packages, corpora, and model evidence
+go under its `model/` workspace and remain ignored except for `.gitkeep`.
+The canonical generated-data path is `examples/<example>/model/`.
+
+`.github/cd/` owns non-interactive deployment and acceptance scripts used by
+continuous delivery. Example-local `deploy_release.ps1` files only copy a
+release for later human validation; they must not execute acceptance, request
+`sudo`, claim a physical PASS, or collect evidence.
 
 `.codex/skills/` contains repository-local Codex skills and is the only allowed
 top-level location for them. Classify reusable development workflows under

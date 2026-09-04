@@ -15,6 +15,10 @@ Rules:
   integration branches.
 - `.github/workflows/cd.yml` is the production delivery workflow. It is
   triggered only by a published GitHub Release, not by a branch or tag push.
+- `.github/cd/` contains automated deployment-and-acceptance scripts. These
+  scripts may validate inputs, execute board tests non-interactively, and
+  collect evidence. Example-local deployment wrappers only transfer files for
+  a later human-run notebook or CLI validation.
 - Production CD accepts only a non-draft, non-prerelease tag matching
   `vMAJOR.MINOR.PATCH`. The resolved release commit must be contained in
   `origin/main`.
