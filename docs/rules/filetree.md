@@ -9,8 +9,7 @@ npu_repo_in_pynq/
 |-- README.md
 |-- .gitignore
 |-- changelog/
-|   |-- vMAJOR.MINOR.PATCH.md
-|   `-- unreleased.md
+|   `-- vMAJOR.MINOR.PATCH.md
 |-- .github/
 |   |-- cd/
 |   |   `-- *.ps1              automated deployment and acceptance scripts
@@ -181,10 +180,10 @@ Do not create a directory that duplicates an existing role. Changes beneath
 `.codex/skills/` must preserve the `dev/`, `deploy/`, and `custom/ic_design/`
 classification contract.
 
-Only versioned Markdown baselines and `unreleased.md` belong in top-level
-`changelog/`. Each file must pass the commit-boundary, roadmap-evidence, table
-ordering, five-row batching, link, and whitespace checks defined by
-`docs/rules/git/changelog.md`.
+Only versioned Markdown release records belong in top-level `changelog/`; do
+not add `unreleased.md`. Each file must pass the commit-boundary,
+roadmap-evidence, table ordering, five-row batching, link, and whitespace
+checks defined by `docs/rules/git/changelog.md`.
 
 ## Not in this repository
 

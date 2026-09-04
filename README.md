@@ -22,7 +22,7 @@ See [AGENTS.md](AGENTS.md) for working rules and
 
 ```text
 npu_repo_in_pynq/
-|-- changelog/        versioned release baselines and the current upload
+|-- changelog/        versioned release baselines and upload records
 |-- src/
 |   |-- model/          production model contracts and golden operators
 |   |-- hw/             NPU hardware design

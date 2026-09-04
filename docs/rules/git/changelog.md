@@ -6,11 +6,12 @@ human-owned weekly notes under `docs/human/changelog/`.
 
 ## Required files and names
 
-- `changelog/vMAJOR.MINOR.PATCH.md` is the immutable cumulative baseline for a
-  selected release.
-- `changelog/unreleased.md` describes the change currently proposed for
-  upload. Replace its contents for the next release only after the preceding
-  release is represented by a versioned baseline.
+- `changelog/vMAJOR.MINOR.PATCH.md` records the exact change associated with
+  that released or proposed version.
+- The current upload uses its selected target version directly; do not create
+  an `unreleased.md` alias.
+- Preserve an earlier version file as the baseline and create a new version
+  file for each later upload.
 
 Every file uses these sections in this order:
 
