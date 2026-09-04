@@ -28,8 +28,10 @@ from .numeric import (
     mac_int8_int32,
     matmul_int8,
     requantize_int32_to_int8,
+    round_ratio_away_from_zero,
     saturate_int8,
     saturate_int32,
+    saturating_add_int32,
 )
 from .performance import (
     DEFAULT_TARGET,
@@ -82,6 +84,8 @@ __all__ = [
     "matmul_int8",
     "negotiate_abi",
     "requantize_int32_to_int8",
+    "round_ratio_away_from_zero",
     "saturate_int8",
     "saturate_int32",
+    "saturating_add_int32",
 ]
