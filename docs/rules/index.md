@@ -16,6 +16,8 @@ Read the rules that apply before making a change:
 - [simulation.md](simulation.md): lint and simulation contracts.
 - [ci-cd.md](ci-cd.md): hosted CI, self-hosted synthesis, and board testing.
 - [git/branch.md](git/branch.md): `main`, `dev`, task branches, and releases.
+- [git/changelog.md](git/changelog.md): release commit boundaries, roadmap
+  progress, and ordered Issue/PR tables.
 - [git/commit.md](git/commit.md): commit format and safety requirements.
 - [git/issues.md](git/issues.md): issue creation, triage, and evidence.
 - [git/pull-request.md](git/pull-request.md): review, validation, and merge
