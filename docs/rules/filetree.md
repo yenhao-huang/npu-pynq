@@ -7,6 +7,7 @@ npu_repo_in_pynq/
 |-- AGENTS.md
 |-- CLAUDE.md
 |-- README.md
+|-- LICENSE
 |-- .gitignore
 |-- changelog/
 |   `-- vMAJOR.MINOR.PATCH.md
