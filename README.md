@@ -1,4 +1,4 @@
-# NPU in PYNQ
+# NPU PYNQ
 
 [![CI](https://github.com/yenhao-huang/npu_in_pynq/actions/workflows/ci.yml/badge.svg)](https://github.com/yenhao-huang/npu_in_pynq/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/yenhao-huang/npu_in_pynq?sort=semver)](https://github.com/yenhao-huang/npu_in_pynq/releases)
@@ -63,90 +63,42 @@ real FPGA execution and exact output agreement in development mode, but it is
 not strict same-commit release evidence, an ImageNet accuracy result, or a
 performance claim.
 
-## Architecture
+## Design Flow of NPU PYNQ
 
-### Software architecture
-
-```mermaid
-flowchart TD
-    CONTRACT["src/model<br/>Numeric and graph contracts"]
-    CHECKPOINT["Pinned TorchVision<br/>ResNet-18 checkpoint"]
-    EXPORT["src/export<br/>BatchNorm folding, quantization, planning"]
-    PACKAGE["Deterministic signed-INT8<br/>NPU model package"]
-    REFERENCE["Independent integer<br/>host reference"]
-    HOST_EVIDENCE["Host acceptance<br/>output digests"]
-
-    NOTEBOOK["resnet18.ipynb<br/>human validation"]
-    VERIFY["Package and overlay<br/>provenance verification"]
-    MODEL_RUNTIME["NPUModelRuntime<br/>graph execution and lowering"]
-    PHYSICAL_RUNTIME["NPURuntime<br/>bounded physical jobs"]
-    OVERLAY["PYNQ overlay<br/>AXI DMA and NPU"]
-    CAPTURES["Physical output<br/>captures"]
-    COMPARE{"All output<br/>digests match?"}
-    EVIDENCE["Human-reviewed<br/>board evidence"]
-
-    CONTRACT --> EXPORT
-    CONTRACT --> MODEL_RUNTIME
-    CHECKPOINT --> EXPORT
-    EXPORT --> PACKAGE
-    PACKAGE --> REFERENCE
-    REFERENCE --> HOST_EVIDENCE
-    PACKAGE --> VERIFY
-    NOTEBOOK --> VERIFY
-    VERIFY --> MODEL_RUNTIME
-    MODEL_RUNTIME --> PHYSICAL_RUNTIME
-    PHYSICAL_RUNTIME --> OVERLAY
-    OVERLAY --> CAPTURES
-    HOST_EVIDENCE --> COMPARE
-    CAPTURES --> COMPARE
-    COMPARE --> EVIDENCE
+```text
+                                      +-------------------+
+                                      | Vivado toolchains |
+                                      +------^-------+----+
+                                             |       |
+                                        +----+-------v----+
+                     +----------------+ |                 |
+                     | TorchVision    +->                 |
+                     | ResNet-18      | |                 |       Matrix and ResNet-18
+                     +----------------+ |   NPU in PYNQ   +------> workloads ready to run
+                                        |                 |       on the PYNQ-Z1
+          +---------------------------+ |                 |
+          | NPU stack ecosystem      +->                 |
+          +---------------------------+ +---^----------^--+
+          (model contracts, export,        |          |
+           runtime, DMA, RTL, demos)        +          +
+                                        PYNQ-Z1   npu_matrix
+                                          board      target
 ```
 
-The dependency direction is intentional: [`src/model/`](docs/manual/model.md)
+[`src/model/`](docs/manual/model.md)
 defines shared numeric and graph contracts, `src/export/` produces the package,
 `src/runtime/` validates and executes it, `src/hw/` implements the accelerator,
 and `examples/` assembles human-facing workflows. Production modules never
 import from examples.
 
-### Hardware architecture
+## Hardware Architecture
 
-```mermaid
-flowchart LR
-    subgraph PS["Zynq Processing System — ARM CPU"]
-        PYTHON["Jupyter notebook<br/>Python runtime"]
-        DDR["DDR memory<br/>input and output buffers"]
-        GP0["M_AXI_GP0<br/>control path"]
-        HP0["S_AXI_HP0<br/>memory path"]
-    end
+![PYNQ-Z1 NPU hardware architecture](docs/assets/npu-hardware-architecture.png)
 
-    subgraph PL["Programmable Logic — NPU overlay"]
-        CONTROL_BUS["AXI interconnect<br/>and AXI-Lite"]
-        DMA["AXI DMA<br/>MM2S and S2MM"]
-
-        subgraph NPU["npu_matrix_accelerator"]
-            REGS["ABI v1 registers"]
-            CONTROLLER["Matrix controller"]
-            ARRAY["2 x 2 systolic array<br/>MAX_K = 256"]
-            REGS --> CONTROLLER
-            CONTROLLER --> ARRAY
-        end
-
-        IRQ["DMA and NPU<br/>interrupts"]
-    end
-
-    PYTHON --> DDR
-    PYTHON --> GP0
-    GP0 --> CONTROL_BUS
-    CONTROL_BUS --> REGS
-    CONTROL_BUS --> DMA
-    DDR <--> HP0
-    HP0 <--> DMA
-    DMA -- "MM2S: 8-bit AXI Stream" --> CONTROLLER
-    ARRAY -- "S2MM: 32-bit AXI Stream" --> DMA
-    DMA --> IRQ
-    CONTROLLER --> IRQ
-    IRQ --> PYTHON
-```
+The diagram is limited to the physical hardware path: the Zynq processing
+system reaches the programmable logic through its AXI control and memory
+ports, while AXI DMA streams operands through the matrix controller and the
+2 x 2 systolic array.
 
 ## Supported target and contracts
 

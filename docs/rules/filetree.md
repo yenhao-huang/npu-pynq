@@ -64,6 +64,8 @@ npu_repo_in_pynq/
 |       `-- tests/
 |           `-- test_*.py
 |-- docs/
+|   |-- assets/
+|   |   `-- *.png              versioned images embedded by documentation
 |   |-- rules/
 |   |   |-- index.md
 |   |   |-- environment.md
@@ -140,6 +142,10 @@ does not replace the human-owned weekly changelog under `docs/human/`.
 `docs/rules/` contains repository-wide rules. It is the stable authority for
 contributors; skills may link to these files but must not be the only location
 of Git, environment, CI, simulation, or generated-artifact rules.
+
+`docs/assets/` contains versioned image assets embedded by repository
+documentation. Keep source-controlled diagrams readable at normal README width
+and use descriptive, stable file names.
 
 `docs/human/` contains the human-owned feature list, roadmap, and weekly
 changelog. Agents may read it, but every mutation requires explicit human
