@@ -29,7 +29,7 @@ EXPECTED_METADATA = {
             "C_INCLUDE_MM2S": "1",
             "C_INCLUDE_S2MM": "1",
             "C_M_AXIS_MM2S_TDATA_WIDTH": "8",
-            "C_S_AXIS_S2MM_TDATA_WIDTH": "32",
+            "C_S_AXIS_S2MM_TDATA_WIDTH": "8",
             "C_BASEADDR": "0x40400000",
             "C_HIGHADDR": "0x4040FFFF",
         },

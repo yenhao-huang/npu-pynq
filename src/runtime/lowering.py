@@ -16,7 +16,6 @@ from src.model.numeric import (
     INT8_MIN,
     INT32_MAX,
     INT32_MIN,
-    requantize_int32_to_int8,
 )
 
 
@@ -167,8 +166,8 @@ class MatrixLowerer:
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self.runtime = runtime
-        if not callable(getattr(runtime, "run", None)):
-            raise TypeError("runtime must expose a callable run method")
+        if not callable(getattr(runtime, "run_slices", None)):
+            raise TypeError("runtime must expose a callable run_slices method")
         try:
             self.max_m = int(runtime.max_m)
             self.max_n = int(runtime.max_n)
@@ -453,10 +452,8 @@ class MatrixLowerer:
                 column_stop = min(
                     column_start + self.max_n, logical_n
                 )
-                accumulator = np.zeros(
-                    (row_stop - row_start, column_stop - column_start),
-                    dtype=np.int64,
-                )
+                a_tiles = []
+                b_tiles = []
                 for k_start in range(0, logical_k, self.max_k):
                     k_stop = min(k_start + self.max_k, logical_k)
                     now = float(self.monotonic())
@@ -476,72 +473,60 @@ class MatrixLowerer:
                         ],
                         dtype=np.int8,
                     )
-                    try:
-                        physical_result = self.runtime.run(
-                            a_tile,
-                            b_tile,
-                            hardware_timeout_cycles=hardware_timeout_cycles,
-                            software_timeout=remaining,
-                        )
-                    except Exception as error:
-                        raise MatrixTileError(
-                            (row_start, row_stop),
-                            (column_start, column_stop),
-                            (k_start, k_stop),
-                            error,
-                        ) from error
-                    physical_metrics = getattr(
-                        self.runtime, "last_metrics", None
+                    a_tiles.append(a_tile)
+                    b_tiles.append(b_tile)
+                try:
+                    physical_result = self.runtime.run_slices(
+                        tuple(a_tiles),
+                        tuple(b_tiles),
+                        bias=np.ascontiguousarray(
+                            bias[column_start:column_stop], dtype=np.int32
+                        ),
+                        multipliers_q31=np.ascontiguousarray(
+                            multipliers[column_start:column_stop], dtype=np.int32
+                        ),
+                        shifts=np.ascontiguousarray(
+                            shifts[column_start:column_stop], dtype=np.uint8
+                        ),
+                        output_zero_point=output_zero_point,
+                        hardware_timeout_cycles=hardware_timeout_cycles,
+                        software_timeout=remaining,
                     )
-                    physical_cycles = getattr(
-                        physical_metrics, "cycles", None
-                    )
-                    if (
-                        isinstance(physical_cycles, bool)
-                        or not isinstance(physical_cycles, (int, np.integer))
-                        or int(physical_cycles) < 0
-                    ):
-                        cycles_available = False
-                    else:
-                        cycle_total += int(physical_cycles)
-                    partial = np.asarray(physical_result)
-                    expected_shape = (
-                        row_stop - row_start,
-                        column_stop - column_start,
-                    )
-                    if (
-                        partial.dtype != np.int32
-                        or partial.shape != expected_shape
-                    ):
-                        raise RuntimeError(
-                            "physical runtime returned an incompatible "
-                            f"result: dtype={partial.dtype} "
-                            f"shape={partial.shape}, expected int32 "
-                            f"{expected_shape}"
-                        )
-                    accumulator += partial.astype(np.int64)
-                    jobs += 1
-                accumulator += bias[column_start:column_stop].astype(
-                    np.int64
+                except Exception as error:
+                    raise MatrixTileError(
+                        (row_start, row_stop),
+                        (column_start, column_stop),
+                        (0, logical_k),
+                        error,
+                    ) from error
+                physical_metrics = getattr(self.runtime, "last_metrics", None)
+                physical_cycles = getattr(physical_metrics, "cycles", None)
+                if (
+                    isinstance(physical_cycles, bool)
+                    or not isinstance(physical_cycles, (int, np.integer))
+                    or int(physical_cycles) < 0
+                ):
+                    cycles_available = False
+                else:
+                    cycle_total += int(physical_cycles)
+                physical_result = np.asarray(physical_result)
+                expected_shape = (
+                    row_stop - row_start,
+                    column_stop - column_start,
                 )
-                if np.any(accumulator < INT32_MIN) or np.any(
-                    accumulator > INT32_MAX
+                if (
+                    physical_result.dtype != np.int8
+                    or physical_result.shape != expected_shape
                 ):
                     raise RuntimeError(
-                        "certified matrix accumulator exceeded signed INT32"
+                        "physical runtime returned an incompatible result: "
+                        f"dtype={physical_result.dtype} shape={physical_result.shape}, "
+                        f"expected int8 {expected_shape}"
                     )
-                for row_offset in range(accumulator.shape[0]):
-                    for column_offset in range(accumulator.shape[1]):
-                        channel = column_start + column_offset
-                        output[
-                            row_start + row_offset,
-                            channel,
-                        ] = requantize_int32_to_int8(
-                            int(accumulator[row_offset, column_offset]),
-                            multipliers[channel],
-                            shifts[channel],
-                            output_zero_point,
-                        )
+                output[
+                    row_start:row_stop, column_start:column_stop
+                ] = physical_result
+                jobs += len(a_tiles)
         finish = float(self.monotonic())
         if not math.isfinite(finish) or finish < start:
             raise RuntimeError("monotonic clock is invalid")

@@ -10,8 +10,8 @@ negotiation.
 ## Goals
 
 - Reuse `NPURuntime.run` for every physical tile.
-- Produce deterministic signed INT32 output matching a NumPy INT64 reference
-  for all accepted shapes.
+- Produce deterministic hardware-requantized signed INT8 output matching a
+  saturated NumPy INT64 reference for all accepted shapes.
 - Enforce one finite logical-operation deadline across all tiles.
 - Return measured elapsed time, tile count, operation count, and throughput.
 - Keep the notebook free of direct MMIO, DMA sequencing, and production logic.

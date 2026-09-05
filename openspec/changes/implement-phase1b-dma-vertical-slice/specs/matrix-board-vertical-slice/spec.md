@@ -20,13 +20,15 @@ be recorded.
 ### Requirement: End-to-end signed matrix transaction
 The board smoke test SHALL execute at least one M=2 N=2 K=2 signed INT8 job
 containing both -128 and 127 through real PYNQ buffers, AXI DMA, accelerator
-MMIO, and programmable logic. It SHALL compare every signed INT32 output with
-the Phase 0 golden model and require DONE without ERROR, completed DMA channels,
+MMIO, and programmable logic. It SHALL stream zero bias, identity Q1.31
+multipliers, zero shifts, and zero output zero point, then compare every
+saturated signed INT8 output with the Phase 0 golden model and require DONE
+without ERROR, completed DMA channels,
 a nonzero stable cycle count, and correct row-major output.
 
 #### Scenario: Signed endpoint matrix passes
 - **WHEN** the matching overlay runs A=[[-128,127],[7,-3]] and B=[[-1,2],[4,-5]]
-- **THEN** C equals [[636,-891],[-19,29]] and all hardware and DMA completion assertions pass
+- **THEN** C equals [[127,-128],[-19,29]] and all hardware and DMA completion assertions pass
 
 ### Requirement: Objective PASS and failure output
 The smoke command SHALL print exactly `PASS: NPU DMA matrix vertical slice`

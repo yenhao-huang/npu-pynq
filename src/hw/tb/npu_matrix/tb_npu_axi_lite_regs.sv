@@ -40,6 +40,8 @@ module tb_npu_axi_lite_regs;
     wire [31:0]               cfg_b_stride;
     wire [31:0]               cfg_c_stride;
     wire [31:0]               cfg_timeout_cycles;
+    wire [1:0]                cfg_job_flags;
+    wire signed [7:0]         cfg_output_zero_point;
 
     integer start_count = 0;
     integer reset_count = 0;
@@ -91,7 +93,9 @@ module tb_npu_axi_lite_regs;
         .cfg_a_stride(cfg_a_stride),
         .cfg_b_stride(cfg_b_stride),
         .cfg_c_stride(cfg_c_stride),
-        .cfg_timeout_cycles(cfg_timeout_cycles)
+        .cfg_timeout_cycles(cfg_timeout_cycles),
+        .cfg_job_flags(cfg_job_flags),
+        .cfg_output_zero_point(cfg_output_zero_point)
     );
 
     task automatic expect_word;
@@ -196,9 +200,9 @@ module tb_npu_axi_lite_regs;
         axi_read(8'h00, 2, read_value);
         expect_word(read_value, 32'h3155504e, "MAGIC");
         axi_read(8'h04, 0, read_value);
-        expect_word(read_value, 32'h00010000, "VERSION");
+        expect_word(read_value, 32'h00020000, "VERSION");
         axi_read(8'h08, 0, read_value);
-        expect_word(read_value, 32'h0000001b, "CAPABILITIES");
+        expect_word(read_value, 32'h0000001f, "CAPABILITIES");
         axi_read(8'h3c, 0, read_value);
         expect_word(read_value, 32'h00000000, "RESERVED");
 
@@ -264,6 +268,11 @@ module tb_npu_axi_lite_regs;
 
         axi_write(8'h3c, 32'hffffffff, 4'b1111, 0, 0, 0);
         axi_read(8'h3c, 0, read_value);
+        expect_word(read_value, 32'h00000003, "JOB_FLAGS");
+        axi_write(8'h40, 32'h000000fb, 4'b0001, 0, 0, 0);
+        axi_read(8'h40, 0, read_value);
+        expect_word(read_value, 32'hfffffffb, "OUTPUT_ZERO_POINT");
+        axi_read(8'h44, 0, read_value);
         expect_word(read_value, 32'h00000000, "reserved remains zero");
 
         $display("PASS tb_npu_axi_lite_regs");

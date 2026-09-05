@@ -30,10 +30,10 @@ module npu_systolic_array #(
             $fatal(1, "npu_systolic_array requires COLUMNS > 0");
         end
         if (DATA_WIDTH != 8) begin
-            $fatal(1, "npu_systolic_array ABI v1 requires DATA_WIDTH=8");
+            $fatal(1, "npu_systolic_array ABI v2 requires DATA_WIDTH=8");
         end
         if (ACC_WIDTH != 32) begin
-            $fatal(1, "npu_systolic_array ABI v1 requires ACC_WIDTH=32");
+            $fatal(1, "npu_systolic_array ABI v2 requires ACC_WIDTH=32");
         end
     end
 

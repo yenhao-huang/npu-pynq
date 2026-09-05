@@ -7,6 +7,8 @@ import unittest
 
 import numpy as np
 
+from src.model.numeric import requantize_int32_to_int8
+
 EXAMPLE_ROOT = Path(__file__).resolve().parents[1]
 if str(EXAMPLE_ROOT) not in sys.path:
     sys.path.insert(0, str(EXAMPLE_ROOT))
@@ -41,6 +43,10 @@ class FakePhysicalRuntime:
         a_matrix: np.ndarray,
         b_matrix: np.ndarray,
         *,
+        bias,
+        multipliers_q31,
+        shifts,
+        output_zero_point,
         hardware_timeout_cycles: int,
         software_timeout: float,
     ) -> np.ndarray:
@@ -56,7 +62,23 @@ class FakePhysicalRuntime:
         )
         if self.clock is not None:
             self.clock.value += self.seconds_per_tile
-        return np.asarray(a_matrix, dtype=np.int32) @ np.asarray(b_matrix, dtype=np.int32)
+        accumulator = (
+            np.asarray(a_matrix, dtype=np.int64)
+            @ np.asarray(b_matrix, dtype=np.int64)
+        ) + bias.astype(np.int64)
+        output = np.empty(accumulator.shape, dtype=np.int8)
+        for row in range(output.shape[0]):
+            for column in range(output.shape[1]):
+                output[row, column] = requantize_int32_to_int8(
+                    int(accumulator[row, column]), int(multipliers_q31[column]),
+                    int(shifts[column]), output_zero_point
+                )
+        return output
+
+
+def quantized_reference(a_matrix, b_matrix):
+    accumulator = a_matrix.astype(np.int64) @ b_matrix.astype(np.int64)
+    return np.clip(accumulator, -128, 127).astype(np.int8)
 
 
 class MatrixMultiplicationTests(unittest.TestCase):
@@ -73,9 +95,9 @@ class MatrixMultiplicationTests(unittest.TestCase):
         self.assertIsInstance(result.metrics, MatrixMultiplicationMetrics)
         np.testing.assert_array_equal(
             result.output,
-            (a_matrix.astype(np.int64) @ b_matrix.astype(np.int64)).astype(np.int32),
+            quantized_reference(a_matrix, b_matrix),
         )
-        self.assertEqual(result.output.dtype, np.int32)
+        self.assertEqual(result.output.dtype, np.int8)
         self.assertTrue(result.output.flags.c_contiguous)
         self.assertEqual((result.metrics.m, result.metrics.n, result.metrics.k), (2, 2, 3))
         self.assertEqual(result.metrics.tile_count, 1)
@@ -104,7 +126,7 @@ class MatrixMultiplicationTests(unittest.TestCase):
 
         np.testing.assert_array_equal(
             result.output,
-            (a_matrix.astype(np.int64) @ b_matrix.astype(np.int64)).astype(np.int32),
+            quantized_reference(a_matrix, b_matrix),
         )
         self.assertEqual(result.metrics.tile_count, 4)
         self.assertEqual(result.metrics.elapsed_seconds, 1.0)
@@ -130,8 +152,8 @@ class MatrixMultiplicationTests(unittest.TestCase):
         first = multiplier.run(left, identity)
         second = multiplier.run(-left, identity)
 
-        np.testing.assert_array_equal(first.output, left.astype(np.int32))
-        np.testing.assert_array_equal(second.output, -left.astype(np.int32))
+        np.testing.assert_array_equal(first.output, left)
+        np.testing.assert_array_equal(second.output, -left)
         self.assertFalse(np.shares_memory(first.output, second.output))
         self.assertEqual(len(runtime.calls), 2)
 

@@ -8,7 +8,7 @@ Phase 0 ABI and objective evidence boundaries.
 
 ## What Changes
 
-- Add an ABI v1 AXI4-Lite control plane and an AXI4-Stream matrix datapath
+- Add an ABI v2 AXI4-Lite control plane and an AXI4-Stream matrix datapath
   around the Phase 1A systolic array, including independent AXI handshakes,
   backpressure, TLAST validation, timeout handling, sticky status, and stable
   error reporting.
@@ -30,7 +30,7 @@ Phase 0 ABI and objective evidence boundaries.
 
 ### New Capabilities
 
-- `matrix-accelerator-interface`: ABI v1 AXI4-Lite job control and AXI4-Stream matrix input/output behavior around the systolic array.
+- `matrix-accelerator-interface`: ABI v2 AXI4-Lite job control and AXI4-Stream matrix input/output behavior around the systolic array.
 - `pynq-overlay-build`: Reproducible PYNQ-Z1 Vivado block-design generation, address assignment, artifacts, and implementation evidence.
 - `pynq-matrix-runtime`: Host and board runtime behavior for ABI negotiation, buffer validation, DMA sequencing, timeout/error propagation, and signed results.
 - `matrix-board-vertical-slice`: Objective physical-board acceptance for a matching overlay and an end-to-end matrix transaction.

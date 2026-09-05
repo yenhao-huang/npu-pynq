@@ -1,7 +1,7 @@
 ## Context
 
 See `proposal.md` for motivation. Phase 0 freezes signed INT8/per-MAC
-saturating INT32 arithmetic and ABI v1; Phase 1A supplies a verified 2x2-capable
+saturating INT32 arithmetic and ABI v2; Phase 1A supplies a verified 2x2-capable
 parameterized systolic array. The repository has no current production runtime,
 AXI wrapper, DMA design, or overlay Tcl. Source must fit a Zynq-7020, generated
 Vivado output cannot enter Git, and simulation, implementation, HWH, and board
@@ -15,7 +15,7 @@ software lives in `src/runtime/`; host tests remain under `src/test/tests/`.
 
 **Goals:**
 
-- Realize the complete ABI v1 control lifecycle for one bounded physical matrix
+- Realize the complete ABI v2 control lifecycle for one bounded physical matrix
   job and preserve AXI correctness under independent channels/backpressure.
 - Move A, B, and C through real PS DDR and AXI DMA rather than per-element MMIO.
 - Make every source, host, Vivado, metadata, and board gate reproducible and

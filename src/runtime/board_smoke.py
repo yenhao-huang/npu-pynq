@@ -28,10 +28,14 @@ PASS_MARKER = "PASS: NPU DMA matrix vertical slice"
 def execute_smoke(runtime: Any, manifest: dict[str, object]) -> dict[str, object]:
     matrix_a = np.array([[-128, 127], [7, -3]], dtype=np.int8)
     matrix_b = np.array([[-1, 2], [4, -5]], dtype=np.int8)
-    expected = np.array([[636, -891], [-19, 29]], dtype=np.int32)
+    expected = np.array([[127, -128], [-19, 29]], dtype=np.int8)
     actual = runtime.run(
         matrix_a,
         matrix_b,
+        bias=np.zeros((2,), dtype=np.int32),
+        multipliers_q31=np.full((2,), (1 << 31) - 1, dtype=np.int32),
+        shifts=np.zeros((2,), dtype=np.uint8),
+        output_zero_point=0,
         hardware_timeout_cycles=1_000_000,
         software_timeout=10.0,
     )

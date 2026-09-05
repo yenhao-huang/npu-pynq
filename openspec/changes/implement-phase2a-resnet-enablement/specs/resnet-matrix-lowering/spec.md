@@ -23,9 +23,12 @@ K slicing SHALL be permitted only when every affected output channel carries
 an exporter-generated proof that abs(bias) + 128 * sum(abs(weight)) is no
 greater than 2147483647. Each K slice SHALL be no larger than the
 runtime-discovered physical K limit, slices SHALL be processed in increasing K
-order, partial signed INT32 results SHALL be combined in signed INT64, and the
-certified final sum SHALL be representable as signed INT32 before bias and
-requantization. Missing or invalid proof SHALL fail before physical submission.
+order, partial signed INT32 results SHALL be retained and combined by hardware,
+and the certified final sum SHALL be representable as signed INT32 before
+hardware applies bias and requantization exactly once. The host SHALL accept
+only dense signed INT8 physical results with the declared shape. Missing or
+invalid proof, INT32 output, floating-point output, or malformed output SHALL
+fail.
 
 #### Scenario: Unsafe accumulator bound
 - **WHEN** an output channel's worst-case bound exceeds signed INT32

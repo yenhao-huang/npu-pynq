@@ -56,13 +56,19 @@ class FakePhysicalRuntime:
         a_matrix: np.ndarray,
         b_matrix: np.ndarray,
         *,
+        bias: np.ndarray,
+        multipliers_q31: np.ndarray,
+        shifts: np.ndarray,
+        output_zero_point: int,
         hardware_timeout_cycles: int,
         software_timeout: float,
     ) -> np.ndarray:
-        del hardware_timeout_cycles, software_timeout
-        return np.asarray(a_matrix, dtype=np.int32) @ np.asarray(
-            b_matrix, dtype=np.int32
-        )
+        del hardware_timeout_cycles, software_timeout, multipliers_q31, shifts
+        accumulator = (
+            np.asarray(a_matrix, dtype=np.int64)
+            @ np.asarray(b_matrix, dtype=np.int64)
+        ) + bias.astype(np.int64) + output_zero_point
+        return np.clip(accumulator, -128, 127).astype(np.int8)
 
 
 class CorruptPhysicalRuntime(FakePhysicalRuntime):

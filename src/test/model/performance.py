@@ -138,7 +138,7 @@ def estimate_matmul(
     )
     tile_count = len(m_tiles) * len(n_tiles) * len(k_tiles)
     operations = 2 * m * n * k
-    payload_bytes = m * k + k * n + 4 * m * n
+    payload_bytes = m * k + k * n + m * n + 9 * n
     compute_seconds = compute_cycles / assumptions.clock_hz
     transport_seconds = (
         payload_bytes / assumptions.sustained_bandwidth_bytes_per_second
