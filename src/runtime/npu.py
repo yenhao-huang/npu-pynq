@@ -11,8 +11,8 @@ import numpy as np
 
 
 MAGIC = 0x3155504E
-VERSION_MAJOR = 1
-REQUIRED_CAPABILITIES = 0x1B
+VERSION_MAJOR = 2
+REQUIRED_CAPABILITIES = 0x1F
 
 REG_MAGIC = 0x00
 REG_VERSION = 0x04
@@ -29,6 +29,11 @@ REG_C_STRIDE = 0x2C
 REG_TIMEOUT_CYCLES = 0x30
 REG_CYCLES_LO = 0x34
 REG_CYCLES_HI = 0x38
+REG_JOB_FLAGS = 0x3C
+REG_OUTPUT_ZERO_POINT = 0x40
+
+JOB_FIRST = 1
+JOB_FINAL = 2
 
 CONTROL_START = 1
 CONTROL_SOFT_RESET = 2
@@ -51,6 +56,7 @@ ERROR_NAMES = {
     4: "STREAM_LENGTH",
     5: "TIMEOUT",
     6: "INVALID_TIMEOUT",
+    7: "INVALID_REQUANTIZATION",
 }
 
 
@@ -95,6 +101,15 @@ class MatrixJob:
     a_buffer: Any
     b_buffer: Any
     c_buffer: Any
+
+
+@dataclass(frozen=True)
+class MatrixSlice:
+    m: int
+    n: int
+    k: int
+    a_buffer: Any
+    b_buffer: Any
 
 
 @dataclass(frozen=True)
@@ -173,7 +188,9 @@ class NPURuntime:
         self.abi_major = major
         self.capabilities = capabilities
 
-    def preflight(self, a_matrix: np.ndarray, b_matrix: np.ndarray) -> MatrixJob:
+    def _validate_matrix_pair(
+        self, a_matrix: np.ndarray, b_matrix: np.ndarray
+    ) -> tuple[int, int, int]:
         if not isinstance(a_matrix, np.ndarray) or not isinstance(b_matrix, np.ndarray):
             raise ValidationError("A and B must be NumPy arrays")
         if a_matrix.dtype != np.int8 or b_matrix.dtype != np.int8:
@@ -189,16 +206,22 @@ class NPURuntime:
         if not (1 <= m <= self.max_m and 1 <= n <= self.max_n and 1 <= k <= self.max_k):
             raise ValidationError("matrix shape exceeds physical implementation limits")
 
+        return m, n, k
+
+    def preflight(self, a_matrix: np.ndarray, b_matrix: np.ndarray) -> MatrixJob:
+        """Validate one complete quantized job and allocate INT8 output."""
+
+        m, n, k = self._validate_matrix_pair(a_matrix, b_matrix)
         a_buffer = self.allocator(shape=(m, k), dtype=np.int8)
         b_buffer = self.allocator(shape=(k, n), dtype=np.int8)
-        c_buffer = self.allocator(shape=(m, n), dtype=np.int32)
+        c_buffer = self.allocator(shape=(m, n), dtype=np.int8)
         a_buffer[:] = a_matrix
         b_buffer[:] = b_matrix
         self._validate_buffers((a_buffer, b_buffer, c_buffer))
         return MatrixJob(m, n, k, a_buffer, b_buffer, c_buffer)
 
     @staticmethod
-    def _validate_buffers(buffers: tuple[Any, Any, Any]) -> None:
+    def _validate_buffers(buffers: tuple[Any, ...]) -> None:
         ranges: list[tuple[int, int]] = []
         for buffer in buffers:
             try:
@@ -215,55 +238,192 @@ class NPURuntime:
                 if left[0] < right[1] and right[0] < left[1]:
                     raise BufferError("DMA buffers overlap")
 
+    @staticmethod
+    def _validate_quantization(
+        bias: np.ndarray,
+        multipliers_q31: np.ndarray,
+        shifts: np.ndarray,
+        output_zero_point: int,
+        channels: int,
+    ) -> None:
+        if (
+            not isinstance(bias, np.ndarray)
+            or bias.dtype != np.int32
+            or bias.shape != (channels,)
+        ):
+            raise ValidationError(
+                f"bias must be signed INT32 with shape ({channels},)"
+            )
+        if (
+            not isinstance(multipliers_q31, np.ndarray)
+            or multipliers_q31.dtype != np.int32
+            or multipliers_q31.shape != (channels,)
+        ):
+            raise ValidationError(
+                f"multipliers_q31 must be signed INT32 with shape ({channels},)"
+            )
+        if (
+            not isinstance(shifts, np.ndarray)
+            or shifts.dtype != np.uint8
+            or shifts.shape != (channels,)
+        ):
+            raise ValidationError(
+                f"shifts must be unsigned INT8 with shape ({channels},)"
+            )
+        if np.any(shifts > 31):
+            raise ValidationError("shifts must be in [0, 31]")
+        if (
+            isinstance(output_zero_point, bool)
+            or not isinstance(output_zero_point, (int, np.integer))
+            or not -128 <= int(output_zero_point) <= 127
+        ):
+            raise ValidationError("output_zero_point must be a signed INT8 integer")
+
     def run(
         self,
         a_matrix: np.ndarray,
         b_matrix: np.ndarray,
         *,
+        bias: np.ndarray,
+        multipliers_q31: np.ndarray,
+        shifts: np.ndarray,
+        output_zero_point: int,
         hardware_timeout_cycles: int = 1_000_000,
         software_timeout: float = 5.0,
     ) -> np.ndarray:
+        return self.run_slices(
+            (a_matrix,),
+            (b_matrix,),
+            bias=bias,
+            multipliers_q31=multipliers_q31,
+            shifts=shifts,
+            output_zero_point=output_zero_point,
+            hardware_timeout_cycles=hardware_timeout_cycles,
+            software_timeout=software_timeout,
+        )
+
+    def run_slices(
+        self,
+        a_tiles: tuple[np.ndarray, ...] | list[np.ndarray],
+        b_tiles: tuple[np.ndarray, ...] | list[np.ndarray],
+        *,
+        bias: np.ndarray,
+        multipliers_q31: np.ndarray,
+        shifts: np.ndarray,
+        output_zero_point: int,
+        hardware_timeout_cycles: int = 1_000_000,
+        software_timeout: float = 5.0,
+    ) -> np.ndarray:
+        """Accumulate K slices and return the hardware-produced INT8 tile."""
+
         self.last_metrics = None
         if not isinstance(hardware_timeout_cycles, int) or hardware_timeout_cycles <= 0:
             raise ValidationError("hardware timeout must be a positive integer")
         if software_timeout <= 0:
             raise ValidationError("software timeout must be positive")
-        job = self.preflight(a_matrix, b_matrix)
+        try:
+            a_tiles = tuple(a_tiles)
+            b_tiles = tuple(b_tiles)
+        except TypeError as error:
+            raise ValidationError("matrix slices must be sequences") from error
+        if not a_tiles or len(a_tiles) != len(b_tiles):
+            raise ValidationError("A and B slice sequences must have equal nonzero length")
+
+        slices: list[MatrixSlice] = []
+        buffers: list[Any] = []
+        expected_m = expected_n = None
+        for a_matrix, b_matrix in zip(a_tiles, b_tiles):
+            m, n, k = self._validate_matrix_pair(a_matrix, b_matrix)
+            if expected_m is None:
+                expected_m, expected_n = m, n
+            elif (m, n) != (expected_m, expected_n):
+                raise ValidationError("all K slices must use identical M and N")
+            a_buffer = self.allocator(shape=(m, k), dtype=np.int8)
+            b_buffer = self.allocator(shape=(k, n), dtype=np.int8)
+            a_buffer[:] = a_matrix
+            b_buffer[:] = b_matrix
+            slices.append(MatrixSlice(m, n, k, a_buffer, b_buffer))
+            buffers.extend((a_buffer, b_buffer))
+
+        assert expected_m is not None and expected_n is not None
+        self._validate_quantization(
+            bias, multipliers_q31, shifts, output_zero_point, expected_n
+        )
+        c_buffer = self.allocator(shape=(expected_m, expected_n), dtype=np.int8)
+        bias_buffer = self.allocator(shape=(expected_n,), dtype=np.int32)
+        multiplier_buffer = self.allocator(shape=(expected_n,), dtype=np.int32)
+        shift_buffer = self.allocator(shape=(expected_n,), dtype=np.uint8)
+        bias_buffer[:] = bias
+        multiplier_buffer[:] = multipliers_q31
+        shift_buffer[:] = shifts
+        buffers.extend((c_buffer, bias_buffer, multiplier_buffer, shift_buffer))
+        self._validate_buffers(tuple(buffers))
+
         deadline = self.monotonic() + float(software_timeout)
+        cycle_total = 0
         try:
             self.mmio.write(REG_CONTROL, CONTROL_SOFT_RESET)
-            self.mmio.write(REG_M, job.m)
-            self.mmio.write(REG_N, job.n)
-            self.mmio.write(REG_K, job.k)
-            self.mmio.write(REG_A_STRIDE, job.k)
-            self.mmio.write(REG_B_STRIDE, job.n)
-            self.mmio.write(REG_C_STRIDE, 4 * job.n)
-            self.mmio.write(REG_TIMEOUT_CYCLES, hardware_timeout_cycles)
+            for index, job in enumerate(slices):
+                final = index == len(slices) - 1
+                flags = (JOB_FIRST if index == 0 else 0) | (
+                    JOB_FINAL if final else 0
+                )
+                self.mmio.write(REG_M, job.m)
+                self.mmio.write(REG_N, job.n)
+                self.mmio.write(REG_K, job.k)
+                self.mmio.write(REG_A_STRIDE, job.k)
+                self.mmio.write(REG_B_STRIDE, job.n)
+                self.mmio.write(REG_C_STRIDE, job.n)
+                self.mmio.write(REG_TIMEOUT_CYCLES, hardware_timeout_cycles)
+                self.mmio.write(REG_JOB_FLAGS, flags)
+                self.mmio.write(REG_OUTPUT_ZERO_POINT, int(output_zero_point) & 0xFF)
 
-            self.recv_channel.transfer(job.c_buffer, nbytes=4 * job.m * job.n)
-            self.mmio.write(REG_CONTROL, CONTROL_START)
-            job.a_buffer.flush()
-            self.send_channel.transfer(job.a_buffer, nbytes=job.m * job.k)
-            self._wait_channel(self.send_channel, deadline, "A MM2S")
-            self._check_length(self.send_channel, job.m * job.k, "A MM2S")
-            job.b_buffer.flush()
-            self.send_channel.transfer(job.b_buffer, nbytes=job.k * job.n)
-            self._wait_channel(self.send_channel, deadline, "B MM2S")
-            self._check_length(self.send_channel, job.k * job.n, "B MM2S")
+                if final:
+                    self.recv_channel.transfer(
+                        c_buffer, nbytes=job.m * job.n
+                    )
+                self.mmio.write(REG_CONTROL, CONTROL_START)
+                job.a_buffer.flush()
+                self.send_channel.transfer(job.a_buffer, nbytes=job.m * job.k)
+                self._wait_channel(self.send_channel, deadline, "A MM2S")
+                self._check_length(self.send_channel, job.m * job.k, "A MM2S")
+                job.b_buffer.flush()
+                self.send_channel.transfer(job.b_buffer, nbytes=job.k * job.n)
+                self._wait_channel(self.send_channel, deadline, "B MM2S")
+                self._check_length(self.send_channel, job.k * job.n, "B MM2S")
 
-            status = self._wait_hardware(deadline)
+                if final:
+                    for parameter_buffer, byte_count, label in (
+                        (bias_buffer, 4 * job.n, "bias MM2S"),
+                        (multiplier_buffer, 4 * job.n, "multiplier MM2S"),
+                        (shift_buffer, job.n, "shift MM2S"),
+                    ):
+                        parameter_buffer.flush()
+                        self.send_channel.transfer(parameter_buffer, nbytes=byte_count)
+                        self._wait_channel(self.send_channel, deadline, label)
+                        self._check_length(self.send_channel, byte_count, label)
+
+                status = self._wait_hardware(deadline)
+                if status & STATUS_ERROR:
+                    raise HardwareError(int(self.mmio.read(REG_ERROR)))
+                if not status & STATUS_DONE:
+                    raise HardwareError(
+                        int(self.mmio.read(REG_ERROR)),
+                        "DONE was not asserted",
+                    )
+                cycle_total += self._read_cycles(deadline)
+
             self._wait_channel(self.recv_channel, deadline, "C S2MM")
-            self._check_length(self.recv_channel, 4 * job.m * job.n, "C S2MM")
-            if status & STATUS_ERROR:
-                raise HardwareError(int(self.mmio.read(REG_ERROR)))
-            if not status & STATUS_DONE:
-                raise HardwareError(int(self.mmio.read(REG_ERROR)), "DONE was not asserted")
-            cycles = self._read_cycles(deadline)
-            job.c_buffer.invalidate()
-            result = np.array(
-                np.asarray(job.c_buffer), dtype=np.int32, copy=True
-            ).reshape(job.m, job.n)
-            self.last_metrics = PhysicalJobMetrics(cycles=cycles)
+            self._check_length(
+                self.recv_channel, expected_m * expected_n, "C S2MM"
+            )
+            c_buffer.invalidate()
+            result = np.array(c_buffer, copy=True)
+            if result.dtype != np.int8 or result.shape != (expected_m, expected_n):
+                raise DMAError(
+                    "hardware output buffer is not signed INT8 with the expected shape"
+                )
+            self.last_metrics = PhysicalJobMetrics(cycles=cycle_total)
             return result
         except Exception:
             self._recover()

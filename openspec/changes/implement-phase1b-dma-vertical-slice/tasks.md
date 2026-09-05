@@ -1,7 +1,7 @@
 ## 1. AXI4-Lite Control Plane
 
 - [x] 1.1 Add a self-checking public-port AXI4-Lite testbench for ABI identity, independent AW/W arrival, WSTRB, stable B/R responses, reserved accesses, configuration writes, START, BUSY_START, SOFT_RESET, and sticky status/errors; record that it fails before the control RTL exists.
-- [x] 1.2 Implement the ABI v1 AXI4-Lite register block and verify the focused control testbench passes under Icarus with no error/failure markers.
+- [x] 1.2 Implement the ABI v2 AXI4-Lite register block and verify the focused control testbench passes under Icarus with no error/failure markers.
 
 ## 2. Matrix Stream and Compute Controller
 

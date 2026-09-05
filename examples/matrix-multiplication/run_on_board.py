@@ -31,7 +31,8 @@ class BoardExampleError(RuntimeError):
 
 
 def _reference(a_matrix: np.ndarray, b_matrix: np.ndarray) -> np.ndarray:
-    return (a_matrix.astype(np.int64) @ b_matrix.astype(np.int64)).astype(np.int32)
+    accumulator = a_matrix.astype(np.int64) @ b_matrix.astype(np.int64)
+    return np.clip(accumulator, -128, 127).astype(np.int8)
 
 
 def _case_record(name: str, result: Any) -> dict[str, object]:

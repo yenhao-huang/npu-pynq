@@ -25,7 +25,9 @@ The runtime SHALL accept signed INT8 A and B matrices with compatible dense
 two-dimensional shapes within the discovered physical M, N, and K limits. It
 SHALL allocate separate contiguous A, B, and C buffers, verify 64-byte-aligned
 non-wrapping physical ranges and sufficient sizes, and ensure C does not overlap
-either input. C SHALL hold signed INT32 row-major values. Invalid dtype, rank,
+either input. C SHALL hold signed INT8 row-major values. Signed INT32 bias and
+Q1.31 multiplier frames plus unsigned shift values SHALL use distinct aligned
+DMA buffers. Invalid dtype, rank,
 shape, limits, allocation, alignment, range, or aliasing SHALL fail before
 hardware configuration.
 
@@ -39,15 +41,16 @@ hardware configuration.
 
 ### Requirement: Deterministic DMA and MMIO sequence
 For each job, the runtime SHALL clear stale hardware state, program dense
-dimensions, strides, and a finite hardware timeout, arm S2MM for exactly
-4*M*N bytes, assert START, send the A frame, wait for its MM2S completion, send
-the B frame, and then wait for hardware and S2MM completion. It SHALL flush
+dimensions, strides, and a finite hardware timeout, arm S2MM for exactly M*N
+bytes on the final K slice, assert START, send A and B frames, retain ordered
+partial sums for non-final slices, then send bias, multiplier, and shift frames
+for the final slice. It SHALL flush
 input buffers before DMA and invalidate output buffers before reading results.
 Every poll or DMA wait SHALL have a finite monotonic software deadline.
 
 #### Scenario: Successful transfer order
 - **WHEN** all DMA and accelerator handshakes complete before their deadlines
-- **THEN** the runtime returns a signed INT32 MxN result and the hardware status is DONE without ERROR
+- **THEN** the runtime returns a signed INT8 MxN result and the hardware status is DONE without ERROR
 
 #### Scenario: Software timeout
 - **WHEN** DMA or hardware completion does not occur before the software deadline
@@ -63,7 +66,7 @@ Every poll or DMA wait SHALL have a finite monotonic software deadline.
 
 ### Requirement: Exact hardware error propagation
 After completion or abnormal termination, the runtime SHALL read STATUS and
-ERROR and map every ABI v1 error code to a typed exception carrying the numeric
+ERROR and map every ABI v2 error code to a typed exception carrying the numeric
 code and diagnostic context. It SHALL never return a result when ERROR is set,
 DONE is clear, DMA lengths disagree, or TLAST/stream status indicates a failed
 transaction.

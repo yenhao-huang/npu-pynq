@@ -13,23 +13,24 @@ version and SHALL tolerate a newer minor version when all required capability
 bits are present.
 
 #### Scenario: Compatible minor version
-- **WHEN** hardware reports ABI major 1, a newer minor version, and all capabilities required by the job
+- **WHEN** hardware reports ABI major 2, a newer minor version, and all capabilities required by the job
 - **THEN** version negotiation succeeds without assuming unadvertised behavior
 
 #### Scenario: Incompatible major version
-- **WHEN** hardware reports a major version other than 1
+- **WHEN** hardware reports a major version other than 2
 - **THEN** software rejects the device before submitting a job
 
 ### Requirement: Stable control register map
-ABI version 1 SHALL use a 32-bit little-endian AXI4-Lite register window with
+ABI version 2 SHALL use a 32-bit little-endian AXI4-Lite register window with
 the following byte offsets: MAGIC 0x00, VERSION 0x04, CAPABILITIES 0x08,
 CONTROL 0x0C, STATUS 0x10, ERROR 0x14, M 0x18, N 0x1C, K 0x20, A_STRIDE 0x24,
 B_STRIDE 0x28, C_STRIDE 0x2C, TIMEOUT_CYCLES 0x30, CYCLES_LO 0x34,
-CYCLES_HI 0x38, and RESERVED from 0x3C through 0xFF. Reserved locations SHALL
+CYCLES_HI 0x38, JOB_FLAGS 0x3C, OUTPUT_ZERO_POINT 0x40, and RESERVED from
+0x44 through 0xFF. Reserved locations SHALL
 read as zero and ignore writes.
 
 #### Scenario: Reserved register access
-- **WHEN** software reads or writes a reserved ABI version 1 register
+- **WHEN** software reads or writes a reserved ABI version 2 register
 - **THEN** the read returns zero and the write has no externally visible effect
 
 ### Requirement: Job control state machine
@@ -53,9 +54,11 @@ the BUSY_START error.
 
 ### Requirement: Matrix stream transaction
 For a valid MxK by KxN job, the input stream SHALL consume exactly M*K A
-elements followed by K*N B elements, both in canonical row-major order, and
-the output stream SHALL produce exactly M*N signed INT32 C elements in
-row-major order. Each transfer SHALL use little-endian element bytes and TLAST
+elements followed by K*N B elements, both in canonical row-major order.
+Non-final K slices SHALL retain ordered INT32 partial sums. The final slice
+SHALL additionally consume signed INT32 bias and multiplier frames and an
+unsigned shift frame, then produce exactly M*N signed INT8 C elements after
+one Q1.31 requantization. Each transfer SHALL use little-endian element bytes and TLAST
 SHALL mark the final element of its logical stream.
 
 #### Scenario: Non-tile-aligned dimensions
@@ -70,14 +73,14 @@ SHALL mark the final element of its logical stream.
 DMA buffer base addresses SHALL be aligned to 64 bytes and SHALL identify a
 non-wrapping range within the 32-bit physical address space. Allocated sizes
 SHALL cover the declared dense payload: M*K bytes for A, K*N bytes for B, and
-4*M*N bytes for C. The writable C range SHALL not overlap either input range.
+M*N bytes for C. The writable C range SHALL not overlap either input range.
 
 #### Scenario: Misaligned buffer
 - **WHEN** any matrix buffer base address is not divisible by 64
 - **THEN** the runtime rejects the job before configuring DMA or starting hardware
 
 #### Scenario: Undersized output buffer
-- **WHEN** the C allocation contains fewer than 4*M*N bytes
+- **WHEN** the C allocation contains fewer than M*N bytes
 - **THEN** the runtime rejects the job before hardware execution
 
 #### Scenario: Output aliases an input
@@ -89,7 +92,7 @@ M, N, and K SHALL each be in [1,65535], byte strides SHALL cover one logical
 row and be multiples of the element size, and TIMEOUT_CYCLES SHALL be nonzero.
 The first detected failure SHALL latch one of NONE=0, INVALID_DIMENSION=1,
 INVALID_STRIDE=2, BUSY_START=3, STREAM_LENGTH=4, TIMEOUT=5,
-INVALID_TIMEOUT=6, or INTERNAL=255. Software preflight validation SHALL expose
+INVALID_TIMEOUT=6, INVALID_REQUANTIZATION=7, or INTERNAL=255. Software preflight validation SHALL expose
 the corresponding error code together with its diagnostic message.
 
 #### Scenario: Invalid dimension

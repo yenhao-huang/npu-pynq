@@ -5,11 +5,12 @@ Phase 1A systolic array into a recoverable DMA-connected matrix accelerator.
 
 ## ADDED Requirements
 
-### Requirement: ABI v1 control window
+### Requirement: ABI v2 control window
 The accelerator SHALL expose one 32-bit little-endian AXI4-Lite window with the
-Phase 0 ABI v1 identity, capability, control, status, error, dimension, stride,
-timeout, and cycle-counter registers at their frozen offsets. Reserved offsets
-from 0x3C through 0xFF SHALL read zero and ignore writes. AXI write-address and
+ABI v2 identity, capability, control, status, error, dimension, stride,
+timeout, cycle-counter, job-flag, and output-zero-point registers. JOB_FLAGS
+at 0x3C identifies first and final K slices; OUTPUT_ZERO_POINT is at 0x40.
+Reserved offsets from 0x44 through 0xFF SHALL read zero and ignore writes. AXI write-address and
 write-data channels SHALL be accepted independently, and every accepted read or
 write SHALL produce exactly one stable response under response backpressure.
 
@@ -18,12 +19,12 @@ write SHALL produce exactly one stable response under response backpressure.
 - **THEN** the write commits once after both handshakes and produces one OKAY response
 
 #### Scenario: Reserved access
-- **WHEN** software reads or writes a reserved ABI v1 offset
+- **WHEN** software reads or writes a reserved ABI v2 offset
 - **THEN** the read returns zero and the write has no externally visible effect
 
 ### Requirement: Bounded physical job validation
 The Phase 1B implementation SHALL accept dense jobs with M and N in [1,2], K in
-[1,256], A_STRIDE equal to K, B_STRIDE equal to N, C_STRIDE equal to 4*N, and a
+[1,256], A_STRIDE equal to K, B_STRIDE equal to N, C_STRIDE equal to N, and a
 nonzero TIMEOUT_CYCLES value. Unsupported dimensions SHALL fail before accepting
 stream data with INVALID_DIMENSION; unsupported strides SHALL fail with
 INVALID_STRIDE; and a zero timeout SHALL fail with INVALID_TIMEOUT. The physical
@@ -56,10 +57,12 @@ stable while TREADY is deasserted.
 - **WHEN** TLAST is accepted before the declared final element or is absent on that element
 - **THEN** BUSY clears, DONE remains clear, ERROR reports STREAM_LENGTH, and no successful output frame is produced
 
-### Requirement: Signed saturating matrix output stream
+### Requirement: Hardware requantized matrix output stream
 For a valid job, the accelerator SHALL use the Phase 1A signed INT8, per-MAC
-saturating INT32, row-major matrix contract. It SHALL produce exactly M*N
-signed INT32 results in row-major order on a 32-bit AXI4-Stream output and assert
+saturating INT32, row-major matrix contract. It SHALL accumulate ordered K
+slices in hardware, consume final-slice signed INT32 bias and Q1.31 multiplier
+frames plus unsigned shift values, apply bias and requantization once, and
+produce exactly M*N signed INT8 results on an 8-bit AXI4-Stream output. It SHALL assert
 TLAST only with the final result. TDATA, TVALID, and TLAST SHALL remain stable
 until each beat is accepted.
 

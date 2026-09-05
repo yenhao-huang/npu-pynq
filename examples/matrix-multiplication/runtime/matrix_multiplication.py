@@ -10,6 +10,8 @@ from typing import Any, Callable
 
 import numpy as np
 
+from src.model.numeric import INT32_MAX
+
 
 @dataclass(frozen=True)
 class MatrixMultiplicationMetrics:
@@ -27,7 +29,7 @@ class MatrixMultiplicationMetrics:
 
 @dataclass(frozen=True)
 class MatrixMultiplicationResult:
-    """Owned signed INT32 output and its immutable accounting metadata."""
+    """Owned hardware-requantized signed INT8 output and accounting metadata."""
 
     output: np.ndarray
     metrics: MatrixMultiplicationMetrics
@@ -71,7 +73,7 @@ class TiledMatrixMultiplier:
         )
         start = float(self.monotonic())
         deadline = start + timeout
-        output = np.empty((m, n), dtype=np.int32, order="C")
+        output = np.empty((m, n), dtype=np.int8, order="C")
         tile_count = 0
 
         for row_start in range(0, m, self.max_m):
@@ -91,16 +93,26 @@ class TiledMatrixMultiplier:
                     self.runtime.run(
                         a_tile,
                         b_tile,
+                        bias=np.zeros(
+                            (column_stop - column_start,), dtype=np.int32
+                        ),
+                        multipliers_q31=np.full(
+                            (column_stop - column_start,), INT32_MAX, dtype=np.int32
+                        ),
+                        shifts=np.zeros(
+                            (column_stop - column_start,), dtype=np.uint8
+                        ),
+                        output_zero_point=0,
                         hardware_timeout_cycles=hardware_timeout_cycles,
                         software_timeout=remaining,
                     )
                 )
                 expected_shape = (row_stop - row_start, column_stop - column_start)
-                if tile_output.dtype != np.int32 or tile_output.shape != expected_shape:
+                if tile_output.dtype != np.int8 or tile_output.shape != expected_shape:
                     raise RuntimeError(
                         "physical runtime returned an incompatible output: "
                         f"dtype={tile_output.dtype} shape={tile_output.shape}, "
-                        f"expected int32 {expected_shape}"
+                        f"expected int8 {expected_shape}"
                     )
                 output[row_start:row_stop, column_start:column_stop] = tile_output
                 tile_count += 1

@@ -37,7 +37,7 @@ module npu_matrix_accelerator #(
     input  logic                              s_axis_tvalid,
     output logic                              s_axis_tready,
     input  logic                              s_axis_tlast,
-    output logic [31:0]                       m_axis_tdata,
+    output logic [7:0]                        m_axis_tdata,
     output logic                              m_axis_tvalid,
     input  logic                              m_axis_tready,
     output logic                              m_axis_tlast,
@@ -47,6 +47,8 @@ module npu_matrix_accelerator #(
     logic [15:0] cfg_m, cfg_n, cfg_k;
     logic [31:0] cfg_a_stride, cfg_b_stride, cfg_c_stride;
     logic [31:0] cfg_timeout_cycles;
+    logic [1:0] cfg_job_flags;
+    logic signed [7:0] cfg_output_zero_point;
     logic status_busy, status_done, status_error;
     logic [7:0] error_code;
     logic [63:0] cycles;
@@ -71,7 +73,9 @@ module npu_matrix_accelerator #(
         .cfg_a_stride(cfg_a_stride),
         .cfg_b_stride(cfg_b_stride),
         .cfg_c_stride(cfg_c_stride),
-        .cfg_timeout_cycles(cfg_timeout_cycles)
+        .cfg_timeout_cycles(cfg_timeout_cycles),
+        .cfg_job_flags(cfg_job_flags),
+        .cfg_output_zero_point(cfg_output_zero_point)
     );
 
     npu_matrix_controller #(
@@ -90,6 +94,8 @@ module npu_matrix_accelerator #(
         .cfg_b_stride(cfg_b_stride),
         .cfg_c_stride(cfg_c_stride),
         .cfg_timeout_cycles(cfg_timeout_cycles),
+        .cfg_job_flags(cfg_job_flags),
+        .cfg_output_zero_point(cfg_output_zero_point),
         .s_axis_tdata(s_axis_tdata),
         .s_axis_tvalid(s_axis_tvalid),
         .s_axis_tready(s_axis_tready),

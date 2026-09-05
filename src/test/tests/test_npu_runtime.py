@@ -36,7 +36,9 @@ class FakeAllocator:
         self.buffers = []
 
     def __call__(self, shape, dtype):
-        buffer = FakeBuffer(shape, dtype, self.addresses[len(self.buffers)])
+        index = len(self.buffers)
+        address = self.addresses[index] if index < len(self.addresses) else 0x10000 + index * 0x1000
+        buffer = FakeBuffer(shape, dtype, address)
         self.buffers.append(buffer)
         return buffer
 
@@ -97,7 +99,7 @@ class FakeDMA:
 
 
 class FakeMMIO:
-    def __init__(self, events, magic=0x3155504E, version=0x00010000, caps=0x1B):
+    def __init__(self, events, magic=0x3155504E, version=0x00020000, caps=0x1F):
         self.events = events
         self.registers = {0x00: magic, 0x04: version, 0x08: caps, 0x10: 2, 0x14: 0}
 
@@ -111,8 +113,8 @@ class FakeMMIO:
 
 
 class FakeOverlay:
-    def __init__(self, *, parameters=None, magic=0x3155504E, version=0x00010000,
-                 caps=0x1B, send_idle=True, recv_idle=True, reset_stuck=False):
+    def __init__(self, *, parameters=None, magic=0x3155504E, version=0x00020000,
+                 caps=0x1F, send_idle=True, recv_idle=True, reset_stuck=False):
         self.events = []
         params = parameters or {"ROWS": "2", "COLUMNS": "2", "MAX_K": "256"}
         self.ip_dict = {
@@ -147,6 +149,17 @@ class NPURuntimeTests(unittest.TestCase):
             monotonic=clock or StepClock(),
         )
 
+    def run_job(self, runtime, a_matrix, b_matrix, **kwargs):
+        channels = int(b_matrix.shape[1])
+        parameters = dict(
+            bias=np.zeros((channels,), dtype=np.int32),
+            multipliers_q31=np.full((channels,), 1 << 30, dtype=np.int32),
+            shifts=np.zeros((channels,), dtype=np.uint8),
+            output_zero_point=0,
+        )
+        parameters.update(kwargs)
+        return runtime.run(a_matrix, b_matrix, **parameters)
+
     def test_import_does_not_require_pynq(self):
         self.assertNotIn("pynq", sys.modules)
 
@@ -168,11 +181,13 @@ class NPURuntimeTests(unittest.TestCase):
              module.REG_CONTROL, module.REG_STATUS, module.REG_ERROR,
              module.REG_M, module.REG_N, module.REG_K, module.REG_A_STRIDE,
              module.REG_B_STRIDE, module.REG_C_STRIDE, module.REG_TIMEOUT_CYCLES,
-             module.REG_CYCLES_LO, module.REG_CYCLES_HI],
+             module.REG_CYCLES_LO, module.REG_CYCLES_HI, module.REG_JOB_FLAGS,
+             module.REG_OUTPUT_ZERO_POINT],
             [int(abi.Register[name]) for name in (
                 "MAGIC", "VERSION", "CAPABILITIES", "CONTROL", "STATUS", "ERROR",
                 "M", "N", "K", "A_STRIDE", "B_STRIDE", "C_STRIDE",
-                "TIMEOUT_CYCLES", "CYCLES_LO", "CYCLES_HI"
+                "TIMEOUT_CYCLES", "CYCLES_LO", "CYCLES_HI", "JOB_FLAGS",
+                "OUTPUT_ZERO_POINT"
             )],
         )
 
@@ -184,7 +199,7 @@ class NPURuntimeTests(unittest.TestCase):
         self.assertEqual(overlay.events, [])
 
     def test_bad_abi_is_rejected(self):
-        for kwargs in ({"magic": 0}, {"version": 0x00020000}, {"caps": 0x01}):
+        for kwargs in ({"magic": 0}, {"version": 0x00010000}, {"caps": 0x01}):
             with self.subTest(kwargs=kwargs):
                 with self.assertRaises(self.runtime_module.ABIError):
                     self.make_runtime(overlay=FakeOverlay(**kwargs))
@@ -197,15 +212,15 @@ class NPURuntimeTests(unittest.TestCase):
             np.array([[-1, 2], [4, -5]], dtype=np.int8),
         )
         self.assertEqual((job.m, job.n, job.k), (2, 2, 2))
-        self.assertEqual([buffer.nbytes for buffer in allocator.buffers], [4, 4, 16])
-        self.assertEqual(allocator.buffers[2].array.dtype, np.int32)
+        self.assertEqual([buffer.nbytes for buffer in allocator.buffers], [4, 4, 4])
+        self.assertEqual(allocator.buffers[2].array.dtype, np.int8)
 
     def test_invalid_input_never_writes_or_starts_dma(self):
         overlay = FakeOverlay()
         runtime = self.make_runtime(overlay=overlay)
         initial_events = list(overlay.events)
         with self.assertRaises(self.runtime_module.ValidationError):
-            runtime.run(np.ones((2, 2), dtype=np.uint8), np.ones((2, 2), dtype=np.int8))
+            self.run_job(runtime, np.ones((2, 2), dtype=np.uint8), np.ones((2, 2), dtype=np.int8))
         self.assertEqual(overlay.events, initial_events)
 
     def test_shape_and_limit_validation(self):
@@ -238,7 +253,7 @@ class NPURuntimeTests(unittest.TestCase):
         overlay = FakeOverlay()
         allocator = FakeAllocator()
         runtime = self.make_runtime(overlay=overlay, allocator=allocator)
-        allocator_result = np.array([[636, -891], [-19, 29]], dtype=np.int32)
+        allocator_result = np.array([[127, -128], [-10, 15]], dtype=np.int8)
 
         original_transfer = overlay.axi_dma_0.recvchannel.transfer
         def receive_and_fill(buffer, nbytes=None):
@@ -246,7 +261,7 @@ class NPURuntimeTests(unittest.TestCase):
             buffer.array[:] = allocator_result
         overlay.axi_dma_0.recvchannel.transfer = receive_and_fill
 
-        result = runtime.run(
+        result = self.run_job(runtime,
             np.array([[-128, 127], [7, -3]], dtype=np.int8),
             np.array([[-1, 2], [4, -5]], dtype=np.int8),
             hardware_timeout_cycles=1000,
@@ -256,11 +271,76 @@ class NPURuntimeTests(unittest.TestCase):
         important = [event for event in overlay.events if event[0] in ("recv", "send") or
                      (event[0] == "write" and event[1] == 0x0C)]
         self.assertEqual(important, [
-            ("write", 0x0C, 2), ("recv", 16), ("write", 0x0C, 1),
-            ("send", 4), ("send", 4),
+            ("write", 0x0C, 2), ("recv", 4), ("write", 0x0C, 1),
+            ("send", 4), ("send", 4), ("send", 8), ("send", 8),
+            ("send", 2),
         ])
         self.assertEqual((allocator.buffers[0].flush_count, allocator.buffers[1].flush_count), (1, 1))
         self.assertEqual(allocator.buffers[2].invalidate_count, 1)
+
+    def test_k_slices_accumulate_in_hardware_and_requantize_once(self):
+        overlay = FakeOverlay(parameters={"ROWS": "2", "COLUMNS": "2", "MAX_K": "2"})
+        allocator = FakeAllocator()
+        runtime = self.make_runtime(overlay=overlay, allocator=allocator)
+        original_transfer = overlay.axi_dma_0.recvchannel.transfer
+
+        def receive_and_fill(buffer, nbytes=None):
+            original_transfer(buffer, nbytes)
+            buffer.array[:] = np.array([[3]], dtype=np.int8)
+
+        overlay.axi_dma_0.recvchannel.transfer = receive_and_fill
+        result = runtime.run_slices(
+            (
+                np.array([[2, -3]], dtype=np.int8),
+                np.array([[10]], dtype=np.int8),
+            ),
+            (
+                np.array([[4], [5]], dtype=np.int8),
+                np.array([[2]], dtype=np.int8),
+            ),
+            bias=np.array([-3], dtype=np.int32),
+            multipliers_q31=np.array([1 << 30], dtype=np.int32),
+            shifts=np.array([0], dtype=np.uint8),
+            output_zero_point=-2,
+        )
+        np.testing.assert_array_equal(result, np.array([[3]], dtype=np.int8))
+        flag_writes = [
+            event for event in overlay.events
+            if event[:2] == ("write", self.runtime_module.REG_JOB_FLAGS)
+        ]
+        self.assertEqual(flag_writes, [
+            ("write", self.runtime_module.REG_JOB_FLAGS, 1),
+            ("write", self.runtime_module.REG_JOB_FLAGS, 2),
+        ])
+        self.assertEqual(overlay.events.count(("recv", 1)), 1)
+        self.assertEqual(runtime.last_metrics.cycles, 0)
+
+    def test_malformed_requantization_is_rejected_before_mmio_or_dma(self):
+        cases = (
+            dict(bias=np.zeros((2,), dtype=np.int32)),
+            dict(multipliers_q31=np.ones((1,), dtype=np.int64)),
+            dict(shifts=np.array([32], dtype=np.uint8)),
+            dict(output_zero_point=128),
+        )
+        for replacement in cases:
+            with self.subTest(replacement=replacement):
+                overlay = FakeOverlay()
+                runtime = self.make_runtime(overlay=overlay)
+                initial_events = list(overlay.events)
+                kwargs = dict(
+                    bias=np.zeros((1,), dtype=np.int32),
+                    multipliers_q31=np.ones((1,), dtype=np.int32),
+                    shifts=np.zeros((1,), dtype=np.uint8),
+                    output_zero_point=0,
+                )
+                kwargs.update(replacement)
+                with self.assertRaises(self.runtime_module.ValidationError):
+                    runtime.run(
+                        np.ones((1, 1), dtype=np.int8),
+                        np.ones((1, 1), dtype=np.int8),
+                        **kwargs,
+                    )
+                self.assertEqual(overlay.events, initial_events)
 
     def test_success_exposes_stable_cycle_metrics_across_rollover(self):
         overlay = FakeOverlay()
@@ -280,7 +360,7 @@ class NPURuntimeTests(unittest.TestCase):
 
         mmio.read = rollover_read
         runtime = self.make_runtime(overlay=overlay)
-        result = runtime.run(
+        result = self.run_job(runtime,
             np.ones((1, 1), dtype=np.int8),
             np.ones((1, 1), dtype=np.int8),
         )
@@ -294,7 +374,7 @@ class NPURuntimeTests(unittest.TestCase):
         overlay.npu_matrix_accelerator_0.registers[0x10] = 4
         overlay.npu_matrix_accelerator_0.registers[0x14] = 4
         with self.assertRaises(self.runtime_module.HardwareError):
-            runtime.run(
+            self.run_job(runtime,
                 np.ones((1, 1), dtype=np.int8),
                 np.ones((1, 1), dtype=np.int8),
             )
@@ -322,7 +402,7 @@ class NPURuntimeTests(unittest.TestCase):
             overlay=overlay, clock=StepClock(step=0.25)
         )
         with self.assertRaisesRegex(TimeoutError, "cycle counter"):
-            runtime.run(
+            self.run_job(runtime,
                 np.ones((1, 1), dtype=np.int8),
                 np.ones((1, 1), dtype=np.int8),
                 software_timeout=0.5,
@@ -339,7 +419,7 @@ class NPURuntimeTests(unittest.TestCase):
         overlay.npu_matrix_accelerator_0.registers[0x14] = 4
         runtime = self.make_runtime(overlay=overlay)
         with self.assertRaises(self.runtime_module.HardwareError) as raised:
-            runtime.run(np.ones((1, 1), dtype=np.int8), np.ones((1, 1), dtype=np.int8))
+            self.run_job(runtime, np.ones((1, 1), dtype=np.int8), np.ones((1, 1), dtype=np.int8))
         self.assertEqual((raised.exception.code, raised.exception.name), (4, "STREAM_LENGTH"))
         self.assertIn(("write", 0x0C, 2), overlay.events)
 
@@ -353,7 +433,7 @@ class NPURuntimeTests(unittest.TestCase):
             clock=StepClock(step=0.1),
         )
         with self.assertRaises(TimeoutError):
-            runtime.run(
+            self.run_job(runtime,
                 np.ones((1, 1), dtype=np.int8), np.ones((1, 1), dtype=np.int8),
                 software_timeout=0.2,
             )
@@ -368,17 +448,17 @@ class NPURuntimeTests(unittest.TestCase):
         self.assertNotIn(("dma_write", 0x30, 0x4), overlay.events)
         self.assertIn(("dma_write", 0x00, 0x1), overlay.events)
         self.assertIn(("dma_write", 0x30, 0x1), overlay.events)
-        recovered = runtime.run(
+        recovered = self.run_job(runtime,
             np.ones((1, 1), dtype=np.int8),
             np.ones((1, 1), dtype=np.int8),
         )
-        self.assertEqual((recovered.shape, recovered.dtype), ((1, 1), np.int32))
+        self.assertEqual((recovered.shape, recovered.dtype), ((1, 1), np.int8))
 
     def test_stuck_dma_reset_recovery_is_bounded(self):
         overlay = FakeOverlay(send_idle=False, reset_stuck=True)
         runtime = self.make_runtime(overlay=overlay, clock=StepClock(step=0.1))
         with self.assertRaises(TimeoutError):
-            runtime.run(
+            self.run_job(runtime,
                 np.ones((1, 1), dtype=np.int8),
                 np.ones((1, 1), dtype=np.int8),
                 software_timeout=0.2,
@@ -405,7 +485,7 @@ class NPURuntimeTests(unittest.TestCase):
             channel.transferred = 0
         channel.transfer = wrong_length
         with self.assertRaises(self.runtime_module.DMAError):
-            runtime.run(np.ones((1, 1), dtype=np.int8), np.ones((1, 1), dtype=np.int8))
+            self.run_job(runtime, np.ones((1, 1), dtype=np.int8), np.ones((1, 1), dtype=np.int8))
 
 
 if __name__ == "__main__":

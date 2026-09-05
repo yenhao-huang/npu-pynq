@@ -1,10 +1,10 @@
-"""Version 1 software-visible hardware ABI for the PYNQ NPU."""
+"""Version 2 software-visible hardware ABI for the PYNQ NPU."""
 
 from dataclasses import dataclass
 from enum import IntEnum, IntFlag
 
 ABI_MAGIC = 0x3155504E
-ABI_MAJOR = 1
+ABI_MAJOR = 2
 ABI_MINOR = 0
 ABI_WINDOW_BYTES = 0x100
 DMA_ALIGNMENT_BYTES = 64
@@ -23,6 +23,7 @@ class Capability(IntFlag):
 MATRIX_REQUIRED_CAPABILITIES = (
     Capability.MATRIX_INT8
     | Capability.SATURATING_ACCUM_INT32
+    | Capability.REQUANT_INT8
     | Capability.STREAM_TLAST
     | Capability.CYCLE_COUNTER
 )
@@ -44,6 +45,8 @@ class Register(IntEnum):
     TIMEOUT_CYCLES = 0x30
     CYCLES_LO = 0x34
     CYCLES_HI = 0x38
+    JOB_FLAGS = 0x3C
+    OUTPUT_ZERO_POINT = 0x40
 
 
 class Control(IntFlag):
@@ -65,6 +68,7 @@ class ErrorCode(IntEnum):
     STREAM_LENGTH = 4
     TIMEOUT = 5
     INVALID_TIMEOUT = 6
+    INVALID_REQUANTIZATION = 7
     INTERNAL = 255
 
 
@@ -156,7 +160,7 @@ class MatrixJob:
             raise JobValidationError(ErrorCode.INVALID_TIMEOUT, str(error)) from error
         self._validate_stride("a_stride", self.a_stride, self.k, 1)
         self._validate_stride("b_stride", self.b_stride, self.n, 1)
-        self._validate_stride("c_stride", self.c_stride, self.n * 4, 4)
+        self._validate_stride("c_stride", self.c_stride, self.n, 1)
 
     @staticmethod
     def _validate_stride(
@@ -183,7 +187,7 @@ class MatrixJob:
             k=k,
             a_stride=k,
             b_stride=n,
-            c_stride=n * 4,
+            c_stride=n,
             timeout_cycles=timeout_cycles,
         )
 
@@ -197,7 +201,7 @@ class MatrixJob:
 
     @property
     def payload_bytes(self) -> tuple[int, int, int]:
-        return self.m * self.k, self.k * self.n, 4 * self.m * self.n
+        return self.m * self.k, self.k * self.n, self.m * self.n
 
 
 @dataclass(frozen=True)

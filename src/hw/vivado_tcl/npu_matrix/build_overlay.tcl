@@ -69,7 +69,7 @@ set_property -dict [list \
     CONFIG.c_include_mm2s {1} \
     CONFIG.c_include_s2mm {1} \
     CONFIG.c_m_axis_mm2s_tdata_width {8} \
-    CONFIG.c_s_axis_s2mm_tdata_width {32} \
+    CONFIG.c_s_axis_s2mm_tdata_width {8} \
     CONFIG.c_sg_length_width {23}] $dma
 set accelerator [create_bd_cell -type module -reference npu_matrix_accelerator npu_matrix_accelerator_0]
 set_property -dict [list CONFIG.ROWS {2} CONFIG.COLUMNS {2} CONFIG.MAX_K {256}] $accelerator

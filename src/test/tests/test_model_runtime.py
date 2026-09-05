@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 
 from src.export.resnet import export_model
-from src.model.numeric import INT32_MAX
+from src.model.numeric import INT32_MAX, requantize_int32_to_int8
 from src.model.operators import (
     conv2d_int8,
     flatten_int8,
@@ -95,14 +95,27 @@ class FakeRuntime:
         self.fail_at = None
         self.cycles = cycles
 
-    def run(self, a, b, **timeouts):
-        call = len(self.calls) + 1
-        self.calls.append((a.copy(), b.copy(), dict(timeouts)))
-        if self.fail_at == call:
-            raise TimeoutError("injected physical failure")
+    def run_slices(self, a_tiles, b_tiles, *, bias, multipliers_q31, shifts,
+                   output_zero_point, **timeouts):
+        accumulator = None
+        for a, b in zip(a_tiles, b_tiles):
+            call = len(self.calls) + 1
+            self.calls.append((a.copy(), b.copy(), dict(timeouts)))
+            if self.fail_at == call:
+                raise TimeoutError("injected physical failure")
+            partial = np.asarray(a, dtype=np.int64) @ np.asarray(b, dtype=np.int64)
+            accumulator = partial if accumulator is None else accumulator + partial
         if self.cycles is not None:
-            self.last_metrics = SimpleNamespace(cycles=self.cycles)
-        return np.asarray(a, dtype=np.int32) @ np.asarray(b, dtype=np.int32)
+            self.last_metrics = SimpleNamespace(cycles=self.cycles * len(a_tiles))
+        accumulator += bias.astype(np.int64)
+        output = np.empty(accumulator.shape, dtype=np.int8)
+        for row in range(output.shape[0]):
+            for column in range(output.shape[1]):
+                output[row, column] = requantize_int32_to_int8(
+                    int(accumulator[row, column]), int(multipliers_q31[column]),
+                    int(shifts[column]), output_zero_point
+                )
+        return output
 
 
 def golden(source):

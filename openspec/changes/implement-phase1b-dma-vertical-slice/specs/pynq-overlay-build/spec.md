@@ -22,7 +22,7 @@ synchronous peripheral reset derived from it.
 PS M_AXI_GP0 SHALL control the accelerator AXI4-Lite window at 0x43C00000 with
 a 64-KiB range and the AXI DMA control window at 0x40400000 with a 64-KiB
 range. DMA MM2S and S2MM memory masters SHALL reach PS DDR through S_AXI_HP0.
-The MM2S stream SHALL be 8 bits, the S2MM stream SHALL be 32 bits, scatter-gather
+The MM2S stream SHALL be 8 bits, the S2MM stream SHALL be 8 bits, scatter-gather
 SHALL be disabled, and both DMA interrupts SHALL reach IRQ_F2P through an
 explicit concatenation block.
 

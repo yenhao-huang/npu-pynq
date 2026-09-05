@@ -19,13 +19,14 @@ and xc7z020 limits of 53,200 LUTs, 106,400 flip-flops, 140 BRAM36 blocks, and
 
 ### Requirement: Matrix operation and traffic accounting
 An MxK by KxN matrix multiplication SHALL count 2*M*N*K operations. Minimum
-payload traffic SHALL count M*K INT8 input bytes, K*N INT8 weight bytes, and
-4*M*N INT32 output bytes. Reports SHALL state separately any padding,
+payload traffic SHALL count M*K INT8 input bytes, K*N INT8 weight bytes,
+M*N INT8 output bytes, and N*(4+4+1) bytes for INT32 bias, INT32 Q1.31
+multiplier, and UINT8 shift parameters. Reports SHALL state separately any padding,
 retransmission, descriptor, or cache-maintenance traffic.
 
 #### Scenario: Payload accounting
 - **WHEN** M=2, N=3, and K=4
-- **THEN** the model reports 48 operations and 44 minimum payload bytes
+- **THEN** the model reports 48 operations and 53 minimum payload bytes
 
 ### Requirement: Compute and roofline timing
 Ideal array cycles SHALL be M+N+K-2 for a fully utilized single tile and SHALL

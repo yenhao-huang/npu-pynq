@@ -22,7 +22,7 @@ class AccountingTests(unittest.TestCase):
             assumptions=PerformanceAssumptions(launch_overhead_seconds=0.0),
         )
         self.assertEqual(report.operations, 48)
-        self.assertEqual(report.payload_bytes, 44)
+        self.assertEqual(report.payload_bytes, 53)
         self.assertEqual(report.compute_cycles, 7)
         self.assertEqual(report.tile_count, 1)
 

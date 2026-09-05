@@ -28,7 +28,7 @@ necessary to define or test Phase 2A.
 
 - Import arbitrary PyTorch or ONNX graphs; an adapter can translate into the
   frozen graph contract in a later independent change.
-- Change ABI v1, RTL, Tcl, constraints, or the Phase 1 matrix runtime.
+- Change constraints or the physical array dimensions.
 - Support batch sizes other than one, grouped/depthwise/dilated convolution, or
   residual branches with different quantization.
 - Claim ImageNet accuracy, full ResNet-18 latency, synthesis, timing closure, or
@@ -179,6 +179,6 @@ closes only after all Phase 2A integration gates pass.
 5. Hand Issue #7 a deterministic package and host/fake-runtime evidence for
    full-model, synthesis/timing, and physical-board acceptance.
 
-Rollback is commit/PR reversion in reverse dependency order. ABI v1 and the
-Phase 1 overlay remain deployable throughout because Phase 2A adds no hardware
-or register behavior.
+Rollback is commit/PR reversion in reverse dependency order. ABI v2 and its
+matching Phase 1 overlay/runtime must be deployed together because hardware
+requantization changes the register and stream contract.

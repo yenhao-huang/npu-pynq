@@ -39,6 +39,8 @@ class ConstantTests(unittest.TestCase):
             "TIMEOUT_CYCLES": 0x30,
             "CYCLES_LO": 0x34,
             "CYCLES_HI": 0x38,
+            "JOB_FLAGS": 0x3C,
+            "OUTPUT_ZERO_POINT": 0x40,
         }
         self.assertEqual({item.name: item.value for item in Register}, expected)
         self.assertEqual(len({item.value for item in Register}), len(Register))
@@ -59,6 +61,7 @@ class ConstantTests(unittest.TestCase):
                 "STREAM_LENGTH": 4,
                 "TIMEOUT": 5,
                 "INVALID_TIMEOUT": 6,
+                "INVALID_REQUANTIZATION": 7,
                 "INTERNAL": 255,
             },
         )
@@ -66,23 +69,23 @@ class ConstantTests(unittest.TestCase):
 
 class CompatibilityTests(unittest.TestCase):
     def test_version_round_trip(self):
-        version = AbiVersion(major=1, minor=7)
+        version = AbiVersion(major=2, minor=7)
         self.assertEqual(AbiVersion.decode(version.encode()), version)
-        self.assertEqual(version.encode(), 0x00010007)
+        self.assertEqual(version.encode(), 0x00020007)
 
     def test_newer_minor_with_required_capabilities_is_compatible(self):
         version = negotiate_abi(
             magic=ABI_MAGIC,
-            version_word=AbiVersion(1, 9).encode(),
+            version_word=AbiVersion(2, 9).encode(),
             capabilities=int(MATRIX_REQUIRED_CAPABILITIES | Capability.REQUANT_INT8),
         )
-        self.assertEqual(version, AbiVersion(1, 9))
+        self.assertEqual(version, AbiVersion(2, 9))
 
     def test_bad_magic_major_or_capabilities_are_rejected(self):
         cases = (
-            (0, AbiVersion(1, 0).encode(), int(MATRIX_REQUIRED_CAPABILITIES)),
-            (ABI_MAGIC, AbiVersion(2, 0).encode(), int(MATRIX_REQUIRED_CAPABILITIES)),
-            (ABI_MAGIC, AbiVersion(1, 0).encode(), int(Capability.MATRIX_INT8)),
+            (0, AbiVersion(2, 0).encode(), int(MATRIX_REQUIRED_CAPABILITIES)),
+            (ABI_MAGIC, AbiVersion(1, 0).encode(), int(MATRIX_REQUIRED_CAPABILITIES)),
+            (ABI_MAGIC, AbiVersion(2, 0).encode(), int(Capability.MATRIX_INT8)),
         )
         for magic, version, capabilities in cases:
             with self.subTest(magic=magic, version=version, capabilities=capabilities):
@@ -93,10 +96,10 @@ class CompatibilityTests(unittest.TestCase):
 class JobTests(unittest.TestCase):
     def test_dense_job_and_payload_counts(self):
         job = MatrixJob.dense(m=2, n=3, k=4, timeout_cycles=1000)
-        self.assertEqual((job.a_stride, job.b_stride, job.c_stride), (4, 3, 12))
+        self.assertEqual((job.a_stride, job.b_stride, job.c_stride), (4, 3, 3))
         self.assertEqual(job.input_elements, 20)
         self.assertEqual(job.output_elements, 6)
-        self.assertEqual(job.payload_bytes, (8, 12, 24))
+        self.assertEqual(job.payload_bytes, (8, 12, 6))
 
     def test_job_is_immutable(self):
         job = MatrixJob.dense(1, 1, 1, timeout_cycles=1)
@@ -109,7 +112,7 @@ class JobTests(unittest.TestCase):
             dict(m=1, n=65536, k=1, a_stride=1, b_stride=65536, c_stride=262144, timeout_cycles=1),
             dict(m=1, n=2, k=3, a_stride=2, b_stride=2, c_stride=8, timeout_cycles=1),
             dict(m=1, n=2, k=3, a_stride=3, b_stride=1, c_stride=8, timeout_cycles=1),
-            dict(m=1, n=2, k=3, a_stride=3, b_stride=2, c_stride=6, timeout_cycles=1),
+            dict(m=1, n=2, k=3, a_stride=3, b_stride=2, c_stride=1, timeout_cycles=1),
             dict(m=1, n=1, k=1, a_stride=1, b_stride=1, c_stride=4, timeout_cycles=0),
         )
         for arguments in invalid_arguments:

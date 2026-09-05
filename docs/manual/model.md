@@ -58,6 +58,14 @@ shapes, quantization compatibility, producer order, references, operator
 parameters, per-channel requantization metadata, and bias types. Invalid or
 unsupported graphs fail before export or hardware execution.
 
+Conv2D and FullyConnected production execution sends signed INT32 bias,
+per-channel Q1.31 multipliers, shifts, and the signed output zero point through
+the ABI v2 hardware path. When K is tiled, the accelerator retains ordered
+INT32 partial sums and applies bias plus requantization only after the final K
+slice. The physical runtime returns dense signed INT8; lowering rejects INT32,
+floating-point, wrong-shaped, or otherwise malformed physical outputs and
+never requantizes them on the host.
+
 ### `operators.py`
 
 [`src/model/operators.py`](../../src/model/operators.py) implements the

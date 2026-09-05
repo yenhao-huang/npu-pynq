@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from src.model.numeric import INT32_MAX
+from src.model.numeric import INT32_MAX, requantize_int32_to_int8
 from src.model.operators import conv2d_int8, fully_connected_int8
 from src.runtime.lowering import (
     LoweringValidationError,
@@ -32,33 +32,55 @@ class FakeRuntime:
         self.bad_result = None
         self.cycles = None if cycles is None else iter(cycles)
 
-    def run(
+    def run_slices(
         self,
-        a_matrix,
-        b_matrix,
+        a_tiles,
+        b_tiles,
         *,
+        bias,
+        multipliers_q31,
+        shifts,
+        output_zero_point,
         hardware_timeout_cycles,
         software_timeout,
     ):
-        self.calls.append(
-            (
-                np.array(a_matrix, copy=True),
-                np.array(b_matrix, copy=True),
-                hardware_timeout_cycles,
-                software_timeout,
+        accumulator = None
+        cycle_total = 0
+        cycle_available = True
+        for a_matrix, b_matrix in zip(a_tiles, b_tiles):
+            self.calls.append(
+                (
+                    np.array(a_matrix, copy=True),
+                    np.array(b_matrix, copy=True),
+                    hardware_timeout_cycles,
+                    software_timeout,
+                )
             )
-        )
+            partial = a_matrix.astype(np.int64) @ b_matrix.astype(np.int64)
+            accumulator = partial if accumulator is None else accumulator + partial
+            if self.cycles is not None:
+                value = next(self.cycles)
+                if value is None:
+                    cycle_available = False
+                else:
+                    cycle_total += value
         if self.bad_result is not None:
             return self.bad_result
         if self.cycles is not None:
-            value = next(self.cycles)
             self.last_metrics = (
-                None if value is None else SimpleNamespace(cycles=value)
+                None if not cycle_available else SimpleNamespace(cycles=cycle_total)
             )
-        return np.asarray(
-            a_matrix.astype(np.int64) @ b_matrix.astype(np.int64),
-            dtype=np.int32,
-        )
+        accumulator += bias.astype(np.int64)
+        output = np.empty(accumulator.shape, dtype=np.int8)
+        for row in range(output.shape[0]):
+            for column in range(output.shape[1]):
+                output[row, column] = requantize_int32_to_int8(
+                    int(accumulator[row, column]),
+                    int(multipliers_q31[column]),
+                    int(shifts[column]),
+                    output_zero_point,
+                )
+        return output
 
 
 class StepClock:
@@ -161,19 +183,25 @@ class ConvolutionLoweringTests(unittest.TestCase):
 
     def test_incompatible_physical_result_is_rejected(self):
         runtime = FakeRuntime()
-        runtime.bad_result = np.zeros((1, 1), dtype=np.int8)
         lowerer = MatrixLowerer(runtime)
         source = np.ones((1, 1, 1, 1), dtype=np.int8)
         weights = np.ones((1, 1, 1, 1), dtype=np.int8)
-        with self.assertRaisesRegex(RuntimeError, "physical runtime"):
-            lowerer.conv2d(
-                source,
-                weights,
-                accumulator_bounds=bounds_for(weights),
-                multipliers_q31=(INT32_MAX,),
-                shifts=(0,),
-                output_zero_point=0,
-            )
+        for bad_result in (
+            np.zeros((1, 1), dtype=np.int32),
+            np.zeros((1, 1), dtype=np.float32),
+            np.zeros((1, 2), dtype=np.int8),
+        ):
+            with self.subTest(dtype=bad_result.dtype, shape=bad_result.shape):
+                runtime.bad_result = bad_result
+                with self.assertRaisesRegex(RuntimeError, "physical runtime"):
+                    lowerer.conv2d(
+                        source,
+                        weights,
+                        accumulator_bounds=bounds_for(weights),
+                        multipliers_q31=(INT32_MAX,),
+                        shifts=(0,),
+                        output_zero_point=0,
+                    )
 
 
 class FullyConnectedLoweringTests(unittest.TestCase):

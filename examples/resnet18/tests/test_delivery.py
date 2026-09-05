@@ -14,6 +14,8 @@ import zipfile
 
 import numpy as np
 
+from src.model.numeric import requantize_int32_to_int8
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE_ROOT = REPOSITORY_ROOT / "examples" / "resnet18"
@@ -56,11 +58,23 @@ class MatrixFake:
     def __init__(self, cycles=5):
         self.cycles = cycles
 
-    def run(self, a, b, **_timeouts):
+    def run_slices(self, a_tiles, b_tiles, *, bias, multipliers_q31, shifts,
+                   output_zero_point, **_timeouts):
         if _timeouts.get("hardware_timeout_cycles") == 1:
             raise TimeoutError("injected physical accelerator timeout")
-        self.last_metrics = SimpleNamespace(cycles=self.cycles)
-        return np.asarray(a, dtype=np.int32) @ np.asarray(b, dtype=np.int32)
+        self.last_metrics = SimpleNamespace(cycles=self.cycles * len(a_tiles))
+        accumulator = sum(
+            np.asarray(a, dtype=np.int64) @ np.asarray(b, dtype=np.int64)
+            for a, b in zip(a_tiles, b_tiles)
+        ) + bias.astype(np.int64)
+        output = np.empty(accumulator.shape, dtype=np.int8)
+        for row in range(output.shape[0]):
+            for column in range(output.shape[1]):
+                output[row, column] = requantize_int32_to_int8(
+                    int(accumulator[row, column]), int(multipliers_q31[column]),
+                    int(shifts[column]), output_zero_point
+                )
+        return output
 
 
 class ResNet18DeliveryTests(unittest.TestCase):

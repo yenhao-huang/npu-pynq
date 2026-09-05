@@ -22,6 +22,7 @@ from src.export.torchvision_resnet18 import (
     compare_integer_captures,
 )
 from src.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
+from src.model.numeric import requantize_int32_to_int8
 from src.runtime.model import NPUModelRuntime, load_model_package
 from src.test.model.quantized_graph_reference import (
     execute_quantized_graph_reference,
@@ -40,11 +41,31 @@ class HostMatrixBackend:
     max_n = 512
     max_k = 4608
 
-    def run(self, matrix_a: np.ndarray, matrix_b: np.ndarray, **_timeouts) -> np.ndarray:
-        return (
-            np.asarray(matrix_a, dtype=np.int32)
-            @ np.asarray(matrix_b, dtype=np.int32)
-        )
+    def run_slices(
+        self,
+        a_tiles,
+        b_tiles,
+        *,
+        bias,
+        multipliers_q31,
+        shifts,
+        output_zero_point,
+        **_timeouts,
+    ) -> np.ndarray:
+        accumulator = sum(
+            np.asarray(a, dtype=np.int64) @ np.asarray(b, dtype=np.int64)
+            for a, b in zip(a_tiles, b_tiles)
+        ) + bias.astype(np.int64)
+        output = np.empty(accumulator.shape, dtype=np.int8)
+        for row in range(output.shape[0]):
+            for column in range(output.shape[1]):
+                output[row, column] = requantize_int32_to_int8(
+                    int(accumulator[row, column]),
+                    int(multipliers_q31[column]),
+                    int(shifts[column]),
+                    output_zero_point,
+                )
+        return output
 
 
 def _sha256(path: Path) -> str:

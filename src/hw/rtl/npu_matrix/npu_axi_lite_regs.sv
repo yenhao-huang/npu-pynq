@@ -43,11 +43,13 @@ module npu_axi_lite_regs #(
     output logic [31:0]                       cfg_a_stride,
     output logic [31:0]                       cfg_b_stride,
     output logic [31:0]                       cfg_c_stride,
-    output logic [31:0]                       cfg_timeout_cycles
+    output logic [31:0]                       cfg_timeout_cycles,
+    output logic [1:0]                        cfg_job_flags,
+    output logic signed [7:0]                 cfg_output_zero_point
 );
     localparam logic [31:0] ABI_MAGIC = 32'h3155504e;
-    localparam logic [31:0] ABI_VERSION = 32'h00010000;
-    localparam logic [31:0] ABI_CAPABILITIES = 32'h0000001b;
+    localparam logic [31:0] ABI_VERSION = 32'h00020000;
+    localparam logic [31:0] ABI_CAPABILITIES = 32'h0000001f;
 
     localparam logic [7:0] REG_MAGIC = 8'h00;
     localparam logic [7:0] REG_VERSION = 8'h04;
@@ -64,6 +66,8 @@ module npu_axi_lite_regs #(
     localparam logic [7:0] REG_TIMEOUT_CYCLES = 8'h30;
     localparam logic [7:0] REG_CYCLES_LO = 8'h34;
     localparam logic [7:0] REG_CYCLES_HI = 8'h38;
+    localparam logic [7:0] REG_JOB_FLAGS = 8'h3c;
+    localparam logic [7:0] REG_OUTPUT_ZERO_POINT = 8'h40;
 
     logic [C_S_AXI_ADDR_WIDTH-1:0] aw_hold_addr;
     logic                          aw_hold_valid;
@@ -118,6 +122,9 @@ module npu_axi_lite_regs #(
                 REG_TIMEOUT_CYCLES: read_word = cfg_timeout_cycles;
                 REG_CYCLES_LO:      read_word = cycles[31:0];
                 REG_CYCLES_HI:      read_word = cycles[63:32];
+                REG_JOB_FLAGS:      read_word = {30'd0, cfg_job_flags};
+                REG_OUTPUT_ZERO_POINT:
+                    read_word = {{24{cfg_output_zero_point[7]}}, cfg_output_zero_point};
                 default:            read_word = 32'd0;
             endcase
         end
@@ -125,9 +132,9 @@ module npu_axi_lite_regs #(
 
     initial begin
         if (C_S_AXI_DATA_WIDTH != 32)
-            $fatal(1, "npu_axi_lite_regs ABI v1 requires 32-bit AXI data");
+            $fatal(1, "npu_axi_lite_regs ABI v2 requires 32-bit AXI data");
         if (C_S_AXI_ADDR_WIDTH < 8)
-            $fatal(1, "npu_axi_lite_regs ABI v1 requires at least 8 address bits");
+            $fatal(1, "npu_axi_lite_regs ABI v2 requires at least 8 address bits");
     end
 
     always_comb begin
@@ -157,6 +164,8 @@ module npu_axi_lite_regs #(
             cfg_b_stride <= 32'd0;
             cfg_c_stride <= 32'd0;
             cfg_timeout_cycles <= 32'd0;
+            cfg_job_flags <= 2'd0;
+            cfg_output_zero_point <= 8'sd0;
         end else begin
             start_pulse <= 1'b0;
             soft_reset_pulse <= 1'b0;
@@ -184,6 +193,8 @@ module npu_axi_lite_regs #(
                                 cfg_b_stride <= 32'd0;
                                 cfg_c_stride <= 32'd0;
                                 cfg_timeout_cycles <= 32'd0;
+                                cfg_job_flags <= 2'd0;
+                                cfg_output_zero_point <= 8'sd0;
                             end else if (w_hold_data[0]) begin
                                 start_pulse <= 1'b1;
                             end
@@ -218,6 +229,14 @@ module npu_axi_lite_regs #(
                             cfg_timeout_cycles <= merge_wstrb(
                                 cfg_timeout_cycles, w_hold_data, w_hold_strb
                             );
+                    end
+                    REG_JOB_FLAGS: begin
+                        if (!status_busy && w_hold_strb[0])
+                            cfg_job_flags <= w_hold_data[1:0];
+                    end
+                    REG_OUTPUT_ZERO_POINT: begin
+                        if (!status_busy && w_hold_strb[0])
+                            cfg_output_zero_point <= w_hold_data[7:0];
                     end
                     default: begin
                     end

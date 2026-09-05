@@ -7,6 +7,8 @@ import unittest
 
 import numpy as np
 
+from src.model.numeric import requantize_int32_to_int8
+
 from src.export.resnet import export_model
 from src.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
 from src.model.resnet18 import load_acceptance_bundle
@@ -31,16 +33,28 @@ class MatrixFake:
         self.fail_next = False
         self.calls = 0
 
-    def run(self, a, b, **_timeouts):
-        self.calls += 1
+    def run_slices(self, a_tiles, b_tiles, *, bias, multipliers_q31, shifts,
+                   output_zero_point, **_timeouts):
+        self.calls += len(a_tiles)
         if self.fail_next:
             self.fail_next = False
             raise TimeoutError("injected acceptance failure")
         if self.cycles is not None:
-            self.last_metrics = SimpleNamespace(cycles=self.cycles)
+            self.last_metrics = SimpleNamespace(cycles=self.cycles * len(a_tiles))
         elif hasattr(self, "last_metrics"):
             del self.last_metrics
-        return np.asarray(a, dtype=np.int32) @ np.asarray(b, dtype=np.int32)
+        accumulator = sum(
+            np.asarray(a, dtype=np.int64) @ np.asarray(b, dtype=np.int64)
+            for a, b in zip(a_tiles, b_tiles)
+        ) + bias.astype(np.int64)
+        output = np.empty(accumulator.shape, dtype=np.int8)
+        for row in range(output.shape[0]):
+            for column in range(output.shape[1]):
+                output[row, column] = requantize_int32_to_int8(
+                    int(accumulator[row, column]), int(multipliers_q31[column]),
+                    int(shifts[column]), output_zero_point
+                )
+        return output
 
 
 class TickingClock:
