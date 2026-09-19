@@ -47,7 +47,7 @@ module npu_matrix_accelerator #(
     logic [15:0] cfg_m, cfg_n, cfg_k;
     logic [31:0] cfg_a_stride, cfg_b_stride, cfg_c_stride;
     logic [31:0] cfg_timeout_cycles;
-    logic status_busy, status_done, status_error;
+    logic status_busy, status_accept, status_done, status_error;
     logic [7:0] error_code;
     logic [63:0] cycles;
 
@@ -59,6 +59,7 @@ module npu_matrix_accelerator #(
     ) control_regs (
         .*,
         .status_busy(status_busy),
+        .status_accept(status_accept),
         .status_done(status_done),
         .status_error(status_error),
         .error_code(error_code),
@@ -99,6 +100,7 @@ module npu_matrix_accelerator #(
         .m_axis_tready(m_axis_tready),
         .m_axis_tlast(m_axis_tlast),
         .status_busy(status_busy),
+        .status_accept(status_accept),
         .status_done(status_done),
         .status_error(status_error),
         .error_code(error_code),

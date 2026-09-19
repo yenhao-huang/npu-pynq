@@ -100,12 +100,25 @@ module tb_npu_matrix_accelerator;
         axi_write(8'h30, 200); axi_write(8'h0c, 1);
 
         axi_read(8'h10, read_value);
-        if (read_value != 1) fail("BUSY did not assert through public AXI");
+        if (read_value != 32'h9) fail("BUSY|ACCEPT did not assert through public AXI");
 
         stream_beat(-128, 0); stream_beat(127, 0);
         stream_beat(7, 0); stream_beat(-3, 1);
         stream_beat(-1, 0); stream_beat(2, 0);
         stream_beat(4, 0); stream_beat(-5, 1);
+
+        // The A/B banks leave one queue entry free, so the second job's
+        // configuration and START are admitted through the same register
+        // window while the first job still owns the array.
+        axi_read(8'h10, read_value);
+        if (!(read_value & 32'h8)) fail("ACCEPT cleared with one job in flight");
+        axi_write(8'h18, 1); axi_write(8'h1c, 2); axi_write(8'h20, 2);
+        axi_write(8'h24, 2); axi_write(8'h28, 2); axi_write(8'h2c, 8);
+        axi_write(8'h30, 400); axi_write(8'h0c, 1);
+        axi_read(8'h14, read_value);
+        if (read_value != 0) fail("queued START raised an error");
+        axi_read(8'h10, read_value);
+        if (read_value & 32'h8) fail("ACCEPT still set with a full queue");
 
         take_result(636, 0, 3);
         take_result(-891, 0, 1);
@@ -113,9 +126,23 @@ module tb_npu_matrix_accelerator;
         take_result(29, 1, 2);
 
         axi_read(8'h10, read_value);
-        if (read_value != 2) fail("expected DONE without ERROR");
+        if (read_value != 32'hb) fail("expected BUSY|DONE|ACCEPT after first job");
         axi_read(8'h14, read_value);
         if (read_value != 0) fail("unexpected ERROR code");
+        axi_read(8'h34, read_value);
+        if (read_value == 0) fail("cycle count is zero");
+
+        // Second job: 1x2x2 with A = [2 -3], B = [[4 6], [5 -7]].
+        stream_beat(2, 0); stream_beat(-3, 1);
+        stream_beat(4, 0); stream_beat(6, 0);
+        stream_beat(5, 0); stream_beat(-7, 1);
+        take_result(-7, 0, 0);
+        take_result(33, 1, 2);
+
+        axi_read(8'h10, read_value);
+        if (read_value != 32'ha) fail("expected DONE|ACCEPT after the queue drained");
+        axi_read(8'h14, read_value);
+        if (read_value != 0) fail("unexpected ERROR code after second job");
         axi_read(8'h34, read_value);
         if (read_value == 0) fail("cycle count is zero");
         held_data = read_value;
