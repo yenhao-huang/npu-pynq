@@ -5,9 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 import json
 import math
-import os
 from pathlib import Path
-import tempfile
 import time
 from types import MappingProxyType
 from typing import Any
@@ -16,6 +14,7 @@ import numpy as np
 
 from src.model.resnet18 import AcceptanceBundle
 
+from .evidence import canonical_json, publish_atomic
 from .model import ModelResult, NPUModelRuntime
 
 
@@ -24,42 +23,11 @@ class AcceptanceRunError(RuntimeError):
 
 
 def _canonical_json(value: Mapping[str, Any]) -> bytes:
-    try:
-        encoded = json.dumps(
-            value,
-            allow_nan=False,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
-    except (TypeError, ValueError) as error:
-        raise AcceptanceRunError(f"evidence is not canonical JSON: {error}") from error
-    return (encoded + "\n").encode("utf-8")
+    return canonical_json(value, AcceptanceRunError)
 
 
 def _publish_atomic(path: Path, data: bytes) -> None:
-    if not path.name or not path.parent.is_dir():
-        raise AcceptanceRunError("evidence parent directory must exist")
-    temporary: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as stream:
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-            temporary = Path(stream.name)
-        os.replace(temporary, path)
-        temporary = None
-    except OSError as error:
-        raise AcceptanceRunError(f"evidence publication failed: {error}") from error
-    finally:
-        if temporary is not None and temporary.exists():
-            temporary.unlink()
+    publish_atomic(path, data, AcceptanceRunError)
 
 
 def _clock_value(monotonic_ns: Callable[[], int]) -> int:
