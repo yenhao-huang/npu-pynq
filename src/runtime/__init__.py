@@ -19,6 +19,21 @@ from .model import (
     load_model_package,
 )
 from .acceptance import AcceptanceRunError, run_resnet18_acceptance
+from .benchmark import (
+    BENCHMARK_MAGIC,
+    BenchmarkError,
+    HostMatrixEngine,
+    MatrixPoint,
+    Provenance,
+    build_record,
+    compare_int8_to_float,
+    compare_records,
+    load_record,
+    measure_matrix_point,
+    publish_record,
+    run_matrix_sweep,
+    summarize_model_run,
+)
 
 __all__ = [
     "NPURuntime",
@@ -39,4 +54,17 @@ __all__ = [
     "load_model_package",
     "AcceptanceRunError",
     "run_resnet18_acceptance",
+    "BENCHMARK_MAGIC",
+    "BenchmarkError",
+    "HostMatrixEngine",
+    "MatrixPoint",
+    "Provenance",
+    "build_record",
+    "compare_int8_to_float",
+    "compare_records",
+    "load_record",
+    "measure_matrix_point",
+    "publish_record",
+    "run_matrix_sweep",
+    "summarize_model_run",
 ]
