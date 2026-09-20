@@ -43,7 +43,7 @@ def _fetch(url: str, timeout: float = 120.0) -> bytes:
 
 
 def main() -> int:
-    example_root = Path(__file__).resolve().parents[1]
+    example_root = Path(__file__).resolve().parents[4]
     corpus_dir = example_root / "model" / "imagenet-calibration"
     index_path = example_root / "model" / "imagenet-calibration.index.tsv"
     corpus_dir.mkdir(parents=True, exist_ok=True)

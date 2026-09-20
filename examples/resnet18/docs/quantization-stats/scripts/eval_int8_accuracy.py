@@ -14,7 +14,7 @@ meaningful; absolute values are not.
 
 Usage (relative to the repository root):
 
-    python examples/resnet18/scripts/eval_int8_accuracy.py \\
+    python examples/resnet18/docs/quantization-stats/scripts/eval_int8_accuracy.py \\
         --checkpoint examples/resnet18/model/resnet18-f37072fd.pth \\
         --corpus    examples/resnet18/model/imagenet-calibration \\
         --index     examples/resnet18/model/imagenet-calibration.index.tsv \\
@@ -38,7 +38,7 @@ from pathlib import Path
 import numpy as np
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 

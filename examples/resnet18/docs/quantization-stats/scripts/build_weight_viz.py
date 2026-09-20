@@ -12,7 +12,7 @@ Two panels on one canvas:
 
 Usage (relative to the repository root):
 
-    python examples/resnet18/scripts/build_weight_viz.py \\
+    python examples/resnet18/docs/quantization-stats/scripts/build_weight_viz.py \\
         --checkpoint examples/resnet18/model/resnet18-f37072fd.pth \\
         --output    examples/resnet18/model/weight_distribution.html
 
@@ -30,7 +30,7 @@ from pathlib import Path
 import numpy as np
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 

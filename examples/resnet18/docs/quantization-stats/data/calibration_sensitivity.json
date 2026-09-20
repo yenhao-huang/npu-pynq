@@ -1,0 +1,79 @@
+{
+ "description": "Calibration-set sensitivity sweep. Evaluation set held fixed at the first 100 corpus images; only the calibration set varies.",
+ "evaluation_images": 100,
+ "fp32_top1": 0.84,
+ "note": "Rows were produced by a sweep harness that invokes the same exporter and integer reference as scripts/eval_int8_accuracy.py, one graph build per row. Each row is reproducible individually with that script by passing the matching --calibration / --calibration-size.",
+ "caveat": "At n=100 a single figure carries roughly +/-7 pp at 95% confidence. The synthetic-versus-real-pair spread and the 2-versus-4+ difference are outside that band; the differences among 4, 8, 32 and 128 images are not.",
+ "rows": [
+  {
+   "calibration": "synthetic (current)",
+   "calibration_images": 0,
+   "int8_top1": 0.56,
+   "delta_vs_fp32": -0.2799999999999999,
+   "top1_agreement": 0.69
+  },
+  {
+   "calibration": "real x2 (a)",
+   "calibration_images": 2,
+   "int8_top1": 0.56,
+   "delta_vs_fp32": -0.2799999999999999,
+   "top1_agreement": 0.67
+  },
+  {
+   "calibration": "real x2 (b)",
+   "calibration_images": 2,
+   "int8_top1": 0.84,
+   "delta_vs_fp32": 0.0,
+   "top1_agreement": 1.0
+  },
+  {
+   "calibration": "real x2 (c)",
+   "calibration_images": 2,
+   "int8_top1": 0.7,
+   "delta_vs_fp32": -0.14,
+   "top1_agreement": 0.83
+  },
+  {
+   "calibration": "real x4",
+   "calibration_images": 4,
+   "int8_top1": 0.85,
+   "delta_vs_fp32": 0.010000000000000009,
+   "top1_agreement": 0.98
+  },
+  {
+   "calibration": "real, 8 imgs",
+   "calibration_images": 8,
+   "int8_top1": 0.8,
+   "delta_vs_fp32": -0.039999999999999925,
+   "top1_agreement": 0.91
+  },
+  {
+   "calibration": "real A, 32 imgs",
+   "calibration_images": 32,
+   "int8_top1": 0.83,
+   "delta_vs_fp32": -0.010000000000000009,
+   "top1_agreement": 0.96
+  },
+  {
+   "calibration": "real B, 32 imgs",
+   "calibration_images": 32,
+   "int8_top1": 0.83,
+   "delta_vs_fp32": -0.010000000000000009,
+   "top1_agreement": 0.99
+  },
+  {
+   "calibration": "real C, 32 imgs",
+   "calibration_images": 32,
+   "int8_top1": 0.83,
+   "delta_vs_fp32": -0.010000000000000009,
+   "top1_agreement": 0.95
+  },
+  {
+   "calibration": "real, 128 imgs",
+   "calibration_images": 128,
+   "int8_top1": 0.85,
+   "delta_vs_fp32": 0.010000000000000009,
+   "top1_agreement": 0.96
+  }
+ ]
+}

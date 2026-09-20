@@ -62,8 +62,14 @@ npu_repo_in_pynq/
 |       |   `-- *.py
 |       |-- runtime/
 |       |   `-- *.py
-|       `-- tests/
-|           `-- test_*.py
+|       |-- tests/
+|       |   `-- test_*.py
+|       `-- docs/
+|           `-- <study>/          example-scoped measurement studies
+|               |-- README.md
+|               |-- scripts/
+|               |-- data/
+|               `-- *.html
 |-- docs/
 |   |-- assets/
 |   |   `-- *.png              versioned images embedded by documentation
@@ -126,6 +132,16 @@ go under its `model/` workspace and remain ignored except for `.gitkeep`.
 A `*-source.json` file pins one download set by URL, length, SHA-256, and
 license; the downloaded bytes themselves are never committed.
 The canonical generated-data path is `examples/<example>/model/`.
+
+`examples/<example>/docs/<study>/` holds a self-contained measurement study
+for that example: its `README.md` states the conclusions, `scripts/` holds the
+entry points that produced them, `data/` holds the machine-readable
+measurements, and a rendered `*.html` visualization may sit at the study root.
+A study is committed, unlike the `model/` workspace, because its conclusions
+have to remain readable and auditable without re-running anything. Input
+corpora stay out: they belong under `model/` and stay ignored. Keep a study's
+committed bytes proportionate; a rendered page and its summary JSON/CSV are in
+scope, raw captures and datasets are not.
 
 `.github/cd/` owns non-interactive deployment and acceptance scripts used by
 continuous delivery. Example-local `deploy_release.ps1` files only copy a
