@@ -171,79 +171,33 @@ evidence. The `-AllowArtifactCommitMismatch` choice is recorded for the later
 human validation; omit it when the artifacts were built from this exact
 checkout.
 
-## 9. Open the notebook and perform human validation
+## 9. Open the notebook and run the demo
 
-In the PYNQ Jupyter interface (e.g., http://192.168.2.99:9090/notebooks/), open the release directory printed by the
-deployment wrapper, then open:
+In the PYNQ Jupyter interface (e.g., http://192.168.2.99:9090/notebooks/), open
+the release directory printed by the deployment wrapper, then open:
 
 ```text
 examples/resnet18/resnet18.ipynb
 ```
 
-Select the board's PYNQ Python kernel and run one cell at a time. Confirm Step 4 displays `array_size: 8` and Step 6 displays
-`matrix_limits: [8, 8, 256]`. Step 7 runs the synthetic regression tensor and
-displays elapsed time, MAC count and physical job count, and Step 8 compares
-every output digest with the host record.
+Select the board's PYNQ Python kernel and run one cell at a time.
 
-Steps 9 to 12 are the real-image demo. Step 10 shows the photograph next to the
-exact dequantized INT8 tensor the NPU receives, so you can see the input before
-any inference runs. Step 11 executes that image on the board and Step 12 checks
-the board captures against the host record before printing the top-5 ImageNet
-labels, the predicted class, and a `CORRECT` or `INCORRECT` verdict against the
-expected class.
+Step 2 programs the FPGA and prints the runtime class, the 8 x 8 array, the 64
+processing elements, and the bitstream path. Step 3 offers a dropdown of five
+bundled photographs beside an upload widget; an upload overrides the dropdown.
+Step 4 preprocesses the chosen picture on the board and shows it next to the
+exact dequantized INT8 tensor the NPU receives, so you see the input before any
+inference runs. Step 5 executes it and reports elapsed time, MAC count, and
+physical job count; a job count above zero is what distinguishes this from a
+host simulation. Step 6 prints the top-5 ImageNet labels with a bar chart, the
+predicted class, and `CORRECT` or `INCORRECT` for a bundled picture whose class
+is declared. An uploaded picture has no ground truth, so you judge it yourself.
 
-The notebook
-does not hide acceptance behind `run_on_board.py`. It separately exposes the
-deployment provenance, model file digests, BIT/HWH verification, reconstructed
-model graph, physical `NPURuntime` identity, execution metrics, every
-expected/actual output hash, and the real-image prediction.
+One forward pass is 1,814,073,344 MACs and takes roughly an hour on the 8 x 8
+overlay, so this is a start-it-and-talk demo rather than an interactive one.
 
-After reviewing those results, change `human_approves = False` to `True` in
-the final cell and execute that cell. Only this explicit approval writes a new
-`notebook-evidence-<UTC timestamp>.json` and prints one of these markers:
-
-```text
-PASS [physical-pynq-z1]: human-reviewed notebook demo
-PASS [physical-pynq-z1-development]: human-reviewed notebook demo
-```
-
-The development marker means an artifact/check-out commit mismatch was
-explicitly allowed. It is execution evidence, not trusted release acceptance.
-
-For terminal-oriented verification, `run_on_board.py` remains an alternative
-low-level entry point. It runs the deterministic synthetic tensor only; the
-real-image prediction lives in the notebook, which is the canonical human
-demo. Run it only on the PYNQ-Z1, using the commit values from
-`deployment.json`:
-
-```bash
-source /etc/profile.d/xrt_setup.sh
-source /etc/profile.d/pynq_venv.sh
-cd /home/xilinx/jupyter_notebooks/npu_resnet18/releases/<deployment-id>
-sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 \
-  examples/resnet18/run_on_board.py \
-  --artifact-dir build/vivado/npu_matrix_8x8/artifacts \
-  --expected-source-commit <40-character-artifact-commit> \
-  --deployed-source-commit <40-character-deployed-commit> \
-  --evidence board-evidence.json
-```
-
-The notebook calls the public verification and runtime APIs directly so each
-boundary remains visible; the CLI composes the same checks for terminal and CD
-use. Both routes require an actual `NPURuntime`, and host backends cannot emit
-a physical PASS marker. Automated deployment and evidence collection belong
-to the CD script under `.github/cd/`, not to this human demo workflow.
-
-## 10. Live demo: classify an uploaded picture
-
-`resnet18_live_demo.ipynb` is the showing-it-to-people notebook. Step 3 offers a
-dropdown of five bundled photographs and an upload widget; an upload overrides
-the dropdown. The board preprocesses the chosen picture, runs it on the 8 x 8
-array, and plots the top-5 ImageNet classes. Each bundled picture declares the
-class it should produce, so Step 6 prints `CORRECT` or `INCORRECT`; an uploaded
-picture has no ground truth, so you judge it yourself.
-
-Fetch the bundled set once, into the ignored model workspace:
+Fetch the bundled pictures once, on the conversion host, into the ignored model
+workspace:
 
 ```powershell
 & build/resnet18-venv/Scripts/python.exe `
@@ -257,24 +211,43 @@ mismatch, refuses to overwrite a file whose digest differs, and publishes
 nothing on failure. The five are Creative Commons photographs from Wikimedia
 Commons - zebra, volcano, daisy, pizza, and goldfish - chosen because the
 exported INT8 model predicts each one correctly. None is an ImageNet dataset
-image and none is committed here.
+image and none is committed here. The PYNQ-Z1 has no route to the internet on
+the direct Ethernet link, so run the downloader on the conversion host and let
+the deployment wrapper carry `model/` to the board.
 
-The PYNQ-Z1 has no route to the internet on the direct Ethernet link, so run
-the downloader on the conversion host and let the deployment wrapper carry
-`model/` to the board.
+### Numerical acceptance
 
-It carries no digest comparison, no provenance check, and no evidence write.
-That is deliberate: it is a demonstration, not acceptance. `resnet18.ipynb`
-remains the path that proves host and board agree bit for bit and writes
-`notebook-evidence-<UTC timestamp>.json`.
+This notebook demonstrates; it does not accept. It performs no host/board
+digest comparison and writes no evidence file. Deterministic numerical
+acceptance on hardware is `run_on_board.py`, which runs the synthetic
+regression tensor, compares every capture against `model/acceptance.json`, and
+writes `board-evidence.json`. Run it only on the PYNQ-Z1, using the commit
+values from `deployment.json`:
 
-Preprocessing on the board is not a second implementation. Both notebooks call
-the same `src/export/imagenet.py` contract, and the board reproduces the
-host-published `resnet18.demo.npy` tensor exactly, so an uploaded picture gets
-the same treatment the pinned sample received.
+```bash
+source /etc/profile.d/xrt_setup.sh
+source /etc/profile.d/pynq_venv.sh
+cd /home/xilinx/jupyter_notebooks/npu_resnet18/releases/<deployment-id>
+sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 \
+  examples/resnet18/run_on_board.py \
+  --artifact-dir build/vivado/npu_matrix_8x8/artifacts \
+  --expected-source-commit <40-character-artifact-commit> \
+  --deployed-source-commit <40-character-deployed-commit> \
+  --evidence board-evidence.json
+```
 
-One forward pass is 1,814,073,344 MACs and takes roughly an hour on the 8 x 8
-overlay, so this is a start-it-and-talk demo rather than an interactive one.
+It prints one of these markers:
+
+```text
+PASS [physical-pynq-z1]: real ResNet-18 board acceptance
+PASS [physical-pynq-z1-development]: real ResNet-18 board execution
+```
+
+The development marker means an artifact/check-out commit mismatch was
+explicitly allowed. It is execution evidence, not trusted release acceptance.
+A physical PASS requires an actual `NPURuntime`; host backends cannot emit one.
+Automated deployment and evidence collection belong to the CD script under
+`.github/cd/`, not to this human demo workflow.
 
 ## Re-running generated steps
 

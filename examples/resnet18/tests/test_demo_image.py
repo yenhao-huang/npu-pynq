@@ -224,6 +224,8 @@ class PreparationScriptTest(unittest.TestCase):
 
 
 class NotebookDemoTest(unittest.TestCase):
+    """The deployed notebook is the demonstration path, not an acceptance path."""
+
     @classmethod
     def setUpClass(cls):
         cls.notebook = json.loads(
@@ -244,35 +246,61 @@ class NotebookDemoTest(unittest.TestCase):
             self.assertEqual(cell["outputs"], [])
             self.assertIsNone(cell["execution_count"])
 
-    def test_real_image_is_shown_before_inference(self):
-        display = self.source.index("imshow(original_rgb)")
+    def test_structure_alternates_and_every_code_cell_parses(self):
+        import ast
+
+        for index, cell in enumerate(self.notebook["cells"]):
+            body = "".join(cell.get("source", []))
+            if cell["cell_type"] == "code":
+                self.assertFalse(
+                    body.lstrip().startswith("#"),
+                    f"cell {index} holds markdown in a code cell",
+                )
+                ast.parse(body)
+            else:
+                self.assertTrue(
+                    body.lstrip().startswith("#"),
+                    f"cell {index} is a markdown cell without a heading",
+                )
+
+    def test_six_steps_appear_once_each_in_order(self):
+        headings = [
+            "".join(cell["source"]).splitlines()[0]
+            for cell in self.notebook["cells"]
+            if cell["cell_type"] == "markdown"
+            and "".join(cell["source"]).startswith("## ")
+        ]
+        self.assertEqual([head.split(".")[0] for head in headings], [f"## {n}" for n in range(1, 7)])
+
+    def test_image_is_shown_before_inference(self):
+        display = self.source.index("imshow(original)")
         preview = self.source.index("dequantized_preview(")
-        inference = self.source.index("demo_started = time.monotonic()")
+        inference = self.source.index("started = time.monotonic()")
         self.assertLess(display, inference)
         self.assertLess(preview, inference)
 
     def test_prediction_is_decoded_and_judged(self):
         self.assertIn("decode_logits(", self.source)
         self.assertIn("load_class_names(", self.source)
-        self.assertIn("prediction_correct", self.source)
         self.assertIn("CORRECT", self.source)
         self.assertIn("INCORRECT", self.source)
 
-    def test_board_captures_are_compared_with_the_host_record(self):
-        self.assertIn("demo_record['captures'][name]['sha256']", self.source)
-        self.assertIn(
-            "assert demo_capture_review and all(row['match'] for row in demo_capture_review)",
-            self.source,
-        )
+    def test_runs_on_the_physical_overlay_only(self):
+        self.assertIn("load_pynq_runtime(", self.source)
+        self.assertIn("NPUModelRuntime(", self.source)
+        self.assertIn("physical_jobs", self.source)
+        self.assertIn("(8, 8, 256)", self.source)
+        self.assertNotIn("HostMatrixBackend", self.source)
 
-    def test_synthetic_regression_path_is_preserved(self):
-        self.assertIn("resnet18.validation.npy", self.source)
-        self.assertIn("host_acceptance['captures'][name]['sha256']", self.source)
-        self.assertIn("human_approves = False", self.source)
+    def test_offers_the_gallery_and_an_upload(self):
+        self.assertIn("gallery-source.json", self.source)
+        self.assertIn("FileUpload(", self.source)
+        self.assertIn("Dropdown(", self.source)
 
-    def test_evidence_records_the_real_image_result(self):
-        self.assertIn("'real_image': {", self.source)
-        self.assertIn("'prediction_correct': prediction_correct", self.source)
+    def test_claims_no_acceptance_evidence(self):
+        self.assertNotIn("human_approves", self.source)
+        self.assertNotIn("notebook-evidence", self.source)
+        self.assertNotIn("PASS [physical-pynq-z1]", self.source)
 
 
 class RunbookTest(unittest.TestCase):

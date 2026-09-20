@@ -39,10 +39,9 @@
 
 ## 6. Live Demo Notebook
 
-- [x] 6.1 Add `resnet18_live_demo.ipynb`: a six-step demonstration path that
-      programs the overlay, takes a picture, preprocesses it on the board, runs
-      it on the 8 x 8 array, and plots the top-5. No digest comparison and no
-      evidence write; `resnet18.ipynb` remains the acceptance path.
+- [x] 6.1 Add the six-step demonstration notebook that programs the overlay,
+      takes a picture, preprocesses it on the board, runs it on the 8 x 8 array,
+      and plots the top-5, with no digest comparison and no evidence write.
 - [x] 6.2 Pin five Creative Commons photographs in `gallery-source.json` and add
       the fail-closed `scripts/download_gallery.py`; verify unapproved hosts,
       digest mismatches, and non-canonical metadata publish nothing. Images were
@@ -55,3 +54,20 @@
       markdown in code cells, step headings once each in order) and execute the
       notebook's own cell sources on the board for the four steps that do not
       need root.
+
+## 7. Replace the Notebook With the Demonstration Path
+
+- [x] 7.1 Delete the fourteen-step acceptance notebook and rename the
+      demonstration notebook to `examples/resnet18/resnet18.ipynb`, so the
+      deployed notebook is the demo. Requested by the repository owner after
+      board verification.
+- [x] 7.2 Restore the 8 x 8 overlay assertion the acceptance notebook carried,
+      and rewrite the notebook intro to point at `run_on_board.py` for
+      deterministic numerical acceptance.
+- [x] 7.3 Rewrite README section 9 for the demonstration flow, fold the former
+      section 10 into it, and keep the `run_on_board.py` acceptance route and
+      its `PASS [physical-pynq-z1]` markers documented under it.
+- [x] 7.4 Retarget the notebook tests at the demonstration contract: structure,
+      ordering, image-before-inference, decoded verdict, physical-overlay-only,
+      gallery and upload, and an explicit assertion that the notebook claims no
+      acceptance evidence.

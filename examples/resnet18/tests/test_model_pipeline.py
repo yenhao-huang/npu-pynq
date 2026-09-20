@@ -177,20 +177,23 @@ class ModelDownloadTests(unittest.TestCase):
             for cell in notebook["cells"]
             for line in cell.get("source", [])
         )
-        self.assertIn("canonical human demo", notebook_source)
+        # Prose may point at the acceptance CLI; executable cells must not run it.
+        code_source = "\n".join(
+            line for cell in code_cells for line in cell.get("source", [])
+        )
         self.assertIn("deployment.json", notebook_source)
-        self.assertIn("validate_workspace", notebook_source)
-        self.assertIn("verify_artifacts", notebook_source)
         self.assertIn("load_model_package", notebook_source)
         self.assertIn("load_pynq_runtime", notebook_source)
         self.assertIn("NPUModelRuntime", notebook_source)
         self.assertIn("physical_jobs", notebook_source)
-        self.assertIn("expected_sha256", notebook_source)
-        self.assertIn("actual_sha256", notebook_source)
-        self.assertIn("human_approves = False", notebook_source)
+        self.assertIn("decode_logits", notebook_source)
+        # The notebook demonstrates; acceptance evidence belongs to
+        # run_on_board.py, so the notebook must not claim a physical PASS.
+        self.assertNotIn("PASS [physical-pynq-z1]", notebook_source)
+        self.assertNotIn("human_approves", notebook_source)
         self.assertNotIn("subprocess", notebook_source)
-        self.assertNotIn("run_on_board.py", notebook_source)
-        self.assertNotIn("download_model.py", notebook_source)
+        self.assertNotIn("run_on_board.py", code_source)
+        self.assertNotIn("download_model.py", code_source)
 
     def test_only_physical_runner_owns_physical_pass_marker(self):
         verifier = (EXAMPLE_ROOT / "scripts" / "verify_model.py").read_text(

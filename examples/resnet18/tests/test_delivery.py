@@ -229,13 +229,11 @@ class ResNet18DeliveryTests(unittest.TestCase):
             "".join(cell.get("source", [])) for cell in notebook["cells"]
         )
         for required in (
-            "verify_artifacts",
-            "load_acceptance_bundle",
             "load_model_package",
             "load_pynq_runtime",
             "NPUModelRuntime",
-            "run_resnet18_acceptance",
-            "physical_cycles",
+            "physical_jobs",
+            "decode_logits",
         ):
             self.assertIn(required, source)
         for forbidden in (".mmio", "sendchannel", "recvchannel", "allocate("):
