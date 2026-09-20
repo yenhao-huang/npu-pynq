@@ -8,11 +8,15 @@ to the repository's Phase 2A signed-INT8 format, checks a real
 `(1, 224, 224, 3)` input through an independent integer reference and the
 production model runtime, and creates a deterministic model archive.
 
-The calibration image is synthetic and unlabeled. A host PASS proves importer
-and runtime agreement; it is not ImageNet accuracy or physical-board evidence.
+The calibration and regression tensor is synthetic and unlabeled, and it stays
+in place for deterministic numerical acceptance. Step 5 additionally prepares a
+real photograph so the notebook can display the image, run it on the board, and
+print the predicted ImageNet label. A host PASS proves importer and runtime
+agreement; a single labelled photograph is a demonstration, not ImageNet
+accuracy evidence, and no host run is physical-board evidence.
 
-Steps 1 through 7 prepare and copy the release from the Windows development
-host. Step 8 is the human demo and runs from the deployed `.ipynb` on the
+Steps 1 through 8 prepare and copy the release from the Windows development
+host. Step 9 is the human demo and runs from the deployed `.ipynb` on the
 PYNQ-Z1, where the `pynq` package, Overlay, MMIO, and DMA are available.
 
 ```
@@ -69,7 +73,54 @@ package and runs all 1,814,073,344 MACs through `NPUModelRuntime`. Its
 vectorized integer reference exactly. It writes `model/acceptance.json` only
 after every comparison passes.
 
-## 5. Build or select trusted Vivado artifacts
+## 5. Prepare the real ImageNet demo image
+
+Download the pinned class list and sample photograph into the ignored model
+workspace:
+
+```powershell
+& build/resnet18-venv/Scripts/python.exe `
+  examples/resnet18/scripts/download_demo_assets.py
+```
+
+Both assets come from the BSD-3-Clause `pytorch/hub` repository at the commit
+pinned in `examples/resnet18/demo-source.json`, are verified by length and
+SHA-256, and are never committed here. No ImageNet dataset image is downloaded
+or redistributed.
+
+Then preprocess one image into the exact tensor the NPU will consume:
+
+```powershell
+& build/resnet18-venv/Scripts/python.exe `
+  examples/resnet18/scripts/prepare_demo_image.py
+```
+
+Expected markers: `PASS [real-model-host]`, the host top-1 class, and a
+`CORRECT` or `INCORRECT` verdict against the expected class. The script applies
+the TorchVision contract (RGB, shorter side to 256, center crop 224, ImageNet
+normalization, symmetric signed-INT8 quantization), runs the result through the
+independent integer reference and `NPUModelRuntime`, and writes
+`model/resnet18.demo.npy` plus `model/resnet18.demo.json`. That record pins the
+image provenance and digest, the preprocessing parameters, the input scale, the
+expected class, the host capture digests, and the host top-5.
+
+To classify your own picture instead, pass it explicitly; nothing in the
+runtime or the notebook has to change:
+
+```powershell
+& build/resnet18-venv/Scripts/python.exe `
+  examples/resnet18/scripts/prepare_demo_image.py `
+  --image C:/path/to/photo.jpg `
+  --expected-class "golden retriever"
+```
+
+`--expected-class` accepts an ImageNet class index or an exact class name from
+`model/imagenet-classes.txt`. Omit it for an unlabelled image; the notebook then
+shows the top-5 and asks you to judge the result. You are responsible for the
+rights to any image you supply. Preparation outputs are write-once: remove the
+previous `model/resnet18.demo.*` files to prepare a different image.
+
+## 6. Build or select trusted Vivado artifacts
 
 This step requires a licensed Vivado host and cannot be replaced by CI fixture
 artifacts:
@@ -87,7 +138,7 @@ The wrapper validates model assets and the 8 x 8 overlay before any transfer.
 Stop unless the verification marker says the BIT/HWH provenance and metadata
 passed and the artifact manifest identifies the intended source commit.
 
-## 6. Build the model archive
+## 7. Build the model archive
 
 ```powershell
 python examples/resnet18/package_example.py `
@@ -99,7 +150,7 @@ redistributed. Missing, stale, substituted, incomplete, or unvalidated model
 workspaces publish no archive. Issue #7 combines this validated model boundary
 with the matching trusted overlay for standalone board delivery.
 
-## 7. Deploy to the PYNQ-Z1
+## 8. Deploy to the PYNQ-Z1
 
 `run_on_board.py` must not be launched from the Windows virtual environment.
 Use the deployment wrapper to copy the required Python sources, ignored model
@@ -120,7 +171,7 @@ evidence. The `-AllowArtifactCommitMismatch` choice is recorded for the later
 human validation; omit it when the artifacts were built from this exact
 checkout.
 
-## 8. Open the notebook and perform human validation
+## 9. Open the notebook and perform human validation
 
 In the PYNQ Jupyter interface (e.g., http://192.168.2.99:9090/notebooks/), open the release directory printed by the
 deployment wrapper, then open:
@@ -130,14 +181,22 @@ examples/resnet18/resnet18.ipynb
 ```
 
 Select the board's PYNQ Python kernel and run one cell at a time. Confirm Step 4 displays `array_size: 8` and Step 6 displays
-`matrix_limits: [8, 8, 256]`. Step 7 runs ResNet-18 and displays elapsed time,
-MAC count and physical job count.
+`matrix_limits: [8, 8, 256]`. Step 7 runs the synthetic regression tensor and
+displays elapsed time, MAC count and physical job count, and Step 8 compares
+every output digest with the host record.
+
+Steps 9 to 12 are the real-image demo. Step 10 shows the photograph next to the
+exact dequantized INT8 tensor the NPU receives, so you can see the input before
+any inference runs. Step 11 executes that image on the board and Step 12 checks
+the board captures against the host record before printing the top-5 ImageNet
+labels, the predicted class, and a `CORRECT` or `INCORRECT` verdict against the
+expected class.
 
 The notebook
 does not hide acceptance behind `run_on_board.py`. It separately exposes the
 deployment provenance, model file digests, BIT/HWH verification, reconstructed
-model graph, physical `NPURuntime` identity, execution metrics, and every
-expected/actual output hash.
+model graph, physical `NPURuntime` identity, execution metrics, every
+expected/actual output hash, and the real-image prediction.
 
 After reviewing those results, change `human_approves = False` to `True` in
 the final cell and execute that cell. Only this explicit approval writes a new
@@ -152,7 +211,9 @@ The development marker means an artifact/check-out commit mismatch was
 explicitly allowed. It is execution evidence, not trusted release acceptance.
 
 For terminal-oriented verification, `run_on_board.py` remains an alternative
-low-level entry point. Run it only on the PYNQ-Z1, using the commit values from
+low-level entry point. It runs the deterministic synthetic tensor only; the
+real-image prediction lives in the notebook, which is the canonical human
+demo. Run it only on the PYNQ-Z1, using the commit values from
 `deployment.json`:
 
 ```bash

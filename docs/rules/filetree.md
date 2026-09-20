@@ -49,6 +49,7 @@ npu_repo_in_pynq/
 |   `-- <example>/
 |       |-- README.md
 |       |-- *.ipynb
+|       |-- *-source.json        pinned download metadata
 |       |-- package_example.py
 |       |-- run_on_board.py
 |       |-- deploy_release.ps1
@@ -111,6 +112,8 @@ entry points support the notebook and automation; they do not replace the
 human demo. Download and conversion commands belong under its `scripts/`;
 generated checkpoints, converted model packages, corpora, and model evidence
 go under its `model/` workspace and remain ignored except for `.gitkeep`.
+A `*-source.json` file pins one download set by URL, length, SHA-256, and
+license; the downloaded bytes themselves are never committed.
 The canonical generated-data path is `examples/<example>/model/`.
 
 `.github/cd/` owns non-interactive deployment and acceptance scripts used by
