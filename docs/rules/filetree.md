@@ -7,7 +7,10 @@ npu_repo_in_pynq/
 |-- AGENTS.md
 |-- CLAUDE.md
 |-- README.md
+|-- LICENSE
 |-- .gitignore
+|-- changelog/
+|   `-- vMAJOR.MINOR.PATCH.md
 |-- .github/
 |   |-- cd/
 |   |   `-- *.ps1              automated deployment and acceptance scripts
@@ -61,6 +64,8 @@ npu_repo_in_pynq/
 |       `-- tests/
 |           `-- test_*.py
 |-- docs/
+|   |-- assets/
+|   |   `-- *.png              versioned images embedded by documentation
 |   |-- rules/
 |   |   |-- index.md
 |   |   |-- environment.md
@@ -71,6 +76,7 @@ npu_repo_in_pynq/
 |   |   |-- filetree.md
 |   |   `-- git/
 |   |       |-- branch.md
+|   |       |-- changelog.md
 |   |       |-- commit.md
 |   |       |-- issues.md
 |   |       `-- pull-request.md
@@ -129,9 +135,17 @@ a top-level `skills/` directory or place IC design skills directly under
 development workflow. Keep planning artifacts here, separate from product
 source under `src/`.
 
+`changelog/` contains commit-bounded release baselines and the change proposed
+for the next upload. It is maintained under `docs/rules/git/changelog.md` and
+does not replace the human-owned weekly changelog under `docs/human/`.
+
 `docs/rules/` contains repository-wide rules. It is the stable authority for
 contributors; skills may link to these files but must not be the only location
 of Git, environment, CI, simulation, or generated-artifact rules.
+
+`docs/assets/` contains versioned image assets embedded by repository
+documentation. Keep source-controlled diagrams readable at normal README width
+and use descriptive, stable file names.
 
 `docs/human/` contains the human-owned feature list, roadmap, and weekly
 changelog. Agents may read it, but every mutation requires explicit human
@@ -172,6 +186,11 @@ with the directory's purpose, allowed contents, and validation expectations.
 Do not create a directory that duplicates an existing role. Changes beneath
 `.codex/skills/` must preserve the `dev/`, `deploy/`, and `custom/ic_design/`
 classification contract.
+
+Only versioned Markdown release records belong in top-level `changelog/`; do
+not add `unreleased.md`. Each file must pass the commit-boundary,
+roadmap-evidence, table ordering, five-row batching, link, and whitespace
+checks defined by `docs/rules/git/changelog.md`.
 
 ## Not in this repository
 
