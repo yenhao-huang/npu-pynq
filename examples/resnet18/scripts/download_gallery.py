@@ -41,6 +41,7 @@ class GalleryImage:
     byte_length: int
     sha256: str
     url: str
+    approved_host: str
     license: dict[str, str]
 
 
@@ -136,6 +137,7 @@ def load_gallery_metadata(path: str | Path) -> tuple[GalleryImage, ...]:
                 byte_length=byte_length,
                 sha256=digest,
                 url=_validated_url(entry["url"], approved_host),
+                approved_host=approved_host,
                 license=dict(licence),
             )
         )
@@ -146,7 +148,7 @@ def load_gallery_metadata(path: str | Path) -> tuple[GalleryImage, ...]:
     return tuple(images)
 
 
-def _download_one(image: GalleryImage, destination: Path, approved_host: str) -> None:
+def _download_one(image: GalleryImage, destination: Path) -> None:
     digest = hashlib.sha256()
     received = 0
     with tempfile.NamedTemporaryFile(
@@ -156,7 +158,7 @@ def _download_one(image: GalleryImage, destination: Path, approved_host: str) ->
         try:
             request = Request(image.url, headers={"User-Agent": USER_AGENT})
             with urlopen(request, timeout=120) as response:  # noqa: S310 - host is pinned
-                _validated_url(response.geturl(), approved_host)
+                _validated_url(response.geturl(), image.approved_host)
                 while True:
                     chunk = response.read(READ_CHUNK)
                     if not chunk:
@@ -186,32 +188,39 @@ def _download_one(image: GalleryImage, destination: Path, approved_host: str) ->
         raise
 
 
-def _existing_is_correct(destination: Path, image: GalleryImage) -> bool:
-    if not destination.is_file():
-        return False
+def _file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
-    with destination.open("rb") as stream:
+    with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(READ_CHUNK), b""):
             digest.update(chunk)
-    if digest.hexdigest() == image.sha256:
-        return True
-    raise GalleryAssetError(
-        f"existing file differs from pinned digest, refusing to overwrite: {destination}"
-    )
+    return digest.hexdigest()
+
+
+def _existing_status(destination: Path, image: GalleryImage) -> str:
+    """Return "absent", "verified", or "differs" for what is already on disk."""
+
+    if not destination.is_file():
+        return "absent"
+    return "verified" if _file_sha256(destination) == image.sha256 else "differs"
 
 
 def download_gallery(metadata_path: Path, model_dir: Path) -> list[GalleryImage]:
     images = load_gallery_metadata(metadata_path)
     if not model_dir.is_dir():
         raise GalleryAssetError(f"model workspace is missing: {model_dir}")
-    approved_host = json.loads(metadata_path.read_text(encoding="utf-8"))["approved_host"]
     published: list[GalleryImage] = []
     for image in images:
         destination = model_dir / image.filename
-        if _existing_is_correct(destination, image):
+        status = _existing_status(destination, image)
+        if status == "differs":
+            raise GalleryAssetError(
+                f"existing file differs from pinned digest, refusing to overwrite: "
+                f"{destination}"
+            )
+        if status == "verified":
             print(f"SKIP: already verified {destination}")
         else:
-            _download_one(image, destination, approved_host)
+            _download_one(image, destination)
             print(f"PASS: downloaded and verified {destination}")
         published.append(image)
     return published
