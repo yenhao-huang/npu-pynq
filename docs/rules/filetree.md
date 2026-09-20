@@ -52,6 +52,7 @@ npu_repo_in_pynq/
 |   `-- <example>/
 |       |-- README.md
 |       |-- *.ipynb
+|       |-- *-source.json        pinned download metadata
 |       |-- package_example.py
 |       |-- run_on_board.py
 |       |-- deploy_release.ps1
@@ -110,13 +111,20 @@ An example owns its application-specific runtime, notebooks, package builder,
 board acceptance entry point, deployment wrapper, and focused host tests. The
 package builder may copy an explicit allowlist of shared `src/runtime/` modules
 into generated deploy output, but those copies are never committed.
-Every user-facing example includes an output-free `.ipynb` demo. The notebook
+Every user-facing example includes an `.ipynb` demo, committed output-free so
+the file stays diffable. `examples/resnet18/resnet18.ipynb` is the one
+exception: it is committed with the outputs of a real PYNQ-Z1 run, so the
+board's figures and predicted labels are readable on GitHub without running
+anything. Re-executing it replaces those outputs wholesale, so commit a run you
+intend to publish. The notebook
 is the canonical human validation entry point: its README may prepare and
 deploy inputs, but must ultimately direct the user to the notebook. CLI board
 entry points support the notebook and automation; they do not replace the
 human demo. Download and conversion commands belong under its `scripts/`;
 generated checkpoints, converted model packages, corpora, and model evidence
 go under its `model/` workspace and remain ignored except for `.gitkeep`.
+A `*-source.json` file pins one download set by URL, length, SHA-256, and
+license; the downloaded bytes themselves are never committed.
 The canonical generated-data path is `examples/<example>/model/`.
 
 `.github/cd/` owns non-interactive deployment and acceptance scripts used by
