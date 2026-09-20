@@ -234,6 +234,26 @@ use. Both routes require an actual `NPURuntime`, and host backends cannot emit
 a physical PASS marker. Automated deployment and evidence collection belong
 to the CD script under `.github/cd/`, not to this human demo workflow.
 
+## 10. Live demo: classify an uploaded picture
+
+`resnet18_live_demo.ipynb` is the showing-it-to-people notebook. It takes any
+picture through an upload widget, preprocesses it on the board, runs it on the
+8 x 8 array, and plots the top-5 ImageNet classes. No upload falls back to the
+bundled sample, so the demo always runs.
+
+It carries no digest comparison, no provenance check, and no evidence write.
+That is deliberate: it is a demonstration, not acceptance. `resnet18.ipynb`
+remains the path that proves host and board agree bit for bit and writes
+`notebook-evidence-<UTC timestamp>.json`.
+
+Preprocessing on the board is not a second implementation. Both notebooks call
+the same `src/export/imagenet.py` contract, and the board reproduces the
+host-published `resnet18.demo.npy` tensor exactly, so an uploaded picture gets
+the same treatment the pinned sample received.
+
+One forward pass is 1,814,073,344 MACs and takes roughly an hour on the 8 x 8
+overlay, so this is a start-it-and-talk demo rather than an interactive one.
+
 ## Re-running generated steps
 
 All download, conversion, validation, and archive outputs are intentionally
