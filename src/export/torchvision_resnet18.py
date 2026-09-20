@@ -34,6 +34,10 @@ FIXTURE_EVIDENCE_TYPE = "software-fixture"
 REAL_MODEL_HOST_EVIDENCE_TYPE = "real-model-host"
 PHYSICAL_BOARD_EVIDENCE_TYPE = "physical-pynq-z1"
 
+CALIBRATION_SOURCE_MAGIC = "NPU_RESNET18_CALIBRATION_SOURCE"
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
+
 
 def expected_source_shapes() -> dict[str, tuple[int, ...]]:
     """Return the exact TorchVision ResNet-18 IMAGENET1K_V1 state schema."""
@@ -265,6 +269,69 @@ def generate_calibration_inputs() -> np.ndarray:
         (0.229, 0.224, 0.225), dtype=np.float32
     )[None, :, None, None]
     return np.ascontiguousarray((images - mean) / standard_deviation)
+
+
+def load_calibration_images(
+    calibration_dir: str | Path,
+    source_path: str | Path,
+) -> tuple[np.ndarray, str, str]:
+    """Load and preprocess the pinned real calibration images.
+
+    Returns the normalized NCHW float32 batch, the calibration id, and a stable
+    digest over the pinned per-image SHA-256 values. Every image is verified
+    against its pinned digest; a missing image points the caller at the download
+    script. Preprocessing matches the demo and evaluation contract: RGB, resize
+    the shorter side to 256 (bilinear), center crop 224, ``/255``, ImageNet
+    mean/std.
+    """
+
+    source = json.loads(Path(source_path).read_text(encoding="utf-8"))
+    if not isinstance(source, dict) or source.get("magic") != CALIBRATION_SOURCE_MAGIC:
+        raise ValueError("calibration source has the wrong magic")
+    entries = source.get("images")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("calibration source lists no images")
+    try:
+        from PIL import Image
+    except ImportError as error:
+        raise RuntimeError(
+            "Pillow is required to load calibration images"
+        ) from error
+
+    mean = np.array(IMAGENET_MEAN, dtype=np.float32)
+    std = np.array(IMAGENET_STD, dtype=np.float32)
+    directory = Path(calibration_dir)
+    tensors = []
+    for entry in entries:
+        path = directory / entry["filename"]
+        if not path.exists():
+            raise FileNotFoundError(
+                f"calibration image missing: {path}. Run "
+                "examples/resnet18/scripts/download_calibration.py first."
+            )
+        payload = path.read_bytes()
+        if hashlib.sha256(payload).hexdigest() != entry["sha256"]:
+            raise ValueError(
+                f"calibration image fails its pinned digest: {entry['filename']}"
+            )
+        image = Image.open(path).convert("RGB")
+        width, height = image.size
+        scale = 256 / min(width, height)
+        image = image.resize(
+            (round(width * scale), round(height * scale)), Image.BILINEAR
+        )
+        width, height = image.size
+        left, top = (width - 224) // 2, (height - 224) // 2
+        image = image.crop((left, top, left + 224, top + 224))
+        array = np.asarray(image, dtype=np.float32) / 255.0
+        array = (array - mean) / std
+        tensors.append(np.ascontiguousarray(array.transpose(2, 0, 1)))
+
+    calibration = np.ascontiguousarray(np.stack(tensors), dtype=np.float32)
+    digest = hashlib.sha256(
+        "".join(sorted(entry["sha256"] for entry in entries)).encode("ascii")
+    ).hexdigest()
+    return calibration, str(source.get("calibration_id", "unknown")), digest
 
 
 def compare_integer_captures(
@@ -914,11 +981,31 @@ def _write_canonical(path: Path, value: object) -> None:
 def convert_checkpoint(
     checkpoint_path: str | Path,
     output_prefix: str | Path,
+    calibration_dir: str | Path | None = None,
+    calibration_source: str | Path | None = None,
 ) -> ConversionResult:
-    """Convert the pinned checkpoint and publish deterministic NPU files."""
+    """Convert the pinned checkpoint and publish deterministic NPU files.
+
+    Activation scales are calibrated from the pinned real-image set (see
+    ``examples/resnet18/calibration-source.json`` and
+    ``download_calibration.py``). The deterministic synthetic tensor is retained
+    unchanged as the regression/validation input, so the acceptance contract is
+    unaffected; only the activation scales differ from the synthetic-calibration
+    era. ``calibration_dir`` defaults to ``<output dir>/calibration`` and
+    ``calibration_source`` to ``examples/resnet18/calibration-source.json``.
+    """
 
     checkpoint = Path(checkpoint_path).resolve()
     prefix = Path(output_prefix).resolve()
+    example_root = Path(__file__).resolve().parents[2] / "examples" / "resnet18"
+    calibration_dir = (
+        Path(calibration_dir) if calibration_dir is not None
+        else prefix.parent / "calibration"
+    )
+    calibration_source = (
+        Path(calibration_source) if calibration_source is not None
+        else example_root / "calibration-source.json"
+    )
     if not prefix.parent.is_dir():
         raise ValueError("output directory must exist")
     manifest_path = Path(str(prefix) + ".npu.json")
@@ -933,8 +1020,22 @@ def convert_checkpoint(
     if existing:
         raise ValueError(f"conversion output already exists: {existing[0].name}")
     state = load_checkpoint(checkpoint)
-    calibration = generate_calibration_inputs()
-    graph, quantized_inputs, _trace, scales = build_quantized_resnet18(state, calibration)
+    calibration, calibration_id, calibration_digest = load_calibration_images(
+        calibration_dir, calibration_source
+    )
+    graph, _calibration_quantized, _trace, scales = build_quantized_resnet18(
+        state, calibration
+    )
+    # The validation/regression input stays the deterministic synthetic tensor,
+    # quantized with the calibrated input scale. Calibration changes activation
+    # scales; it must not change which tensor drives deterministic acceptance.
+    validation_source = generate_calibration_inputs()[:1]
+    validation_int8 = np.clip(
+        _round_away_from_zero(validation_source / scales["input"]), -127, 127
+    ).astype(np.int8)
+    quantized_inputs = np.ascontiguousarray(
+        np.transpose(validation_int8, (0, 2, 3, 1))
+    )
     package = export_model(graph, prefix)
     input_temporary: Path | None = None
     try:
@@ -952,7 +1053,12 @@ def convert_checkpoint(
         os.replace(input_temporary, input_path)
         provenance = {
             "architecture": "resnet18",
-            "calibration": "deterministic-full-shape-v1",
+            "calibration": {
+                "id": calibration_id,
+                "images": len(calibration),
+                "source_digest": calibration_digest,
+                "validation_input": "deterministic-full-shape-v1 (synthetic)",
+            },
             "checkpoint": {
                 "bytes": checkpoint.stat().st_size,
                 "sha256": _sha256(checkpoint),
