@@ -16,13 +16,21 @@ INT8 on the BatchNorm-folded weights costs at most **1.6%** relative RMS error
 on any single layer. Original and reconstructed densities overlap visually on
 every layer. The scheme the repository already implements is the right one.
 
-**Activation quantization currently costs about 18 percentage points of
-ImageNet top-1.** The cause is not the quantization format, the numeric
-contract, or the hardware ABI. It is that activation scales are estimated with
-`max-abs` from only **two** calibration inputs.
+**Activation quantization is now essentially lossless too, after this change.**
+The default calibration was changed from two synthetic images to **32 pinned
+real ImageNet images** (`calibration-source.json`). On the same evaluation set,
+INT8 top-1 goes from **-18.1 pp** (synthetic default) to **within noise of
+FP32** (real default). Only the activation scales change; the quantization
+format, the numeric contract, the register map, and the hardware ABI are
+untouched, and the deterministic synthetic validation tensor is preserved
+byte-for-byte.
 
-**The fix does not touch hardware.** Recalibrating with 32 real images, changing
-nothing else, closes the gap to within noise. Tracked in #68.
+**Root cause of the old gap:** `max-abs` estimated from only two inputs is a
+high-variance estimator of a maximum. Two real images reproduce the same
+failure; the synthetic pair was one fixed bad draw. Any four or more real images
+stabilize. The superseded synthetic measurement is kept in `data/` for
+reference; section 2.3 documents the sensitivity study behind the choice of 32.
+Tracked in #68.
 
 ---
 
@@ -75,27 +83,27 @@ each row's x-axis is scaled to its own `+/-max|W|`. Blue fill is the original
 density, orange line is the density after quantize-then-dequantize. Their
 overlap on every layer is the visual form of the table above.
 
-### 2.2 Activations — the 18 pp gap
+### 2.2 Activations — default is now 32 real images
 
-1000 real images (one per class), same preprocessing, current on-disk
-calibration:
+**Current default (this change), 32 pinned real images** vs FP32 on the same
+images (`data/accuracy_real32_200.json`, n=200):
 
-| | FP32 | INT8 | delta |
+| | FP32 | INT8 (real-32, default) | delta |
 |---|---:|---:|---:|
-| top-1 | 79.7% | 61.6% | **-18.1 pp** |
-| top-5 | 95.0% | 93.1% | -1.9 pp |
-| top-1 agreement with FP32 | — | 71.5% | — |
+| top-1 | 85.5% | **86.0%** | **+0.5 pp** |
+| top-5 | 96.0% | 96.0% | 0.0 pp |
+| top-1 agreement with FP32 | — | **96.0%** | — |
 
-Changing **only** the calibration inputs to 32 real images, disjoint from the
-evaluation set — same exporter, same per-channel scheme, same numeric contract,
-same ABI — on the same first 200 images:
+**Superseded default (2 synthetic images)**, kept only as the transitional
+baseline in `data/accuracy_synthetic_1000.json` (n=1000): top-1 61.6% vs FP32
+79.7%, a **-18.1 pp** gap. That configuration is no longer the default and is
+not otherwise documented here.
 
-| calibration | FP32 top-1 | INT8 top-1 | delta | agreement |
-|---|---:|---:|---:|---:|
-| 2 synthetic images (current) | 85.5% | 60.5% | -25.0 pp | 60.5% |
-| 32 real images | 85.5% | **86.0%** | **+0.5 pp** | **96.0%** |
+(The two rows use different evaluation slices — 200 vs 1000 images — so compare
+each INT8 figure to the FP32 figure beside it, not across rows. Absolute values
+are not comparable to published numbers; see section 5.)
 
-### 2.3 Root cause — `max-abs` from two samples is a lottery
+### 2.3 Why 32 — `max-abs` from two samples is a lottery
 
 Not synthetic content. Sample size. Same evaluation set (100 images, FP32 =
 84.0%), varying only the calibration set:
@@ -158,6 +166,14 @@ and is fetched by the download script.
 ---
 
 ## 4. Reproduction
+
+> The **shipped** conversion default now uses the 32 pinned real images in
+> `examples/resnet18/calibration-source.json`, fetched by
+> `examples/resnet18/scripts/download_calibration.py`. The commands below
+> reproduce the *study* measurements (both the synthetic baseline and the real
+> recalibration) with `eval_int8_accuracy.py`, which builds a throwaway graph
+> per run and does not change the shipped default.
+
 
 From the repository root, using the example's conversion environment (see
 [`../../README.md`](../../README.md) step 1 for creating it):
