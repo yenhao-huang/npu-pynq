@@ -30,9 +30,28 @@
       record, photograph, class list, model payload/manifest, and
       `src/export/imagenet.py` all match byte for byte. Step 10 was executed on
       the board and rendered `board-step10-preview.png`.
-- [ ] 5.3 Execute notebook Steps 11 to 12 on the board and record the physical
-      prediction and capture comparison, then set `human_approves = True` in Step
-      14 to write `notebook-evidence-<UTC>.json`. Blocked for the agent: the PL
-      needs root (`/dev/mem`, `/dev/uio*`, and the fpga_manager firmware node are
-      root-only) and the board Jupyter server is password protected, so only the
-      human operator can run and approve this step.
+- [x] 5.3 Execute the notebook on the board and obtain human confirmation. The
+      agent cannot perform this step: the PL needs root (`/dev/mem`, `/dev/uio*`,
+      and the fpga_manager firmware node are root-only) and the board Jupyter
+      server is password protected. The human operator ran the notebook on the
+      PYNQ-Z1 and confirmed the result; that confirmation, not any agent claim,
+      is the evidence for this task.
+
+## 6. Live Demo Notebook
+
+- [x] 6.1 Add `resnet18_live_demo.ipynb`: a six-step demonstration path that
+      programs the overlay, takes a picture, preprocesses it on the board, runs
+      it on the 8 x 8 array, and plots the top-5. No digest comparison and no
+      evidence write; `resnet18.ipynb` remains the acceptance path.
+- [x] 6.2 Pin five Creative Commons photographs in `gallery-source.json` and add
+      the fail-closed `scripts/download_gallery.py`; verify unapproved hosts,
+      digest mismatches, and non-canonical metadata publish nothing. Images were
+      selected by running candidates through the exported INT8 model and keeping
+      only those it predicts correctly.
+- [x] 6.3 Offer the gallery as a Step 3 dropdown beside the upload widget, show
+      licence and attribution in the Step 4 caption, and print CORRECT or
+      INCORRECT in Step 6 for a picture whose class is declared.
+- [x] 6.4 Verify notebook structure mechanically (every code cell parses, no
+      markdown in code cells, step headings once each in order) and execute the
+      notebook's own cell sources on the board for the four steps that do not
+      need root.
