@@ -3,25 +3,28 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
-import json
-import os
 from pathlib import Path
 import sys
-import tempfile
 
 import numpy as np
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-if str(REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPOSITORY_ROOT))
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
 
+from host_reference import (
+    HostMatrixBackend,
+    REPOSITORY_ROOT,
+    array_sha256,
+    canonical_write_new,
+    file_sha256,
+    read_json,
+)
 from src.export.torchvision_resnet18 import (
     REAL_MODEL_HOST_EVIDENCE_TYPE,
     compare_integer_captures,
 )
-from src.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
 from src.runtime.model import NPUModelRuntime, load_model_package
 from src.test.model.quantized_graph_reference import (
     execute_quantized_graph_reference,
@@ -29,78 +32,6 @@ from src.test.model.quantized_graph_reference import (
 
 
 CAPTURE_NAMES = ("stem.relu", "layer1.1.relu", "logits")
-
-
-class HostMatrixBackend:
-    """Vectorized host matrix backend; never physical-board evidence."""
-
-    abi_major = REQUIRED_ABI_MAJOR
-    capabilities = REQUIRED_CAPABILITIES
-    max_m = 256
-    max_n = 512
-    max_k = 4608
-
-    def run(self, matrix_a: np.ndarray, matrix_b: np.ndarray, **_timeouts) -> np.ndarray:
-        return (
-            np.asarray(matrix_a, dtype=np.int32)
-            @ np.asarray(matrix_b, dtype=np.int32)
-        )
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _array_sha256(value: np.ndarray) -> str:
-    array = np.ascontiguousarray(value)
-    digest = hashlib.sha256()
-    digest.update(str(array.dtype).encode("ascii"))
-    digest.update(b"\0")
-    digest.update(json.dumps(list(array.shape), separators=(",", ":")).encode("ascii"))
-    digest.update(b"\0")
-    digest.update(array.tobytes(order="C"))
-    return digest.hexdigest()
-
-
-def _read_json(path: Path) -> dict[str, object]:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise ValueError(f"invalid JSON file {path.name}: {error}") from error
-    if not isinstance(value, dict):
-        raise ValueError(f"{path.name} must contain a JSON object")
-    return value
-
-
-def _canonical_write_new(path: Path, value: object) -> None:
-    if path.exists():
-        raise ValueError(f"validation output already exists: {path.name}")
-    encoded = (
-        json.dumps(value, allow_nan=False, sort_keys=True, separators=(",", ":"))
-        + "\n"
-    ).encode("utf-8")
-    with tempfile.NamedTemporaryFile(
-        "wb",
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        delete=False,
-    ) as stream:
-        temporary = Path(stream.name)
-        stream.write(encoded)
-        stream.flush()
-        os.fsync(stream.fileno())
-    try:
-        if path.exists():
-            raise ValueError(f"validation output already exists: {path.name}")
-        os.replace(temporary, path)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
 
 
 def validate_model(
@@ -126,7 +57,7 @@ def validate_model(
     if output.exists():
         raise ValueError(f"validation output already exists: {output.name}")
 
-    conversion = _read_json(conversion_path)
+    conversion = read_json(conversion_path)
     if conversion.get("magic") != "NPU_RESNET18_CONVERSION":
         raise ValueError("conversion provenance magic is invalid")
     if conversion.get("evidence_type") != REAL_MODEL_HOST_EVIDENCE_TYPE:
@@ -143,7 +74,7 @@ def validate_model(
         (input_path, input_record.get("sha256")),
     )
     for path, expected in digest_checks:
-        if not isinstance(expected, str) or _sha256(path) != expected:
+        if not isinstance(expected, str) or file_sha256(path) != expected:
             raise ValueError(f"conversion provenance digest mismatch: {path.name}")
 
     model = load_model_package(manifest_path)
@@ -165,23 +96,23 @@ def validate_model(
         "captures": {
             name: {
                 "dtype": "int8",
-                "sha256": _array_sha256(result.outputs[name]),
+                "sha256": array_sha256(result.outputs[name]),
                 "shape": list(result.outputs[name].shape),
             }
             for name in CAPTURE_NAMES
         },
         "conversion": {
             "bytes": conversion_path.stat().st_size,
-            "sha256": _sha256(conversion_path),
+            "sha256": file_sha256(conversion_path),
         },
         "evidence_type": REAL_MODEL_HOST_EVIDENCE_TYPE,
         "format": {"major": 1, "minor": 0},
-        "input": {"bytes": input_path.stat().st_size, "sha256": _sha256(input_path)},
+        "input": {"bytes": input_path.stat().st_size, "sha256": file_sha256(input_path)},
         "integer_reference": "independent-vectorized-v1",
         "magic": "NPU_RESNET18_ACCEPTANCE",
         "model": {
-            "manifest_sha256": _sha256(manifest_path),
-            "payload_sha256": _sha256(payload_path),
+            "manifest_sha256": file_sha256(manifest_path),
+            "payload_sha256": file_sha256(payload_path),
         },
         "result": "pass",
         "runtime": {
@@ -192,10 +123,10 @@ def validate_model(
         },
         "source": {
             "bytes": checkpoint.stat().st_size,
-            "sha256": _sha256(checkpoint),
+            "sha256": file_sha256(checkpoint),
         },
     }
-    _canonical_write_new(output, evidence)
+    canonical_write_new(output, evidence)
     return evidence
 
 
