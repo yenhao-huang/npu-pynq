@@ -31,6 +31,11 @@ and on what may not be added.
 
 ## Rules
 
+- Write in English: documentation, code comments and docstrings, commit
+  messages, and issue and pull-request bodies. Quoted tool output, log
+  excerpts, error strings, and a person's own words are reproduced verbatim in
+  whatever language they were written. Convert an existing non-English document
+  when it is next substantially revised, not in a separate pass.
 - Never commit a Vivado project directory or a bitstream. Regenerate the
   project with
   `vivado -mode batch -source src/hw/vivado_tcl/<design>/build_overlay.tcl`,

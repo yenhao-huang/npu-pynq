@@ -46,6 +46,18 @@ deployment, and human board acceptance. Follow the ordered
 5. copy the release to the PYNQ-Z1; and
 6. inspect and approve each physical acceptance step in `resnet18.ipynb`.
 
+### Run the standalone matrix release
+
+1. Download the standalone package `npu-matrix-v0.1.3.tar.gz`.
+2. Extract the complete package without changing its layout into the board's
+   Jupyter directory at `/home/xilinx/jupyter_notebooks/npu_matrix`.
+3. Open `matrix_multiplication.ipynb` and select **Run All**.
+4. Confirm that the final output includes:
+
+   ```text
+   PASS: NPU matrix multiplication example
+   ```
+
 ## Verified physical ResNet-18 run
 
 The human-reviewed notebook completed one full physical execution on the
