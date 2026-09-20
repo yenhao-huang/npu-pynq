@@ -237,14 +237,21 @@ class NotebookDemoTest(unittest.TestCase):
             for line in cell.get("source", [])
         )
 
-    def test_notebook_stays_output_free(self):
+    def test_notebook_cells_are_well_formed(self):
+        """This notebook is published with its board outputs, so they are allowed.
+
+        `docs/rules/filetree.md` exempts it from the output-free rule. What
+        still has to hold is that every code cell carries an `outputs` list and
+        an `execution_count` field of the right type, so the file stays valid
+        nbformat whether or not it has been run.
+        """
         code_cells = [
             cell for cell in self.notebook["cells"] if cell["cell_type"] == "code"
         ]
         self.assertTrue(code_cells)
         for cell in code_cells:
-            self.assertEqual(cell["outputs"], [])
-            self.assertIsNone(cell["execution_count"])
+            self.assertIsInstance(cell["outputs"], list)
+            self.assertIsInstance(cell["execution_count"], (int, type(None)))
 
     def test_structure_alternates_and_every_code_cell_parses(self):
         import ast

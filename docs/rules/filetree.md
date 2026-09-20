@@ -111,7 +111,12 @@ An example owns its application-specific runtime, notebooks, package builder,
 board acceptance entry point, deployment wrapper, and focused host tests. The
 package builder may copy an explicit allowlist of shared `src/runtime/` modules
 into generated deploy output, but those copies are never committed.
-Every user-facing example includes an output-free `.ipynb` demo. The notebook
+Every user-facing example includes an `.ipynb` demo, committed output-free so
+the file stays diffable. `examples/resnet18/resnet18.ipynb` is the one
+exception: it is committed with the outputs of a real PYNQ-Z1 run, so the
+board's figures and predicted labels are readable on GitHub without running
+anything. Re-executing it replaces those outputs wholesale, so commit a run you
+intend to publish. The notebook
 is the canonical human validation entry point: its README may prepare and
 deploy inputs, but must ultimately direct the user to the notebook. CLI board
 entry points support the notebook and automation; they do not replace the

@@ -214,7 +214,7 @@ class ResNet18DeliveryTests(unittest.TestCase):
             sorted(self.report_names()),
         )
 
-    def test_notebook_is_output_free_and_uses_public_runtime(self):
+    def test_notebook_is_well_formed_and_uses_public_runtime(self):
         notebook_path = EXAMPLE_ROOT / "resnet18.ipynb"
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
         self.assertEqual(notebook["nbformat"], 4)
@@ -222,9 +222,10 @@ class ResNet18DeliveryTests(unittest.TestCase):
             cell for cell in notebook["cells"] if cell["cell_type"] == "code"
         ]
         self.assertGreaterEqual(len(code_cells), 4)
+        # Committed outputs are allowed here; see docs/rules/filetree.md.
         for cell in code_cells:
-            self.assertEqual(cell.get("outputs"), [])
-            self.assertIsNone(cell.get("execution_count"))
+            self.assertIsInstance(cell.get("outputs"), list)
+            self.assertIsInstance(cell.get("execution_count"), (int, type(None)))
         source = "\n".join(
             "".join(cell.get("source", [])) for cell in notebook["cells"]
         )
