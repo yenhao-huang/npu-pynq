@@ -37,17 +37,22 @@ From the repository root in PowerShell:
 Stop if dependency installation fails. PyTorch is used only on the conversion
 host; the exported runtime remains NumPy-only.
 
-## 2. Download the pinned checkpoint
+## 2. Download the pinned checkpoint and calibration images
 
 ```powershell
 & build/resnet18-venv/Scripts/python.exe `
   examples/resnet18/scripts/download_model.py
+& build/resnet18-venv/Scripts/python.exe `
+  examples/resnet18/scripts/download_calibration.py
 ```
 
-Expected marker: `PASS: downloaded and verified ...resnet18-f37072fd.pth`.
-The script rejects redirects to another host, incorrect length or SHA-256, and
-an existing destination. Generated files stay under
-`examples/resnet18/model/` and are ignored by Git.
+Expected markers: `PASS: downloaded and verified ...resnet18-f37072fd.pth`
+and `PASS: 32 calibration images verified ...`. Both scripts reject a host,
+length, or SHA-256 mismatch. The 32 calibration images are pinned in
+`examples/resnet18/calibration-source.json`; INT8 activation scales are
+derived from them (see `docs/quantization-stats/` for why real images are
+required). Generated files stay under `examples/resnet18/model/` and are
+ignored by Git.
 
 ## 3. Convert the model
 
@@ -57,8 +62,10 @@ an existing destination. Generated files stay under
 ```
 
 Expected markers report `resnet18.npu.json` and
-`resnet18.conversion.json`. Stop on any source-schema, non-finite value,
-quantization, accumulator certificate, or exporter error.
+`resnet18.conversion.json`. Activation scales are calibrated from the 32 real
+images fetched in step 2; the deterministic synthetic tensor is retained
+unchanged as the validation/regression input. Stop on any source-schema,
+non-finite value, quantization, accumulator certificate, or exporter error.
 
 ## 4. Validate the real model
 

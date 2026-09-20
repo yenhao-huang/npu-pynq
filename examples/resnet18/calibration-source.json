@@ -1,0 +1,274 @@
+{
+ "magic": "NPU_RESNET18_CALIBRATION_SOURCE",
+ "format": {
+  "major": 1,
+  "minor": 0
+ },
+ "calibration_id": "imagenet-real-32-v1",
+ "count": 32,
+ "selection": "32 classes evenly spaced across ImageNet-1000 (index round(i*1000/32))",
+ "provider": "EliSchwartz/imagenet-sample-images",
+ "source_project_spdx": "BSD-3-Clause",
+ "license": {
+  "dataset_terms": "ImageNet-1K terms apply; users must verify dataset and weight usage rights"
+ },
+ "preprocessing": "RGB, resize shorter side to 256 (bilinear), center crop 224, /255, ImageNet mean/std",
+ "images": [
+  {
+   "class_index": 0,
+   "wnid": "n01440764",
+   "filename": "n01440764_tench.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n01440764_tench.JPEG",
+   "bytes": 100582,
+   "sha256": "98f7e89b26142f7bdb61f3a627dee89729b0bb07a29e9e7f3be9d394c00c6f01"
+  },
+  {
+   "class_index": 31,
+   "wnid": "n01644373",
+   "filename": "n01644373_tree_frog.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n01644373_tree_frog.JPEG",
+   "bytes": 36482,
+   "sha256": "4f5f4f5650481bb27a68bffc5f09c388e0c6fe74d5bd939251e446d574e8c8d8"
+  },
+  {
+   "class_index": 62,
+   "wnid": "n01744401",
+   "filename": "n01744401_rock_python.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n01744401_rock_python.JPEG",
+   "bytes": 212366,
+   "sha256": "dadc8567a05502acc97e6601e225181636d6ba65b1b4a49da877b8e48057fa12"
+  },
+  {
+   "class_index": 94,
+   "wnid": "n01833805",
+   "filename": "n01833805_hummingbird.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n01833805_hummingbird.JPEG",
+   "bytes": 85911,
+   "sha256": "4fc6ab657fc6ca8daba46819cae0b0936e6ab83da4074106d0bd8d50c23193da"
+  },
+  {
+   "class_index": 125,
+   "wnid": "n01986214",
+   "filename": "n01986214_hermit_crab.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n01986214_hermit_crab.JPEG",
+   "bytes": 73737,
+   "sha256": "054fbfd440929aff32c3f72637b3eb047cc6f772eeefbfdd6b2e7d10ae4331c5"
+  },
+  {
+   "class_index": 156,
+   "wnid": "n02086646",
+   "filename": "n02086646_Blenheim_spaniel.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02086646_Blenheim_spaniel.JPEG",
+   "bytes": 43163,
+   "sha256": "cf8ee0c7c311f1b4b45f872a9efcf533866df2a66127f2bca3e6921f44d42392"
+  },
+  {
+   "class_index": 188,
+   "wnid": "n02095314",
+   "filename": "n02095314_wire-haired_fox_terrier.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02095314_wire-haired_fox_terrier.JPEG",
+   "bytes": 92468,
+   "sha256": "47d9866c63e4d6d2728927979cdbe73f9edb1fe3226b73e7f2bdfc9923245532"
+  },
+  {
+   "class_index": 219,
+   "wnid": "n02102318",
+   "filename": "n02102318_cocker_spaniel.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02102318_cocker_spaniel.JPEG",
+   "bytes": 78899,
+   "sha256": "866f84562a31fe5ce9e301693a7576173c0f9d53bcb523f4570d90a7a3f3449e"
+  },
+  {
+   "class_index": 250,
+   "wnid": "n02110185",
+   "filename": "n02110185_Siberian_husky.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02110185_Siberian_husky.JPEG",
+   "bytes": 32652,
+   "sha256": "776cfad42b60eff9516a3b0a7aac0b8c4470ceb5dc9dc972543f1393c0bae20b"
+  },
+  {
+   "class_index": 281,
+   "wnid": "n02123045",
+   "filename": "n02123045_tabby.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02123045_tabby.JPEG",
+   "bytes": 86704,
+   "sha256": "678cd3aca4149cf0ed354c19061cb51a0a972bbd713864b7cef3eba02c332984"
+  },
+  {
+   "class_index": 312,
+   "wnid": "n02229544",
+   "filename": "n02229544_cricket.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02229544_cricket.JPEG",
+   "bytes": 79882,
+   "sha256": "2d8d7ede3219e47f67e96bc3d462c5fb6df84bdd2758edec199df7c6d4e3d2ae"
+  },
+  {
+   "class_index": 344,
+   "wnid": "n02398521",
+   "filename": "n02398521_hippopotamus.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02398521_hippopotamus.JPEG",
+   "bytes": 137690,
+   "sha256": "20b43c4c1e980d23333adb080ce9f6e49db998f761ea828ce9d6cd614627bead"
+  },
+  {
+   "class_index": 375,
+   "wnid": "n02488702",
+   "filename": "n02488702_colobus.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02488702_colobus.JPEG",
+   "bytes": 161908,
+   "sha256": "9ce81327a9f4c96330af75df097571ac99527b830be1459444941ebfbaa2976f"
+  },
+  {
+   "class_index": 406,
+   "wnid": "n02699494",
+   "filename": "n02699494_altar.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02699494_altar.JPEG",
+   "bytes": 142608,
+   "sha256": "ebe552f098f3365663ddc30f59368e91b78713ba626c9bcbb4e0b999db604c34"
+  },
+  {
+   "class_index": 438,
+   "wnid": "n02815834",
+   "filename": "n02815834_beaker.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02815834_beaker.JPEG",
+   "bytes": 21641,
+   "sha256": "69a6856c57148f253ccfa2f1d9d336add01d98993bc691feeb89f4d1bd10339e"
+  },
+  {
+   "class_index": 469,
+   "wnid": "n02939185",
+   "filename": "n02939185_caldron.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n02939185_caldron.JPEG",
+   "bytes": 132647,
+   "sha256": "0dae2cdcf78f6c7c6ab133f184929081225adcb9800f8c1ca515fa2a58162ee3"
+  },
+  {
+   "class_index": 500,
+   "wnid": "n03042490",
+   "filename": "n03042490_cliff_dwelling.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n03042490_cliff_dwelling.JPEG",
+   "bytes": 173993,
+   "sha256": "bb553e0db1e4cd6f9259da433f2ae0c2e30e79419cee61204af545ad519c07ad"
+  },
+  {
+   "class_index": 531,
+   "wnid": "n03197337",
+   "filename": "n03197337_digital_watch.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n03197337_digital_watch.JPEG",
+   "bytes": 173653,
+   "sha256": "18883e0970700f9da69d92aef564511a4a711ce5942dc24185300953d0a96ee2"
+  },
+  {
+   "class_index": 562,
+   "wnid": "n03388043",
+   "filename": "n03388043_fountain.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n03388043_fountain.JPEG",
+   "bytes": 125791,
+   "sha256": "42c59a6bfa7c75aad8e146b3bdcd72912a81341dfd7631715982edb18d52588e"
+  },
+  {
+   "class_index": 594,
+   "wnid": "n03495258",
+   "filename": "n03495258_harp.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n03495258_harp.JPEG",
+   "bytes": 215734,
+   "sha256": "54cdb034a0a1ae868d54c729af295bac791586dc21b3a621106b45163269742a"
+  },
+  {
+   "class_index": 625,
+   "wnid": "n03662601",
+   "filename": "n03662601_lifeboat.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n03662601_lifeboat.JPEG",
+   "bytes": 187870,
+   "sha256": "c576ed57e082fe92298051774394a341035eba670fb63ba5d1c2cd6013217339"
+  },
+  {
+   "class_index": 656,
+   "wnid": "n03770679",
+   "filename": "n03770679_minivan.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n03770679_minivan.JPEG",
+   "bytes": 82599,
+   "sha256": "12da394038951925485e5e2011fc3f3084059ee9662e5671affe4a882975952f"
+  },
+  {
+   "class_index": 688,
+   "wnid": "n03857828",
+   "filename": "n03857828_oscilloscope.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n03857828_oscilloscope.JPEG",
+   "bytes": 21987,
+   "sha256": "ca08e89c5725931ee3739724bc1e48d795463e9ff068f6d9b0b6c6de400317b3"
+  },
+  {
+   "class_index": 719,
+   "wnid": "n03935335",
+   "filename": "n03935335_piggy_bank.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n03935335_piggy_bank.JPEG",
+   "bytes": 63842,
+   "sha256": "030c616b89074ee0279dac8bc6f890e86eda5539ae967cf05782cd133a8bf05a"
+  },
+  {
+   "class_index": 750,
+   "wnid": "n04033995",
+   "filename": "n04033995_quilt.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n04033995_quilt.JPEG",
+   "bytes": 236225,
+   "sha256": "5b234f0ece004558e8b9a48594312847d6a3c01d57ddd8aa450c8444b2b15462"
+  },
+  {
+   "class_index": 781,
+   "wnid": "n04149813",
+   "filename": "n04149813_scoreboard.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n04149813_scoreboard.JPEG",
+   "bytes": 64143,
+   "sha256": "a967aede2bdbb283e63c03f68a7a30de104a1ff0a3f7053fbe938321ea6de8ad"
+  },
+  {
+   "class_index": 812,
+   "wnid": "n04266014",
+   "filename": "n04266014_space_shuttle.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n04266014_space_shuttle.JPEG",
+   "bytes": 120178,
+   "sha256": "616b5039e9656a5147c66550c6b83587f97a895db807df5c9368d45968a66d65"
+  },
+  {
+   "class_index": 844,
+   "wnid": "n04372370",
+   "filename": "n04372370_switch.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n04372370_switch.JPEG",
+   "bytes": 26736,
+   "sha256": "d47de0a165a47e8321e296d71f004c34c14ad46c3c65cd3a714f029ab057b42c"
+  },
+  {
+   "class_index": 875,
+   "wnid": "n04487394",
+   "filename": "n04487394_trombone.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n04487394_trombone.JPEG",
+   "bytes": 62417,
+   "sha256": "27f7d10aa4796341040302cbff9ed5087777c4239a6c1bb76635e4b17ffd24f9"
+  },
+  {
+   "class_index": 906,
+   "wnid": "n04591157",
+   "filename": "n04591157_Windsor_tie.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n04591157_Windsor_tie.JPEG",
+   "bytes": 14439,
+   "sha256": "9aad50e027fcf4a6ba05dd94fbd6d923c53167e94b2edd3f4e288757f305d661"
+  },
+  {
+   "class_index": 938,
+   "wnid": "n07715103",
+   "filename": "n07715103_cauliflower.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n07715103_cauliflower.JPEG",
+   "bytes": 198409,
+   "sha256": "3f3a40922db0cbcad104fc8c65845ea268043d548d6117fef37dc769dc21d73c"
+  },
+  {
+   "class_index": 969,
+   "wnid": "n07932039",
+   "filename": "n07932039_eggnog.JPEG",
+   "url": "https://raw.githubusercontent.com/EliSchwartz/imagenet-sample-images/master/n07932039_eggnog.JPEG",
+   "bytes": 18365,
+   "sha256": "9f09d1bed32e86197cf07d4f1502ad1988480f54a55db53694fa716cc0242274"
+  }
+ ]
+}

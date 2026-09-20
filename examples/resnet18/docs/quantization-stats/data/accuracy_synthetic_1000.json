@@ -1,0 +1,20 @@
+{
+ "images": 1000,
+ "corpus": "examples/resnet18/model/imagenet-calibration",
+ "checkpoint": "examples/resnet18/model/resnet18-f37072fd.pth",
+ "calibration": "2 synthetic images (linear gradient + checkerboard)",
+ "fp32": {
+  "top1": 0.797,
+  "top5": 0.95
+ },
+ "int8": {
+  "top1": 0.616,
+  "top5": 0.931
+ },
+ "delta": {
+  "top1": -0.181,
+  "top5": -0.019
+ },
+ "top1_agreement_int8_vs_fp32": 0.715,
+ "note": "Produced 2026-09-20 by the same code path as scripts/eval_int8_accuracy.py --calibration synthetic --limit 1000. Corpus is a curated one-per-class sample, not the ImageNet-1K validation set; only same-image FP32-vs-INT8 deltas are comparable to published figures."
+}
