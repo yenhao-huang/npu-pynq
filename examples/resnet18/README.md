@@ -236,10 +236,32 @@ to the CD script under `.github/cd/`, not to this human demo workflow.
 
 ## 10. Live demo: classify an uploaded picture
 
-`resnet18_live_demo.ipynb` is the showing-it-to-people notebook. It takes any
-picture through an upload widget, preprocesses it on the board, runs it on the
-8 x 8 array, and plots the top-5 ImageNet classes. No upload falls back to the
-bundled sample, so the demo always runs.
+`resnet18_live_demo.ipynb` is the showing-it-to-people notebook. Step 3 offers a
+dropdown of five bundled photographs and an upload widget; an upload overrides
+the dropdown. The board preprocesses the chosen picture, runs it on the 8 x 8
+array, and plots the top-5 ImageNet classes. Each bundled picture declares the
+class it should produce, so Step 6 prints `CORRECT` or `INCORRECT`; an uploaded
+picture has no ground truth, so you judge it yourself.
+
+Fetch the bundled set once, into the ignored model workspace:
+
+```powershell
+& build/resnet18-venv/Scripts/python.exe `
+  examples/resnet18/scripts/download_gallery.py
+```
+
+`gallery-source.json` pins each image by URL, byte length, SHA-256, SPDX
+licence, attribution, source page, and expected ImageNet class. The downloader
+accepts only pinned HTTPS URLs on the approved host, rejects a length or digest
+mismatch, refuses to overwrite a file whose digest differs, and publishes
+nothing on failure. The five are Creative Commons photographs from Wikimedia
+Commons - zebra, volcano, daisy, pizza, and goldfish - chosen because the
+exported INT8 model predicts each one correctly. None is an ImageNet dataset
+image and none is committed here.
+
+The PYNQ-Z1 has no route to the internet on the direct Ethernet link, so run
+the downloader on the conversion host and let the deployment wrapper carry
+`model/` to the board.
 
 It carries no digest comparison, no provenance check, and no evidence write.
 That is deliberate: it is a demonstration, not acceptance. `resnet18.ipynb`
