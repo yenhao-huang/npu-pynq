@@ -1,0 +1,4 @@
+ic_cli
+ic_core
+ic_daemon
+ic_mcp

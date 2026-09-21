@@ -92,10 +92,34 @@ npu_repo_in_pynq/
 |   |   |-- roadmap.md
 |   |   `-- changelog/
 |   |       `-- <YYYY-Www>.md
+|   |-- plans/
+|   |   `-- <YYYY>-<MMDD>-<NNN>-<topic>.md
+|   |-- acceptance/
+|   |   `-- reproduce.md        how to reproduce a delivered capability
+|   |-- <toolchain>/
+|   |   `-- README.md           developer toolchain documentation
 |   `-- <design>-spec.md
+|-- tools/
+|   `-- ic/                     agent-facing IC design toolchain
+|       |-- pyproject.toml
+|       |-- ic_core/            one folder per tool category
+|       |   `-- tools/<category>/
+|       |       |-- __init__.py    the category contract
+|       |       `-- <backend>.py   one file per backend
+|       |-- ic_daemon/          run records and job lifecycle
+|       |-- ic_cli/             the `ic` command line
+|       |-- ic_mcp/             MCP adapter
+|       |-- integrations/pi/    pi extension and its verifier
+|       `-- tests/
+|-- .pi/
+|   |-- settings.json
+|   `-- extensions/
+|       `-- *.ts
+|-- .mcp.json
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
+|-- .ic/                        run store, not tracked
 `-- mount/
 ```
 
@@ -154,6 +178,30 @@ top-level location for them. Classify reusable development workflows under
 repository-specific IC design workflows under `custom/ic_design/`. Do not add
 a top-level `skills/` directory or place IC design skills directly under
 `.codex/skills/`.
+
+`tools/` holds developer and agent toolchains that act on this repository but
+are not part of the product. `tools/ic/` is the IC design toolchain: `ic_core/`
+holds one folder per tool category, each owning its schema and containing one
+file per backend; `ic_daemon/`, `ic_cli/`, `ic_mcp/` and `integrations/pi/` are
+thin clients over it and contain no tool knowledge. Adding a backend touches
+one file and adding a category one folder; no client changes either way. See
+[../ic-design-tools/README.md](../ic-design-tools/README.md).
+
+`.pi/` and `.mcp.json` attach those tools to specific agents: `.pi/extensions/`
+registers them as native pi tools and `.mcp.json` registers the MCP server.
+They are configuration only. The skill that tells a model when to use the
+tools lives with the other skills, under
+`.codex/skills/custom/ic_design/ic-design-tools/`, so one copy serves pi,
+Claude Code and Codex alike.
+
+`docs/plans/` holds architecture and implementation plans. `docs/acceptance/`
+holds reproduction procedures for delivered capabilities: each records the
+exact commands and the output they actually produced, and states what was not
+verified. `docs/<toolchain>/README.md` documents a toolchain under `tools/`.
+
+`.ic/` is the run store written by `tools/ic`. It is machine-local and not
+tracked: `meta.json` records are kilobytes but the artifacts beside them are
+gigabytes. Never commit it.
 
 `openspec/` contains change proposals and specifications used by the
 development workflow. Keep planning artifacts here, separate from product

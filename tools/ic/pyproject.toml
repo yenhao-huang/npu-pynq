@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ic-design-tools"
+version = "0.1.0"
+description = "Layered lint/sim/debug/view/synth toolchain for agent-driven RTL iteration"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.6"]
+
+[project.optional-dependencies]
+daemon = ["fastapi>=0.110", "uvicorn>=0.27"]
+cli = ["typer>=0.12"]
+mcp = ["mcp>=1.2"]
+all = ["fastapi>=0.110", "uvicorn>=0.27", "typer>=0.12", "mcp>=1.2"]
+
+[project.scripts]
+ic = "ic_cli.main:main"
+ic-toold = "ic_daemon.__main__:main"
+ic-mcp = "ic_mcp.server:main"
+
+[tool.setuptools]
+packages = ["ic_core", "ic_core.tools", "ic_core.tools.lint", "ic_core.tools.sim", "ic_core.tools.debug", "ic_core.tools.view", "ic_core.tools.synth", "ic_daemon", "ic_cli", "ic_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# `conftest.py` exports the `needs` skip helper and the fixture paths, so the
+# tests directory has to be importable, not just collectible.
+pythonpath = ["tests", "."]
