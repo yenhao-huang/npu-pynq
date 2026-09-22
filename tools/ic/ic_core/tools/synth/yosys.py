@@ -18,7 +18,9 @@ STAT_LINE = re.compile(r"^\s+(\w[\w$]*)\s+(\d+)\s*$")
 
 #: Yosys reports mapped 7-series primitives; these map them onto the
 #: vocabulary Vivado uses, so both modes fill the same `Utilization` fields.
-LUT_CELLS = ("LUT1", "LUT2", "LUT3", "LUT4", "LUT5", "LUT6")
+#: INV is listed because on 7-series it is not free: it is placed as a LUT1.
+#: Leaving it out reported an 8-bit counter (CARRY4 + 9 INV) as using no LUTs.
+LUT_CELLS = ("LUT1", "LUT2", "LUT3", "LUT4", "LUT5", "LUT6", "INV")
 FF_CELLS = ("FDRE", "FDSE", "FDCE", "FDPE", "FDRE_1", "FDCE_1")
 DSP_CELLS = ("DSP48E1", "DSP48E2", "DSP48A1")
 BRAM_CELLS = ("RAMB18E1", "RAMB36E1", "RAMB18", "RAMB36")
@@ -50,9 +52,15 @@ def parse_stat(text: str) -> tuple[Utilization, list[str]]:
         elif "Number of memory bits:" in line:
             memory_bits = int(line.split(":")[1].strip())
 
+    parsed = total_cells is not None
+
     def total(names) -> int | None:
+        # Zero, not null, once a stat block was read: "none of these cells"
+        # is an answer. Null is kept for "the report could not be parsed".
         found = [counts[n] for n in names if n in counts]
-        return sum(found) if found else None
+        if found:
+            return sum(found)
+        return 0 if parsed else None
 
     utilization = Utilization(
         luts=total(LUT_CELLS),

@@ -137,6 +137,8 @@ def test_synth_estimate_reports_area_and_admits_it_is_an_estimate(store, tmp_pat
     )
     assert out["ok"] and out["backend"] == "yosys"
     assert out["utilization"]["ffs"] == 8, "an 8-bit counter has 8 flip-flops"
+    assert out["utilization"]["luts"], "INV cells occupy LUTs on 7-series"
+    assert out["utilization"]["brams"] == 0, "zero, not null, when the stat block parsed"
     assert out["timing"]["met"] is None, "Yosys does no timing analysis"
     assert "estimate" in out["note"].lower()
 

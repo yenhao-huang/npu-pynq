@@ -158,10 +158,10 @@ To confirm nothing large crossed back:
 ic artifact c29f5d/sim.log --tail 3
 ```
 
-## 4. signals
+## 4. signals: List singals
 
 ```bash
-ic signals --wave c29f5d/wave.fst --pattern '*count*' --compact
+ic signals --wave <simulator-run-id>/wave.fst --pattern '*count*' --compact
 ```
 
 ```json
@@ -180,7 +180,7 @@ argument below work.
 The tool the rest exists to support.
 
 ```bash
-ic first_mismatch --wave c29f5d/wave.fst --ref ref_count --dut dut_count --context 3
+ic first_mismatch --wave <simulator-run-id>/wave.fst --ref ref_count --dut dut_count --context 3
 ```
 
 ```json
@@ -206,14 +206,14 @@ and `dut_count` — a unique suffix resolves to the full hierarchical path.
 Signals that agree are reported honestly rather than by silence:
 
 ```bash
-ic first_mismatch --wave c29f5d/wave.fst --ref ref_count --dut ref_count --compact
+ic first_mismatch --wave <simulator-run-id>/wave.fst --ref ref_count --dut ref_count --compact
 # {"found": false, ..., "compared_cycles": 21}
 ```
 
 ## 6. value_at
 
 ```bash
-ic value_at --wave c29f5d/wave.fst --signals ref_count dut_count enable --cycle 8 --compact
+ic value_at --wave <simulator-run-id>/wave.fst --signals ref_count dut_count enable --cycle 8 --compact
 ```
 
 ```json
@@ -230,7 +230,7 @@ one typo does not discard the other signals you asked for.
 ## 7. value_range
 
 ```bash
-ic value_range --wave c29f5d/wave.fst --signal dut_count --from-cycle 5 --to-cycle 12 --max-points 5
+ic value_range --wave <simulator-run-id>/wave.fst --signal dut_count --from-cycle 5 --to-cycle 12 --max-points 5
 ```
 
 ```json
@@ -250,7 +250,7 @@ For a person, not for an agent. On a headless machine, generate the save file
 and stop there:
 
 ```bash
-ic show_wave --wave c29f5d/wave.fst --signals ref_count dut_count enable \
+ic show_wave --wave <simulator-run-id>/wave.fst --signals ref_count dut_count enable \
              --center-cycle 8 --no-launch
 ```
 
@@ -307,7 +307,7 @@ ic synth --files tools/ic/tests/fixtures/counter.sv --top counter_ref --mode est
 ```json
 {
   "ok": true, "mode": "estimate", "part": null,
-  "utilization": {"ffs": 8, "cells": 31, "memory_bits": 0},
+  "utilization": {"luts": 9, "ffs": 8, "dsps": 0, "brams": 0, "cells": 31, "memory_bits": 0},
   "timing": {"wns_ns": null, "tns_ns": null, "met": null},
   "report": "…/synth.log", "duration_s": 2.1, "backend": "yosys",
   "note": "Estimate only: technology-mapped but not placed or routed, and no timing analysis. Use mode='full' before trusting area or timing."
