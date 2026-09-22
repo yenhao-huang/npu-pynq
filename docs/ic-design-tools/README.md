@@ -284,8 +284,10 @@ single instance is several gigabytes.
 - **Verilator is two-state.** It will not reproduce an X-propagation bug. For
   reset and initialisation problems use `--backend icarus`.
 - **Tracing is injected, not edited in.** The testbenches do not call
-  `$dumpfile`/`$dumpvars`; `sim` generates a one-module probe and `bind`s it
-  into the testbench per run, so the checked-in sources stay untouched.
+  `$dumpfile`/`$dumpvars`; `sim` generates a one-module probe per run and
+  `bind`s it into the testbench (Verilator) or elaborates it as a second
+  top-level module (Icarus 11, which does not support `bind`). Either way the
+  checked-in sources stay untouched.
 - **FST is read by conversion.** There is no maintained pure-Python FST reader,
   so the `fst` backend expands the trace once with `fst2vcd` and caches the
   result under `.ic/cache/`. Simulations still write FST, so what is stored

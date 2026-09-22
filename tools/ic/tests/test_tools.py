@@ -208,3 +208,19 @@ def test_sim_runs_from_the_callers_directory(store, tmp_path):
     out = dispatch("sim", {"files": [str(tb)], "tb": "tb_reads_file"}, cwd=tmp_path)
     assert out["ok"], out["summary"]
     assert out["wave"] and store.resolve(out["wave"]).exists()
+
+
+@needs("iverilog")
+def test_icarus_sim_traces_without_bind(store, tmp_path):
+    """Icarus 11 has no `bind`; the probe must still produce a waveform."""
+    out = dispatch(
+        "sim",
+        {"files": [str(FIXTURES / "counter.sv"), str(FIXTURES / "tb_counter.sv")],
+         "tb": "tb_counter", "backend": "icarus"},
+        cwd=tmp_path,
+    )
+    assert out["built"], out["summary"]
+    assert out["wave"] and out["wave"].endswith("wave.vcd")
+    found = dispatch("first_mismatch", {"wave": out["wave"], "ref": "ref_count",
+                                        "dut": "dut_count", "backend": "vcd"})
+    assert found["found"] and found["ref_value"]["dec"] == 8

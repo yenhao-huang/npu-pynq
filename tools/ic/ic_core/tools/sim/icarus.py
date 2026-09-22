@@ -32,7 +32,9 @@ class IcarusSim:
 
         argv = ["iverilog", "-g2012", "-o", str(binary), "-s", params.tb]
         if params.trace:
-            sources.append(str(trace_probe.write(work, params.tb, str(ctx.run.artifacts / WAVE_NAME))))
+            sources.append(str(trace_probe.write(
+                work, params.tb, str(ctx.run.artifacts / WAVE_NAME), use_bind=False)))
+            argv += ["-s", trace_probe.PROBE_MODULE]
         for directory in params.include_dirs:
             argv += ["-I" + directory]
         for define in params.defines:

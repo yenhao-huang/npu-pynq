@@ -43,7 +43,7 @@ Rules:
 - `ic` writes to `.ic/`, which is machine-local and never committed. Simulation
   output produced by the Makefile still belongs under `src/test/build/` or
   `src/test/waves/`.
-- `ic sim` traces by binding a generated probe into the testbench. Do not add
+- `ic sim` traces through a generated probe module. Do not add
   `$dumpfile`/`$dumpvars` to a checked-in testbench to make it work.
 - Verilator, the default backend, is two-state. Use `--backend icarus` for
   reset, initialisation, and X-propagation problems.
