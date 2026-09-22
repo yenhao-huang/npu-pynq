@@ -187,3 +187,24 @@ def test_savefile_carries_trace_flags_and_bit_ranges(store, counter_wave):
     assert "@28" in body and "TOP.tb_counter.enable" in body
     marker = [line for line in body if line.startswith("*")]
     assert marker and marker[0].split()[1] != "-1", "the marker must land on the cycle"
+
+
+@needs("verilator")
+def test_sim_runs_from_the_callers_directory(store, tmp_path):
+    """Testbenches open fixtures by relative path, as they do under `make sim`."""
+    (tmp_path / "data.txt").write_text("42\n")
+    tb = tmp_path / "tb_reads_file.sv"
+    tb.write_text(
+        "module tb_reads_file;\n"
+        "  integer f, v;\n"
+        "  initial begin\n"
+        '    f = $fopen("data.txt", "r");\n'
+        '    if (f == 0) $display("FAIL cannot open data.txt");\n'
+        '    else begin void\'($fscanf(f, "%d", v)); $display("PASS read %0d", v); end\n'
+        "    $finish;\n"
+        "  end\n"
+        "endmodule\n"
+    )
+    out = dispatch("sim", {"files": [str(tb)], "tb": "tb_reads_file"}, cwd=tmp_path)
+    assert out["ok"], out["summary"]
+    assert out["wave"] and store.resolve(out["wave"]).exists()

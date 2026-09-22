@@ -43,7 +43,7 @@ class VerilatorSim:
         ]
         if params.trace:
             argv += ["--trace-fst", "--trace-structs"]
-            sources.append(str(trace_probe.write(work, params.tb, WAVE_NAME)))
+            sources.append(str(trace_probe.write(work, params.tb, str(ctx.run.artifacts / WAVE_NAME))))
         for directory in params.include_dirs:
             argv += ["-I" + directory]
         for define in params.defines:
@@ -76,13 +76,14 @@ class VerilatorSim:
                 log=ctx.run.handle("sim.log"),
             )
 
-        # The simulation runs inside artifacts/ so $dumpfile's relative path
-        # puts the waveform exactly where the handle expects it.
+        # Run from the caller's directory, as `make sim` does: testbenches open
+        # fixtures such as src/test/vectors/ by relative path. The probe gives
+        # $dumpfile an absolute path, so the waveform still lands in artifacts/.
         run_argv = [str(binary)] + [f"+{arg}" for arg in params.plusargs]
         sim = run_process(
             run_argv,
             log_path=log,
-            cwd=ctx.run.artifacts,
+            cwd=ctx.cwd,
             timeout_s=params.timeout_s,
             append=True,
         )
