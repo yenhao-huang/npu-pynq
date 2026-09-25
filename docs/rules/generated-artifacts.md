@@ -32,3 +32,8 @@ git ls-files -i -c --exclude-standard
 
 Any output means a tracked file now matches an ignore rule; `.gitignore` does
 not untrack it automatically. Review every result without deleting source.
+
+The reviewed FP12 experiment source fixtures explicitly enumerated in
+`filetree.md` are the sole exception for its frozen experiment records. This
+exception does not permit compiled models, mapped netlists, library copies,
+replay outputs, or arbitrary generated logs to enter Git.
