@@ -82,6 +82,13 @@ gets working lint, sim, debug and estimates.
 
 ## Attaching the tools to an agent
 
+For automatic dependency setup and a stdio MCP entry point distributed through
+npm, see [the npm package guide](../../tools/ic/README.npm.md). Its launcher
+downloads a pinned, checksum-verified OSS CAD Suite and installs locked Python
+dependencies on first startup. A local npm tarball can be tested before registry
+publication. The Python tool implementations and MCP schemas are shared with
+the existing CLI and pi integration.
+
 Every surface is generated from the same registry and ends in the same
 `ic_core.dispatch`, so an agent gets identical results whichever it uses.
 `tools/ic/tests/test_surfaces.py` asserts that equality rather than assuming it.

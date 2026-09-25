@@ -56,3 +56,7 @@ Thumbs.db
 # ic design tools: run store. meta.json is the record of truth, but it is
 # machine-local and the artifacts beside it are gigabytes.
 .ic/
+
+# npm launcher dependencies and generated package archives
+tools/ic/node_modules/
+tools/ic/*.tgz

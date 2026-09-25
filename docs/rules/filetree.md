@@ -110,6 +110,11 @@ npu_repo_in_pynq/
 |       |-- ic_cli/             the `ic` command line
 |       |-- ic_mcp/             MCP adapter
 |       |-- integrations/pi/    pi extension and its verifier
+|       |-- npm/                npm MCP bootstrap, pinned downloads and tests
+|       |-- package.json        npm package and launcher entry point
+|       |-- package-lock.json   locked launcher dependencies
+|       |-- README.npm.md       installation and MCP client setup
+|       |-- LICENSE             license included in the npm distribution
 |       `-- tests/
 |-- .pi/
 |   |-- settings.json
