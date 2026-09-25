@@ -1,0 +1,12 @@
+{
+  "name": "ic-design-mcp",
+  "version": "0.1.0",
+  "description": "IC design MCP server with automatic open-source toolchain setup",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=20.11" },
+  "bin": { "ic-design-mcp": "npm/cli.mjs" },
+  "files": ["npm/", "ic_core/**/*.py", "ic_cli/**/*.py", "ic_mcp/**/*.py", "ic_daemon/**/*.py", "README.npm.md", "LICENSE"],
+  "scripts": { "test": "node --test npm/tests/*.test.mjs" },
+  "dependencies": { "tar": "7.5.22" }
+}

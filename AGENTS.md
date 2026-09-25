@@ -16,6 +16,8 @@ on-board runtime.
 | `src/export/` | trained model to NPU executable format | yes |
 | `src/runtime/` | on-board overlay loading and execution | yes |
 | `examples/` | demos built on export and runtime | yes |
+| `tools/ic/` | agent-facing lint/sim/debug/view/synth toolchain | yes |
+| `.pi/`, `.mcp.json` | attach those tools to pi and to MCP clients | yes |
 | `docs/` | specifications and repository rules | yes |
 | `docs/human/` | human-confirmed features, roadmap, and weekly changelog | yes |
 | `.codex/skills/dev/` | shared development workflow skills | yes |
@@ -23,6 +25,7 @@ on-board runtime.
 | `.codex/skills/custom/ic_design/` | repository-specific IC design skills | yes |
 | `openspec/` | change proposals and specifications | yes |
 | `mount/` | deploy staging, mirrored to the board | no, empty by design |
+| `.ic/` | run store written by `tools/ic` | no, machine-local |
 | `vivado_projects/`, `results/` | Vivado output | no |
 
 [docs/rules/index.md](docs/rules/index.md) is the repository-wide rule index;
@@ -50,6 +53,17 @@ and on what may not be added.
 - Every RTL change needs a corresponding testbench change, or a note in the
   commit explaining why coverage is unchanged.
 - Run `make -C src/test lint sim` before pushing. CI runs the same two targets.
+- The tools under `tools/ic/` give second-scale RTL feedback: `ic lint` after
+  every edit, `ic sim` for a verdict plus a waveform handle, and
+  `ic first_mismatch` to locate a divergence without opening the waveform.
+  Run `ic doctor` to see what is installed. Never read a `.fst`, `.vcd` or
+  `sim.log` directly; use the handle tools. See
+  [docs/ic-design-tools/README.md](docs/ic-design-tools/README.md), and
+  [docs/acceptance/reproduce.md](docs/acceptance/reproduce.md) to reproduce
+  each tool.
+- Adding a tool backend touches one file under `tools/ic/ic_core/tools/`, and a
+  new category one folder. The daemon, CLI, MCP server and pi extension are
+  generated from the registry and must not be edited to add a tool.
 - Synthesis is self-hosted only. Do not add Vivado steps to `ci.yml`; GitHub
   hosted runners cannot run Vivado.
 - Work from one claimed issue in a dedicated worktree on branch

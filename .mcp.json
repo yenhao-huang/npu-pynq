@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ic-design-tools": {
+      "command": "ic-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

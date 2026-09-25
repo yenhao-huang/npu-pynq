@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: ic-design-tools
+Version: 0.1.0
+Summary: Layered lint/sim/debug/view/synth toolchain for agent-driven RTL iteration
+Requires-Python: >=3.10
+Requires-Dist: pydantic>=2.6
+Provides-Extra: daemon
+Requires-Dist: fastapi>=0.110; extra == "daemon"
+Requires-Dist: uvicorn>=0.27; extra == "daemon"
+Provides-Extra: cli
+Requires-Dist: typer>=0.12; extra == "cli"
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.2; extra == "mcp"
+Provides-Extra: all
+Requires-Dist: fastapi>=0.110; extra == "all"
+Requires-Dist: uvicorn>=0.27; extra == "all"
+Requires-Dist: typer>=0.12; extra == "all"
+Requires-Dist: mcp>=1.2; extra == "all"
