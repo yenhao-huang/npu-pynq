@@ -1,0 +1,18 @@
+{
+  "name": "033_onehot",
+  "mode": "onehot",
+  "mul": "operator",
+  "lzd": "priority",
+  "target_delay_ps": 700,
+  "status": "failed",
+  "started": "2026-09-25T19:40:14+0800",
+  "image": "openroad/orfs@sha256:7f9c688e71cd49379b9e9a45a4558724e3eda501eaaaf11bc9b77382a3fe647b",
+  "metric": "post-mapping zero-wire-load ASAP7 RVT TT",
+  "exhaustive": true,
+  "abc_fast": false,
+  "abc_constrained": true,
+  "generator_sha256": "1c7c897ea9ade5be98d41a4f587b597bc1713f81cb2b0a22585e24bde4ac2760",
+  "checker_sha256": "4cbabab504cdd99b608b3b3183a59eb294dfa50c0aeef6b3dbe32c60d696e460",
+  "error": "f-string: single '}' is not allowed (architectures.py, line 127)",
+  "finished": "2026-09-25T19:40:16+0800"
+}

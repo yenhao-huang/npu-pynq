@@ -1,3 +1,9 @@
 src/test/vectors/*.txt text eol=lf
 # This pinned metadata is byte-validated as canonical JSON on Windows and PYNQ.
 examples/resnet18/model-source.json text eol=lf
+
+# Frozen experiment RTL is hashed as exact bytes, including historical CRLF.
+exp/fp32_multipier/runs/**/design.sv -text
+# Preserve original tool formatting in reviewed measurement fixtures.
+exp/fp32_multipier/runs/**/*.log -whitespace
+exp/fp32_multipier/runs/**/design.sv -text whitespace=cr-at-eol

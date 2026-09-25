@@ -1,0 +1,916 @@
+["docker", "exec", "-w", "/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier", "codex-sandbox-agent-workspace", "yosys", "-s", "/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/synth.ys"]
+
+ /----------------------------------------------------------------------------\
+ |                                                                            |
+ |  yosys -- Yosys Open SYnthesis Suite                                       |
+ |                                                                            |
+ |  Copyright (C) 2012 - 2020  Claire Xenia Wolf <claire@yosyshq.com>         |
+ |                                                                            |
+ |  Permission to use, copy, modify, and/or distribute this software for any  |
+ |  purpose with or without fee is hereby granted, provided that the above    |
+ |  copyright notice and this permission notice appear in all copies.         |
+ |                                                                            |
+ |  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES  |
+ |  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF          |
+ |  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR   |
+ |  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES    |
+ |  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN     |
+ |  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF   |
+ |  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.            |
+ |                                                                            |
+ \----------------------------------------------------------------------------/
+
+ Yosys 0.23 (git sha1 7ce5011c24b)
+
+
+-- Executing script file `/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/synth.ys' --
+
+1. Executing Verilog-2005 frontend: /workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv
+Parsing SystemVerilog input from `/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv' to AST representation.
+Generating RTLIL representation for module `\fp12_mul'.
+Successfully finished Verilog frontend.
+
+2. Executing HIERARCHY pass (managing design hierarchy).
+
+2.1. Analyzing design hierarchy..
+Top module:  \fp12_mul
+
+2.2. Analyzing design hierarchy..
+Top module:  \fp12_mul
+Removed 0 unused modules.
+
+3. Executing SYNTH pass.
+
+3.1. Executing HIERARCHY pass (managing design hierarchy).
+
+3.1.1. Analyzing design hierarchy..
+Top module:  \fp12_mul
+
+3.1.2. Analyzing design hierarchy..
+Top module:  \fp12_mul
+Removed 0 unused modules.
+
+3.2. Executing PROC pass (convert processes to netlists).
+
+3.2.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+3.2.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Marked 8 switch rules as full_case in process $proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11 in module fp12_mul.
+Marked 2 switch rules as full_case in process $proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:12$10 in module fp12_mul.
+Removed a total of 0 dead cases.
+
+3.2.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 0 redundant assignments.
+Promoted 10 assignments to connections.
+
+3.2.4. Executing PROC_INIT pass (extract init attributes).
+
+3.2.5. Executing PROC_ARST pass (detect async resets in processes).
+
+3.2.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 0 switches.
+<suppressed ~10 debug messages>
+
+3.2.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11'.
+     1/9: $3\y[11:0]
+     2/9: $2\y[11:0]
+     3/9: $1\y[11:0]
+     4/9: $2\mag[10:0]
+     5/9: $1\mag[10:0]
+     6/9: $2\ex[6:0]
+     7/9: $2\q[7:0]
+     8/9: $1\ex[6:0]
+     9/9: $1\q[7:0]
+Creating decoders for process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:12$10'.
+     1/4: $1\mb[6:0]
+     2/4: $1\lb[2:0]
+     3/4: $1\ma[6:0]
+     4/4: $1\la[2:0]
+
+3.2.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+No latch inferred for signal `\fp12_mul.\y' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11'.
+No latch inferred for signal `\fp12_mul.\base' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11'.
+No latch inferred for signal `\fp12_mul.\ex' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11'.
+No latch inferred for signal `\fp12_mul.\sh' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11'.
+No latch inferred for signal `\fp12_mul.\q' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11'.
+No latch inferred for signal `\fp12_mul.\mag' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11'.
+No latch inferred for signal `\fp12_mul.\ma' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:12$10'.
+No latch inferred for signal `\fp12_mul.\mb' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:12$10'.
+No latch inferred for signal `\fp12_mul.\la' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:12$10'.
+No latch inferred for signal `\fp12_mul.\lb' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:12$10'.
+
+3.2.9. Executing PROC_DFF pass (convert process syncs to FFs).
+
+3.2.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+3.2.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Found and cleaned up 8 empty switches in `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11'.
+Removing empty process `fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:36$11'.
+Found and cleaned up 2 empty switches in `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:12$10'.
+Removing empty process `fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:12$10'.
+Cleaned up 10 empty switches.
+
+3.2.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+<suppressed ~20 debug messages>
+
+3.3. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+<suppressed ~2 debug messages>
+
+3.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 0 unused cells and 64 unused wires.
+<suppressed ~4 debug messages>
+
+3.5. Executing CHECK pass (checking for obvious problems).
+Checking module fp12_mul...
+Found and reported 0 problems.
+
+3.6. Executing OPT pass (performing simple optimizations).
+
+3.6.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.6.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+<suppressed ~51 debug messages>
+Removed a total of 17 cells.
+
+3.6.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+      Replacing known input bits on port A of cell $procmux$116: $1\q[7:0] -> { 1'0 $1\q[7:0] [6:0] }
+      Replacing known input bits on port B of cell $procmux$116: { 1'0 $1\q[7:0] [7:1] } -> { 2'01 $1\q[7:0] [6:1] }
+      Replacing known input bits on port B of cell $procmux$133: { \rawb [6] \b [5:0] \b [5:0] 1'0 \b [4:0] 2'00 \b [3:0] 3'000 \b [2:0] 4'0000 \b [1:0] 5'00000 \b [0] 6'000000 } -> { 1'1 \b [5:0] \b [5:0] 1'0 \b [4:0] 2'00 \b [3:0] 3'000 \b [2:0] 4'0000 \b [1:0] 5'00000 \b [0] 6'000000 }
+      Replacing known input bits on port B of cell $procmux$151: { \rawa [6] \a [5:0] \a [5:0] 1'0 \a [4:0] 2'00 \a [3:0] 3'000 \a [2:0] 4'0000 \a [1:0] 5'00000 \a [0] 6'000000 } -> { 1'1 \a [5:0] \a [5:0] 1'0 \a [4:0] 2'00 \a [3:0] 3'000 \a [2:0] 4'0000 \a [1:0] 5'00000 \a [0] 6'000000 }
+  Analyzing evaluation results.
+    dead port 1/2 on $mux $procmux$107.
+Removed 1 multiplexer ports.
+<suppressed ~12 debug messages>
+
+3.6.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.6.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.6.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.6.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 0 unused cells and 18 unused wires.
+<suppressed ~1 debug messages>
+
+3.6.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.6.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+3.6.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~12 debug messages>
+
+3.6.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.6.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.6.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.6.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.6.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.6.16. Finished OPT passes. (There is nothing left to do.)
+
+3.7. Executing FSM pass (extract and optimize FSM).
+
+3.7.1. Executing FSM_DETECT pass (finding FSMs in design).
+
+3.7.2. Executing FSM_EXTRACT pass (extracting FSM from design).
+
+3.7.3. Executing FSM_OPT pass (simple optimizations of FSMs).
+
+3.7.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.7.5. Executing FSM_OPT pass (simple optimizations of FSMs).
+
+3.7.6. Executing FSM_RECODE pass (re-assigning FSM state encoding).
+
+3.7.7. Executing FSM_INFO pass (dumping all available information on FSM cells).
+
+3.7.8. Executing FSM_MAP pass (mapping FSMs to basic logic).
+
+3.8. Executing OPT pass (performing simple optimizations).
+
+3.8.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.8.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.8.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~12 debug messages>
+
+3.8.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.8.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.8.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.8.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.8.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.8.9. Finished OPT passes. (There is nothing left to do.)
+
+3.9. Executing WREDUCE pass (reducing word size of cells).
+Removed top 1 bits (of 6) from mux cell fp12_mul.$ternary$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:6$5 ($mux).
+Removed top 1 bits (of 6) from mux cell fp12_mul.$ternary$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:6$7 ($mux).
+Removed top 2 bits (of 7) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:7$8 ($add).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:7$8 ($add).
+Removed top 1 bits (of 7) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:7$8 ($add).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$12 ($sub).
+Converting cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$12 ($sub) from signed to unsigned.
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$12 ($sub).
+Removed top 1 bits (of 5) from port B of cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$12 ($sub).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$13 ($sub).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$14 ($sub).
+Removed top 5 bits (of 7) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:38$15 ($add).
+Removed top 30 bits (of 32) from port B of cell fp12_mul.$lt$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$16 ($lt).
+Removed top 28 bits (of 32) from port A of cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$17 ($sub).
+Removed top 26 bits (of 32) from port Y of cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$17 ($sub).
+Removed top 1 bits (of 7) from port B of cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$17 ($sub).
+Removed top 5 bits (of 6) from mux cell fp12_mul.$ternary$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$18 ($mux).
+Removed top 26 bits (of 32) from mux cell fp12_mul.$ternary$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$20 ($mux).
+Removed top 13 bits (of 14) from port A of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$23 ($or).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$23 ($or).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$24 ($and).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$24 ($and).
+Removed top 6 bits (of 14) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$25 ($add).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$25 ($add).
+Removed top 6 bits (of 14) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$25 ($add).
+Removed top 13 bits (of 14) from port A of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$28 ($or).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$28 ($or).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$29 ($and).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$29 ($and).
+Removed top 7 bits (of 14) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$30 ($add).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$30 ($add).
+Removed top 6 bits (of 14) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$30 ($add).
+Removed top 13 bits (of 14) from port A of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$33 ($or).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$33 ($or).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$34 ($and).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$34 ($and).
+Removed top 8 bits (of 14) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$35 ($add).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$35 ($add).
+Removed top 7 bits (of 14) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$35 ($add).
+Removed top 13 bits (of 14) from port A of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$38 ($or).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$38 ($or).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$39 ($and).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$39 ($and).
+Removed top 9 bits (of 14) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$40 ($add).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$40 ($add).
+Removed top 8 bits (of 14) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$40 ($add).
+Removed top 13 bits (of 14) from port A of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$43 ($or).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$43 ($or).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$44 ($and).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$44 ($and).
+Removed top 10 bits (of 14) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$45 ($add).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$45 ($add).
+Removed top 9 bits (of 14) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$45 ($add).
+Removed top 13 bits (of 14) from port A of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$48 ($or).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$48 ($or).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$49 ($and).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$49 ($and).
+Removed top 11 bits (of 14) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$50 ($add).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$50 ($add).
+Removed top 10 bits (of 14) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$50 ($add).
+Removed top 13 bits (of 14) from port A of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$53 ($or).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$53 ($or).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$54 ($and).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$54 ($and).
+Removed top 12 bits (of 14) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$55 ($add).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$55 ($add).
+Removed top 11 bits (of 14) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$55 ($add).
+Removed top 13 bits (of 14) from port A of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$58 ($or).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$58 ($or).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$59 ($and).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$59 ($and).
+Removed top 13 bits (of 14) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$60 ($add).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$60 ($add).
+Removed top 12 bits (of 14) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$60 ($add).
+Removed top 13 bits (of 14) from port B of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:50$64 ($and).
+Removed top 13 bits (of 14) from port Y of cell fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:50$64 ($and).
+Removed top 30 bits (of 32) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:53$68 ($add).
+Removed top 25 bits (of 32) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:53$68 ($add).
+Removed top 26 bits (of 32) from port B of cell fp12_mul.$ge$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:54$69 ($ge).
+Removed top 30 bits (of 32) from port B of cell fp12_mul.$eq$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:55$70 ($eq).
+Removed top 1 bits (of 12) from mux cell fp12_mul.$procmux$101 ($mux).
+Removed top 1 bits (of 8) from mux cell fp12_mul.$procmux$116 ($mux).
+Removed top 2 bits (of 6) from port B of cell fp12_mul.$procmux$123_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell fp12_mul.$procmux$124_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell fp12_mul.$procmux$125_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell fp12_mul.$procmux$126_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell fp12_mul.$procmux$127_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell fp12_mul.$procmux$128_CMP0 ($eq).
+Removed top 2 bits (of 6) from port B of cell fp12_mul.$procmux$129_CMP0 ($eq).
+Removed top 3 bits (of 6) from port B of cell fp12_mul.$procmux$130_CMP0 ($eq).
+Removed top 3 bits (of 6) from port B of cell fp12_mul.$procmux$131_CMP0 ($eq).
+Removed top 6 bits (of 7) from port B of cell fp12_mul.$procmux$134_CMP0 ($eq).
+Removed top 5 bits (of 6) from port B of cell fp12_mul.$procmux$135_CMP0 ($eq).
+Removed top 4 bits (of 5) from port B of cell fp12_mul.$procmux$136_CMP0 ($eq).
+Removed top 3 bits (of 4) from port B of cell fp12_mul.$procmux$137_CMP0 ($eq).
+Removed top 2 bits (of 3) from port B of cell fp12_mul.$procmux$138_CMP0 ($eq).
+Removed top 1 bits (of 2) from port B of cell fp12_mul.$procmux$139_CMP0 ($eq).
+Removed top 6 bits (of 7) from port B of cell fp12_mul.$procmux$152_CMP0 ($eq).
+Removed top 5 bits (of 6) from port B of cell fp12_mul.$procmux$153_CMP0 ($eq).
+Removed top 4 bits (of 5) from port B of cell fp12_mul.$procmux$154_CMP0 ($eq).
+Removed top 3 bits (of 4) from port B of cell fp12_mul.$procmux$155_CMP0 ($eq).
+Removed top 2 bits (of 3) from port B of cell fp12_mul.$procmux$156_CMP0 ($eq).
+Removed top 1 bits (of 2) from port B of cell fp12_mul.$procmux$157_CMP0 ($eq).
+Removed top 1 bits (of 12) from mux cell fp12_mul.$procmux$98 ($mux).
+Removed top 6 bits (of 14) from wire fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$25_Y.
+Removed top 8 bits (of 14) from wire fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$40_Y.
+Removed top 10 bits (of 14) from wire fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$50_Y.
+Removed top 12 bits (of 14) from wire fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$60_Y.
+Removed top 13 bits (of 14) from wire fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$24_Y.
+Removed top 13 bits (of 14) from wire fp12_mul.$and$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$39_Y.
+Removed top 26 bits (of 32) from wire fp12_mul.$extend$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$19_Y.
+Removed top 13 bits (of 14) from wire fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$23_Y.
+Removed top 13 bits (of 14) from wire fp12_mul.$or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$38_Y.
+Removed top 13 bits (of 14) from wire fp12_mul.$reduce_or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$22_Y.
+Removed top 13 bits (of 14) from wire fp12_mul.$reduce_or$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$37_Y.
+Removed top 5 bits (of 6) from wire fp12_mul.$ternary$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$18_Y.
+Removed top 1 bits (of 6) from wire fp12_mul.ax.
+Removed top 1 bits (of 6) from wire fp12_mul.bx.
+Removed top 1 bits (of 8) from wire fp12_mul.q.
+
+3.10. Executing PEEPOPT pass (run peephole optimizers).
+
+3.11. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 0 unused cells and 17 unused wires.
+<suppressed ~1 debug messages>
+
+3.12. Executing ALUMACC pass (create $alu and $macc cells).
+Extracting $alu and $macc cells in module fp12_mul:
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:38$15 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$25 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$30 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$35 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$40 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$45 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$50 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$55 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$60 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:53$68 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:7$8 ($add).
+  creating $macc model for $mul$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:11$9 ($mul).
+  creating $macc model for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$12 ($sub).
+  creating $macc model for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$13 ($sub).
+  creating $macc model for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$14 ($sub).
+  creating $macc model for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$17 ($sub).
+  merging $macc model for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$13 into $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$14.
+  merging $macc model for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$12 into $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$14.
+  merging $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:7$8 into $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$14.
+  creating $alu model for $macc $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$17.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:53$68.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$60.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$55.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$50.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$45.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$40.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$35.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$30.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$25.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:38$15.
+  creating $macc cell for $mul$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:11$9: $auto$alumacc.cc:365:replace_macc$183
+  creating $macc cell for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:37$14: $auto$alumacc.cc:365:replace_macc$184
+  creating $alu model for $ge$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:54$69 ($ge): new $alu
+  creating $alu model for $lt$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$16 ($lt): new $alu
+  creating $alu cell for $lt$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$16: $auto$alumacc.cc:485:replace_alu$187
+  creating $alu cell for $ge$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:54$69: $auto$alumacc.cc:485:replace_alu$200
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:38$15: $auto$alumacc.cc:485:replace_alu$211
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:42$25: $auto$alumacc.cc:485:replace_alu$214
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:43$30: $auto$alumacc.cc:485:replace_alu$217
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:44$35: $auto$alumacc.cc:485:replace_alu$220
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:45$40: $auto$alumacc.cc:485:replace_alu$223
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:46$45: $auto$alumacc.cc:485:replace_alu$226
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:47$50: $auto$alumacc.cc:485:replace_alu$229
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:48$55: $auto$alumacc.cc:485:replace_alu$232
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:49$60: $auto$alumacc.cc:485:replace_alu$235
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:53$68: $auto$alumacc.cc:485:replace_alu$238
+  creating $alu cell for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/017_prenorm/design.sv:39$17: $auto$alumacc.cc:485:replace_alu$241
+  created 13 $alu and 2 $macc cells.
+
+3.13. Executing SHARE pass (SAT-based resource sharing).
+
+3.14. Executing OPT pass (performing simple optimizations).
+
+3.14.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+<suppressed ~2 debug messages>
+
+3.14.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.14.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~12 debug messages>
+
+3.14.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.14.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.14.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.14.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 4 unused cells and 5 unused wires.
+<suppressed ~5 debug messages>
+
+3.14.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.14.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+3.14.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~12 debug messages>
+
+3.14.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.14.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.14.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.14.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.14.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.14.16. Finished OPT passes. (There is nothing left to do.)
+
+3.15. Executing MEMORY pass.
+
+3.15.1. Executing OPT_MEM pass (optimize memories).
+Performed a total of 0 transformations.
+
+3.15.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
+Performed a total of 0 transformations.
+
+3.15.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
+
+3.15.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
+
+3.15.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+
+3.15.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.15.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
+
+3.15.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
+Performed a total of 0 transformations.
+
+3.15.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.15.10. Executing MEMORY_COLLECT pass (generating $mem cells).
+
+3.16. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.17. Executing OPT pass (performing simple optimizations).
+
+3.17.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+<suppressed ~9 debug messages>
+
+3.17.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.17.3. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.17.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 6 unused cells and 7 unused wires.
+<suppressed ~7 debug messages>
+
+3.17.5. Finished fast OPT passes.
+
+3.18. Executing MEMORY_MAP pass (converting memories to logic and flip-flops).
+
+3.19. Executing OPT pass (performing simple optimizations).
+
+3.19.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.19.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.19.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~12 debug messages>
+
+3.19.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+    Consolidated identical input bits for $mux cell $procmux$104:
+      Old ports: A={ \ex [4:0] \q [5:0] }, B={ 5'00000 \q [5:0] }, Y=$2\mag[10:0]
+      New ports: A=\ex [4:0], B=5'00000, Y=$2\mag[10:0] [10:6]
+      New connections: $2\mag[10:0] [5:0] = \q [5:0]
+  Optimizing cells in module \fp12_mul.
+Performed a total of 1 changes.
+
+3.19.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.19.6. Executing OPT_SHARE pass.
+
+3.19.7. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.19.8. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.19.9. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.19.10. Rerunning OPT passes. (Maybe there is more to do..)
+
+3.19.11. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~12 debug messages>
+
+3.19.12. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.19.13. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.19.14. Executing OPT_SHARE pass.
+
+3.19.15. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.19.16. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.19.17. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.19.18. Finished OPT passes. (There is nothing left to do.)
+
+3.20. Executing TECHMAP pass (map to technology primitives).
+
+3.20.1. Executing Verilog-2005 frontend: /usr/bin/../share/yosys/techmap.v
+Parsing Verilog input from `/usr/bin/../share/yosys/techmap.v' to AST representation.
+Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
+Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
+Generating RTLIL representation for module `\_90_simplemap_logic_ops'.
+Generating RTLIL representation for module `\_90_simplemap_compare_ops'.
+Generating RTLIL representation for module `\_90_simplemap_various'.
+Generating RTLIL representation for module `\_90_simplemap_registers'.
+Generating RTLIL representation for module `\_90_shift_ops_shr_shl_sshl_sshr'.
+Generating RTLIL representation for module `\_90_shift_shiftx'.
+Generating RTLIL representation for module `\_90_fa'.
+Generating RTLIL representation for module `\_90_lcu'.
+Generating RTLIL representation for module `\_90_alu'.
+Generating RTLIL representation for module `\_90_macc'.
+Generating RTLIL representation for module `\_90_alumacc'.
+Generating RTLIL representation for module `\$__div_mod_u'.
+Generating RTLIL representation for module `\$__div_mod_trunc'.
+Generating RTLIL representation for module `\_90_div'.
+Generating RTLIL representation for module `\_90_mod'.
+Generating RTLIL representation for module `\$__div_mod_floor'.
+Generating RTLIL representation for module `\_90_divfloor'.
+Generating RTLIL representation for module `\_90_modfloor'.
+Generating RTLIL representation for module `\_90_pow'.
+Generating RTLIL representation for module `\_90_pmux'.
+Generating RTLIL representation for module `\_90_demux'.
+Generating RTLIL representation for module `\_90_lut'.
+Successfully finished Verilog frontend.
+
+3.20.2. Continuing TECHMAP pass.
+Using extmapper simplemap for cells of type $xor.
+Using extmapper simplemap for cells of type $reduce_bool.
+Using extmapper simplemap for cells of type $logic_not.
+Using extmapper simplemap for cells of type $mux.
+Using extmapper maccmap for cells of type $macc.
+  add \ax (5 bits, unsigned)
+  sub { 1'0 \lb } (4 bits, signed)
+  sub { 1'0 \la } (4 bits, signed)
+  add \bx (5 bits, unsigned)
+  add 7'1110001 (7 bits, unsigned)
+Using extmapper simplemap for cells of type $not.
+Using template $paramod$c3cd1564c35d873179656addd6052d7ea8b6d991\_90_alu for cells of type $alu.
+Using template $paramod$0cf90cc92a8a726f7480da3c1dd521ff92701be4\_90_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $reduce_and.
+Using extmapper simplemap for cells of type $reduce_or.
+Using extmapper simplemap for cells of type $or.
+Using extmapper simplemap for cells of type $and.
+Using template $paramod$0a77e3c00010cb33e399decd813a7380c6e25cba\_90_alu for cells of type $alu.
+Using template $paramod$f28fc3f2e267d7716249e826e8c90c34ca9542c1\_90_alu for cells of type $alu.
+Using template $paramod$5e23d2e0f07f5403e3d2c5b606bab0c16e4174c1\_90_alu for cells of type $alu.
+Using template $paramod$943564b9366bbc392bf4bbc801aa0a2d7742a4e0\_90_alu for cells of type $alu.
+Using template $paramod$bfceb922395790c0ce92e9f9b5b428d4fc72cc30\_90_alu for cells of type $alu.
+Using template $paramod$b3c20b05d9b1fc2c940ef2f6c917486aead042e8\_90_alu for cells of type $alu.
+Using template $paramod$1d1e68f77481583066c6d429218f48ea9d5739b3\_90_alu for cells of type $alu.
+Using template $paramod$847f718aea5f9c9294a63dfe7d2a0fe047572cf2\_90_alu for cells of type $alu.
+Using template $paramod$1a6407745a4b939fc01b3599f611fd1c90656484\_90_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $eq.
+Using extmapper simplemap for cells of type $logic_and.
+Using extmapper simplemap for cells of type $logic_or.
+Using template $paramod$900ee9ce5f792c04191505d792b35e9409e3f142\_90_pmux for cells of type $pmux.
+Using template $paramod$a9f023b7f9387cc24984a8fa4722169e6d5f74aa\_90_pmux for cells of type $pmux.
+Using template $paramod$57f63e8a3282e053be0430389b09fa050ac7dca0\_90_pmux for cells of type $pmux.
+Using template $paramod$6f78f06913b17543b88acaa0968bdd56337a4e9b\_90_alu for cells of type $alu.
+  add \ma * \mb (7x7 bits, unsigned)
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000111 for cells of type $fa.
+Using template $paramod$dbcdc7e8aa1a4080cea2deda6fdc8772064f4d90\_90_alu for cells of type $alu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000001000 for cells of type $lcu.
+Using extmapper simplemap for cells of type $pos.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000000010 for cells of type $lcu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000000111 for cells of type $lcu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000000110 for cells of type $lcu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000000101 for cells of type $lcu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000000100 for cells of type $lcu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000000011 for cells of type $lcu.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000001110 for cells of type $fa.
+Using template $paramod$091610cd349a68bd5539cffd7126f0d76e9bca00\_90_alu for cells of type $alu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000001110 for cells of type $lcu.
+No more expansions possible.
+<suppressed ~1919 debug messages>
+
+3.21. Executing OPT pass (performing simple optimizations).
+
+3.21.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+<suppressed ~1072 debug messages>
+
+3.21.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+<suppressed ~474 debug messages>
+Removed a total of 158 cells.
+
+3.21.3. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.21.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 52 unused cells and 909 unused wires.
+<suppressed ~53 debug messages>
+
+3.21.5. Finished fast OPT passes.
+
+3.22. Executing HIERARCHY pass (managing design hierarchy).
+
+3.22.1. Analyzing design hierarchy..
+Top module:  \fp12_mul
+
+3.22.2. Analyzing design hierarchy..
+Top module:  \fp12_mul
+Removed 0 unused modules.
+
+3.23. Printing statistics.
+
+=== fp12_mul ===
+
+   Number of wires:                397
+   Number of wire bits:           1950
+   Number of public wires:          23
+   Number of public wire bits:     162
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               1030
+     $_AND_                        358
+     $_MUX_                        115
+     $_NOT_                         83
+     $_OR_                         303
+     $_XOR_                        171
+
+3.24. Executing CHECK pass (checking for obvious problems).
+Checking module fp12_mul...
+Found and reported 0 problems.
+
+4. Executing ABC pass (technology mapping using ABC).
+
+4.1. Extracting gate netlist of module `\fp12_mul' to `<abc-temp-dir>/input.blif'..
+Extracted 1030 gates and 1056 wires to a netlist network with 24 inputs and 12 outputs.
+
+4.1.1. Executing ABC.
+Running ABC command: "berkeley-abc" -s -f <abc-temp-dir>/abc.script 2>&1
+ABC: ABC command line: "source <abc-temp-dir>/abc.script".
+ABC: 
+ABC: + read_blif <abc-temp-dir>/input.blif 
+ABC: + read_lib -w /workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/build/pdk/asap7_rvt_tt.lib 
+ABC: Parsing finished successfully.  Parsing time =     0.27 sec
+ABC: Library "asap7sc7p5t_AO_RVT_TT_nldm_211120" from "/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/build/pdk/asap7_rvt_tt.lib" has 169 cells (0 skipped: 0 seq; 0 tri-state; 0 no func; 0 dont_use).  Time =     0.40 sec
+ABC: Memory =   61.70 MB. Time =     0.40 sec
+ABC: Warning: Detected 2 multi-output gates (for example, "FAx1_ASAP7_75t_R").
+ABC: + strash 
+ABC: + &get -n 
+ABC: + &fraig -x 
+ABC: + &put 
+ABC: + scorr 
+ABC: Warning: The network is combinational (run "fraig" or "fraig_sweep").
+ABC: + dc2 
+ABC: + dretime 
+ABC: + retime -o -D 1200 
+ABC: + strash 
+ABC: + &get -n 
+ABC: + &dch -f 
+ABC: + &nf -D 1200 
+ABC: + &put 
+ABC: + write_blif <abc-temp-dir>/output.blif 
+
+4.1.2. Re-integrating ABC results.
+ABC RESULTS:   OAI311xp33_ASAP7_75t_R cells:        1
+ABC RESULTS:   AOI222xp33_ASAP7_75t_R cells:        1
+ABC RESULTS:   AO222x2_ASAP7_75t_R cells:        1
+ABC RESULTS:   AO22x1_ASAP7_75t_R cells:        1
+ABC RESULTS:   OAI22xp33_ASAP7_75t_R cells:        5
+ABC RESULTS:   MAJx2_ASAP7_75t_R cells:        1
+ABC RESULTS:   OAI32xp33_ASAP7_75t_R cells:        2
+ABC RESULTS:   OR5x1_ASAP7_75t_R cells:        3
+ABC RESULTS:   A2O1A1O1Ixp25_ASAP7_75t_R cells:        1
+ABC RESULTS:   AO211x2_ASAP7_75t_R cells:        1
+ABC RESULTS:   OAI211xp5_ASAP7_75t_R cells:        5
+ABC RESULTS:   MAJIxp5_ASAP7_75t_R cells:       12
+ABC RESULTS:   O2A1O1Ixp33_ASAP7_75t_R cells:        4
+ABC RESULTS:   AOI311xp33_ASAP7_75t_R cells:        2
+ABC RESULTS:   AND2x2_ASAP7_75t_R cells:        7
+ABC RESULTS:   AOI33xp33_ASAP7_75t_R cells:        1
+ABC RESULTS:   OR2x2_ASAP7_75t_R cells:        8
+ABC RESULTS:   OR3x1_ASAP7_75t_R cells:        5
+ABC RESULTS:   AND5x1_ASAP7_75t_R cells:        2
+ABC RESULTS:   NOR5xp2_ASAP7_75t_R cells:        4
+ABC RESULTS:   NAND3xp33_ASAP7_75t_R cells:       18
+ABC RESULTS:   INVx1_ASAP7_75t_R cells:       39
+ABC RESULTS:   AND4x1_ASAP7_75t_R cells:        2
+ABC RESULTS:   AND3x1_ASAP7_75t_R cells:        4
+ABC RESULTS:   AO32x1_ASAP7_75t_R cells:        3
+ABC RESULTS:   AO21x1_ASAP7_75t_R cells:        5
+ABC RESULTS:   AOI32xp33_ASAP7_75t_R cells:        2
+ABC RESULTS:   OAI31xp33_ASAP7_75t_R cells:        5
+ABC RESULTS:   OR4x1_ASAP7_75t_R cells:        2
+ABC RESULTS:   OA211x2_ASAP7_75t_R cells:        4
+ABC RESULTS:   NAND4xp25_ASAP7_75t_R cells:       15
+ABC RESULTS:   NOR3xp33_ASAP7_75t_R cells:       15
+ABC RESULTS:   NAND5xp2_ASAP7_75t_R cells:        7
+ABC RESULTS:   AOI22xp33_ASAP7_75t_R cells:       10
+ABC RESULTS:   NOR4xp25_ASAP7_75t_R cells:        4
+ABC RESULTS:   AOI21xp33_ASAP7_75t_R cells:       19
+ABC RESULTS:   NOR2xp33_ASAP7_75t_R cells:       72
+ABC RESULTS:   OAI21xp33_ASAP7_75t_R cells:       26
+ABC RESULTS:   AOI221xp5_ASAP7_75t_R cells:        1
+ABC RESULTS:   AOI31xp33_ASAP7_75t_R cells:       13
+ABC RESULTS:   A2O1A1Ixp33_ASAP7_75t_R cells:       12
+ABC RESULTS:   XOR2xp5_ASAP7_75t_R cells:       33
+ABC RESULTS:   OA21x2_ASAP7_75t_R cells:        9
+ABC RESULTS:   NAND2xp33_ASAP7_75t_R cells:       73
+ABC RESULTS:   XNOR2xp5_ASAP7_75t_R cells:       71
+ABC RESULTS:   AOI211xp5_ASAP7_75t_R cells:        7
+ABC RESULTS:        internal signals:     1020
+ABC RESULTS:           input signals:       24
+ABC RESULTS:          output signals:       12
+Removing temp directory.
+Removed 0 unused cells and 423 unused wires.
+
+5. Executing Liberty frontend.
+Imported 169 cell types from liberty file.
+
+6. Executing CHECK pass (checking for obvious problems).
+Checking module fp12_mul...
+Found and reported 0 problems.
+
+7. Printing statistics.
+
+=== fp12_mul ===
+
+   Number of wires:                536
+   Number of wire bits:            605
+   Number of public wires:          10
+   Number of public wire bits:      79
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                538
+     A2O1A1Ixp33_ASAP7_75t_R        12
+     A2O1A1O1Ixp25_ASAP7_75t_R       1
+     AND2x2_ASAP7_75t_R              7
+     AND3x1_ASAP7_75t_R              4
+     AND4x1_ASAP7_75t_R              2
+     AND5x1_ASAP7_75t_R              2
+     AO211x2_ASAP7_75t_R             1
+     AO21x1_ASAP7_75t_R              5
+     AO222x2_ASAP7_75t_R             1
+     AO22x1_ASAP7_75t_R              1
+     AO32x1_ASAP7_75t_R              3
+     AOI211xp5_ASAP7_75t_R           7
+     AOI21xp33_ASAP7_75t_R          19
+     AOI221xp5_ASAP7_75t_R           1
+     AOI222xp33_ASAP7_75t_R          1
+     AOI22xp33_ASAP7_75t_R          10
+     AOI311xp33_ASAP7_75t_R          2
+     AOI31xp33_ASAP7_75t_R          13
+     AOI32xp33_ASAP7_75t_R           2
+     AOI33xp33_ASAP7_75t_R           1
+     INVx1_ASAP7_75t_R              39
+     MAJIxp5_ASAP7_75t_R            12
+     MAJx2_ASAP7_75t_R               1
+     NAND2xp33_ASAP7_75t_R          73
+     NAND3xp33_ASAP7_75t_R          18
+     NAND4xp25_ASAP7_75t_R          15
+     NAND5xp2_ASAP7_75t_R            7
+     NOR2xp33_ASAP7_75t_R           72
+     NOR3xp33_ASAP7_75t_R           15
+     NOR4xp25_ASAP7_75t_R            4
+     NOR5xp2_ASAP7_75t_R             4
+     O2A1O1Ixp33_ASAP7_75t_R         4
+     OA211x2_ASAP7_75t_R             4
+     OA21x2_ASAP7_75t_R              9
+     OAI211xp5_ASAP7_75t_R           5
+     OAI21xp33_ASAP7_75t_R          26
+     OAI22xp33_ASAP7_75t_R           5
+     OAI311xp33_ASAP7_75t_R          1
+     OAI31xp33_ASAP7_75t_R           5
+     OAI32xp33_ASAP7_75t_R           2
+     OR2x2_ASAP7_75t_R               8
+     OR3x1_ASAP7_75t_R               5
+     OR4x1_ASAP7_75t_R               2
+     OR5x1_ASAP7_75t_R               3
+     XNOR2xp5_ASAP7_75t_R           71
+     XOR2xp5_ASAP7_75t_R            33
+
+   Chip area for module '\fp12_mul': 45.985320
+
+8. Executing Verilog backend.
+
+8.1. Executing BMUXMAP pass.
+
+8.2. Executing DEMUXMAP pass.
+Dumping module `\fp12_mul'.
+
+9. Executing JSON backend.
+
+End of script. Logfile hash: f7a7e04b8e, CPU: user 1.51s system 0.16s, MEM: 127.24 MB peak
+Yosys 0.23 (git sha1 7ce5011c24b)
+Time spent: 28% 1x abc (0 sec), 26% 2x stat (0 sec), ...
