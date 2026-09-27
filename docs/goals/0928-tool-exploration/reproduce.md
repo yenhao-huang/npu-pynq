@@ -245,3 +245,12 @@ Evidence arithmetic-cycle-checks.json records all 24 real cycle checks.
 argmax-physical-study.json and argmax-w16/w32-paired.json record the fourth
 qualifying family. crc-physical-study.json, lfsr-physical-study.json and their
 case0/case1 paired summaries preserve completed below-threshold results.
+
+## Booth multiplier
+
+Run `python exp/tool-exploration/exp-tool-21-booth/study.py --verify-only
+--container codex-sandbox-agent-workspace` for the predeclared 16/32-bit
+SAT/vector checks (enter on one shell line). The separate controls.py runs
+8-bit positive and broken-sign formal controls; these do not replace the large
+benchmark. Omit --verify-only only for correctness-gated physical measurement.
+The integer-oracle tests are tools/ic/tests/test_booth_exploration.py.

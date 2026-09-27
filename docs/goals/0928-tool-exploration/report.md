@@ -432,3 +432,31 @@ Full focused validation: 290 passed, eight optional local-Yosys skips (the test
 list in .github/workflows/ci.yml, --basetemp=.ic/pytest-expanded-15). All 24 real
 arithmetic cycle experiments pass. make -C src/test lint sim passed; unchanged
 hardware simulation targets are current. New-head hosted CI remains pending.
+
+## Booth checkpoint (43 operations)
+
+Operation 21 adds signed full-product multiplication with native, adjacent-bit
+Booth and paired-bit Booth variants. Independent Python oracles pass for
+8/16/17/32/64-bit operands, signed extrema, runs of ones and seeded random values.
+Operands extend before negation; odd top groups repeat the multiplier sign bit.
+Wrong sign-extension and negative-two recoding mutations fail verification.
+Architecture variants count as one operation, not three.
+
+The predeclared 16/32-bit native-versus-radix4 cases retain an area objective,
+three paired physical runs and source-bound SAT/vector gates. Verification is
+live as session 11253. Separate 8-bit formal controls are session 33010; these
+controls do not meet the substantive benchmark requirement. No Booth PPA gain
+is claimed. Multiplier/divider sessions 41858/63223 remain live.
+
+Seventeen new oracle/mutation tests pass. The combined regression had 41 passes
+and one Windows run-store directory rename PermissionError in an existing FIFO
+test; that exact test passed on isolated retry. Published 1291564 hosted CI
+passed. Seven operations (35,36,37,38,43,47,50), two more qualifying families
+and complete whole-study acceptance remain unfinished.
+
+Final focused regression rerun: 42 passed (--basetemp=.ic/pytest-booth-final).
+The original Windows rename failure remains documented. Actual 8-bit SAT controls
+are terminal: b345b5 proves equivalence; 894167 rejects incorrect sign extension
+with an explicit proof failure (not timeout). Evidence: booth-formal-controls.json.
+The 16-bit substantive proof b7f0ac timed out at 120 seconds; 32-bit is pending.
+make -C src/test lint sim passed. Remaining account usage is 60%; no reset used.

@@ -168,3 +168,13 @@ Operation 44 connects RTLRewriter's verification-before-evaluation workflow to
 an independent sequential transaction oracle. It verifies first-valid latency
 and unstalled initiation interval from full ready/valid traces before exposing
 cycle metrics. It is not an unbounded sequential proof or a paper reproduction.
+
+## Signed Booth recoding
+
+Andrew D. Booth, *A Signed Binary Multiplication Technique*, QJMAM 4(2),
+236-240 (1951), DOI https://doi.org/10.1093/qjmam/4.2.236.
+Original paper: https://www.ece.ucdavis.edu/~bbaas/281/papers/Booth.1951.pdf.
+Operation 21 uses adjacent-bit signed recoding and a paired-bit adaptation,
+with balanced full-width sums. The paired circuit is not claimed as a direct
+reproduction of the 1951 architecture. Its result remains a full signed product;
+no approximate arithmetic or paper-derived FPGA performance claim is used.

@@ -110,3 +110,8 @@ each architecture's II rather than assuming identical cycle counts. Normalize
 physical throughput by that II and include setup/observation latency explicitly.
 Preserve parallel-to-serial area gains as tradeoffs when throughput falls beyond
 the gate. Division-by-zero semantics must be identical across all variants.
+
+For signed Booth multiplication, extend the multiplicand before negation and
+test the most-negative operand and odd-width top recoding groups. Keep native,
+radix2 and radix4 as variants of one operation. Small formal controls cannot
+replace the predeclared substantial configurations or justify a PPA claim.

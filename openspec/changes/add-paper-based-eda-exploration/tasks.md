@@ -55,3 +55,10 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Preserve completed CRC/LFSR below-threshold measurements and proof outcomes.
 - [ ] Finish multiplier/divider physical studies and remaining eight operations.
 - [ ] Establish two more qualifying families and every global acceptance gate.
+
+## Signed multiplier progress
+
+- [x] Implement signed Booth operation 21 with odd-width and extrema coverage.
+- [x] Exercise independent integer oracles and two recoding mutation controls.
+- [ ] Complete substantive SAT/physical studies; no multiplier family win yet.
+- [ ] Implement remaining seven distinct operations and complete all gates.
