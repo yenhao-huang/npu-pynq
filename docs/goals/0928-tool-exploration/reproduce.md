@@ -254,3 +254,13 @@ SAT/vector checks (enter on one shell line). The separate controls.py runs
 8-bit positive and broken-sign formal controls; these do not replace the large
 benchmark. Omit --verify-only only for correctness-gated physical measurement.
 The integer-oracle tests are tools/ic/tests/test_booth_exploration.py.
+
+## Cyclic phase FSM
+
+Run the study.py under exp/tool-exploration/exp-tool-36-encoding with
+`--verify-only --container codex-sandbox-agent-workspace` for 64/128-state core
+and registered-observation checking. Omit --verify-only for three paired
+physical repeats. The fixed config declares area before measurement. The
+sequential_scoreboard call uses contract=phase, width=1, depth=states and the
+generated top. Initial state is unspecified until a synchronous reset edge.
+Evidence phase-verification.json records all eight source-bound checks.

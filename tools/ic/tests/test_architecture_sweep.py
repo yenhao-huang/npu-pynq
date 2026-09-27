@@ -181,3 +181,21 @@ def test_iterative_pipeline_rejects_failed_cycle_evidence(store,tmp_path,monkeyp
     p=dict(study_name='bad_cycles',cases=[dict(name='w16',generator='synth_divider',baseline=dict(width=16,architecture='serial'),candidate=dict(width=16,architecture='radix4'),objective='throughput')],verify_only=False)
     result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
     assert not result['ok'] and 'clocked_ppa' not in calls
+
+
+def test_phase_pipeline_checks_all_source_roles(store,tmp_path,monkeypatch):
+    calls=mock_execution(monkeypatch)
+    p=dict(study_name='phase_checks',cases=[dict(name='n64',generator='synth_fsm',baseline=dict(states=64,encoding='binary'),candidate=dict(states=64,encoding='onehot'),objective='area')],verify_only=False,repeats=1)
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert result['ok'],result
+    row=result['data']['cases'][0]
+    assert row['protocol_contract']=='cyclic_phase'
+    assert len(row['checks'])==4 and calls.count('clocked_ppa')==2
+    assert all(r['data']['coverage']['visited_states']==64 for r in row['checks'])
+
+
+def test_phase_pipeline_rejects_configuration_mismatch(store,tmp_path,monkeypatch):
+    mock_execution(monkeypatch)
+    p=dict(study_name='bad_phase',cases=[dict(name='n64',generator='synth_fsm',baseline=dict(states=64),candidate=dict(states=128),objective='area')],verify_only=True)
+    with pytest.raises(InvalidInput,match='state counts differ'):
+        dispatch('architecture_sweep',p,store=store,cwd=tmp_path)

@@ -1,0 +1,36 @@
+{
+  "study_name": "synth_fsm",
+  "cases": [
+    {
+      "name": "n64",
+      "generator": "synth_fsm",
+      "baseline": {
+        "states": 64,
+        "encoding": "binary"
+      },
+      "candidate": {
+        "states": 64,
+        "encoding": "onehot"
+      },
+      "objective": "area"
+    },
+    {
+      "name": "n128",
+      "generator": "synth_fsm",
+      "baseline": {
+        "states": 128,
+        "encoding": "binary"
+      },
+      "candidate": {
+        "states": 128,
+        "encoding": "onehot"
+      },
+      "objective": "area"
+    }
+  ],
+  "repeats": 3,
+  "measurement_attempts": 2,
+  "period_ns": 5,
+  "optimization_mode": "Basic",
+  "require_proof": true
+}

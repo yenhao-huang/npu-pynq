@@ -326,3 +326,35 @@ are terminal: b345b5 proves equivalence; 894167 rejects incorrect sign extension
 with an explicit proof failure (not timeout). Evidence: booth-formal-controls.json.
 The 16-bit substantive proof b7f0ac timed out at 120 seconds; 32-bit is pending.
 make -C src/test lint sim passed. Remaining account usage is 60%; no reset used.
+
+Booth study 11253 is TERMINAL fc0266: both 16/32-bit vector checks pass,
+both 120-second SAT proofs time out. Preserve booth-verification.json; no
+physical gain qualifies. Small positive/negative controls remain separate.
+Published signed multiplier checkpoint: 0c95fb5. Multiplier 41858 and divider
+63223 remain active. Seven operations and full acceptance remain unfinished.
+
+## Phase-controller checkpoint (44 operations)
+
+Operation 36 adds a bounded cyclic phase FSM with preserved binary/one-hot
+encodings. Synchronous reset selects phase zero; advance wraps modulo the
+state count; disabling advance holds. Each phase has its own output bit.
+The supported range is 4..256 power-of-two states. This is not a general
+transition-graph compiler, and fault recovery from illegal state is not claimed.
+
+The existing sequential_scoreboard operation now also accepts a phase contract.
+Its independent integer model checks every post-reset cycle, all phase visits,
+enable hold, wrap, reset and registered observations. No extra operation is
+counted for the checker extension. Four negative controls break reset, hold,
+direction and fixture output. Actual 64/128-state verification 0cf7ea passes all
+eight core/fixture roles; evidence is phase-verification.json. No unbounded
+sequential formal proof is claimed.
+
+The physical study predeclares binary -> onehot, area objective, 64/128 states,
+three matched Basic-flow pairs. Session 35612 is live. Report FF cost separately
+from LUT decoding savings; do not assume a gain from encoding alone. Multiplier
+41858 and divider 63223 also remain live; poll those exact handles before restart.
+
+Relevant validation: 55 controller/FIFO/sweep/catalogue tests passed, then both
+new phase pipeline gating tests passed (57 total). Repository lint/sim passed.
+Published 0c95fb5 hosted CI passed. Six operations remain (35,37,38,43,47,50),
+as do two additional qualifying families and the full all-case acceptance audit.

@@ -115,3 +115,9 @@ For signed Booth multiplication, extend the multiplicand before negation and
 test the most-negative operand and odd-width top recoding groups. Keep native,
 radix2 and radix4 as variants of one operation. Small formal controls cannot
 replace the predeclared substantial configurations or justify a PPA claim.
+
+For phase-control encoding studies, compare the same number of states and
+output phases, preserve each encoding explicitly, and check all states with an
+independent integer oracle. Verify reset, enable hold, wrap and fixture latency.
+Report register cost alongside LUT savings. A cyclic sequencer does not establish
+arbitrary-FSM support, illegal-state fault recovery or lower power.

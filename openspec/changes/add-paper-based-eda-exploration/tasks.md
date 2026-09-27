@@ -62,3 +62,12 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Exercise independent integer oracles and two recoding mutation controls.
 - [ ] Complete substantive SAT/physical studies; no multiplier family win yet.
 - [ ] Implement remaining seven distinct operations and complete all gates.
+
+## Control microarchitecture progress
+
+- [x] Implement cyclic phase FSM operation 36 with binary and one-hot encodings.
+- [x] Extend the existing scoreboard with independent phase/hold/wrap/reset checks.
+- [x] Verify both 64/128-state cores and fixtures; preserve four mutation controls.
+- [x] Preserve final Booth large-width SAT timeouts without claiming physical gains.
+- [ ] Complete phase-controller physical repeats and remaining six operations.
+- [ ] Finish the six-family improvement and whole-study aggregate gates.

@@ -120,3 +120,4 @@ from . import datapaths  # noqa: E402,F401
 from . import linear  # noqa: E402,F401
 from . import iterative  # noqa: E402,F401
 from . import booth  # noqa: E402,F401
+from . import fsm  # noqa: E402,F401

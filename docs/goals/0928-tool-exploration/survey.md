@@ -178,3 +178,14 @@ Operation 21 uses adjacent-bit signed recoding and a paired-bit adaptation,
 with balanced full-width sums. The paired circuit is not claimed as a direct
 reproduction of the 1951 architecture. Its result remains a full signed product;
 no approximate arithmetic or paper-derived FPGA performance claim is used.
+
+## State encoding and phase control
+
+*Low-Power FSMs in FPGA: Encoding Alternatives*, PATMOS 2002,
+https://doi.org/10.1007/3-540-45716-X_36. The publisher abstract describes
+binary/one-hot and alternative state encodings; its indexed author manuscript
+is https://arantxa.ii.uam.es/~ivan/patmos02-enc.pdf. Direct manuscript retrieval
+was unavailable. Our bounded cyclic-phase comparison studies the storage and
+output-decode tradeoff only. It does not reproduce the paper's power methodology
+or claim a measured power benefit. Explicit encoding and no-SRL attributes keep
+the intended state-storage alternatives visible to synthesis.
