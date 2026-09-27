@@ -305,3 +305,39 @@ Three operations remain: 38 systolic tile, 47 candidate ablation and 50 whole-
 study acceptance audit. Six qualifying families are complete; full coverage,
 ablations and the all-case aggregate remain unproved. Published 8e0c363 CI
 passed. Account usage remaining is 54%; no reset credit was used.
+
+
+## Ablation and completed memory checkpoint (48 operations)
+
+Operation 47 computes complete binary factorial contrasts: per-setting effects,
+averaged main effects and interactions through order four, in native resource,
+throughput, latency and II units. It checks current source bytes, fixed nonfactor
+configuration, matched physical conditions, equal repeats and unique executions.
+Missing combinations are rejected; explicitly failed combinations are retained
+without estimating effects. Three repeats describe reproducibility, not
+statistical significance. Independent tests check known interaction functions,
+zero LUTs, II normalization, repeat variation and twelve invalid designs.
+
+Actual retrospective circular-FIFO storage ablations 987479/1bb522 separate RAM
+policy from the shift-to-circular architecture change. Auto -> distributed adds
+22/105 LUTs, removes 0.5 BRAM and changes throughput by +2.158/-38.287 million
+transactions/s at 16x64/32x128. These are costs and conditional effects, not new
+acceptance wins. Shift does not support distributed policy; no missing cell is
+invented. Supplemental session 13279 measures width16/depth128 auto/distributed
+with a predeclared area objective. Together with depth64 it will establish the
+full storage-by-capacity interaction. Capacity is a workload factor, not an
+optimization; the new case remains in the all-case denominator.
+
+Register-file session 14940 is TERMINAL 7c99e5. Both configurations complete all
+three pairs and qualify for LUT area: reductions 73.67%/83.31%, throughput changes
+-4.02%/-2.08%, with no DSP/BRAM growth. All twelve source-bound timing audits pass.
+This is qualifying family seven; conflict policy and command-batch throughput
+remain explicit. The skid physical session 12766 remains live. Published
+5f7d87f hosted CI passed. Initial ablation/physical/registry regression: 39 passed.
+Full focused validation completed: 396 passed and eight optional native-Yosys
+skips (--basetemp=.ic/pytest-expanded-18). Repository lint/sim passed.
+
+Operations 38 (systolic tile) and 50 (whole-study acceptance audit) remain.
+All-case aggregation, completed factorial experiment and final coverage audit
+are still required. Expanded acceptance is incomplete. Usage last checked:
+54% remaining, above the mandatory below-30% stop threshold; no reset used.

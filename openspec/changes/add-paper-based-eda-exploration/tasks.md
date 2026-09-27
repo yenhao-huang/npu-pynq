@@ -98,3 +98,13 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Establish six qualifying families with all paired runs (including multiplier).
 - [ ] Complete ongoing memory and skid physical studies.
 - [ ] Complete remaining operations 38, 47 and 50 and the all-case acceptance gate.
+
+
+## Component attribution and memory results
+
+- [x] Implement operation 47 with complete factorial contrasts and failure handling.
+- [x] Exercise source-bound storage effects at two substantial configurations.
+- [x] Complete banked register-file physical repeats and twelve timing audits.
+- [x] Establish a seventh qualifying family while preserving throughput losses.
+- [ ] Complete the additional capacity block and physical interaction analysis.
+- [ ] Finish operations 38 and 50, global objective aggregation and full acceptance.

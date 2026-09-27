@@ -307,3 +307,20 @@ Use sequential_scoreboard with contract=stream, depth=stages, explicit width
 and stream_architecture. Check calibrated no-stall II and minimum latency,
 capacity differences and resource costs. The fixture delays observations by two
 cycles; it does not provide a valid external backpressure interface.
+
+
+## Candidate ablation
+
+Run `python exp/tool-exploration/exp-tool-47-rtlrewriter/analyze.py` to reproduce
+the two existing FIFO storage contrasts. It checks generation-checkpoint inputs,
+current source hashes, core/fixture correctness and all three physical repeats.
+The output is output/storage-ablation.json; the committed counterpart is
+ evidence/fifo-storage-ablation.json. Source artifacts must still be available.
+Run that directory's study.py with --container codex-sandbox-agent-workspace to
+measure the predeclared additional width16/depth128 case. Pass its completed
+study JSON to analyze.py with --supplement to calculate the storage-by-capacity
+interaction. Never label a capacity increase itself as an optimization.
+
+Register-file study 7c99e5 and all twelve timing audits are preserved in
+regfile-physical-study.json and regfile-timing-audits.json. Each size's paired
+summary preserves the small throughput reduction alongside the LUT savings.

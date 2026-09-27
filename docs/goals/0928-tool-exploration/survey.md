@@ -221,3 +221,13 @@ bounded ready/valid buffering adaptation with independent ordering checks.
 It does not reproduce the full patient-process framework or establish arbitrary
 network deadlock freedom. The experiment exposes storage capacity and full-stage
 recovery costs alongside any timing improvement.
+
+
+## Controlled component attribution
+
+RTLRewriter section 4.3, https://arxiv.org/html/2409.11414v1, compares framework
+components through ablation. Operation 47 adapts this controlled-comparison
+principle to measured RTL configurations. Complete binary factorial finite
+differences extend the paper connection; they are not a claimed implementation
+of its partitioning, retrieval or search algorithm. Independent source-bound
+correctness remains required before interpreting PPA attribution.

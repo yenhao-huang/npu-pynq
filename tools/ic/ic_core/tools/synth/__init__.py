@@ -124,3 +124,4 @@ from . import fsm  # noqa: E402,F401
 from . import timing_audit  # noqa: E402,F401
 from . import regfile  # noqa: E402,F401
 from . import skid  # noqa: E402,F401
+from . import ablation  # noqa: E402,F401

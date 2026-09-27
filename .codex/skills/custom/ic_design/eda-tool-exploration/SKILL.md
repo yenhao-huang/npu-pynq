@@ -141,3 +141,12 @@ transaction order. Calibrate no-stall latency and II, then stress full capacity,
 backpressure, recovery and reset flush. Report differing capacities and all
 storage costs. Never use the observation fixture as an external handshake
 adapter or treat no-stall II as guaranteed throughput under arbitrary stalls.
+
+
+For candidate_ablation, require the complete binary factor matrix and keep
+nonfactor configuration fixed. Bind every cell to current source bytes and
+independently verified semantics. Missing cells cannot be inferred; explicit
+failures suppress effect estimation. Distinguish workload factors from changes
+that preserve the same workload. Use native-unit conditional effects and
+interactions to explain costs, not to revise objectives or manufacture extra
+family wins. Reruns do not establish statistical confidence or causation.

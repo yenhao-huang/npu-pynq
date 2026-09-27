@@ -1,0 +1,576 @@
+{
+  "input_sha256": {
+    "docs\\goals\\0928-tool-exploration\\evidence\\fifo-auto-physical-study.json": "d138f3aa1408b228a3e3190f7046b40b40ec0210dbf20534f85bd40fcdb32a13",
+    "docs\\goals\\0928-tool-exploration\\evidence\\fifo-distributed-physical-study.json": "be0d24628d56678b2afb946180d879268ad4da8c2559011b8c2f09bfdce1c7e6",
+    "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\fifo_registered_storage\\8568e9d8d7573acbe3005cc5a6ea99b32aebbeb1da3af22d75c80c7bdb43dda6\\w16_d64-candidate-generate.json": "88e6d5cd7638470a0f917078656d4e3a02f6697efed60f52f707da503c6405e2",
+    "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\fifo_distributed_revision\\f374defeaf29fde034adf64be782ff64f42d021973d9fc39d3d0b85e6b3013b2\\w16_d64_distributed-candidate-generate.json": "120d880efcb5b5f27500ac9b1c83af5857044fcc7cfcd3abc3fd5ad297168bb3",
+    "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\fifo_registered_storage\\8568e9d8d7573acbe3005cc5a6ea99b32aebbeb1da3af22d75c80c7bdb43dda6\\w32_d128-candidate-generate.json": "c56978816f2c7ead9c90a25fd9a86c9b5f0816eac1bbe7b8117665b6a2d11d89",
+    "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\fifo_distributed_revision\\f374defeaf29fde034adf64be782ff64f42d021973d9fc39d3d0b85e6b3013b2\\w32_d128_distributed-candidate-generate.json": "e66870eb99541554cbb371d08ed9dd4a7d93b640ed42c9ae51700c5716969d49"
+  },
+  "analyses": [
+    {
+      "configuration": {
+        "width": 16,
+        "depth": 64,
+        "architecture": "circular",
+        "memory_style": "auto"
+      },
+      "analysis": {
+        "ok": true,
+        "data": {
+          "factors": {
+            "memory_style": [
+              "auto",
+              "distributed"
+            ]
+          },
+          "fixed_configuration": {
+            "width": 16,
+            "depth": 64,
+            "architecture": "circular"
+          },
+          "repeats": 3,
+          "scope": "routed_clocked_ooc",
+          "complete": true,
+          "failures": [],
+          "independent_statistical_samples": false,
+          "effects": {
+            "luts": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    22.0,
+                    22.0,
+                    22.0
+                  ],
+                  "mean": 22.0,
+                  "min": 22.0,
+                  "max": 22.0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    22.0,
+                    22.0,
+                    22.0
+                  ],
+                  "mean": 22.0,
+                  "min": 22.0,
+                  "max": 22.0
+                }
+              ]
+            },
+            "ffs": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    16.0,
+                    16.0,
+                    16.0
+                  ],
+                  "mean": 16.0,
+                  "min": 16.0,
+                  "max": 16.0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    16.0,
+                    16.0,
+                    16.0
+                  ],
+                  "mean": 16.0,
+                  "min": 16.0,
+                  "max": 16.0
+                }
+              ]
+            },
+            "dsps": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "mean": 0.0,
+                  "min": 0.0,
+                  "max": 0.0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "mean": 0.0,
+                  "min": 0.0,
+                  "max": 0.0
+                }
+              ]
+            },
+            "brams": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    -0.5,
+                    -0.5,
+                    -0.5
+                  ],
+                  "mean": -0.5,
+                  "min": -0.5,
+                  "max": -0.5
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    -0.5,
+                    -0.5,
+                    -0.5
+                  ],
+                  "mean": -0.5,
+                  "min": -0.5,
+                  "max": -0.5
+                }
+              ]
+            },
+            "throughput_mtransactions_s": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    2.1582132618578953,
+                    2.1582132618578953,
+                    2.1582132618578953
+                  ],
+                  "mean": 2.1582132618578953,
+                  "min": 2.1582132618578953,
+                  "max": 2.1582132618578953
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    2.1582132618578953,
+                    2.1582132618578953,
+                    2.1582132618578953
+                  ],
+                  "mean": 2.1582132618578953,
+                  "min": 2.1582132618578953,
+                  "max": 2.1582132618578953
+                }
+              ]
+            },
+            "latency_cycles": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "mean": 0,
+                  "min": 0,
+                  "max": 0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "mean": 0.0,
+                  "min": 0.0,
+                  "max": 0.0
+                }
+              ]
+            },
+            "initiation_interval": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "mean": 0,
+                  "min": 0,
+                  "max": 0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "mean": 0.0,
+                  "min": 0.0,
+                  "max": 0.0
+                }
+              ]
+            }
+          },
+          "sources": [
+            {
+              "levels": {
+                "memory_style": 0
+              },
+              "source_sha256": "87d4cd179b30b5474a68fb0dd89601239e4cc363527ca85659d13cd5bbfeb5e5",
+              "physical_handles": [
+                "0ee8fb/clocked.txt",
+                "a426bb/clocked.txt",
+                "822c59/clocked.txt"
+              ]
+            },
+            {
+              "levels": {
+                "memory_style": 1
+              },
+              "source_sha256": "7030734719ac2a249a41cdb58b24a795c13d811b6fd5a123bb19b134413b72f1",
+              "physical_handles": [
+                "7e1385/clocked.txt",
+                "3077e3/clocked.txt",
+                "b1f9e1/clocked.txt"
+              ]
+            }
+          ]
+        },
+        "note": "Effects are high-minus-low in native metric units; pair interactions are averaged differences of differences. Negative resource effects save resources; positive throughput effects improve throughput. All interactions up to factor count are retained. Matched reruns measure reproducibility, not statistical significance. Current source hashes and physical conditions are checked; declared configuration labels, report authenticity and correctness require independent audit. This retrospective decomposition does not establish a new acceptance win or predeclared objective.",
+        "run_id": "987479"
+      }
+    },
+    {
+      "configuration": {
+        "width": 32,
+        "depth": 128,
+        "architecture": "circular",
+        "memory_style": "auto"
+      },
+      "analysis": {
+        "ok": true,
+        "data": {
+          "factors": {
+            "memory_style": [
+              "auto",
+              "distributed"
+            ]
+          },
+          "fixed_configuration": {
+            "width": 32,
+            "depth": 128,
+            "architecture": "circular"
+          },
+          "repeats": 3,
+          "scope": "routed_clocked_ooc",
+          "complete": true,
+          "failures": [],
+          "independent_statistical_samples": false,
+          "effects": {
+            "luts": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    105.0,
+                    105.0,
+                    105.0
+                  ],
+                  "mean": 105.0,
+                  "min": 105.0,
+                  "max": 105.0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    105.0,
+                    105.0,
+                    105.0
+                  ],
+                  "mean": 105.0,
+                  "min": 105.0,
+                  "max": 105.0
+                }
+              ]
+            },
+            "ffs": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    32.0,
+                    32.0,
+                    32.0
+                  ],
+                  "mean": 32.0,
+                  "min": 32.0,
+                  "max": 32.0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    32.0,
+                    32.0,
+                    32.0
+                  ],
+                  "mean": 32.0,
+                  "min": 32.0,
+                  "max": 32.0
+                }
+              ]
+            },
+            "dsps": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "mean": 0.0,
+                  "min": 0.0,
+                  "max": 0.0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "mean": 0.0,
+                  "min": 0.0,
+                  "max": 0.0
+                }
+              ]
+            },
+            "brams": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    -0.5,
+                    -0.5,
+                    -0.5
+                  ],
+                  "mean": -0.5,
+                  "min": -0.5,
+                  "max": -0.5
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    -0.5,
+                    -0.5,
+                    -0.5
+                  ],
+                  "mean": -0.5,
+                  "min": -0.5,
+                  "max": -0.5
+                }
+              ]
+            },
+            "throughput_mtransactions_s": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    -38.28660702641025,
+                    -38.28660702641025,
+                    -38.28660702641025
+                  ],
+                  "mean": -38.28660702641025,
+                  "min": -38.28660702641025,
+                  "max": -38.28660702641025
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    -38.28660702641025,
+                    -38.28660702641025,
+                    -38.28660702641025
+                  ],
+                  "mean": -38.28660702641025,
+                  "min": -38.28660702641025,
+                  "max": -38.28660702641025
+                }
+              ]
+            },
+            "latency_cycles": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "mean": 0,
+                  "min": 0,
+                  "max": 0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "mean": 0.0,
+                  "min": 0.0,
+                  "max": 0.0
+                }
+              ]
+            },
+            "initiation_interval": {
+              "conditional_effects": [
+                {
+                  "factor": "memory_style",
+                  "other_levels": {},
+                  "per_repeat": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "mean": 0,
+                  "min": 0,
+                  "max": 0
+                }
+              ],
+              "contrasts": [
+                {
+                  "factors": [
+                    "memory_style"
+                  ],
+                  "order": 1,
+                  "per_repeat": [
+                    0.0,
+                    0.0,
+                    0.0
+                  ],
+                  "mean": 0.0,
+                  "min": 0.0,
+                  "max": 0.0
+                }
+              ]
+            }
+          },
+          "sources": [
+            {
+              "levels": {
+                "memory_style": 0
+              },
+              "source_sha256": "0e8379da5d3783f70ca27a394fb65de81be02feaecacf261d0ed7ab286b14e91",
+              "physical_handles": [
+                "f8e672/clocked.txt",
+                "246d3d/clocked.txt",
+                "7ffa12/clocked.txt"
+              ]
+            },
+            {
+              "levels": {
+                "memory_style": 1
+              },
+              "source_sha256": "7d54342cc9ea8de6b5cf975f3cfd41053a4015d4e019e7e14f41e5f9d7cefcb8",
+              "physical_handles": [
+                "415ad5/clocked.txt",
+                "f8697a/clocked.txt",
+                "85a31d/clocked.txt"
+              ]
+            }
+          ]
+        },
+        "note": "Effects are high-minus-low in native metric units; pair interactions are averaged differences of differences. Negative resource effects save resources; positive throughput effects improve throughput. All interactions up to factor count are retained. Matched reruns measure reproducibility, not statistical significance. Current source hashes and physical conditions are checked; declared configuration labels, report authenticity and correctness require independent audit. This retrospective decomposition does not establish a new acceptance win or predeclared objective.",
+        "run_id": "1bb522"
+      }
+    }
+  ],
+  "retrospective": true,
+  "note": "Storage effects are separate from shift-to-circular gains. Depth is a workload factor, not an optimization; cross-depth differences cannot qualify a win. Original study objectives and failures remain unchanged. Historical timing records lack the later coverage audit."
+}
