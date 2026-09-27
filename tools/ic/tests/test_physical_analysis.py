@@ -32,6 +32,18 @@ def test_ii_prevents_fake_speedup(store):
     assert not out['area_gate'] and not out['throughput_gate']
 
 
+def test_zero_lut_candidate_reports_only_conservative_finite_bound(store):
+    rows=pairs()
+    for row in rows: row['candidate']['metrics']['luts']=0
+    data=dispatch('paired_repeat_summary',dict(pairs=rows,objective='area'),store=store)['data']
+    assert data['area_gate'] and data['zero_lut_candidate']
+    assert data['objective_geometric_benefit'] is None
+    assert data['objective_geometric_benefit_lower_bound']==pytest.approx(100)
+    rows[0]['baseline']['metrics']['luts']=0
+    with pytest.raises(InvalidInput,match='positive LUT baseline'):
+        dispatch('paired_repeat_summary',dict(pairs=rows,objective='area'),store=store)
+
+
 def test_three_pairs_required_and_each_repeat_must_win(store):
     two=dispatch('paired_repeat_summary',dict(pairs=pairs(2),objective='area'),store=store)['data']
     assert not two['area_gate']

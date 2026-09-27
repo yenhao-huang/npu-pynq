@@ -121,3 +121,10 @@ output phases, preserve each encoding explicitly, and check all states with an
 independent integer oracle. Verify reset, enable hold, wrap and fixture latency.
 Report register cost alongside LUT savings. A cyclic sequencer does not establish
 arbitrary-FSM support, illegal-state fault recovery or lower power.
+
+Audit new physical records with timing_constraint_audit and the exact measured
+files/top. Keep the OOC setup scope explicit; coverage success is not requested
+period closure, hold closure or board I/O validation. Reject mixed report runs
+and missing coverage rather than upgrading historical evidence. For zero LUT
+candidates, preserve the measured zero and FF cost. Use only the explicitly
+reported conservative objective bound; the exact finite ratio is undefined.

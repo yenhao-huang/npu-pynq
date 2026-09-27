@@ -125,22 +125,28 @@ class PhysicalAnalysis:
             comparisons.append(compare(pair.baseline,pair.candidate))
         if len(set(identifiers))!=len(identifiers): raise InvalidInput('Duplicate physical evidence cannot count as repeated execution')
         ratios=[]
+        zero_lut_candidate=False
         for pair in p.pairs:
             a,b=pair.baseline.metrics,pair.candidate.metrics
             if p.objective=='area':
-                if a['luts']==0 or b['luts']==0: raise InvalidInput('Geometric area ratio requires positive LUT counts')
-                ratios.append(a['luts']/b['luts'])
+                if a['luts']==0: raise InvalidInput('Geometric area ratio requires a positive LUT baseline')
+                zero_lut_candidate=zero_lut_candidate or b['luts']==0
+                # Zero candidate LUTs have an unbounded ratio. One LUT gives a
+                # finite conservative lower bound, never an inflated finite gain.
+                ratios.append(a['luts']/max(1,b['luts']))
             else: ratios.append(b['throughput_mtransactions_s']/a['throughput_mtransactions_s'])
         summary={}
         for key in ('lut_reduction_pct','throughput_gain_pct'):
             values=[c[key] for c in comparisons]
             summary[key]=None if any(v is None for v in values) else dict(min=min(values),max=max(values),mean=mean(values))
         data=dict(repeats=len(p.pairs),objective=p.objective,comparisons=comparisons,summary=summary,
-                  objective_geometric_benefit=math.exp(mean(math.log(r) for r in ratios)),
+                  objective_geometric_benefit=None if zero_lut_candidate else math.exp(mean(math.log(r) for r in ratios)),
+                  objective_geometric_benefit_lower_bound=math.exp(mean(math.log(r) for r in ratios)),
+                  zero_lut_candidate=zero_lut_candidate,
                   area_gate=len(p.pairs)>=3 and all(c['area_gate'] for c in comparisons),
                   throughput_gate=len(p.pairs)>=3 and all(c['throughput_gate'] for c in comparisons),
                   scope=first.baseline.stage,independent_statistical_samples=False)
-        return Result(data=data,note='At least three complete pairs are required. Every repeat must meet the PPA gate; min/max report reproducibility, not statistical confidence. This does not establish whole-family or whole-project acceptance.')
+        return Result(data=data,note='At least three complete pairs are required. Every repeat must meet the PPA gate; min/max report reproducibility, not statistical confidence. For zero candidate LUTs the exact ratio is unbounded, so its scalar is null and a conservative finite lower bound uses one LUT only in the ratio denominator; measured resources and gates remain unchanged. This does not establish whole-family or whole-project acceptance.')
 
 
 CATEGORY.ops.append(Op('resource_tradeoff',TradeoffIn,Result,'Check clocked FPGA multi-resource tradeoffs and normalize throughput by II.'))

@@ -1,0 +1,8 @@
+{
+  "widths": [
+    16,
+    32
+  ],
+  "period_ns": 5,
+  "optimization_mode": "Basic"
+}

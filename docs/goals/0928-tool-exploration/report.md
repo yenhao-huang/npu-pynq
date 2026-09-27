@@ -492,3 +492,54 @@ Relevant validation: 55 controller/FIFO/sweep/catalogue tests passed, then both
 new phase pipeline gating tests passed (57 total). Repository lint/sim passed.
 Published 0c95fb5 hosted CI passed. Six operations remain (35,37,38,43,47,50),
 as do two additional qualifying families and the full all-case acceptance audit.
+
+## Timing coverage checkpoint (45 operations)
+
+Operation 43 audits actual routed clock coverage and report consistency. It
+requires source/top identity, one clock, complete register coverage, no latches,
+one setup path and complete check_timing sections. Mixed runs, missing reports,
+contradictory counts, changed source, clock/slack and tool/build mismatches are
+rejected. Report SHA-256 values are returned. Scope remains single-clock
+register-to-register OOC setup; I/O delays, hold closure, board constraints and
+protocol correctness are explicitly excluded. Negative setup slack is never
+reported as meeting the requested period. Historical records without coverage
+artifacts remain unaudited; no old record is silently upgraded.
+
+Real experiments pass for 16/32-bit registered adders (50/98 sequential cells,
+all clocked, all six timing checks clear). The intentionally unclocked-domain
+design routes but fails audit: 65 total versus 64 clocked cells, one no_clock
+pin and one unconstrained internal endpoint. Evidence: timing-audit-experiment.json.
+Session 4544 is TERMINAL. The probe's installed Vivado help and actual report
+format, rather than guessed syntax, were used to implement the parser.
+
+Phase-controller study 35612 is TERMINAL ce1d2c and is the fifth qualifying
+family under the declared LUT-area gate. All three pairs at 64 states reduce
+LUTs 16 -> 0 and improve throughput 38.55%; at 128 states, 25 -> 0 and +46.02%.
+DSP/BRAM remain zero. FFs increase 72 -> 130 and 137 -> 258, so this is a LUT
+decode improvement with explicit register cost, not a reduction in all resource
+classes. The throughput gate fails its FF-growth limit; the LUT-area gate passes
+its separate stated conditions. The area objective remains unchanged.
+
+Zero candidate LUTs make the exact benefit ratio unbounded. The repeated-run
+summary now returns null for that exact scalar and a separately named finite
+lower bound, using one LUT only in the ratio denominator. Actual resources,
+100% LUT reduction and gate checks are unchanged. This conservative bound is
+16x/25x for the controller cases, not a fabricated exact finite ratio.
+
+Divider session 63223 is TERMINAL bf626e. Both 16-bit cases retain repeated
+Vivado Synth 20-411 opt_design failures. Both 32-bit cases complete all pairs:
+folding saves 95.13% LUTs but loses 38.39% throughput; two-bit iterations grow
+LUTs 42.73% and lose 4.28% throughput. Neither qualifies. Original objectives
+and every failed attempt remain preserved in divider-physical-study.json.
+
+Multiplier 41858 remains live. Five operations remain (35,37,38,47,50), one
+additional qualifying family and full all-case acceptance are still required.
+Published d225871 hosted CI passed. Initial timing-focused suite: 54 passed,
+four optional native-Yosys skips; zero-LUT/audit regression: 33 passed.
+Full focused suite is running as 94470. Repository lint/sim passed. Remaining
+account usage last checked: 58%; no reset credit used.
+
+Final full focused validation: 341 passed, eight optional local-Yosys skips
+(--basetemp=.ic/pytest-expanded-16). Real timing positive/negative controls pass.
+Repository lint/sim passed. Fifth qualifying family is phase control; expanded
+acceptance remains incomplete. Only multiplier session 41858 remains live.

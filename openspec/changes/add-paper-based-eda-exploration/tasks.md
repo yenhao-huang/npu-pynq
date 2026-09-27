@@ -71,3 +71,13 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Preserve final Booth large-width SAT timeouts without claiming physical gains.
 - [ ] Complete phase-controller physical repeats and remaining six operations.
 - [ ] Finish the six-family improvement and whole-study aggregate gates.
+
+## Timing and completed control evidence
+
+- [x] Implement operation 43 with actual routed report and clock coverage checks.
+- [x] Verify 16/32-bit real positive cases and an unclocked-domain negative case.
+- [x] Complete phase-controller pairs at both sizes (fifth LUT-area qualifier).
+- [x] Preserve FF increases and zero-LUT ratio bounds without fabricating values.
+- [x] Retain completed divider failures and area/throughput tradeoffs.
+- [ ] Complete remaining five operations and one more qualifying family.
+- [ ] Complete all-case aggregation, ablations and final acceptance audit.

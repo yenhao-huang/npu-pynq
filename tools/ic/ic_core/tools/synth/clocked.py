@@ -56,6 +56,8 @@ class ClockedMeasure:
         metrics = ctx.run.artifacts/'clocked.txt'
         util = ctx.run.artifacts/'utilization.txt'
         timing = ctx.run.artifacts/'timing.txt'
+        coverage = ctx.run.artifacts/'coverage.txt'
+        checks = ctx.run.artifacts/'constraint-checks.txt'
         script = ctx.run.work/'clocked.tcl'
         reads = '\n'.join('read_verilog -sv '+tcl_path(p) for p in files)
         optimization='opt_design' if params.optimization_mode=='Default' else 'opt_design -propconst -sweep'
@@ -77,6 +79,19 @@ if {{[llength $paths] != 1}} {{error "No register-to-register setup timing path"
 set path [lindex $paths 0]
 report_utilization -file {tcl_path(util)}
 report_timing -of_objects $paths -file {tcl_path(timing)}
+check_timing -override_defaults {{no_clock constant_clock multiple_clock loops latch_loops unconstrained_internal_endpoints}} -file {tcl_path(checks)}
+set audit [open {tcl_path(coverage)} w]
+puts $audit "source_sha256={source_hash}"
+puts $audit "top={params.top}"
+puts $audit "scope=single_clock_register_to_register_ooc"
+puts $audit "clock_count=[llength [get_clocks]]"
+puts $audit "clock_period_ns=[get_property PERIOD [get_clocks ic_clock]]"
+puts $audit "register_count=[llength [all_registers]]"
+puts $audit "clocked_register_count=[llength [all_registers -clock ic_clock]]"
+puts $audit "latch_count=[llength [all_registers -level_sensitive]]"
+puts $audit "setup_path_count=[llength $paths]"
+puts $audit "io_delays_constrained=0"
+close $audit
 set out [open {tcl_path(metrics)} w]
 puts $out "slack_ns=[get_property SLACK $path]"
 puts $out "requirement_ns=[get_property REQUIREMENT $path]"
@@ -87,7 +102,7 @@ close $out
 ''', encoding='utf-8')
         result = run_process([shutil.which('vivado') or 'vivado', '-mode','batch','-nojournal','-notrace','-log',str(ctx.run.work/'vivado.log'),'-source',str(script)], cwd=ctx.run.work, log_path=ctx.run.artifacts/'clocked.log', timeout_s=params.timeout_s)
         log = ctx.run.handle('clocked.log')
-        if result.exit_code or result.timed_out or not metrics.exists() or not util.exists():
+        if result.exit_code or result.timed_out or not all(path.exists() for path in (metrics,util,timing,coverage,checks)):
             return Result(ok=False, data=dict(log=log, exit_code=result.exit_code, timed_out=result.timed_out), note='Implementation failed or timed out; no clocked PPA result.')
         if source_hash != fingerprint(files, params.top):
             return Result(ok=False, data={'log':log}, note='Sources changed; measurement discarded.')
@@ -106,7 +121,7 @@ close $out
                       latency_cycles=params.latency_cycles, latency_kind=params.latency_kind, initiation_interval=params.initiation_interval,
                       metrics=dict(resources, slack_ns=slack, critical_period_ns=critical_period,
                                    estimated_fmax_mhz=fmax, throughput_mtransactions_s=fmax/params.initiation_interval),
-                      evidence={'metrics':ctx.run.handle(metrics.name),'utilization':ctx.run.handle(util.name),'timing':ctx.run.handle(timing.name),'log':log})
+                      evidence={'metrics':ctx.run.handle(metrics.name),'utilization':ctx.run.handle(util.name),'timing':ctx.run.handle(timing.name),'log':log,'coverage':ctx.run.handle(coverage.name),'constraint_checks':ctx.run.handle(checks.name)})
         return Result(data={'record':record}, note='Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.')
 
 

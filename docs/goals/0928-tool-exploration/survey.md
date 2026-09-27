@@ -189,3 +189,12 @@ was unavailable. Our bounded cyclic-phase comparison studies the storage and
 output-decode tradeoff only. It does not reproduce the paper's power methodology
 or claim a measured power benefit. Explicit encoding and no-SRL attributes keep
 the intended state-storage alternatives visible to synthesis.
+
+## Constraint coverage and physical evaluation
+
+Operation 43 extends RTLRewriter's controlled PPA-evaluation workflow with an
+independent report audit: https://arxiv.org/html/2409.11414v1. No paper-derived
+constraint inference is claimed. Installed Vivado 2026.1 `help check_timing`
+and `help all_registers`, plus a real generated report, define the six internal
+coverage checks and sequential-cell enumeration (including DSP/BRAM registers).
+The experiment demonstrates actual rejection of an unclocked sequential domain.

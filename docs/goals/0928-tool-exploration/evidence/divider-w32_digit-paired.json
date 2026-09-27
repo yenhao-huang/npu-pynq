@@ -1,0 +1,121 @@
+{
+  "ok": true,
+  "data": {
+    "repeats": 3,
+    "objective": "throughput",
+    "comparisons": [
+      {
+        "lut_reduction_pct": -42.72727272727273,
+        "throughput_gain_pct": -4.283479349186492,
+        "throughput_ratio": 0.9571652065081351,
+        "resource_delta": {
+          "luts": 47.0,
+          "ffs": -2.0,
+          "dsps": 0.0,
+          "brams": 0.0
+        },
+        "resource_growth_pct": {
+          "luts": 42.72727272727273,
+          "ffs": -0.6042296072507503,
+          "dsps": 0,
+          "brams": 0
+        },
+        "latency_cycles": {
+          "baseline": 35,
+          "candidate": 19,
+          "kind": "minimum"
+        },
+        "initiation_interval": {
+          "baseline": 33,
+          "candidate": 17
+        },
+        "area_gate": false,
+        "throughput_gate": false,
+        "reasons": [
+          "Resource growth exceeds the 25% throughput-win limit."
+        ]
+      },
+      {
+        "lut_reduction_pct": -42.72727272727273,
+        "throughput_gain_pct": -4.283479349186492,
+        "throughput_ratio": 0.9571652065081351,
+        "resource_delta": {
+          "luts": 47.0,
+          "ffs": -2.0,
+          "dsps": 0.0,
+          "brams": 0.0
+        },
+        "resource_growth_pct": {
+          "luts": 42.72727272727273,
+          "ffs": -0.6042296072507503,
+          "dsps": 0,
+          "brams": 0
+        },
+        "latency_cycles": {
+          "baseline": 35,
+          "candidate": 19,
+          "kind": "minimum"
+        },
+        "initiation_interval": {
+          "baseline": 33,
+          "candidate": 17
+        },
+        "area_gate": false,
+        "throughput_gate": false,
+        "reasons": [
+          "Resource growth exceeds the 25% throughput-win limit."
+        ]
+      },
+      {
+        "lut_reduction_pct": -42.72727272727273,
+        "throughput_gain_pct": -4.283479349186492,
+        "throughput_ratio": 0.9571652065081351,
+        "resource_delta": {
+          "luts": 47.0,
+          "ffs": -2.0,
+          "dsps": 0.0,
+          "brams": 0.0
+        },
+        "resource_growth_pct": {
+          "luts": 42.72727272727273,
+          "ffs": -0.6042296072507503,
+          "dsps": 0,
+          "brams": 0
+        },
+        "latency_cycles": {
+          "baseline": 35,
+          "candidate": 19,
+          "kind": "minimum"
+        },
+        "initiation_interval": {
+          "baseline": 33,
+          "candidate": 17
+        },
+        "area_gate": false,
+        "throughput_gate": false,
+        "reasons": [
+          "Resource growth exceeds the 25% throughput-win limit."
+        ]
+      }
+    ],
+    "summary": {
+      "lut_reduction_pct": {
+        "min": -42.72727272727273,
+        "max": -42.72727272727273,
+        "mean": -42.72727272727273
+      },
+      "throughput_gain_pct": {
+        "min": -4.283479349186492,
+        "max": -4.283479349186492,
+        "mean": -4.283479349186492
+      }
+    },
+    "objective_geometric_benefit": 0.9571652065081351,
+    "area_gate": false,
+    "throughput_gate": false,
+    "scope": "routed_clocked_ooc",
+    "independent_statistical_samples": false
+  },
+  "note": "At least three complete pairs are required. Every repeat must meet the PPA gate; min/max report reproducibility, not statistical confidence. This does not establish whole-family or whole-project acceptance.",
+  "run_id": "f336a7"
+}

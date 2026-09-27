@@ -264,3 +264,21 @@ physical repeats. The fixed config declares area before measurement. The
 sequential_scoreboard call uses contract=phase, width=1, depth=states and the
 generated top. Initial state is unspecified until a synchronous reset edge.
 Evidence phase-verification.json records all eight source-bound checks.
+
+## Routed timing-constraint audit
+
+Run `python exp/tool-exploration/exp-tool-43-rtlrewriter/run.py` on the licensed
+Vivado host. It routes 16/32-bit adders and an intentionally unclocked-domain
+negative fixture, then audits each source-bound record. Expected results are
+true/true/false for the audits; all three physical measurements can succeed.
+See timing-audit-experiment.json for actual records and report digests.
+
+New clocked_ppa runs emit coverage.txt and constraint-checks.txt. Call
+timing_constraint_audit with the record, exact measured files and top. Missing
+historical reports produce an explicit unaudited error. Passing constraint
+coverage does not imply positive slack, hold closure or constrained board I/O.
+
+Phase n64/n128 paired summaries contain zero_lut_candidate=true. Their exact
+area-benefit scalar is null because the ratio is unbounded; the separate
+objective_geometric_benefit_lower_bound is finite and conservative. Do not
+replace measured zero LUTs with one or omit the FF increases.
