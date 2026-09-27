@@ -30,5 +30,7 @@
   ],
   "period_ns": 5,
   "repeats": 3,
-  "require_proof": true
+  "require_proof": true,
+  "optimization_mode": "Basic",
+  "measurement_attempts": 2
 }

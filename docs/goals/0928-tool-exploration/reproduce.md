@@ -190,3 +190,18 @@ Yosys, or add `--container codex-sandbox-agent-workspace` on this host. Omitting
 passes. Configuration lives beside the runner. Native and folded variants share
 registered boundaries. Any SAT timeout remains inconclusive. The arithmetic test
 module includes independent integer oracles and a noncanonical-zero mutation.
+
+### FIR, dot product and saturating arithmetic
+
+Use the study.py entry points under exp-tool-19-fpl, exp-tool-20-fpl and
+exp-tool-33-rover. `--verify-only` performs 8192 seeded vectors plus boundary
+patterns and source-bound SAT. `--container codex-sandbox-agent-workspace` uses
+the existing host container; omit it with local Yosys. Omit `--verify-only` for
+physical runs gated on proof. All configs predeclare sizes, mapping policy,
+objective, period, flow, repeats and maximum attempts. Keep FIR sample-history
+outside this kernel's performance claims; it is not a complete streaming filter.
+
+`python -m pytest tools/ic/tests/test_datapath_exploration.py` independently checks
+signed/unsigned extrema, complete sums, coefficient symmetry and negative controls.
+Distributed FIFO results are in fifo-distributed-physical-study.json and the two
+paired summaries. Auto and distributed configurations are distinct retained cases.

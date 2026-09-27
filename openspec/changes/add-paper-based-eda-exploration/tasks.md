@@ -30,3 +30,11 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Verify independent integer oracles and a broken-zero mutation control.
 - [x] Prove 16-bit mod-15 and preserve 32-bit mod-255 SAT timeout evidence.
 - [ ] Complete the 32-bit proof and both physical configurations; no win claimed.
+
+## Signed datapath and storage progress
+
+- [x] Implement FIR-window symmetry, signed dot-product reduction and saturating ALU sharing.
+- [x] Verify integer extrema, odd structures and signed/overflow mutation controls.
+- [x] Complete distributed FIFO physical pairs at both sizes with protocol evidence.
+- [ ] Complete FIR/dot proofs and ALU/network physical studies before claiming gains.
+- [ ] Implement remaining fourteen distinct operations and finish global acceptance.

@@ -89,3 +89,18 @@ timeout. A 300-second retry runs as session 80622. Original flag/log discrepancy
 is preserved and corrected in the checker. FIFO auto 69500 is terminal d0d9f1;
 both cases fail unconditional resource gates because BRAM increases. Distributed
 FIFO session 21483 remains active. Relevant validation: 70 passed, four skips.
+
+### Signed datapath and FIFO checkpoint
+
+Inventory: 36; fourteen operations remain. Distributed FIFO 59e508 qualifies at
+both sizes and three pairs: area -96.52%/-97.12%, throughput +50.19%/+49.96%, no
+DSP/BRAM growth. It is family three. Auto FIFO tradeoffs remain in the audit.
+Modulo 300-second retry 13fc7c timed out; it did not prove 32-bit equivalence.
+Live sessions: FIR 72199, dot 22304, saturation 15640, barrel 26439, argmax 62972.
+Refer to delivery-state.md before restarting. FIR-window arithmetic does not
+include sample history or a streaming protocol. New focused tests: 64 passed.
+
+FIR 72199 (18c448) and dot 22304 (fcc669) are TERMINAL: all vectors passed,
+all SAT attempts timed out. Keep them out of qualifying-win counts. Physical
+sessions 15640/26439/62972 remain active. Full focused validation: 218 passed,
+six local-Yosys skips; make lint sim passed. Remaining usage last checked: 65%.

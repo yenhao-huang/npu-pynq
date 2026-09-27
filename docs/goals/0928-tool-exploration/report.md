@@ -331,3 +331,37 @@ FIFO auto study d0d9f1 completes all pairs: 16x64 LUTs 1178 -> 19, throughput
 +49.09%; 32x128 LUTs 4411 -> 22, throughput +72.88%. Both candidates add 0.5 BRAM
 and therefore fail both unconditional improvement gates. This evidence illustrates
 why dramatic LUT percentages cannot replace separate memory-resource accounting.
+
+## Signed arithmetic kernels and completed FIFO evidence
+
+Implemented inventory is 36 operations: FIR-window symmetry, signed dot-product
+compression and saturating add/subtract sharing add three independent datapaths.
+FIR is explicitly a window arithmetic kernel; sample-history and streaming
+protocol logic are external. Dot product preserves full products and the complete
+signed sum. Saturating ALU returns both clamped value and overflow for add/subtract.
+The independent integer models cover extrema, negative coefficients, odd tap/lane
+counts, subtraction and unsigned saturation. Mutated arithmetic/sign/overflow
+outputs are rejected. Focused datapath/sweep/registry tests: 64 passed.
+
+Distributed FIFO study 59e508 completes all three pairs for both configurations:
+16x64 LUTs 1178 -> 41 (-96.52%), throughput +50.19%; 32x128 LUTs 4411 -> 127
+(-97.12%), throughput +49.96%. DSP and BRAM remain zero, with fewer FFs. It passes
+both area and throughput gates and is the third qualifying family, backed by
+core and timing-fixture protocol checks. The separate auto-inference cases remain
+resource tradeoffs and remain in the all-case denominator.
+
+The 300-second 32-bit modulo proof retry 13fc7c is terminal with timed_out=true.
+This corrects the timeout-classification behavior but does not establish proof.
+Original 120-second evidence remains preserved. No modulo family win is counted.
+
+FIR/dot-product SAT studies are in progress; initial 16-bit cases timed out.
+Saturating ALU 32-bit SAT passed and its physical study is running. Barrel-shifter
+and argmax physical studies now use matched Basic flow and two bounded attempts,
+selected before their first physical measurements. Existing configurations and
+throughput objectives are unchanged. None is counted as a new qualifying family
+until both configurations, every repeat and the correctness gates are complete.
+
+Completed FIR and dot verification studies each pass both large-interface vector
+checks but time out in both SAT configurations (120 seconds per proof). Their
+status is inconclusive, not verified equivalence; no physical improvement is
+claimed. Full focused suite: 218 passed, six local-Yosys skips; repository gates pass.

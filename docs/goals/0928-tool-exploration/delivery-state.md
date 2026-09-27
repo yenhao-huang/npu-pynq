@@ -208,3 +208,34 @@ Latest full focused validation: 173 passed, six optional local-Yosys skips
 (`--basetemp=.ic/pytest-expanded-12`). Repository lint/sim passed; unchanged
 hardware simulation targets are current. The 33-operation checkpoint remains
 incomplete against the 50-operation contract.
+
+## 36-operation checkpoint
+
+New operations: synth_fir, synth_dot_product, synth_saturating_alu (IDs 19/20/33).
+Fourteen distinct operations remain. FIR/dot products are full-precision signed
+kernels with independent integer oracles; PPA and proof failures are not gains.
+
+Distributed FIFO 21483 is TERMINAL success, parent 59e508. Both configurations
+pass area and throughput gates in all three pairs, without DSP/BRAM growth.
+This is the third qualifying family (priority, MCM, FIFO). Auto inference remains
+a failed unconditional gate and is preserved. Modulo retry 80622 is TERMINAL,
+proof 13fc7c timed out internally at 300 seconds. It remains inconclusive.
+
+New live handles (poll before restarting):
+- 72199: FIR 16-tap 16/32-bit verify-only; 16-bit SAT timed out.
+- 22304: dot product 8-lane 16/32-bit verify-only; 16-bit SAT timed out.
+- 15640: saturating signed add/subtract 32/64-bit physical study; 32-bit SAT passed.
+- 26439: barrel shifter 32/64-bit physical study, matched Basic flow.
+- 62972: argmax 16 lanes, 16/32-bit physical study, matched Basic flow.
+
+All failed/unknown results remain in the final audit. Remaining work includes
+14 operations, three additional qualifying families, full family/config coverage,
+missing proofs, ablations and the all-case geometric-mean gate. Published commit
+a112017 passed hosted CI. Focused new datapath/sweep/registry tests: 64 passed.
+
+Final checkpoint validation: 218 passed, six local-Yosys skips in the full focused
+suite (`--basetemp=.ic/pytest-expanded-13`); make lint sim passed. FIR session
+72199 is TERMINAL 18c448; dot session 22304 is TERMINAL fcc669. All four vector
+checks passed, all four 120-second SAT attempts timed out. Their complete results
+are retained as fir-verification.json and dot-product-verification.json. Physical
+studies 15640, 26439 and 62972 remain active. No additional qualifying family yet.

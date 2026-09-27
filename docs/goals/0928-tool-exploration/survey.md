@@ -113,3 +113,17 @@ end-around-fold reducer, with canonical zero and conservative intermediate
 bounds. It is not a reproduction of the paper's full-adder-only standard-cell
 architecture, residue encoding, multiplier or equality unit. Local PPA results
 must come from the declared 16/32-bit FPGA experiments, not the paper's results.
+
+## Signed arithmetic datapaths
+
+The FIR-window and dot-product generators connect to Thomas B. Preusser,
+*Generic and Universal Parallel Matrix Summation with a Flexible Compression
+Goal for Xilinx FPGAs*, FPL 2017, DOI 10.23919/FPL.2017.8056834.
+Primary author manuscript: https://arxiv.org/html/1806.08095v1.
+The paper explains the 3:2 full-adder value invariant and matrix compression for
+multiply-accumulate and filter kernels. Our dot product uses ordinary 3:2 rows;
+it does not reproduce its Xilinx counter-selection heuristic. FIR symmetry uses
+binary preaddition plus balanced accumulation. AMD's symmetric FIR documentation
+is supplementary implementation context, not an additional paper reproduction.
+Saturation sharing adapts ROVER's equivalence-guided arithmetic resource rewriting
+with a single conditional-inversion adder; no e-graph search engine is claimed.

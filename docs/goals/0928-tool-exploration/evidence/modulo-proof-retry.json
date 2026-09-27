@@ -1,0 +1,16 @@
+{
+  "ok": false,
+  "data": {
+    "proved": false,
+    "reference_sha256": "62f9c1f995c50e8d8a061ef26875bd573ed9c9209394af795d4eb57e1bf1b46a",
+    "candidate_sha256": "0325bd4561e55ef97432096e0c6836191c8fb39e98843c8f5e400c9c21765b29",
+    "engine": "$ docker exec -w /tmp/ic-formal-13fc7c codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+    "normalization": "word",
+    "log": "13fc7c/proof.log",
+    "exit_code": 1,
+    "timed_out": true,
+    "source_unchanged": true
+  },
+  "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+  "run_id": "13fc7c"
+}
