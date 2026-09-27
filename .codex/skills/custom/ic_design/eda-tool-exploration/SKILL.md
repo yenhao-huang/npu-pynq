@@ -102,3 +102,11 @@ or nonlinear logic. Keep algebraic proofs and SAT attempts distinct, including
 SAT timeouts. A generation-time matrix or passing basis-vector simulation is not
 an affine proof. Raising a bounded simulation timeout must preserve vector count
 and the original failed record; never silently reduce coverage for a PPA gate.
+
+For iterative arithmetic, use `latency_throughput` on both the core and its
+observation fixture. Require independent exact-integer result checks, reset
+cancellation, held backpressured outputs and a sustained no-stall phase. Verify
+each architecture's II rather than assuming identical cycle counts. Normalize
+physical throughput by that II and include setup/observation latency explicitly.
+Preserve parallel-to-serial area gains as tradeoffs when throughput falls beyond
+the gate. Division-by-zero semantics must be identical across all variants.

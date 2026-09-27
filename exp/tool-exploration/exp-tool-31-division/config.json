@@ -1,0 +1,62 @@
+{
+  "study_name": "synth_divider",
+  "cases": [
+    {
+      "name": "w16_fold",
+      "generator": "synth_divider",
+      "baseline": {
+        "width": 16,
+        "architecture": "parallel"
+      },
+      "candidate": {
+        "width": 16,
+        "architecture": "serial"
+      },
+      "objective": "area"
+    },
+    {
+      "name": "w16_digit",
+      "generator": "synth_divider",
+      "baseline": {
+        "width": 16,
+        "architecture": "serial"
+      },
+      "candidate": {
+        "width": 16,
+        "architecture": "radix4"
+      },
+      "objective": "throughput"
+    },
+    {
+      "name": "w32_fold",
+      "generator": "synth_divider",
+      "baseline": {
+        "width": 32,
+        "architecture": "parallel"
+      },
+      "candidate": {
+        "width": 32,
+        "architecture": "serial"
+      },
+      "objective": "area"
+    },
+    {
+      "name": "w32_digit",
+      "generator": "synth_divider",
+      "baseline": {
+        "width": 32,
+        "architecture": "serial"
+      },
+      "candidate": {
+        "width": 32,
+        "architecture": "radix4"
+      },
+      "objective": "throughput"
+    }
+  ],
+  "repeats": 3,
+  "measurement_attempts": 2,
+  "period_ns": 5,
+  "optimization_mode": "Basic",
+  "require_proof": true
+}

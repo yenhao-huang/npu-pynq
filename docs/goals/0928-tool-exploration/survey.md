@@ -146,3 +146,25 @@ Parallel CRC context: Gangopadhyay and Reyhani-Masoleh, DOI
 10.1109/TC.2015.2479617, author manuscript at
 https://www.eng.uwo.ca/electrical/faculty/reyhani_a/docs/publications/GRM-TC-16.pdf.
 The paper's concurrent parity fault-detection architecture is not reproduced.
+
+## Iterative arithmetic and verified cycle cost
+
+Aggoun, Farwan, Ibrahim and Ashur, *Radix-2^n Serial-Serial Multipliers*,
+author manuscript: https://bura.brunel.ac.uk/bitstream/2438/2756/3/Paper%202438-2756.PDF.
+The paper motivates digit-size and resource-reuse exploration. Our adaptation
+accepts full words with ready/valid and folds shift/add work over one or two bits
+per working cycle; it does not reproduce the paper's serial-serial pin interface,
+dependency-graph projection or sub-digit pipeline.
+
+Sutter and Deschamps, *High Speed Fixed Point Dividers for FPGAs*, FPL 2009,
+author companion: https://www.arithmetic-circuits.org/FixedPointDivision/FixedPointDivision.html.
+Its author-indexed companion lists digit-recurrence architectures and multiple
+radices. Direct page retrieval was unavailable during this checkpoint; no claim
+about its internal cells or measured results is made. Our bounded exploration
+uses conventional exact restoring steps, one or two per cycle, and a parallel
+division baseline. The two-step variant is not an SRT implementation.
+
+Operation 44 connects RTLRewriter's verification-before-evaluation workflow to
+an independent sequential transaction oracle. It verifies first-valid latency
+and unstalled initiation interval from full ready/valid traces before exposing
+cycle metrics. It is not an unbounded sequential proof or a paper reproduction.

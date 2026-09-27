@@ -394,3 +394,41 @@ Completed saturation study c3969a: 32-bit throughput +21.58%, LUT growth 23.08%;
 limit, so the family does not qualify. Its predeclared area objective stays fixed.
 Barrel study 493114 has unchanged LUT counts, no 32-bit speed gain and only 2.21%
 64-bit speed gain. It also does not qualify. All repeated records are retained.
+
+## Iterative arithmetic checkpoint (42 operations)
+
+Operations 22/31/44 add exact unsigned iterative multiplication, restoring
+division and independent latency/throughput verification. Full-word interfaces
+support parallel, one-bit-per-cycle and two-bit-per-cycle implementations.
+The checker compares every ready/valid cycle, integer result, held output and
+reset cancellation against an independent Python model. It verifies sustained
+acceptance spacing before returning II. Division by zero is explicitly defined.
+The setup cycle and two fixture observation cycles are separately accounted for.
+
+Twenty-four substantial core/fixture checks pass at 16/32 bits, with 8192 random
+stress cycles plus directed and sustained-throughput phases each. Mutations cover
+wrong result, reset, backpressure hold, divisor-zero behavior, latency, II and
+fixture observations. These are bounded sequential checks, not formal proof.
+Parallel-to-serial area and serial-to-two-bit throughput comparisons are
+predeclared at both widths, three physical pairs per case; runs are ongoing.
+
+Argmax study 0402f6 is complete and is the fourth qualifying family. Sixteen
+16-bit lanes improve throughput by 106.43%, with LUTs 480 -> 493 (+2.71%).
+Sixteen 32-bit lanes improve throughput by 99.44%, with LUTs 944 -> 970 (+2.75%).
+All three pairs pass the throughput resource gate at both sizes, with SAT and
+vector correctness evidence. The throughput objective remains unchanged.
+
+LFSR 2a7b3c completes both sizes and all pairs but does not qualify: LUT reduction
+2.82% / 0%, throughput gain 13.11% / 6.40%. CRC 2a0316 also completes all pairs:
+LUT reduction -1.22% / 1.27%, throughput gain 3.59% / -4.16%. Both studies retain
+exact affine proofs, vectors and separate SAT outcomes; original failed attempts
+remain preserved. These small or negative changes stay in the final denominator.
+
+Eight operations, two additional qualifying families and the full all-case
+acceptance audit remain unfinished. Four qualifying families alone do not prove
+the aggregate objective gate or complete the goal.
+
+Full focused validation: 290 passed, eight optional local-Yosys skips (the test
+list in .github/workflows/ci.yml, --basetemp=.ic/pytest-expanded-15). All 24 real
+arithmetic cycle experiments pass. make -C src/test lint sim passed; unchanged
+hardware simulation targets are current. New-head hosted CI remains pending.

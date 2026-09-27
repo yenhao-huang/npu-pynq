@@ -118,3 +118,17 @@ argmax 62972. See delivery-state.md for handles and failure evidence.
 Full focused validation at this checkpoint: 259 passed, eight optional local
 Yosys skips. Actual container affine controls pass separately; repository gates
 pass. Remaining usage last checked: 64%, above the mandatory 30% stop threshold.
+
+### Iterative checkpoint
+
+Inventory 42; eight operations remain (21,35,36,37,38,43,47,50). Argmax 0402f6
+qualifies at both widths/all pairs and is family four. LFSR 2a7b3c and CRC 2a0316
+are terminal below-threshold physical studies; preserve them in the audit.
+Twenty-four real arithmetic core/fixture cycle checks pass. Live studies:
+41858 multiplier, 63223 divider, each four declared cases/three pairs. Do not
+restart without checking those handles. Remaining usage last checked: 61%.
+
+Full focused validation: 290 passed, eight optional local-Yosys skips (the test
+list in .github/workflows/ci.yml, --basetemp=.ic/pytest-expanded-15). All 24 real
+arithmetic cycle experiments pass. make -C src/test lint sim passed; unchanged
+hardware simulation targets are current. New-head hosted CI remains pending.

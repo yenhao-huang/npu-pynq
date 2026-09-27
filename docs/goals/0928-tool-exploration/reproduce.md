@@ -222,3 +222,26 @@ its revised bound is 300 seconds with all 8192 random and directed inputs intact
 
 The sweep's proof engine and vector timeout participate in its checkpoint key.
 Earlier results remain at their original paths; do not rewrite failure records.
+
+## Multicycle arithmetic and completed network/linear evidence
+
+Run the cycle-only experiment:
+
+```sh
+python exp/tool-exploration/exp-tool-44-rtlrewriter/run.py
+```
+
+It checks both the core and registered observations for every combination of
+16/32-bit multiply/divide and parallel/serial/two-bit architectures (24 checks).
+Reproduce physical studies with the study.py files under exp-tool-22-digit and
+exp-tool-31-division; `--verify-only --container codex-sandbox-agent-workspace`
+checks the protocol without Vivado. Omit `--verify-only` for the predeclared
+three-pair studies. See each config.json for unchanged objectives and variants.
+The timing fixture is a delayed observation environment, not an external
+ready/valid adapter. Minimum no-stall latency includes its two observation cycles;
+throughput uses the core's separately verified initiation interval.
+
+Evidence arithmetic-cycle-checks.json records all 24 real cycle checks.
+argmax-physical-study.json and argmax-w16/w32-paired.json record the fourth
+qualifying family. crc-physical-study.json, lfsr-physical-study.json and their
+case0/case1 paired summaries preserve completed below-threshold results.

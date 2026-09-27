@@ -46,3 +46,12 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Run real affine positive/negative controls and replay the counterexample.
 - [x] Retain completed saturation/barrel measurements that miss family gates.
 - [ ] Complete CRC/LFSR/argmax physical studies and full all-case acceptance.
+
+## Iterative arithmetic progress
+
+- [x] Implement operations 22, 31 and 44 with independent cycle/result checking.
+- [x] Verify 16/32-bit core and registered observations across three architectures.
+- [x] Complete argmax physical gains at both sizes and all three pairs (family four).
+- [x] Preserve completed CRC/LFSR below-threshold measurements and proof outcomes.
+- [ ] Finish multiplier/divider physical studies and remaining eight operations.
+- [ ] Establish two more qualifying families and every global acceptance gate.

@@ -157,3 +157,27 @@ def test_affine_sweep_requires_proof_and_retains_sat_result(store,tmp_path,monke
 def test_affine_sweep_rejects_nonlinear_generator(store,tmp_path):
     with pytest.raises(InvalidInput,match='limited to CRC'):
         dispatch('architecture_sweep',dict(payload(),proof_engine='affine'),store=store,cwd=tmp_path)
+
+
+@pytest.mark.parametrize('generator', ['synth_serial_multiplier','synth_divider'])
+def test_iterative_pipeline_allows_verified_cycle_differences(store,tmp_path,monkeypatch,generator):
+    calls=mock_execution(monkeypatch)
+    p=dict(study_name='arithmetic_checks',cases=[dict(name='w16',generator=generator,baseline=dict(width=16,architecture='serial'),candidate=dict(width=16,architecture='radix4'),objective='throughput')],verify_only=False,repeats=1)
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert result['ok'],result
+    row=result['data']['cases'][0]
+    assert [r['data']['verified_initiation_interval'] for r in row['checks']]==[17,17,9,9]
+    assert row['protocol_contract']=='ready_valid_arithmetic'
+    assert calls.count('clocked_ppa')==2
+
+
+def test_iterative_pipeline_rejects_failed_cycle_evidence(store,tmp_path,monkeypatch):
+    calls=mock_execution(monkeypatch)
+    real=sweep.dispatch
+    def invoke(op,p,**kwargs):
+        if op=='latency_throughput': return dict(ok=False,run_id='synthetic-bad-cycle',data={})
+        return real(op,p,**kwargs)
+    monkeypatch.setattr(sweep,'dispatch',invoke)
+    p=dict(study_name='bad_cycles',cases=[dict(name='w16',generator='synth_divider',baseline=dict(width=16,architecture='serial'),candidate=dict(width=16,architecture='radix4'),objective='throughput')],verify_only=False)
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert not result['ok'] and 'clocked_ppa' not in calls

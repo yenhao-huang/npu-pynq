@@ -268,3 +268,33 @@ Final full focused validation: 259 passed, eight optional local-Yosys skips
 separately, including an Icarus-replayed witness. `make -C src/test lint sim`
 passed. Previous published 083c3d6 CI passed; this checkpoint is not yet CI-verified.
 Argmax is still live with two complete 32-bit pairs; do not prematurely count it.
+
+## 42-operation checkpoint
+
+Current inventory: 42. New operations 22/31/44 are iterative multiply, exact
+divide and independent arithmetic cycle validation. Eight operations remain:
+21 Booth, 35 banked regfile, 36 FSM, 37 skid, 38 systolic tile, 43 timing audit,
+47 ablation and 50 whole-study acceptance audit. Architecture variants do not
+count separately. Twenty-four substantial core/fixture cycle experiments pass.
+
+Terminal physical studies:
+- 62972 -> 0402f6 argmax: both sizes and all pairs qualify for throughput,
+  +106.43%/+99.44%, LUT growth only 2.71%/2.75%. Fourth qualifying family.
+- 98883 -> 2a7b3c LFSR: both measured, neither reaches the 15% gate.
+- 23418 -> 2a0316 CRC: both measured, neither reaches the 15% gate.
+
+Live sessions (poll before restarting): 41858 multiplier and 63223 divider.
+Each has four predeclared cases, 16/32-bit folding and digit-size comparisons,
+three paired runs, matched Basic flow and bounded retained attempts. Cycle
+contracts may differ between architectures; every one is independently verified.
+Fixed-width sequential simulation is not an unbounded formal proof.
+
+Previous published 3e116d1 passed hosted CI. Local focused suite is in progress
+as session 70872; repository lint/sim passed. Remaining usage 61%, above the
+mandatory below-30% stop threshold. No reset credit consumed. Expanded acceptance
+is incomplete; PR #81 stays draft and no merge is authorized.
+
+Full focused validation: 290 passed, eight optional local-Yosys skips (the test
+list in .github/workflows/ci.yml, --basetemp=.ic/pytest-expanded-15). All 24 real
+arithmetic cycle experiments pass. make -C src/test lint sim passed; unchanged
+hardware simulation targets are current. New-head hosted CI remains pending.

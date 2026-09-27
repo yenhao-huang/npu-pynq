@@ -19,7 +19,7 @@ from ...synth.exploration import Result
 from .. import CATEGORY
 
 
-GENERATORS=Literal['synth_crc_parallel','synth_lfsr_jump','synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
+GENERATORS=Literal['synth_serial_multiplier','synth_divider','synth_crc_parallel','synth_lfsr_jump','synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
 
 
 class Case(BaseModel):
@@ -136,6 +136,9 @@ class Sweep:
         cases=[]
         with study_lock(directory/'active.lock'):
             for case in p.cases:
+                if case.generator in ('synth_serial_multiplier','synth_divider'):
+                    cases.append(self.arithmetic_case(p,case,invoke,measure))
+                    continue
                 if case.generator=='synth_fifo':
                     cases.append(self.fifo_case(p,case,invoke,measure))
                     continue
@@ -190,6 +193,46 @@ class Sweep:
             summary=dict(checkpoint_key=key,checkpoint_directory=str(directory),environment=environment,cases=cases,children=children)
             (ctx.run.artifacts/'study.json').write_text(json.dumps(summary,indent=2)+'\n',encoding='utf-8')
         return Result(ok=all(c['status'] in ('verified','measured') for c in cases),data=summary,note='All predeclared cases retained. Measurements are not automatic acceptance; assess paired gains, resources and full diversity gates separately.')
+
+
+    def arithmetic_case(self,p,case,invoke,measure):
+        row=dict(name=case.name,objective=case.objective,generator=case.generator,protocol_contract='ready_valid_arithmetic',records=[],attempts=[],checks=[],accepted=False)
+        designs=[]
+        for label,params in [('baseline',case.baseline),('candidate',case.candidate)]:
+            generated=invoke(case.name+'-'+label+'-generate',case.generator,params)
+            if not generated['ok']: raise InvalidInput('Arithmetic generator failed')
+            data=generated['data'];designs.append(data)
+            for fixture in (False,True):
+                files=data['timing_files'] if fixture else data['files']
+                top=data['timing_top'] if fixture else data['top']
+                expected=data['timing_sha256'] if fixture else data['source_sha256']
+                if fingerprint([Path(path) for path in files],top)!=expected:
+                    raise InvalidInput('Generated arithmetic source changed')
+                checked=invoke(case.name+'-'+label+('-fixture' if fixture else '-protocol'),'latency_throughput',dict(files=files,top=top,width=data['width'],operation=data['operation'],latency_cycles=data['latency_cycles'],expected_ii=data['initiation_interval'],timing_fixture=fixture,random_cycles=8192,timeout_s=p.vector_timeout_s))
+                row['checks'].append(checked)
+                if not checked['ok']:
+                    row['status']='correctness_not_established';return row
+                if checked['data']['source_sha256']!=expected or checked['data']['verified_latency_cycles']!=data['latency_cycles'] or checked['data']['verified_initiation_interval']!=data['initiation_interval']:
+                    raise InvalidInput('Arithmetic cycle evidence mismatch')
+        if any(designs[0][key]!=designs[1][key] for key in ('width','operation','fixture_observation_delay_cycles')):
+            raise InvalidInput('Arithmetic operation or operand widths differ')
+        if p.verify_only:
+            row['status']='verified';return row
+        for repeat in range(p.repeats):
+            pair=[]
+            for label,data in zip(('baseline','candidate'),designs):
+                result,attempts=measure(f'{case.name}-{label}-r{repeat}',dict(files=data['timing_files'],top=data['timing_top'],name=case.name+'-'+label,period_ns=p.period_ns,device=p.device,optimization_mode=p.optimization_mode,
+                    latency_cycles=data['latency_cycles']+data['fixture_observation_delay_cycles'],latency_kind='minimum',initiation_interval=data['initiation_interval']))
+                row['attempts'].extend(attempts)
+                if not result['ok']:
+                    row.update(status='measurement_failed',failure=result);return row
+                record=result['data']['record']
+                if record['source_sha256']!=data['timing_sha256'] or fingerprint([Path(path) for path in data['timing_files']],data['timing_top'])!=data['timing_sha256']:
+                    raise InvalidInput('Arithmetic source changed between checking and measurement')
+                pair.append(record)
+            row['records'].append(pair)
+        row['status']='measured'
+        return row
 
 
     def fifo_case(self,p,case,invoke,measure):
