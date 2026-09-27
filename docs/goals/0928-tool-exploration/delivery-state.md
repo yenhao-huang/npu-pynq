@@ -409,3 +409,13 @@ Final full focused validation: 341 passed, eight optional local-Yosys skips
 (--basetemp=.ic/pytest-expanded-16). Real timing positive/negative controls pass.
 Repository lint/sim passed. Fifth qualifying family is phase control; expanded
 acceptance remains incomplete. Only multiplier session 41858 remains live.
+
+Multiplier session 41858 is TERMINAL 18ccbd. All four cases and three pairs
+complete. The predeclared serial-to-two-bit comparison qualifies at both widths:
+16-bit throughput +44.29%, LUT reduction 2.80%; 32-bit throughput +61.88%, LUT
+reduction 1.46%, with resource growth within the throughput gate. Source-bound
+core/fixture cycle checks verify II=17 -> 9 and II=33 -> 17. This is qualifying
+family six. The separate parallel-to-serial area comparisons remain tradeoffs:
+LUT savings 67.18%/81.92% but throughput losses 86.56%/92.27%. Preserve all four
+objectives/cases in the global denominator. No physical sessions remain live.
+Five operations and the full all-case acceptance audit remain unfinished.
