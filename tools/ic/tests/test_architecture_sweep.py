@@ -235,3 +235,21 @@ def test_skid_pipeline_rejects_stage_count_change(store,tmp_path,monkeypatch):
     p=dict(study_name='bad_stages',cases=[dict(name='s8',generator='synth_skid_buffer',baseline=dict(stages=8),candidate=dict(stages=16),objective='throughput')],verify_only=True)
     with pytest.raises(InvalidInput,match='Stream geometry differs'):
         dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+
+
+def test_matrix_pipeline_uses_batch_ii_and_source_roles(store,tmp_path,monkeypatch):
+    calls=mock_execution(monkeypatch)
+    p=dict(study_name='matrix_checks',cases=[dict(name='w16_n2',generator='synth_systolic_tile',baseline=dict(width=16,size=2,architecture='parallel'),candidate=dict(width=16,size=2,architecture='systolic'),objective='area')],verify_only=False,repeats=1)
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert result['ok'],result
+    row=result['data']['cases'][0]
+    assert row['protocol_contract']=='ready_valid_matrix' and row['transaction_unit']=='matrix_batch'
+    assert [r['data']['verified_initiation_interval'] for r in row['checks']]==[1,1,5,5]
+    assert calls.count('clocked_ppa')==2
+
+
+def test_matrix_pipeline_rejects_different_dimensions(store,tmp_path,monkeypatch):
+    mock_execution(monkeypatch)
+    p=dict(study_name='bad_matrix',cases=[dict(name='n2',generator='synth_systolic_tile',baseline=dict(size=2),candidate=dict(size=3),objective='area')],verify_only=True)
+    with pytest.raises(InvalidInput,match='operand widths differ'):
+        dispatch('architecture_sweep',p,store=store,cwd=tmp_path)

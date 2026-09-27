@@ -19,7 +19,7 @@ from ...synth.exploration import Result
 from .. import CATEGORY
 
 
-GENERATORS=Literal['synth_skid_buffer','synth_banked_regfile','synth_fsm','synth_booth_multiplier','synth_serial_multiplier','synth_divider','synth_crc_parallel','synth_lfsr_jump','synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
+GENERATORS=Literal['synth_systolic_tile','synth_skid_buffer','synth_banked_regfile','synth_fsm','synth_booth_multiplier','synth_serial_multiplier','synth_divider','synth_crc_parallel','synth_lfsr_jump','synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
 
 
 class Case(BaseModel):
@@ -139,7 +139,7 @@ class Sweep:
                 if case.generator in ('synth_fsm','synth_banked_regfile','synth_skid_buffer'):
                     cases.append(self.registered_state_case(p,case,invoke,measure))
                     continue
-                if case.generator in ('synth_serial_multiplier','synth_divider'):
+                if case.generator in ('synth_serial_multiplier','synth_divider','synth_systolic_tile'):
                     cases.append(self.arithmetic_case(p,case,invoke,measure))
                     continue
                 if case.generator=='synth_fifo':
@@ -247,7 +247,7 @@ class Sweep:
 
 
     def arithmetic_case(self,p,case,invoke,measure):
-        row=dict(name=case.name,objective=case.objective,generator=case.generator,protocol_contract='ready_valid_arithmetic',records=[],attempts=[],checks=[],accepted=False)
+        row=dict(name=case.name,objective=case.objective,generator=case.generator,protocol_contract='ready_valid_matrix' if case.generator=='synth_systolic_tile' else 'ready_valid_arithmetic',transaction_unit='matrix_batch' if case.generator=='synth_systolic_tile' else 'arithmetic_result',records=[],attempts=[],checks=[],accepted=False)
         designs=[]
         for label,params in [('baseline',case.baseline),('candidate',case.candidate)]:
             generated=invoke(case.name+'-'+label+'-generate',case.generator,params)
@@ -259,13 +259,14 @@ class Sweep:
                 expected=data['timing_sha256'] if fixture else data['source_sha256']
                 if fingerprint([Path(path) for path in files],top)!=expected:
                     raise InvalidInput('Generated arithmetic source changed')
-                checked=invoke(case.name+'-'+label+('-fixture' if fixture else '-protocol'),'latency_throughput',dict(files=files,top=top,width=data['width'],operation=data['operation'],latency_cycles=data['latency_cycles'],expected_ii=data['initiation_interval'],timing_fixture=fixture,random_cycles=8192,timeout_s=p.vector_timeout_s))
+                checked=invoke(case.name+'-'+label+('-fixture' if fixture else '-protocol'),'latency_throughput',dict(files=files,top=top,width=data['width'],operation=data['operation'],size=data.get('size',2),latency_cycles=data['latency_cycles'],expected_ii=data['initiation_interval'],timing_fixture=fixture,random_cycles=8192,timeout_s=p.vector_timeout_s))
                 row['checks'].append(checked)
                 if not checked['ok']:
                     row['status']='correctness_not_established';return row
                 if checked['data']['source_sha256']!=expected or checked['data']['verified_latency_cycles']!=data['latency_cycles'] or checked['data']['verified_initiation_interval']!=data['initiation_interval']:
                     raise InvalidInput('Arithmetic cycle evidence mismatch')
-        if any(designs[0][key]!=designs[1][key] for key in ('width','operation','fixture_observation_delay_cycles')):
+        geometry=('width','operation','fixture_observation_delay_cycles') + (('size','input_width','output_width') if case.generator=='synth_systolic_tile' else ())
+        if any(designs[0][key]!=designs[1][key] for key in geometry):
             raise InvalidInput('Arithmetic operation or operand widths differ')
         if p.verify_only:
             row['status']='verified';return row

@@ -341,3 +341,44 @@ Operations 38 (systolic tile) and 50 (whole-study acceptance audit) remain.
 All-case aggregation, completed factorial experiment and final coverage audit
 are still required. Expanded acceptance is incomplete. Usage last checked:
 54% remaining, above the mandatory below-30% stop threshold; no reset used.
+
+
+## Spatial matrix checkpoint (49 operations)
+
+Operation 38 generates signed square matrix tiles with parallel arithmetic or a
+true 2D systolic wavefront. Each PE forwards operands to its right/bottom neighbor
+and accumulates one output; boundary injection is skewed. Exact output width is
+2*element_width+ceil(log2(size)). The independent matrix oracle has no PE state
+or injection schedule. The shared transaction checker verifies reset cancellation,
+held results, every ready/valid cycle and calibrated batch latency/II. Nine
+mutation controls detect forwarding, skew, signedness, accumulation, reset,
+hold, latency, II and fixture errors. Dimensions 2..4 and widths 8..32 are bounded.
+
+Study a971e4 passes all eight core/fixture checks for 2x2 matrices at 16/32 bits,
+with 8192 stress cycles per role. Parallel minimum latency/II are 1/1; systolic
+values are 5/5, and timing observations add two cycles. Throughput counts matrix
+batches, not individual MACs. Physical session 34631 is live with a predeclared
+area objective and three Basic-flow pairs. The focused matrix/arithmetic/sweep/
+registry suite passes 83 tests. Published 6a00269 hosted CI passed.
+
+Skid session 12766 is TERMINAL 0f05ab. Both configurations complete all three
+pairs: throughput +3.79%/+20.52%, but LUT growth +2175%/+3423.33%. Neither qualifies
+under the unconditional resource gates. All twelve timing-coverage audits pass.
+FIFO-capacity session 13279 is TERMINAL b9190f. At fixed width16/depth128,
+auto -> distributed increases LUTs 240.91% and reduces throughput 3.08%, while
+removing 0.5 BRAM. All six timing audits pass; this is not a qualifying gain.
+
+The completed source-bound storage-by-depth factorial analysis ac58d0 measures
+an interaction of +31 LUTs and -11.038 million transactions/s: the storage-policy
+cost grows with depth64 -> 128 at width16. Depth is a workload factor, not an
+optimization. All old objectives and the supplemental area case remain in the
+global denominator. Historical depth64 reports remain coverage-unaudited.
+
+Seven qualifying families remain established. Only operation 50 (acceptance_audit)
+is unimplemented; the whole-study objective aggregate and full coverage audit
+remain unproved. The goal and PR remain incomplete. Last usage check: 53%
+remaining, above the below-30% stop threshold; no reset credit used.
+
+Final focused validation: 420 passed, eight optional native-Yosys skips
+(--basetemp=.ic/pytest-expanded-19). Repository lint/sim passed. Matrix physical
+session 34631 is the only remaining live experiment.

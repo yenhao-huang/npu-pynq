@@ -324,3 +324,22 @@ interaction. Never label a capacity increase itself as an optimization.
 Register-file study 7c99e5 and all twelve timing audits are preserved in
 regfile-physical-study.json and regfile-timing-audits.json. Each size's paired
 summary preserves the small throughput reduction alongside the LUT savings.
+
+
+## Signed systolic matrix tile
+
+Run exp/tool-exploration/exp-tool-38-kung/study.py with --verify-only and
+--container codex-sandbox-agent-workspace to reproduce the two 2x2 matrix cases
+at 16/32-bit element widths. Omit --verify-only for all three physical pairs.
+Evidence systolic-verification.json records eight core/fixture checks. Use
+latency_throughput with operation=matrix, explicit size/width and generated
+latency/II. Inputs are row-major A then B; outputs are row-major exact signed C.
+The benchmark counts matrix batches and includes setup/drain costs.
+
+Completed skid-physical-study.json and fifo-capacity-physical-study.json retain
+all resource regressions. Their corresponding timing-audits.json files record
+12 and six passing coverage checks. Reproduce the full factorial analysis with:
+`python exp/tool-exploration/exp-tool-47-rtlrewriter/analyze.py --supplement
+exp/tool-exploration/exp-tool-47-rtlrewriter/output/study-b9190f.json` as one
+command, replacing the supplemental filename when rerunning that study.
+The committed result is evidence/fifo-factorial-ablation.json.

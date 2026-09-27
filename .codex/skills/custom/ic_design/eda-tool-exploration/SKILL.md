@@ -150,3 +150,11 @@ failures suppress effect estimation. Distinguish workload factors from changes
 that preserve the same workload. Use native-unit conditional effects and
 interactions to explain costs, not to revise objectives or manufacture extra
 family wins. Reruns do not establish statistical confidence or causation.
+
+
+For systolic matrix tiles, verify signed full-precision matrix semantics with
+an oracle that does not model PE forwarding. Cover nonsymmetric matrices,
+identity, extrema and every row/column product route. Count setup and wavefront
+drain in latency/II, and use matrix batches as the throughput unit. Report all
+DSP and storage costs. A throughput loss cannot be hidden by presenting MAC
+frequency alone. Simulator coverage at larger sizes is not physical evidence.

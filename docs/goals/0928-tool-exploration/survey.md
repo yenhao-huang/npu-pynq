@@ -231,3 +231,15 @@ principle to measured RTL configurations. Complete binary factorial finite
 differences extend the paper connection; they are not a claimed implementation
 of its partitioning, retrieval or search algorithm. Independent source-bound
 correctness remains required before interpreting PPA attribution.
+
+
+## Spatial matrix computation
+
+H. T. Kung, *Why Systolic Architectures?*, Computer 15(1), 37-46 (1982),
+DOI 10.1109/MC.1982.1653825,
+https://www.eecs.harvard.edu/~htk/publication/1982-kung-why-systolic-architecture.pdf.
+Operation 38 adapts repeated local MAC cells and neighbor operand forwarding to
+small signed matrix batches. A skewed 2D wavefront exposes spatial reuse and
+explicit fill/drain latency. The parallel baseline and systolic implementation
+use the same complete matrix semantics; no historical chip replication or paper
+performance result is claimed.

@@ -1,0 +1,41 @@
+{
+  "study_name": "systolic_matrix_tile",
+  "cases": [
+    {
+      "name": "w16_n2",
+      "generator": "synth_systolic_tile",
+      "baseline": {
+        "width": 16,
+        "size": 2,
+        "architecture": "parallel"
+      },
+      "candidate": {
+        "width": 16,
+        "size": 2,
+        "architecture": "systolic"
+      },
+      "objective": "area"
+    },
+    {
+      "name": "w32_n2",
+      "generator": "synth_systolic_tile",
+      "baseline": {
+        "width": 32,
+        "size": 2,
+        "architecture": "parallel"
+      },
+      "candidate": {
+        "width": 32,
+        "size": 2,
+        "architecture": "systolic"
+      },
+      "objective": "area"
+    }
+  ],
+  "repeats": 3,
+  "measurement_attempts": 2,
+  "period_ns": 5,
+  "optimization_mode": "Basic",
+  "vector_timeout_s": 120,
+  "require_proof": true
+}

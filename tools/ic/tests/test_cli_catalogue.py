@@ -38,6 +38,6 @@ runpy.run_module('ic_cli.main', run_name='__main__')
         'synth_crc_parallel', 'synth_lfsr_jump',
         'gf2_equivalence',
         'synth_serial_multiplier', 'synth_divider', 'latency_throughput', 'synth_booth_multiplier', 'synth_fsm', 'timing_constraint_audit', 'synth_banked_regfile', 'synth_skid_buffer',
-        'resource_tradeoff', 'paired_repeat_summary', 'candidate_ablation',
+        'resource_tradeoff', 'paired_repeat_summary', 'candidate_ablation', 'synth_systolic_tile',
         'netlist_profile', 'critical_cone', 'fanout_analysis', 'memory_inference',
     }

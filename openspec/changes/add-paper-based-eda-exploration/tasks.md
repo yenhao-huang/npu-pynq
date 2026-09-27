@@ -108,3 +108,14 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Establish a seventh qualifying family while preserving throughput losses.
 - [ ] Complete the additional capacity block and physical interaction analysis.
 - [ ] Finish operations 38 and 50, global objective aggregation and full acceptance.
+
+
+## Spatial matrix and completed buffering studies
+
+- [x] Implement operation 38 as a true 2D signed matrix wavefront.
+- [x] Verify 16/32-bit substantial core/fixture cases and nine mutation controls.
+- [x] Complete skid physical repeats and preserve resource-growth disqualification.
+- [x] Complete the FIFO capacity block and source-bound factorial interaction.
+- [x] Audit all eighteen new skid/capacity physical timing records.
+- [ ] Complete matrix physical repeats and operation 50.
+- [ ] Prove every whole-study acceptance gate, including the all-case aggregate.
