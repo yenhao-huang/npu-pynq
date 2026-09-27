@@ -27,4 +27,5 @@ runpy.run_module('ic_cli.main', run_name='__main__')
         'value_range', 'show_wave', 'synth',
         'optimization_rules', 'width_advice', 'ppa_measure', 'ppa_provenance',
         'ppa_compare', 'ppa_pareto', 'ppa_reward', 'ppa_select', 'comb_check', 'rtl_evaluate',
+        'clocked_ppa', 'vector_equivalence', 'yosys_equivalence', 'synth_adder_tree',
     }

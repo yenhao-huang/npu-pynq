@@ -62,3 +62,11 @@ Record count, topic priorities, paths, available EDA tools and the usage thresho
 - Stop below the user's usage threshold even if acceptance is unfinished.
 
 See references/workflow.md for the initial tool map and practical limitations.
+
+## Expanded acceptance
+
+When continuing the 0928 goal, use the complete acceptance-50.md contract under
+repo docs/goals/0928-tool-exploration. Target 50 substantive tools and >=40 PPA
+operations; require diverse, nontrivial microarchitectures and material measured
+improvements. Never count the first ten-tool milestone as completion. Record
+latency, II, FPGA resource trade-offs and all regressions. Keep the 30% stop rule.

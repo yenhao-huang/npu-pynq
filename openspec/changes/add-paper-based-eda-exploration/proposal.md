@@ -13,3 +13,12 @@ Publish modular experiments, a paper survey, results, and a reusable skill.
 ## Non-goals
 No retraining an LLM, reproducing entire published frameworks, NPU RTL changes,
 ASIC signoff, board deployment, or fabricated performance claims.
+
+## Expanded requirements
+
+The controlling user goal is now 50 tools and substantial verified PPA gains on
+diverse microarchitectures. See docs/goals/0928-tool-exploration/acceptance-50.md
+for numerical gates. The initial ten tools are only the first milestone.
+The physical flow must use clocked OOC boundaries and distinguish throughput,
+latency and resource classes. Verification must scale past exhaustive 16-bit
+inputs and include formal combinational proofs and sequential scoreboards.

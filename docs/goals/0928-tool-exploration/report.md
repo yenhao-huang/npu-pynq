@@ -3,7 +3,14 @@
 PR: [#81](https://github.com/yenhao-huang/npu-pynq/pull/81). Issue: [#80](https://github.com/yenhao-huang/npu-pynq/issues/80). Base: dev at
 4a106811d4aaf104be99896606e68c6c8d20165c. Experiment date: 2026-09-28 (Asia/Taipei).
 
-## Outcome
+## Status: expanded goal in progress
+
+The user expanded the target to 50 tools with substantial performance or area
+gains across diverse microarchitectures. [acceptance-50.md](acceptance-50.md)
+controls completion. The following is the historical first-milestone result and
+does not satisfy the expanded acceptance.
+
+## Initial milestone outcome
 
 Ten new callable operations were implemented; eight directly support PPA
 exploration. Each has a modular experiment. An original four-bit arithmetic
@@ -141,3 +148,31 @@ as final evidence. The failed tool-10 experiment was resumed independently and p
 run reproduced 8 LUTs and 8.133/8.050 ns; its negative control failed at input
 index 2 and launched only the checker child. All ten final evidence records share
 the same code/config/source/environment fingerprint.
+
+## Expansion checkpoint: physical and correctness foundations
+
+Four additional registry operations are implemented: `clocked_ppa`,
+`vector_equivalence`, `yosys_equivalence`, and `synth_adder_tree`. This is
+14 implemented exploration operations, not 50 accepted tools. The reduction
+generator's architecture variants count as one tool. Acceptance remains open.
+
+Focused validation passed 42 tests before adding local-Yosys CI controls.
+Actual container Yosys 0.23 proved a 16-bit four-input reduction, rejected a
+wrong candidate, and rejected a mismatched input width. Larger SAT cases and
+three-repeat physical studies are still running; no family is accepted yet.
+
+Initial 16-bit, 16-operand results on Vivado 2026.1 build 6511674, Zynq-7020,
+registered OOC boundaries, requested period 5 ns, latency=1 and II=1:
+
+| Architecture | LUT | FF | DSP / BRAM | Estimated MHz | Assessment |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Serial baseline | 141 | 272 | 0 / 0 | 115.141 | Baseline |
+| Balanced | 141 | 272 | 0 / 0 | 117.883 | About 2.38% throughput gain; below threshold |
+| Carry-save | 372 | 272 | 0 / 0 | 166.472 | About 44.6% throughput gain, 163.8% more LUTs; tradeoff |
+
+These are first-repeat observations, not accepted aggregate results. All three
+miss the requested 200 MHz clock; the MHz column is inferred from setup slack,
+not a timing-closure or board-performance claim. The carry-save candidate fails
+the resource-growth gate despite its speedup. The next iteration must find a
+better area/speed balance or a different architecture; neither candidate is
+counted as a qualifying improvement.

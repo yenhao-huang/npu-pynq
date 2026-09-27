@@ -1,0 +1,9 @@
+{
+  "op": "clocked_ppa",
+  "part": "xc7z020clg400-1",
+  "period_ns": 5,
+  "directive": "Default",
+  "latency_cycles": 1,
+  "initiation_interval": 1,
+  "study": "../exp-tool-14-rover/study.py"
+}

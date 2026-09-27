@@ -1,0 +1,10 @@
+{
+  "op": "vector_equivalence",
+  "random_vectors": 8192,
+  "seed": 928,
+  "input_widths": [
+    256,
+    512
+  ],
+  "study": "../exp-tool-14-rover/study.py"
+}

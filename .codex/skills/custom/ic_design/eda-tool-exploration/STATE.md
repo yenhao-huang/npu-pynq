@@ -18,3 +18,11 @@ Remaining usage / stop threshold: 75% / 30%
 
 Next command: follow CI and review on PR #81.
 Blockers: no new-tool blockers. Full-suite Windows limitations are recorded in report.md; OpenSpec CLI unavailable.
+
+## Expanded run
+
+Status: in_progress, superseding the completed initial ten-tool milestone.
+Target: 50 tools / at least 40 PPA-related operations.
+Acceptance: ../../../../../docs/goals/0928-tool-exploration/acceptance-50.md.
+Next: clocked PPA, scalable correctness, substantive microarchitecture generators.
+Remaining usage: 74%; stop below 30%. No new questions requested.

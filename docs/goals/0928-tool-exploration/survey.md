@@ -34,3 +34,23 @@ verification. These are worthwhile future work but are not disguised as finished
 features here. The combinational pipeline is intentionally bounded and records
 that scope in every result. FPGA LUT/delay results do not establish ASIC PPA or
 NPU system performance. Paper-reported percentages are not used as local metrics.
+
+## Expanded arithmetic and physical-feedback foundations
+
+[ROVER (TCAD 2024)](https://arxiv.org/html/2406.12421v1) explores arithmetic
+rewrites across widths and signedness, extracts implementations using a cost
+model, and checks transformations. The expanded tools borrow its separation of
+rewrite construction, correctness and cost; they do not implement its e-graph
+engine. Serial, balanced and carry-save reduction are one generator operation
+with three alternatives, not three entries in the tool count.
+
+The new `yosys_equivalence` operation uses a flattened combinational miter and
+Yosys SAT. `vector_equivalence` adds reproducible large-interface diagnostics;
+it cannot replace the proof. `clocked_ppa` extends physical-feedback evaluation
+to registered OOC boundaries, resource-class accounting and II-normalized
+throughput. Its timing estimate is scoped to register-to-register setup paths.
+
+[PrefixLLM](https://arxiv.org/html/2412.02594v1) and
+[PrefixRL](https://arxiv.org/abs/2205.07000) motivate structured prefix-network
+exploration with synthesis feedback. Prefix generators and their experiments
+remain planned work, not delivered tools.

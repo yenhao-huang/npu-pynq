@@ -15,7 +15,7 @@ jobs:
       - name: Install open-source EDA tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y verilator iverilog
+          sudo apt-get install -y verilator iverilog yosys
 
       - uses: actions/setup-python@v5
         with:
@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m venv .venv
           .venv/bin/python -m pip install -e tools/ic pytest
-          .venv/bin/python -m pytest tools/ic/tests/test_exploration.py tools/ic/tests/test_registry.py tools/ic/tests/test_cli_catalogue.py -q
+          .venv/bin/python -m pytest tools/ic/tests/test_exploration.py tools/ic/tests/test_wide_exploration.py tools/ic/tests/test_registry.py tools/ic/tests/test_cli_catalogue.py -q
 
       - name: Lint RTL
         run: make -C src/test lint

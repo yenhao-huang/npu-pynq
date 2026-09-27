@@ -25,3 +25,39 @@ OpenSpec CLI is not installed. Raw evidence is in .ic and compact summaries are
 under docs/goals/0928-tool-exploration/evidence/.
 
 CI was in progress when the PR was created. Consult the PR for the exact final head status.
+
+## Expanded user goal (supersedes initial completion)
+
+The user now requires fifty substantive tools and diverse microarchitectures with
+clear measured performance or area improvement. Follow acceptance-50.md. The old
+10-tool milestone and 1.02% result do not satisfy this goal. Resume development on
+the same issue branch and PR. Status: in_progress. Remaining usage at expansion:
+74%. Prior turn classification: progress (ten tools, actual measurements and PR).
+
+### Running expansion experiments
+
+Four foundation operations are now implemented (14 total exploration ops).
+Focused tests, including 16/32-bit reduction simulations and interface negative
+controls, are in tools/ic/tests/test_wide_exploration.py. CI now includes them
+and installs open-source Yosys; Vivado remains local only.
+
+Active processes at this checkpoint:
+- Physical study: exec session 14429, exp-tool-14-rover/study.py; three repeats
+  for serial/balanced/compressor at (width,lanes)=(16,16),(32,16). Do not start
+  another copy until this process completes. Its namespace reflects source
+  content at launch; subsequent validation-only edits do not change that run.
+- Formal study: exec session 75065, exp-tool-13-rover/check.py with existing
+  codex-sandbox-agent-workspace container. Each SAT attempt has a 120 s limit.
+
+The current physical runner's resume key does not include environment versions;
+that must be corrected before final reproducibility acceptance. Large formal
+proof results, complete paired repeats, 36 additional substantive tools,
+sequential/memory families and full acceptance remain pending. First-repeat
+reduction data show no unconditional qualifying win (see report.md).
+
+Latest focused validation: 43 passed, two local-Yosys tests skipped; actual
+container controls passed separately. Repository make lint/sim passed, with
+unchanged simulation outputs already up to date. The 16-bit/16-operand balanced
+SAT attempt timed out after 120 s (run 9ca867), confirmed through the
+proof-log artifact handle. Do not replace inconclusive proof with a claim
+of formal acceptance.

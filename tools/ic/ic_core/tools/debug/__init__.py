@@ -183,3 +183,5 @@ CATEGORY = register_category(
 from . import fst, vcd  # noqa: E402,F401
 
 from . import comb  # noqa: E402,F401
+from . import vectors  # noqa: E402,F401
+from . import formal  # noqa: E402,F401

@@ -1,0 +1,15 @@
+{
+  "op": "synth_adder_tree",
+  "widths": [
+    16,
+    32
+  ],
+  "lanes": 16,
+  "architectures": [
+    "serial",
+    "balanced",
+    "compressor"
+  ],
+  "repeats": 3,
+  "objective": "throughput_mtransactions_s"
+}
