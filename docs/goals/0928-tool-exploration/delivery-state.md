@@ -143,3 +143,42 @@ Container AIG controls pass separately (positive ac02b3, negative 0fea7e).
 The timeout helper regression passes on this Windows host. These results
 include the final shared-process cleanup implementation, not only the earlier
 parent-only cleanup attempt.
+
+## Registered storage and diagnostic checkpoint
+
+Implemented inventory: 32 operations (18 remain). IDs 39-42 now have real
+Yosys experiments and unit tests. MCM session 31080 is TERMINAL success, parent
+6e132a: both configurations pass area and throughput gates for all three pairs.
+It is the second complete qualifying family. Priority remains the first.
+
+Netlist study session 97218 is TERMINAL success. Both FIFO sizes and mappings,
+and all MCM graphs, were analyzed. Pilot 22343 also completed. The xc7 estimator
+finds BRAM substitution in the 32x128 auto circular FIFO; a distributed policy
+was added and verified to avoid BRAM in the structural estimate (profile 3366da).
+
+Leading-zero Basic session 23666 is TERMINAL, parent b652b3. Original w128 tree
+completed but misses the threshold; w64 and both binary-search cases have
+measurement failures. Preserve leading-zero-basic-attempts.json. New sweeps
+now record bounded retries (default two attempts); the old study had one attempt.
+A future repair must retain all prior failures and existing source/flow evidence.
+
+Live physical studies at this checkpoint:
+- 69500: FIFO auto inference, two configurations, three pairs, Basic flow,
+  two attempts maximum. Initial 16x64 candidate uses 0.5 BRAM, so cannot pass
+  the unconditional area gate despite a large LUT reduction.
+- 21483: FIFO distributed-RAM revision, two added configurations, same measured
+  timing fixture, Basic flow and retry policy. Original auto data remains retained.
+
+The FIFO fixture has matched registered boundaries and a separately verified
+queue trace delayed two cycles. It is a timing environment, not a deployed
+external ready/valid adapter. Minimum latency is three cycles including fixture;
+II=1. Fixed and minimum latency kinds cannot be mixed in a paired comparison.
+
+Remaining full-goal work includes 18 distinct operations, at least one additional
+microarchitecture family beyond the current eleven generator families, four more
+qualifying family wins, missing proofs/measurements, ablations and the final
+all-case acceptance audit. Do not claim completion from 32 tool names.
+
+Validation for this checkpoint: 154 focused tests passed, six tests requiring a
+local Yosys executable skipped. Actual container netlist experiments passed
+separately. `make -C src/test lint sim` passed. Remaining usage is 66%.

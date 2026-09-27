@@ -1,0 +1,70 @@
+{
+  "scope": "Yosys estimate only; Vivado study pending",
+  "results": [
+    {
+      "profile": {
+        "ok": true,
+        "data": {
+          "source_sha256": "cf31dcb5f17c57bbe2415143d2ddea77115c4dca54421adedca74a3c8e7c2647",
+          "netlist_sha256": "343dfbf0cebb0ea979af2be942b6f8284ec66330eff0933ae03a140b969b1174",
+          "netlist": "3366da/netlist.json",
+          "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\042523-3366da-synth\\artifacts\\netlist.json",
+          "top": "fifo_dut",
+          "mapping": "xc7",
+          "engine": "$ docker exec -w /tmp/ic-netlist-3366da codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+          "cell_count": 187,
+          "cell_types": {
+            "LUT3": 34,
+            "LUT6": 1,
+            "MUXF7": 2,
+            "MUXF8": 1,
+            "LUT4": 1,
+            "LUT5": 17,
+            "LUT2": 1,
+            "INV": 2,
+            "CARRY4": 6,
+            "BUFG": 1,
+            "FDRE": 29,
+            "IBUF": 36,
+            "OBUF": 34,
+            "RAM64M": 22
+          },
+          "output_bits_by_cell_type": {
+            "LUT3": 34,
+            "LUT6": 1,
+            "MUXF7": 2,
+            "MUXF8": 1,
+            "LUT4": 1,
+            "LUT5": 17,
+            "LUT2": 1,
+            "INV": 2,
+            "CARRY4": 48,
+            "BUFG": 1,
+            "FDRE": 29,
+            "IBUF": 36,
+            "OBUF": 34,
+            "RAM64M": 66
+          },
+          "log": "3366da/netlist.log"
+        },
+        "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+        "run_id": "3366da"
+      },
+      "analysis": {
+        "ok": true,
+        "data": {
+          "netlist_sha256": "343dfbf0cebb0ea979af2be942b6f8284ec66330eff0933ae03a140b969b1174",
+          "logical_memory_bits": 0,
+          "logical_memories": [],
+          "physical_primitives": {
+            "register_output_bits": 29,
+            "distributed_ram_primitives": 22
+          },
+          "unclassified": []
+        },
+        "note": "Reports logical memories and mapped primitive classes separately. Registers may store control or datapath state; they are not automatically FIFO storage. No Vivado inference or power claim.",
+        "run_id": "b13048"
+      }
+    }
+  ]
+}

@@ -261,3 +261,47 @@ also use an internal timeout so terminating the Docker client cannot leave ABC
 running. A controlled container test returned exit 124 and timed_out=true;
 the timed-out job directory had no remaining process. This fixes experiment
 resource accounting; it does not count as an additional exploration tool.
+
+## Storage and netlist diagnostics checkpoint
+
+Implemented inventory is 32 exploration operations. New diagnostics provide
+source-bound Yosys profiles, endpoint fan-in/depth, fanout pin counts and memory
+classification. All four ran on substantive FIFO and MCM structures. Their
+estimates are not routed Vivado measurements.
+
+MCM completed both 16/32-bit configurations and all three paired runs. LUT
+reductions are 50.2347% and 52.2459%; throughput increases are 35.4801% and
+33.7142%. All resource and correctness gates pass. This is the second family
+with complete qualifying evidence, after priority encoder. Full parent results
+and paired analyses are in evidence/mcm-physical-study.json and mcm-w*-paired.json.
+
+The Yosys xc7 estimates show:
+
+| FIFO configuration | Shift storage FF bits | Circular auto storage | Interpretation |
+| --- | ---: | --- | --- |
+| 16x64 | 1,031 | 25 FF bits + 6 distributed RAM primitives | Storage architecture changed |
+| 32x128 | 4,104 | 55 FF bits + 1 RAMB18 primitive | BRAM substitution must be reported |
+
+A distributed-only 32x128 candidate maps to 29 FF bits and 22 distributed RAM
+primitives, with no BRAM in this estimate. Vivado must confirm the actual resource
+tradeoff. MCM generic netlists reduce 16 arithmetic cells at seven structural
+levels to six cells at two levels. These unweighted levels explain structure;
+they are not measured timing delay.
+
+FIFO timing now includes common input and output registers. An independent
+queue trace verifies the two-cycle delayed fixture observations as well as the
+core protocol. The fixture is a controlled measurement environment, not a drop-in
+external FIFO protocol adapter. Empty/no-stall latency is reported as a minimum
+(three cycles including the fixture), with II=1; latency can increase with queue
+occupancy and backpressure. The measured source hash covers both core and fixture.
+
+Initial 16x64 auto-inference physical results are 1,178 -> 19 LUTs and
+1,068 -> 40 FFs, but BRAM grows 0 -> 0.5 tile. Therefore this is a resource
+tradeoff, not an unconditional area win. A separate distributed-RAM revision
+is predeclared and running. The auto study remains in the evidence and final
+denominator; it is not replaced by the constrained candidate.
+
+The pipeline now permits at most two implementation attempts by default and
+records every attempt. A transient failure is retained even when a retry passes.
+No repeated report can count as a fresh run. Leading-zero Basic revision b652b3
+remains incomplete due to failed physical attempts and is retained separately.

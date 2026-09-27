@@ -87,3 +87,11 @@ PPA-only gates never replace source-bound correctness or the full family audit.
 Record failed implementation attempts and retries separately. Optional AIG
 formal normalization may spend time in ABC before SAT; preserve timeout as
 inconclusive and ensure its processes terminate before further experiments.
+
+Use `netlist_profile` followed by digest-bound `critical_cone`, `fanout_analysis`
+and `memory_inference` to explain measured changes. Structural cell depth is not
+physical delay. Memory primitives from Yosys do not replace Vivado utilization.
+For FIFO sweeps, check both the core protocol and registered timing fixture;
+the fixture is an observation environment rather than a deployable FIFO adapter.
+Keep auto-inference and explicitly constrained memory policies as separate cases.
+Bound physical retries and preserve every failed attempt in the study evidence.

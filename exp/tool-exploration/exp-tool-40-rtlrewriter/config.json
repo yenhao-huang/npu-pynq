@@ -1,0 +1,22 @@
+{
+  "op": "critical_cone",
+  "fifo_configurations": [
+    {
+      "width": 16,
+      "depth": 64
+    },
+    {
+      "width": 32,
+      "depth": 128
+    }
+  ],
+  "mcm_widths": [
+    16,
+    32
+  ],
+  "mapping": [
+    "generic",
+    "xc7"
+  ],
+  "scope": "Structural estimates; not routed PPA"
+}

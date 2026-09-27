@@ -88,3 +88,14 @@ Physical-analysis tools validate clock/II consistency and separate LUT, FF,
 DSP and BRAM changes. Repeated results require distinct report handles and
 unchanged source/build/flow identities. These are engineering checks around
 ASPEN-style physical feedback, not extra claimed reproductions of its algorithm.
+
+## Structural diagnostics and constrained storage
+
+Yosys generic and xc7 netlists make the feedback loop inspectable: cell/operator
+attribution, fan-in depth and pin fanout identify concrete rewrite consequences,
+while memory classification detects storage substitutions. These diagnostics
+are engineering adaptations around the RTLRewriter/ASPEN feedback loop.
+The circular-storage comparison remains tied to Seto's scalar-replacement
+method. A distributed-RAM policy is an explicit target-resource constraint,
+not a claim that memory bits disappeared. The existing 0-BRAM baseline budget
+must be preserved for an unconditional LUT-area win.

@@ -159,3 +159,25 @@ Formal normalization defaults to word-level Yosys SAT. The optional aig mode
 uses techmap/ABC before SAT and is recorded in the result. It did not resolve
 the difficult 32-bit CSD case. Docker runs use an internal total time guard,
 including ABC preprocessing; exit 124 is recorded as a timeout, never proof.
+
+## Netlist and registered FIFO studies
+
+```powershell
+.venv/Scripts/python.exe exp/tool-exploration/netlist_study.py --container codex-sandbox-agent-workspace
+.venv/Scripts/python.exe exp/tool-exploration/exp-tool-34-scalar/physical_study.py
+.venv/Scripts/python.exe exp/tool-exploration/exp-tool-34-scalar/physical_study.py --distributed-revision
+```
+
+The two physical commands are separate predeclared candidate sets. Preserve both
+results; distributed storage does not replace or erase auto-inference data.
+The generic/xc7 netlists are estimates, and the RAM policy must be rechecked in
+actual Vivado utilization. Core and timing-fixture scoreboards both gate each
+physical case. The fixture delays observations by two cycles and is explicitly
+not a ready/valid adapter for external integration. Minimum latency and fixed
+latency are distinct measurement contracts.
+
+architecture_sweep now records each bounded implementation attempt, including
+failed attempts before a successful retry. Default maximum is two; this is not
+permission to rerun indefinitely or discard failed results. Existing live studies
+retain the implementation loaded at their start; do not launch duplicates merely
+because newer source gives a new checkpoint key.

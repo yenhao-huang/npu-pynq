@@ -91,3 +91,49 @@ def test_vivado_version_launcher_exit(monkeypatch,tmp_path,exit_code,version,acc
         assert sweep.identity(params,ctx)['vivado']['version'][0]=='vivado v2026.1'
     else:
         with pytest.raises(InvalidInput): sweep.identity(params,ctx)
+
+
+def test_retry_is_bounded_and_preserves_failure(store,tmp_path,monkeypatch):
+    calls=mock_execution(monkeypatch)
+    original=sweep.dispatch
+    attempts=0
+    def fail_once(op,params,**kwargs):
+        nonlocal attempts
+        if op=='clocked_ppa':
+            attempts+=1
+            if attempts==1: return dict(ok=False,run_id='failed-attempt',data={'exit_code':1})
+        return original(op,params,**kwargs)
+    monkeypatch.setattr(sweep,'dispatch',fail_once)
+    p=payload();p.update(verify_only=False,repeats=1,measurement_attempts=2)
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert result['ok'] and attempts==3
+    row=result['data']['cases'][0]
+    assert [r['ok'] for r in row['attempts']]==[False,True,True]
+    assert len(row['records'][0])==2
+
+
+def test_fifo_pipeline_checks_core_and_fixture(store,tmp_path,monkeypatch):
+    mock_execution(monkeypatch)
+    p=dict(study_name='fifo_checks',cases=[dict(name='d64',generator='synth_fifo',baseline=dict(width=16,depth=64,architecture='shift'),candidate=dict(width=16,depth=64,architecture='circular'),objective='area')],verify_only=True)
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert result['ok']
+    assert len(result['data']['cases'][0]['checks'])==4
+    assert result['data']['cases'][0]['protocol_contract']=='ready_valid_fifo'
+
+
+def test_failed_measurements_stop_at_attempt_limit(store,tmp_path,monkeypatch):
+    mock_execution(monkeypatch)
+    original=sweep.dispatch
+    attempts=0
+    def fail(op,params,**kwargs):
+        nonlocal attempts
+        if op=='clocked_ppa':
+            attempts+=1
+            return dict(ok=False,run_id=f'failure-{attempts}',data={'exit_code':1})
+        return original(op,params,**kwargs)
+    monkeypatch.setattr(sweep,'dispatch',fail)
+    p=payload();p.update(verify_only=False,repeats=3,measurement_attempts=2)
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert not result['ok'] and attempts==2
+    row=result['data']['cases'][0]
+    assert row['status']=='measurement_failed' and len(row['attempts'])==2

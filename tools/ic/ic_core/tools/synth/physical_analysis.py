@@ -24,6 +24,7 @@ class ClockRecord(BaseModel):
     optimization_mode: str | None = None
     implementation_threads: int | None = Field(default=None,ge=1,le=8)
     latency_cycles: int = Field(ge=1)
+    latency_kind: Literal['fixed','minimum'] = 'fixed'
     initiation_interval: int = Field(ge=1)
     metrics: dict[str,float]
     evidence: dict[str,str]
@@ -69,7 +70,7 @@ class RepeatsIn(ExplorationInput):
     objective: Literal['area','throughput'] = Field(description='Objective predeclared before seeing measurements.')
 
 
-CONTEXT=('tool','version','build','part','stage','period_ns','directive','implementation_threads','optimization_mode')
+CONTEXT=('tool','version','build','part','stage','period_ns','directive','implementation_threads','optimization_mode','latency_kind')
 RESOURCES=('luts','ffs','dsps','brams')
 
 
@@ -97,7 +98,7 @@ def compare(a,b):
     return dict(lut_reduction_pct=None if lut_ratio is None else (1-lut_ratio)*100,
                 throughput_gain_pct=(throughput_ratio-1)*100,throughput_ratio=throughput_ratio,
                 resource_delta=delta,resource_growth_pct=growth,
-                latency_cycles=dict(baseline=a.latency_cycles,candidate=b.latency_cycles),
+                latency_cycles=dict(baseline=a.latency_cycles,candidate=b.latency_cycles,kind=a.latency_kind),
                 initiation_interval=dict(baseline=a.initiation_interval,candidate=b.initiation_interval),
                 area_gate=area_win,throughput_gate=throughput_win,reasons=reasons)
 

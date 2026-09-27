@@ -21,6 +21,7 @@ class ClockedIn(ExplorationInput):
     device: str = Field(default=DEFAULT_PART, pattern=r'^[A-Za-z0-9_-]+$', description='Target FPGA part.')
     period_ns: float = Field(default=10, gt=0, allow_inf_nan=False, description='Requested clock period in nanoseconds.')
     latency_cycles: int = Field(ge=1, description='Caller-verified transaction latency; timing analysis does not verify protocol.')
+    latency_kind: Literal['fixed','minimum'] = Field(default='fixed',description='Whether latency_cycles is fixed or only the minimum under empty/no-stall conditions.')
     initiation_interval: int = Field(ge=1, description='Caller-verified sustained cycles per transaction.')
     directive: Literal['Default', 'Explore'] = Field(default='Default', description='Matched placement and routing directive.')
     optimization_mode: Literal['Default','Basic'] = Field(default='Default',description='Full optimization or explicit constant-propagation/sweep subset; matched per comparison.')
@@ -102,7 +103,7 @@ close $out
         fmax = 1000/critical_period
         record = dict(name=params.name, source_sha256=source_hash, tool='vivado', version=raw['version'], build=raw['build'],
                       part=params.device, stage='routed_clocked_ooc', period_ns=params.period_ns, directive=params.directive, implementation_threads=params.implementation_threads, optimization_mode=params.optimization_mode,
-                      latency_cycles=params.latency_cycles, initiation_interval=params.initiation_interval,
+                      latency_cycles=params.latency_cycles, latency_kind=params.latency_kind, initiation_interval=params.initiation_interval,
                       metrics=dict(resources, slack_ns=slack, critical_period_ns=critical_period,
                                    estimated_fmax_mhz=fmax, throughput_mtransactions_s=fmax/params.initiation_interval),
                       evidence={'metrics':ctx.run.handle(metrics.name),'utilization':ctx.run.handle(util.name),'timing':ctx.run.handle(timing.name),'log':log})

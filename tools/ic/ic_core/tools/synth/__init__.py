@@ -115,3 +115,4 @@ from . import networks  # noqa: E402,F401
 from . import fifo  # noqa: E402,F401
 from . import physical_analysis  # noqa: E402,F401
 from . import arithmetic  # noqa: E402,F401
+from . import netlist  # noqa: E402,F401

@@ -56,3 +56,25 @@ The shared subprocess helper now owns a Windows Job Object / POSIX process group
 formal Docker runs also use an internal timeout. AIG normalization is optional
 and recorded. It does not resolve the inconclusive 32-bit CSD case. Final focused
 validation is 135 passed, four local-Yosys skips, with real container controls.
+
+### Registered FIFO and netlist diagnostics
+
+Inventory is 32 implemented operations. MCM completed both configurations and
+all three paired repeats: LUT reductions 50.23% / 52.25%, throughput gains
+35.48% / 33.71%. Together with priority encoder, two families qualify so far.
+Leading-zero Basic study b652b3 ended with three measurement failures and one
+below-threshold result; retain it in the eventual all-case audit.
+
+Four digest-bound netlist operations have actual Yosys generic/xc7 experiments.
+They report structural estimates, never routed timing or Vivado resource claims.
+FIFO core and timing-fixture checks are independent. The fixture delays observed
+signals by two cycles and is not an external ready/valid adapter. Record minimum
+latency separately from fixed latency. Auto RAM inference can exchange LUTs for
+BRAM and fail the unconditional improvement gate.
+
+Active sessions: 69500 (auto FIFO) and 21483 (distributed revision), each two
+substantial configurations with three physical pairs and at most two attempts.
+Poll before restarting; all attempts and original auto cases must remain visible.
+Validation: 154 passed, six optional local-Yosys skips; make lint sim passed.
+Remaining usage at this checkpoint: 66%; stop below 30%. Eighteen operations,
+four more qualifying families and full acceptance aggregation remain unfinished.

@@ -25,7 +25,7 @@ jobs:
         run: |
           python -m venv .venv
           .venv/bin/python -m pip install -e tools/ic pytest
-          .venv/bin/python -m pytest tools/ic/tests/test_exploration.py tools/ic/tests/test_wide_exploration.py tools/ic/tests/test_network_exploration.py tools/ic/tests/test_architecture_sweep.py tools/ic/tests/test_fifo_exploration.py tools/ic/tests/test_arithmetic_exploration.py tools/ic/tests/test_physical_analysis.py tools/ic/tests/test_process_timeout.py tools/ic/tests/test_registry.py tools/ic/tests/test_cli_catalogue.py -q
+          .venv/bin/python -m pytest tools/ic/tests/test_exploration.py tools/ic/tests/test_wide_exploration.py tools/ic/tests/test_network_exploration.py tools/ic/tests/test_architecture_sweep.py tools/ic/tests/test_fifo_exploration.py tools/ic/tests/test_arithmetic_exploration.py tools/ic/tests/test_physical_analysis.py tools/ic/tests/test_process_timeout.py tools/ic/tests/test_netlist_analysis.py tools/ic/tests/test_registry.py tools/ic/tests/test_cli_catalogue.py -q
 
       - name: Lint RTL
         run: make -C src/test lint

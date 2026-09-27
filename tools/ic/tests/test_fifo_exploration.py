@@ -42,3 +42,35 @@ def test_stimulus_holds_backpressured_data():
 
 def test_fifo_rejects_non_power_capacity(store):
     with pytest.raises(InvalidInput): dispatch('synth_fifo',dict(depth=63),store=store)
+
+
+@pytest.mark.skipif(not shutil.which('iverilog'),reason='Icarus unavailable')
+@pytest.mark.parametrize('width,depth',[(16,64),(32,128)])
+@pytest.mark.parametrize('architecture',['shift','circular'])
+def test_registered_fixture_delayed_queue_trace(store,width,depth,architecture):
+    generated=dispatch('synth_fifo',dict(width=width,depth=depth,architecture=architecture),store=store)['data']
+    result=dispatch('sequential_scoreboard',dict(files=generated['timing_files'],top=generated['timing_top'],width=width,depth=depth,timing_fixture=True,random_cycles=8192),store=store)
+    assert result['ok'],result
+    assert result['data']['source_sha256']==generated['timing_sha256']
+    assert result['data']['observation_delay_cycles']==2
+
+
+@pytest.mark.skipif(not shutil.which('iverilog'),reason='Icarus unavailable')
+def test_fixture_latency_mismatch_rejected(store,tmp_path):
+    generated=dispatch('synth_fifo',dict(width=16,depth=64),store=store)['data']
+    timing=Path(generated['timing_files'][1]).read_text().replace('valid_out<=core_valid;', 'valid_out<=valid_q;')
+    altered=tmp_path/'wrong_fixture.sv';altered.write_text(timing)
+    result=dispatch('sequential_scoreboard',dict(files=[generated['files'][0],str(altered)],top='fifo_timing',width=16,depth=64,timing_fixture=True,random_cycles=512),store=store)
+    assert not result['ok']
+
+
+@pytest.mark.skipif(not shutil.which('iverilog'),reason='Icarus unavailable')
+def test_distributed_policy_preserves_protocol(store):
+    data=dispatch('synth_fifo',dict(width=32,depth=128,memory_style='distributed'),store=store)['data']
+    result=dispatch('sequential_scoreboard',dict(files=data['timing_files'],top=data['timing_top'],width=32,depth=128,timing_fixture=True),store=store)
+    assert result['ok']
+    assert result['data']['source_sha256']==data['timing_sha256']
+
+
+def test_shift_rejects_ram_policy(store):
+    with pytest.raises(InvalidInput): dispatch('synth_fifo',dict(architecture='shift',memory_style='block'),store=store)

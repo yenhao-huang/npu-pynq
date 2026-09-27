@@ -64,3 +64,9 @@ def test_same_source_not_optimization(store):
     p=pairs()[0];p['candidate']['source_sha256']=p['baseline']['source_sha256']
     out=dispatch('resource_tradeoff',p,store=store)['data']
     assert not out['area_gate'] and not out['throughput_gate']
+
+
+def test_fixed_and_minimum_latency_are_not_conflated(store):
+    p=pairs()[0];p['candidate']['latency_kind']='minimum'
+    with pytest.raises(InvalidInput,match='latency_kind'):
+        dispatch('resource_tradeoff',p,store=store)
