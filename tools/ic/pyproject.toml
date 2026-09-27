@@ -21,7 +21,7 @@ ic-toold = "ic_daemon.__main__:main"
 ic-mcp = "ic_mcp.server:main"
 
 [tool.setuptools]
-packages = ["ic_core", "ic_core.tools", "ic_core.tools.lint", "ic_core.tools.sim", "ic_core.tools.debug", "ic_core.tools.view", "ic_core.tools.synth", "ic_daemon", "ic_cli", "ic_mcp"]
+packages = ["ic_core", "ic_core.tools", "ic_core.tools.lint", "ic_core.tools.sim", "ic_core.tools.debug", "ic_core.tools.view", "ic_core.tools.synth", "ic_core.tools.pipeline", "ic_core.tools.pipeline.rtlrewriter", "ic_daemon", "ic_cli", "ic_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

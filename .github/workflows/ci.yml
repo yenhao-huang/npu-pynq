@@ -17,6 +17,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y verilator iverilog
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test paper-informed IC operations
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -e tools/ic pytest
+          .venv/bin/python -m pytest tools/ic/tests/test_exploration.py tools/ic/tests/test_registry.py tools/ic/tests/test_cli_catalogue.py -q
+
       - name: Lint RTL
         run: make -C src/test lint
 

@@ -107,3 +107,5 @@ CATEGORY = register_category(
 )
 
 from . import vivado, yosys  # noqa: E402,F401
+
+from . import exploration, measure  # noqa: E402,F401

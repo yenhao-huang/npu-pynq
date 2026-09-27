@@ -1,0 +1,105 @@
+{
+  "tool_id": "01",
+  "operation": "optimization_rules",
+  "paper": "rtlrewriter",
+  "hypothesis": "Retrieve area rules and their semantic preconditions.",
+  "input_sha256": "893c686afcf633f62d20bccfd6db7904ef5b0a9106c454ac33fafc36eac42b9c",
+  "environment": {
+    "python": "3.12.10",
+    "pydantic": "2.13.5",
+    "iverilog": {
+      "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+      "version": [
+        "Icarus Verilog version 13.0 (stable) (v13_0)"
+      ]
+    },
+    "vivado": {
+      "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+      "version": [
+        "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+        "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+      ]
+    }
+  },
+  "utc": "2026-09-27T18:36:34.257056+00:00",
+  "command": "python exp/tool-exploration/run.py --tool 01 --output C:/Users/User/Desktop/agent_workspace/npu/worktrees/npu-issue80-a/exp/tool-exploration/output",
+  "config": {
+    "operation": "optimization_rules",
+    "payload": {
+      "topics": [
+        "area",
+        "arithmetic"
+      ]
+    }
+  },
+  "result": {
+    "ok": true,
+    "data": {
+      "rules": [
+        {
+          "id": "share-adder",
+          "topics": [
+            "area",
+            "mux"
+          ],
+          "rewrite": "sel ? (a+b) : (a+c) -> a + (sel ? b : c)",
+          "preconditions": [
+            "Identical modular widths and signedness",
+            "Combinational outputs",
+            "Check mux-before-adder timing trade-off"
+          ],
+          "paper": "RTLRewriter",
+          "url": "https://arxiv.org/abs/2409.11414"
+        },
+        {
+          "id": "factor-product",
+          "topics": [
+            "area",
+            "arithmetic"
+          ],
+          "rewrite": "a*b + a*c -> a*(b+c)",
+          "preconditions": [
+            "Preserve all intermediate truncation semantics",
+            "Prove modular equivalence",
+            "Re-measure DSP and timing trade-offs"
+          ],
+          "paper": "ASPEN",
+          "url": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf"
+        },
+        {
+          "id": "constant-multiply",
+          "topics": [
+            "area",
+            "arithmetic"
+          ],
+          "rewrite": "x*constant -> shift/add candidate",
+          "preconditions": [
+            "Explicit signed extension and result width",
+            "Compare against native DSP inference",
+            "Avoid assuming fewer RTL operators means less area"
+          ],
+          "paper": "ASPEN",
+          "url": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf"
+        },
+        {
+          "id": "fsm-merge",
+          "topics": [
+            "area",
+            "fsm"
+          ],
+          "rewrite": "Merge states with matching output and transition behavior",
+          "preconditions": [
+            "Prove sequential equivalence including reset",
+            "Preserve unspecified-state semantics",
+            "Not supported by the combinational checker"
+          ],
+          "paper": "SymRTLO",
+          "url": "https://arxiv.org/abs/2504.10369"
+        }
+      ]
+    },
+    "note": "Curated retrieval inspired by RTLRewriter/SymRTLO/Mascot/ASPEN. Advice only; no automatic rewrite or correctness claim.",
+    "run_id": "20a99d"
+  },
+  "decision": "Inspect measured trade-offs and retain only correctness-checked candidates; no NPU or power claim."
+}

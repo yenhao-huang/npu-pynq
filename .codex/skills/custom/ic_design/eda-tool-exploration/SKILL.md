@@ -1,0 +1,64 @@
+---
+name: eda-tool-exploration
+description: Survey primary EDA papers, extract composable AI-assisted RTL optimization tools, implement and test them through the IC registry, run modular PPA experiments, and prepare an evidence-backed report and PR. Use for paper-based EDA tool exploration or extending IC tools from ICCAD/DAC research.
+---
+
+# EDA tool exploration
+
+Read the repository AGENTS.md and docs/rules before starting. Read this skill's
+references/rules/{filetree,env,state-rules}.md. Reset STATE.md from the template
+for a new run, or resume the existing state when explicitly requested.
+
+## Scope
+
+When parameters are missing and the user permits questions, ask together:
+1. How many tools should be explored, and which topics deserve emphasis (PPA,
+   formal verification, simulation, debugging)? Default: 10 tools, 8 PPA-related.
+2. Where should the modular experiments live? Default: exp/tool-exploration/.
+
+If the user says not to ask, apply the provided goal and these defaults directly.
+Record count, topic priorities, paths, available EDA tools and the usage threshold.
+
+## Workflow
+
+1. Check remaining Codex usage before expensive work and between experiment
+   batches. Remaining = 100 minus usedPercent. If any active window has less than
+   30% remaining, save the exact resume point and stop. Do not consume a reset.
+   If usage is unavailable, record that limitation; do not invent a percentage.
+2. Survey primary papers (ICCAD, DAC and relevant related venues/preprints).
+   Verify title, venue and method. Record citations and separate adaptations
+   from full reproductions. Do not copy paper performance numbers as local results.
+3. Claim one issue, create a dedicated worktree from dev, and prepare OpenSpec
+   artifacts for major changes. Preserve other worktrees and user edits.
+4. Define each tool's input/output contract, evidence scope, paper origin and
+   acceptance test. Reuse the IC registry. Keep general tools in lint/sim/debug/
+   synth and compositions in pipeline/<paper-abbreviation>/.
+5. Implement scoped operations with bounded runtime and clear failed/unknown
+   results. Add meaningful negative tests. Do not rewrite numeric or AXI contracts
+   as a side effect of tool exploration.
+6. For each experiment record: hypothesis -> config/command -> result -> decision
+   -> next step. Use exp-tool-<id>-<paper>/ folders, common fixtures, exact source
+   hashes, tool versions and conditions. Resume only matching completed inputs.
+7. Verify candidates before expensive PPA runs. comb_check is only exhaustive
+   binary simulation for explicitly combinational interfaces with <=16 input
+   bits; sequential rewrites require a separate suitable equivalence workflow.
+8. Compare compatible measurements; retain regressions, ties and Pareto trade-offs.
+   Report LUTs as FPGA resources, routed datapath delay as delay, and missing
+   power as unknown. Width reduction and synthetic test data are not measured PPA.
+9. Write report.md (tool purpose, origin, results, limitations and decisions) and
+   reproduce.md (environment, commands, expected evidence and failure handling).
+10. Run focused tests plus repository gates. Inspect the complete diff, commit on
+    the issue branch, and create a PR to dev if requested. Never merge by default.
+
+## Acceptance and stopping
+
+- Meet the requested tool count and PPA count; default 10 and 8.
+- Every tool has a runnable experiment, primary-paper connection and recorded result.
+- Include positive and negative correctness controls, provenance rejection,
+  source binding, missing/zero metric handling and budget exhaustion.
+- Deliver report, reproduction guide, modular experiments, skill and requested PR.
+- On a real blocker, preserve work and report the exact unverified gate.
+- A failed optimization experiment is useful evidence; do not manufacture a gain.
+- Stop below the user's usage threshold even if acceptance is unfinished.
+
+See references/workflow.md for the initial tool map and practical limitations.

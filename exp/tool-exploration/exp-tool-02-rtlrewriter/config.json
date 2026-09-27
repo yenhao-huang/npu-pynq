@@ -1,0 +1,11 @@
+{
+  "operation": "width_advice",
+  "payload": {
+    "a_min": 0,
+    "a_max": 15,
+    "b_min": 0,
+    "b_max": 15,
+    "operation": "add",
+    "declared_width": 16
+  }
+}

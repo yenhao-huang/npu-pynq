@@ -25,4 +25,6 @@ runpy.run_module('ic_cli.main', run_name='__main__')
     assert {tool['name'] for tool in tools} == {
         'lint', 'sim', 'signals', 'first_mismatch', 'value_at',
         'value_range', 'show_wave', 'synth',
+        'optimization_rules', 'width_advice', 'ppa_measure', 'ppa_provenance',
+        'ppa_compare', 'ppa_pareto', 'ppa_reward', 'ppa_select', 'comb_check', 'rtl_evaluate',
     }

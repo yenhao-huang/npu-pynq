@@ -173,3 +173,18 @@ See the
 
 See [pi prompts and expected results](docs/manual/demo.md) to verify tool loading,
 lint, simulation, waveform inspection and synthesis estimates.
+
+## Paper-informed RTL optimization
+
+The registry also includes `optimization_rules`, `width_advice`, `comb_check`,
+`ppa_measure`, `ppa_provenance`, `ppa_compare`, `ppa_pareto`, `ppa_reward`,
+`ppa_select`, and `rtl_evaluate`. The pipeline composes a bounded combinational
+check with local Vivado measurements and a compatible comparison. Use `ic tools`
+for their schemas. Complex CLI fields accept JSON objects or JSON object list
+items; MCP and HTTP accept native structured values.
+
+See the [exploration report](../../docs/goals/0928-tool-exploration/report.md)
+and [reproduction guide](../../docs/goals/0928-tool-exploration/reproduce.md).
+The checker does not prove sequential equivalence. Measurements report routed
+FPGA LUT/FF counts and combinational datapath delay; power and board performance
+are not measured by this flow.

@@ -1,0 +1,91 @@
+{
+  "tool_id": "04",
+  "operation": "ppa_measure",
+  "paper": "aspen",
+  "hypothesis": "Measure whether arithmetic sharing reduces routed FPGA LUTs or delay.",
+  "input_sha256": "893c686afcf633f62d20bccfd6db7904ef5b0a9106c454ac33fafc36eac42b9c",
+  "environment": {
+    "python": "3.12.10",
+    "pydantic": "2.13.5",
+    "iverilog": {
+      "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+      "version": [
+        "Icarus Verilog version 13.0 (stable) (v13_0)"
+      ]
+    },
+    "vivado": {
+      "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+      "version": [
+        "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+        "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+      ]
+    }
+  },
+  "utc": "2026-09-27T18:38:30.883564+00:00",
+  "command": "python exp/tool-exploration/run.py --tool 04 --output C:/Users/User/Desktop/agent_workspace/npu/worktrees/npu-issue80-a/exp/tool-exploration/output",
+  "config": {
+    "operation": "ppa_measure",
+    "constraint_ns": 10,
+    "timeout_s": 300
+  },
+  "result": {
+    "ok": true,
+    "measurements": [
+      {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "baseline",
+            "source_sha256": "3925a8d15bea827475672d09ce3ae5fad0a894fcac9f400356048587c40c7e38",
+            "tool": "vivado",
+            "version": "2026.1",
+            "part": "xc7z020clg400-1",
+            "constraint_ns": 10.0,
+            "stage": "routed_combinational",
+            "units": {
+              "luts": "count",
+              "ffs": "count",
+              "delay_ns": "ns"
+            },
+            "metrics": {
+              "luts": 8.0,
+              "ffs": 0.0,
+              "delay_ns": 8.133
+            },
+            "evidence": "223a8e/ppa.txt"
+          }
+        },
+        "note": "Routed combinational LUT/FF count and datapath delay. No power estimate, clock Fmax, board measurement, or sequential signoff.",
+        "run_id": "223a8e"
+      },
+      {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "candidate",
+            "source_sha256": "d28a6e28d1b78f840b8e5d93c2d965cbbf672563a7b6d3a04a04b373fe9b5e4e",
+            "tool": "vivado",
+            "version": "2026.1",
+            "part": "xc7z020clg400-1",
+            "constraint_ns": 10.0,
+            "stage": "routed_combinational",
+            "units": {
+              "luts": "count",
+              "ffs": "count",
+              "delay_ns": "ns"
+            },
+            "metrics": {
+              "luts": 8.0,
+              "ffs": 0.0,
+              "delay_ns": 8.05
+            },
+            "evidence": "66e94c/ppa.txt"
+          }
+        },
+        "note": "Routed combinational LUT/FF count and datapath delay. No power estimate, clock Fmax, board measurement, or sequential signoff.",
+        "run_id": "66e94c"
+      }
+    ]
+  },
+  "decision": "Inspect measured trade-offs and retain only correctness-checked candidates; no NPU or power claim."
+}

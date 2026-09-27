@@ -1,0 +1,47 @@
+{
+  "tool_id": "06",
+  "operation": "ppa_compare",
+  "paper": "aspen",
+  "hypothesis": "Report measured reductions and regressions without hiding either.",
+  "input_sha256": "893c686afcf633f62d20bccfd6db7904ef5b0a9106c454ac33fafc36eac42b9c",
+  "environment": {
+    "python": "3.12.10",
+    "pydantic": "2.13.5",
+    "iverilog": {
+      "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+      "version": [
+        "Icarus Verilog version 13.0 (stable) (v13_0)"
+      ]
+    },
+    "vivado": {
+      "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+      "version": [
+        "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+        "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+      ]
+    }
+  },
+  "utc": "2026-09-27T18:38:30.960282+00:00",
+  "command": "python exp/tool-exploration/run.py --tool 06 --output C:/Users/User/Desktop/agent_workspace/npu/worktrees/npu-issue80-a/exp/tool-exploration/output",
+  "config": {
+    "operation": "ppa_compare"
+  },
+  "result": {
+    "ok": true,
+    "data": {
+      "improvement_pct": {
+        "luts": 0.0,
+        "ffs": null,
+        "delay_ns": 1.0205336284273752
+      },
+      "delta": {
+        "luts": 0.0,
+        "ffs": 0.0,
+        "delay_ns": -0.08299999999999841
+      }
+    },
+    "note": "Positive improvement means reduction. A zero baseline has no defined percentage.",
+    "run_id": "f552d1"
+  },
+  "decision": "Inspect measured trade-offs and retain only correctness-checked candidates; no NPU or power claim."
+}

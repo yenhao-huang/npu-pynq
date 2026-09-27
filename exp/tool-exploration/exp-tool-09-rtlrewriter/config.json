@@ -1,0 +1,20 @@
+{
+  "operation": "ppa_select",
+  "payload": {
+    "candidates": [
+      {
+        "name": "share-adder",
+        "mean_reward": 0.2,
+        "visits": 3,
+        "estimated_cost_s": 60
+      },
+      {
+        "name": "constant-multiply",
+        "mean_reward": 0,
+        "visits": 0,
+        "estimated_cost_s": 120
+      }
+    ],
+    "budget_s": 90
+  }
+}

@@ -1,0 +1,7 @@
+- [x] Survey primary papers and define the operation boundaries.
+- [x] Claim issue #80 and branch from dev in a dedicated worktree.
+- [x] Implement ten typed operations and registry integration.
+- [x] Test validation failures, composition, and real combinational checking.
+- [x] Run ten modular experiments and record measured PPA scope.
+- [x] Publish report, reproduction instructions and exploration skill.
+- [ ] Run repository checks and publish a PR to dev.

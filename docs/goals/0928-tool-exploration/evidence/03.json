@@ -1,0 +1,46 @@
+{
+  "tool_id": "03",
+  "operation": "comb_check",
+  "paper": "rtlrewriter",
+  "hypothesis": "Mux-before-add preserves all 8192 binary input combinations.",
+  "input_sha256": "893c686afcf633f62d20bccfd6db7904ef5b0a9106c454ac33fafc36eac42b9c",
+  "environment": {
+    "python": "3.12.10",
+    "pydantic": "2.13.5",
+    "iverilog": {
+      "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+      "version": [
+        "Icarus Verilog version 13.0 (stable) (v13_0)"
+      ]
+    },
+    "vivado": {
+      "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+      "version": [
+        "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+        "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+      ]
+    }
+  },
+  "utc": "2026-09-27T18:36:34.996079+00:00",
+  "command": "python exp/tool-exploration/run.py --tool 03 --output C:/Users/User/Desktop/agent_workspace/npu/worktrees/npu-issue80-a/exp/tool-exploration/output",
+  "config": {
+    "operation": "comb_check"
+  },
+  "result": {
+    "ok": true,
+    "data": {
+      "passed": true,
+      "vectors": 8192,
+      "first_mismatch": null,
+      "reference_sha256": "3925a8d15bea827475672d09ce3ae5fad0a894fcac9f400356048587c40c7e38",
+      "candidate_sha256": "d28a6e28d1b78f840b8e5d93c2d965cbbf672563a7b6d3a04a04b373fe9b5e4e",
+      "logs": [
+        "3939fe/reference_vectors.log",
+        "3939fe/candidate_vectors.log"
+      ]
+    },
+    "note": "Exhaustive binary input simulation under the declared combinational contract. Not a sequential/formal equivalence proof; no X-input coverage.",
+    "run_id": "3939fe"
+  },
+  "decision": "Inspect measured trade-offs and retain only correctness-checked candidates; no NPU or power claim."
+}
