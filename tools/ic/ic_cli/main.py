@@ -216,7 +216,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_tools() -> dict:
-    from ic_daemon.app import describe
+    from ic_core.registry import describe
 
     return {"tools": [describe(c, o) for c, o in iter_ops()]}
 

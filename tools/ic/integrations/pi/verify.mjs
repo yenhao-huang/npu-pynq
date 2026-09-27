@@ -30,7 +30,7 @@ function resolvePi() {
 const pi = await import(resolvePi());
 const { createAgentSession, SessionManager, loadSkillsFromDir } = pi;
 
-const extension = process.argv[2] ?? ".pi/extensions/ic-design-tools.ts";
+const extension = process.argv[2] ?? "tools/ic/integrations/pi/extension.ts";
 const { session } = await createAgentSession({
   sessionManager: SessionManager.inMemory(),
   extensions: [extension],

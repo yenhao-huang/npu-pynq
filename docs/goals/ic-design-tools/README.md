@@ -5,7 +5,7 @@ so an agent's RTL loop gives feedback in seconds instead of waiting minutes for
 Vivado — and so none of that feedback costs more than a few kilobytes of
 context.
 
-Implements [`docs/plans/2026-0921-001-ic-design-tools-architecture.md`](../plans/2026-0921-001-ic-design-tools-architecture.md).
+Implements [`docs/plans/2026-0921-001-ic-design-tools-architecture.md`](../../plans/2026-0921-001-ic-design-tools-architecture.md).
 
 - [What you get](#what-you-get)
 - [Install](#install)
@@ -83,10 +83,11 @@ gets working lint, sim, debug and estimates.
 ## Attaching the tools to an agent
 
 For automatic dependency setup and a stdio MCP entry point distributed through
-npm, see [the npm package guide](../../tools/ic/README.npm.md). Its launcher
+npm, see [the npm package guide](../../../tools/ic/README.md). Its launcher
 downloads a pinned, checksum-verified OSS CAD Suite and installs locked Python
-dependencies on first startup. A local npm tarball can be tested before registry
-publication. The Python tool implementations and MCP schemas are shared with
+dependencies on first startup. Install the published
+[@jony2156/ai-eda-tools](https://www.npmjs.com/package/@jony2156/ai-eda-tools)
+package from npm. The Python tool implementations and MCP schemas are shared with
 the existing CLI and pi integration.
 
 Every surface is generated from the same registry and ends in the same
@@ -95,33 +96,22 @@ Every surface is generated from the same registry and ends in the same
 
 ### pi
 
-pi has no built-in MCP support — an explicit upstream design choice — so the
-integration is an **extension** plus a **skill**. Both are already committed:
-
-| File | Role |
-| --- | --- |
-| `.pi/extensions/ic-design-tools.ts` | Registers all eight tools as native pi tools |
-| `.pi/settings.json` | Points pi's skill discovery at `.codex/skills` |
-| `.codex/skills/custom/ic_design/ic-design-tools/SKILL.md` | Tells the model when and how to use them |
-
-Nothing else is needed — pi auto-discovers `.pi/extensions/` once the project
-is trusted. Verify without spending a token on a model:
+From your RTL project, install the package from npm:
 
 ```bash
-node tools/ic/integrations/pi/verify.mjs
+pi install npm:@jony2156/ai-eda-tools@0.1.0 --local
+pi
 ```
 
-It loads the extension through pi's own SDK, prints the registered tool names,
-calls `lint` end to end, and checks the skill is discoverable.
+The package prepares Python and the open-source HDL tools in a versioned
+cache. pi loads the extension declared in the npm package;
+no activated venv, pip install or IC_BIN is needed. The extension discovers
+tools from the registry and registers them as native pi tools.
 
-To load them explicitly instead of by discovery:
-
-```bash
-pi -e .pi/extensions/ic-design-tools.ts --skill .codex/skills
-```
-
-The extension shells out to `ic`. Set `IC_BIN` if it is not on `PATH`, and
-`IC_DAEMON_URL` to route through a running daemon.
+See the [pi acceptance guide](acceptance/pi-agent.md) for registry installation,
+existing experiment environment and a prompt exercising all eight tools.
+The existing IC skill is optional workflow guidance; it does not install tools.
+The direct Python CLI integration remains available to source developers.
 
 ### Claude Code
 

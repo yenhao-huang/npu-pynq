@@ -58,8 +58,8 @@ and on what may not be added.
   `ic first_mismatch` to locate a divergence without opening the waveform.
   Run `ic doctor` to see what is installed. Never read a `.fst`, `.vcd` or
   `sim.log` directly; use the handle tools. See
-  [docs/ic-design-tools/README.md](docs/ic-design-tools/README.md), and
-  [docs/acceptance/reproduce.md](docs/acceptance/reproduce.md) to reproduce
+  [docs/goals/ic-design-tools/README.md](docs/goals/ic-design-tools/README.md), and
+  [docs/goals/ic-design-tools/acceptance/reproduce.md](docs/goals/ic-design-tools/acceptance/reproduce.md) to reproduce
   each tool.
 - Adding a tool backend touches one file under `tools/ic/ic_core/tools/`, and a
   new category one folder. The daemon, CLI, MCP server and pi extension are

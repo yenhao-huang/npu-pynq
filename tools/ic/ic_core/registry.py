@@ -160,6 +160,21 @@ def all_op_names() -> list[str]:
     return [op.name for c in CATEGORIES.values() for op in c.ops]
 
 
+def describe(category, op) -> dict:
+    """Describe an operation without importing a transport or its dependencies."""
+    return {
+        "name": op.name,
+        "category": category.name,
+        "summary": op.summary,
+        "long_running": op.long_running,
+        "records_run": op.records_run,
+        "default_backend": category.default_backend,
+        "backends": sorted(category.backends),
+        "input_schema": op.In.model_json_schema(),
+        "output_schema": op.Out.model_json_schema(),
+    }
+
+
 def iter_ops():
     load_all()
     for category in CATEGORIES.values():

@@ -13,7 +13,7 @@ import * as tar from 'tar';
 export const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = JSON.parse(await readFile(new URL('./toolchains.json', import.meta.url), 'utf8'));
 const dependencyLock = await readFile(new URL('./requirements.lock', import.meta.url));
-export const log = message => process.stderr.write(`[ic-design-mcp] ${message}\n`);
+export const log = message => process.stderr.write(`[ic-tools] ${message}\n`);
 export const exists = async p => access(p).then(() => true, () => false);
 
 export function platformSpec(platform = process.platform, arch = process.arch) {
@@ -26,8 +26,8 @@ export function platformSpec(platform = process.platform, arch = process.arch) {
 
 export function cacheRoot(env = process.env) {
   return path.resolve(env.IC_MCP_CACHE || (process.platform === 'darwin'
-    ? path.join(homedir(), 'Library', 'Caches', 'ic-design-mcp')
-    : path.join(env.XDG_CACHE_HOME || path.join(homedir(), '.cache'), 'ic-design-mcp')));
+    ? path.join(homedir(), 'Library', 'Caches', 'ic-tools')
+    : path.join(env.XDG_CACHE_HOME || path.join(homedir(), '.cache'), 'ic-tools')));
 }
 
 export function runtimeKey(spec) {

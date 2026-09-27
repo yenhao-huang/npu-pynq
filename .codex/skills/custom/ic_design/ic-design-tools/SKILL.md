@@ -100,4 +100,4 @@ You cannot read anything back from this; it is for the human, not for you.
 
 - `ic tools` prints every tool with its full JSON schema.
 - `ic runs --limit 10` lists recent runs; `ic run <run_id>` shows one in full.
-- Full documentation: `docs/ic-design-tools/README.md`.
+- Full documentation: `docs/goals/ic-design-tools/README.md`.

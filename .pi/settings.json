@@ -1,4 +1,9 @@
 {
-  "skills": [".codex/skills"],
-  "enableSkillCommands": true
+  "skills": [
+    ".codex/skills"
+  ],
+  "enableSkillCommands": true,
+  "packages": [
+    "../tools/ic"
+  ]
 }

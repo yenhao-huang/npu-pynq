@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from ic_core import paths
 from ic_core.dispatch import dispatch, validate
 from ic_core.errors import IcError
-from ic_core.registry import iter_ops
+from ic_core.registry import describe, iter_ops
 from ic_core.runstore import RunStore
 from ic_core.tools import import_errors
 
@@ -170,20 +170,6 @@ def create_app(root: Path | None = None, max_concurrent: int = 1) -> FastAPI:
 
     app.include_router(router)
     return app
-
-
-def describe(category, op) -> dict:
-    return {
-        "name": op.name,
-        "category": category.name,
-        "summary": op.summary,
-        "long_running": op.long_running,
-        "records_run": op.records_run,
-        "default_backend": category.default_backend,
-        "backends": sorted(category.backends),
-        "input_schema": op.In.model_json_schema(),
-        "output_schema": op.Out.model_json_schema(),
-    }
 
 
 def _mount(router: APIRouter, category, op, runner: JobRunner, root: Path) -> None:

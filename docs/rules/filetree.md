@@ -113,7 +113,8 @@ npu_repo_in_pynq/
 |       |-- npm/                npm MCP bootstrap, pinned downloads and tests
 |       |-- package.json        npm package and launcher entry point
 |       |-- package-lock.json   locked launcher dependencies
-|       |-- README.npm.md       installation and MCP client setup
+|       |-- README.md           package overview and quick start
+|       |-- docs/manual/        installation instructions and agent demos
 |       |-- LICENSE             license included in the npm distribution
 |       `-- tests/
 |-- .pi/
@@ -192,17 +193,18 @@ thin clients over it and contain no tool knowledge. Adding a backend touches
 one file and adding a category one folder; no client changes either way. See
 [../ic-design-tools/README.md](../ic-design-tools/README.md).
 
-`.pi/` and `.mcp.json` attach those tools to specific agents: `.pi/extensions/`
-registers them as native pi tools and `.mcp.json` registers the MCP server.
+`.pi/` and `.mcp.json` attach those tools to specific agents: `.pi/settings.json`
+selects the native pi package and `.mcp.json` registers the MCP server.
 They are configuration only. The skill that tells a model when to use the
 tools lives with the other skills, under
 `.codex/skills/custom/ic_design/ic-design-tools/`, so one copy serves pi,
 Claude Code and Codex alike.
 
-`docs/plans/` holds architecture and implementation plans. `docs/acceptance/`
-holds reproduction procedures for delivered capabilities: each records the
-exact commands and the output they actually produced, and states what was not
-verified. `docs/<toolchain>/README.md` documents a toolchain under `tools/`.
+`docs/plans/` holds architecture and implementation plans.
+`docs/goals/ic-design-tools/` holds the toolchain overview and its `acceptance/`
+reproduction procedures, including commands, recorded outputs and validation
+limitations. Package installation and demo instructions live under
+`tools/ic/docs/manual/` and ship with the npm package.
 
 `.ic/` is the run store written by `tools/ic`. It is machine-local and not
 tracked: `meta.json` records are kilobytes but the artifacts beside them are

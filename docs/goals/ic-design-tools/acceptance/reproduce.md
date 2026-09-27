@@ -292,7 +292,7 @@ DISPLAY=:99 ic show_wave --wave c29f5d/wave.fst --signals ref_count dut_count en
 pgrep -a gtkwave
 ```
 
-![GTKWave opened by `ic show_wave`, with ref_count, dut_count and enable preloaded and the marker on cycle 8](../assets/ic-show-wave-first-mismatch.png)
+![GTKWave opened by `ic show_wave`, with ref_count, dut_count and enable preloaded and the marker on cycle 8](../../../assets/ic-show-wave-first-mismatch.png)
 
 The window opens on the divergence: `ref_count=08` against `dut_count=07`,
 with the marker at 85 ns and `dut_count` visibly flat from `07` onward while
@@ -391,6 +391,9 @@ All three return the same object apart from `run_id`.
 inspection.
 
 ## 12. pi-agent
+
+For installation, interactive prompts, native tool arguments and pass criteria,
+follow [Using the IC design tools from pi-agent](pi-agent.md).
 
 pi has no built-in MCP support, so the integration is an extension plus a
 skill, both committed. Nothing needs configuring:
