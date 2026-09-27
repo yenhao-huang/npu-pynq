@@ -1,0 +1,34 @@
+{
+  "study_name": "synth_leading_zero",
+  "cases": [
+    {
+      "name": "w64",
+      "generator": "synth_leading_zero",
+      "baseline": {
+        "width": 64,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 64,
+        "architecture": "tree"
+      },
+      "objective": "throughput"
+    },
+    {
+      "name": "w128",
+      "generator": "synth_leading_zero",
+      "baseline": {
+        "width": 128,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 128,
+        "architecture": "tree"
+      },
+      "objective": "throughput"
+    }
+  ],
+  "period_ns": 5,
+  "repeats": 3,
+  "require_proof": true
+}

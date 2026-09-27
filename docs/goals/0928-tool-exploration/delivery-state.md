@@ -61,3 +61,42 @@ unchanged simulation outputs already up to date. The 16-bit/16-operand balanced
 SAT attempt timed out after 120 s (run 9ca867), confirmed through the
 proof-log artifact handle. Do not replace inconclusive proof with a claim
 of formal acceptance.
+
+### Network and sequential checkpoint
+
+Implemented inventory is now 23 operations. Tests cover six distinct network
+families, a source-bound/environment-aware architecture sweep, FIFO generation
+and cycle-exact queue scoreboarding. Physical acceptance remains incomplete.
+
+Authoritative process state at this checkpoint:
+- Old physical reduction session 14429 is TERMINAL (exit 1), with failure
+  4172b8 on w32-n16-serial-r1. opt_design returned Synth 20-411 without detail.
+  Preserve the old output namespace and all successful repeats; do not blindly
+  restart study.py into a new digest and discard the denominator.
+- Formal reduction session 75065 is TERMINAL. Four-operand 16-bit controls
+  proved; both 16/32-bit 16-operand architectures timed out at 120 seconds.
+- Network verify-only session 53625 is TERMINAL: 11/12 configurations proved,
+  with only 128-bit popcount not proved. All vector checks passed.
+- Priority physical session 3537 is LIVE. It runs network_study.py --tool 24
+  with existing codex-sandbox-agent-workspace. Poll before launching more
+  priority studies. Partial per-pair JSON lives under .ic/studies/synth_priority_encoder.
+
+New experiment folders: 23-rover, 24/25-prefixrl, 26/27/28-rtlrewriter,
+34-scalar, 48/49-rtlrewriter. FIFO correctness experiment completed all four
+variant/config combinations; physical timing still needs a common registered
+fixture. Do not call FIFO latency fixed or use internal-only paths to claim
+whole-FIFO throughput. Current test suite: 91 passed, 2 skipped before the small
+simulation-error rejection refinement. Previous published commit CI is green.
+
+Remaining scope: 27 substantive operations, at least 12 diverse families total,
+six qualifying family wins, complete repeat/proof coverage, all-case geometric
+mean and final acceptance audit. The inventory's planned compressor-only tool
+must be replaced because carry-save is already a variant of synth_adder_tree;
+counting an alias would violate the acceptance contract.
+
+Physical progress update: priority 64-bit has all three matched repeats with
+65 -> 50 LUTs and 220.313 -> 239.406 estimated MHz. The first 128-bit pair is
+161 -> 106 LUTs and 210.881 -> 218.150 estimated MHz. Remaining 128-bit repeats
+are live in session 3537. Leading-zero study is independently live in session
+47144 (network_study.py --tool 25); poll these handles before launching duplicates.
+No family is marked accepted until its complete evidence has been audited.

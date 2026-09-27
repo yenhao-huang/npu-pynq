@@ -54,3 +54,24 @@ throughput. Its timing estimate is scoped to register-to-register setup paths.
 [PrefixRL](https://arxiv.org/abs/2205.07000) motivate structured prefix-network
 exploration with synthesis feedback. Prefix generators and their experiments
 remain planned work, not delivered tools.
+
+## Diverse network and storage studies
+
+[PrefixRL (DAC 2021)](https://arxiv.org/abs/2205.07000) synthesizes prefix
+circuits, including adders and priority encoders, with physical feedback. The
+priority and leading-zero generators use explicit hierarchical networks to
+expose topology choices. They do not reproduce its reinforcement-learning agent.
+
+Popcount uses narrowing-aware reduction (ROVER-inspired arithmetic exploration).
+Barrel shift, masked selection and stable argmax are additional RTLRewriter-style
+rewrite subjects with explicit total semantics. These are hand-authored
+architecture alternatives used to exercise correctness and physical-feedback
+tools; no claim is made that the papers present those exact generators.
+
+[Scalar Replacement with Circular Buffers (Seto, 2019)](https://www.jstage.jst.go.jp/article/ipsjtsldm/12/0/12_13/_article)
+substitutes RAM-based circular storage for costly shift-register chains in HLS.
+The FIFO generator adapts that storage choice to ready/valid buffering. It
+preserves order, capacity and reset behavior; it does not implement the paper's
+compiler pass. An independent queue scoreboard checks temporal correctness
+before physical comparison. Large-storage timing needs a registered fixture
+covering read and handshake paths, which remains pending.

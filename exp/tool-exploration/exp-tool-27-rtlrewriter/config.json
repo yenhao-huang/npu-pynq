@@ -1,0 +1,38 @@
+{
+  "study_name": "synth_onehot_mux",
+  "cases": [
+    {
+      "name": "w16",
+      "generator": "synth_onehot_mux",
+      "baseline": {
+        "width": 16,
+        "lanes": 16,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 16,
+        "lanes": 16,
+        "architecture": "tree"
+      },
+      "objective": "throughput"
+    },
+    {
+      "name": "w32",
+      "generator": "synth_onehot_mux",
+      "baseline": {
+        "width": 32,
+        "lanes": 16,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 32,
+        "lanes": 16,
+        "architecture": "tree"
+      },
+      "objective": "throughput"
+    }
+  ],
+  "period_ns": 5,
+  "repeats": 3,
+  "require_proof": true
+}

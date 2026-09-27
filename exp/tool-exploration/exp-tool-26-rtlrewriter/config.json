@@ -1,0 +1,34 @@
+{
+  "study_name": "synth_barrel_shifter",
+  "cases": [
+    {
+      "name": "w32",
+      "generator": "synth_barrel_shifter",
+      "baseline": {
+        "width": 32,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 32,
+        "architecture": "tree"
+      },
+      "objective": "throughput"
+    },
+    {
+      "name": "w64",
+      "generator": "synth_barrel_shifter",
+      "baseline": {
+        "width": 64,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 64,
+        "architecture": "tree"
+      },
+      "objective": "throughput"
+    }
+  ],
+  "period_ns": 5,
+  "repeats": 3,
+  "require_proof": true
+}

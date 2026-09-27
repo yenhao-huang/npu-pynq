@@ -109,3 +109,28 @@ survey. It asks for tool count/topic priorities and experiment paths only when
 those are missing and questions are allowed. Check remaining Codex usage before
 expensive batches, save state and stop below 30%. This rule concerns the agent
 workflow; the standalone Python experiment runner has no account-usage API.
+
+## Expanded network and FIFO studies
+
+From the issue #80 checkout:
+
+```powershell
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool all --container codex-sandbox-agent-workspace --verify-only
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 24 --container codex-sandbox-agent-workspace
+.venv/Scripts/python.exe exp/tool-exploration/exp-tool-34-scalar/study.py
+```
+
+The container is an existing local Yosys provider, not created by these commands.
+Omit --container when Yosys is installed locally. network_study uses per-tool
+config.json declarations and stores each parent result under its own ignored
+output directory. architecture_sweep checkpoints all predeclared cases beneath
+.ic/studies using the complete input, core-source hash and measured tool versions.
+An OS lock rejects duplicate writers to a study key. No raw logs are committed.
+
+A positive SAT status is required before physical measurement by default. A
+failed proof, missing source artifact or altered generated wrapper does not
+become a cached success. verify-only changes the study identity deliberately.
+The current physical example is priority encoder only; other families still
+need matched physical runs. FIFO studies currently exercise protocol correctness;
+whole-FIFO timing awaits a registered fixture. The old reduction runner predates
+this stronger resume contract and must not be treated as equivalent provenance.

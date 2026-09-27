@@ -70,3 +70,12 @@ repo docs/goals/0928-tool-exploration. Target 50 substantive tools and >=40 PPA
 operations; require diverse, nontrivial microarchitectures and material measured
 improvements. Never count the first ten-tool milestone as completion. Record
 latency, II, FPGA resource trade-offs and all regressions. Keep the 30% stop rule.
+
+For larger combinational studies, use `architecture_sweep` to bind generated
+core and registered wrapper hashes to vector/SAT verdicts and routed records.
+Keep the predeclared objective unchanged after seeing PPA. Retain failed cases
+and their contribution to the final acceptance denominator. For FIFO studies,
+use `sequential_scoreboard` with directed full/empty/reset phases and seeded
+backpressure; a bounded queue-model pass does not establish formal equivalence.
+Report variable latency explicitly and cover memory-read/handshake paths in the
+physical fixture before claiming whole-FIFO throughput.

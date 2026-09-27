@@ -43,3 +43,4 @@ class Evaluate:
 
 
 CATEGORY.ops.append(Op('rtl_evaluate', EvaluateIn, Result, 'Check a combinational rewrite, measure both designs, and compare compatible PPA.', long_running=True))
+from . import sweep  # noqa: E402,F401

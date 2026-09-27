@@ -2,7 +2,7 @@
 from typing import Literal
 from pydantic import Field
 from ...registry import Op, backend
-from ..exploration_common import ExplorationInput
+from ..exploration_common import ExplorationInput, fingerprint
 from . import CATEGORY
 from .exploration import Result
 
@@ -65,7 +65,7 @@ class ReductionGenerator:
         registered.write_text('module registered_dut'+wrapper,encoding='utf-8')
         return Result(data=dict(core=ctx.run.handle(path.name), wrapper=ctx.run.handle(registered.name),
                                core_path=str(ctx.run.final_artifact(path.name)), wrapper_path=str(ctx.run.final_artifact(registered.name)), input_width=params.width*params.lanes,
-                               output_width=params.width, latency_cycles=1, initiation_interval=1,
+                               source_sha256=fingerprint([path,registered],'registered_dut'), output_width=params.width, latency_cycles=1, initiation_interval=1,
                                architecture=params.architecture), note='Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.')
 
 

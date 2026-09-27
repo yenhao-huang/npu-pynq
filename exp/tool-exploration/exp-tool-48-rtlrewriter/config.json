@@ -1,0 +1,1 @@
+{"op":"sequential_scoreboard","random_cycles":8192,"seed":928,"configurations":[{"width":16,"depth":64},{"width":32,"depth":128}],"negative_controls":["order","reset","capacity"]}

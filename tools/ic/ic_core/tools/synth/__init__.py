@@ -111,3 +111,5 @@ from . import vivado, yosys  # noqa: E402,F401
 from . import exploration, measure  # noqa: E402,F401
 from . import clocked  # noqa: E402,F401
 from . import reduction  # noqa: E402,F401
+from . import networks  # noqa: E402,F401
+from . import fifo  # noqa: E402,F401

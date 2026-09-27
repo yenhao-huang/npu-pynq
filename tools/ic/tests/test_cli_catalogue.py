@@ -28,4 +28,7 @@ runpy.run_module('ic_cli.main', run_name='__main__')
         'optimization_rules', 'width_advice', 'ppa_measure', 'ppa_provenance',
         'ppa_compare', 'ppa_pareto', 'ppa_reward', 'ppa_select', 'comb_check', 'rtl_evaluate',
         'clocked_ppa', 'vector_equivalence', 'yosys_equivalence', 'synth_adder_tree',
+        'synth_popcount', 'synth_priority_encoder', 'synth_leading_zero', 'synth_barrel_shifter',
+        'synth_onehot_mux', 'synth_argmax_tree', 'architecture_sweep',
+        'synth_fifo', 'sequential_scoreboard',
     }

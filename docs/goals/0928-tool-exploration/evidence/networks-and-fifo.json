@@ -1,0 +1,1400 @@
+{
+  "status": "in_progress_no_family_accepted",
+  "network_correctness": [
+    {
+      "tool_id": "23",
+      "run_id": "070d8b",
+      "ok": false,
+      "checkpoint_key": "015cc98f0b272a838e01569baf662f633c569b3da17a93823c6986f2eb092c8b",
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "command": [
+            "iverilog",
+            "-V"
+          ],
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "yosys": {
+          "command": [
+            "docker",
+            "exec",
+            "codex-sandbox-agent-workspace",
+            "yosys",
+            "-V"
+          ],
+          "version": [
+            "Yosys 0.23 (git sha1 7ce5011c24b)"
+          ]
+        }
+      },
+      "cases": [
+        {
+          "name": "w64",
+          "objective": "throughput",
+          "generator": "synth_popcount",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 8388,
+              "seed": 928,
+              "stimuli_sha256": "50127556148d99647fabdfa54b59ff8db345eab1b40a0b60fce6843330691833",
+              "reference_sha256": "c9718ac6d8cf0e92c071cddf151c2ef023fb0e4320539e210c14b0de276f7407",
+              "candidate_sha256": "1e7e133bccc3cb415728d607dd2620e507472e433b6578af572be0cb37577bf2",
+              "logs": [
+                "7b8a75/reference_vectors.log",
+                "7b8a75/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "7b8a75"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "c9718ac6d8cf0e92c071cddf151c2ef023fb0e4320539e210c14b0de276f7407",
+              "candidate_sha256": "1e7e133bccc3cb415728d607dd2620e507472e433b6578af572be0cb37577bf2",
+              "engine": "$ docker exec -w /tmp/ic-formal-9af761 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "9af761/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "9af761"
+          },
+          "status": "verified"
+        },
+        {
+          "name": "w128",
+          "objective": "throughput",
+          "generator": "synth_popcount",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 8580,
+              "seed": 928,
+              "stimuli_sha256": "93357e64609ce1a36f89c766992242d6c4a441d1580dce31168e2909939d536e",
+              "reference_sha256": "ae981442c4a6327f152766197ef9534d9aa1d38ccbde52adfaea2a066e909152",
+              "candidate_sha256": "c67c2ccb95a01f64eef94150c52512135fd83aa6f77df284adffb054e9a135cd",
+              "logs": [
+                "ec3ade/reference_vectors.log",
+                "ec3ade/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "ec3ade"
+          },
+          "formal": {
+            "ok": false,
+            "data": {
+              "proved": false,
+              "reference_sha256": "ae981442c4a6327f152766197ef9534d9aa1d38ccbde52adfaea2a066e909152",
+              "candidate_sha256": "c67c2ccb95a01f64eef94150c52512135fd83aa6f77df284adffb054e9a135cd",
+              "engine": "$ docker exec -w /tmp/ic-formal-7ea2a9 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "7ea2a9/proof.log",
+              "exit_code": 1,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "7ea2a9"
+          },
+          "status": "correctness_not_established"
+        }
+      ]
+    },
+    {
+      "tool_id": "24",
+      "run_id": "9affcc",
+      "ok": true,
+      "checkpoint_key": "e1df31a875092ab8fad85f87abc8e5d5af15a7f5048d4be27bfa9aa9d19dfa53",
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "command": [
+            "iverilog",
+            "-V"
+          ],
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "yosys": {
+          "command": [
+            "docker",
+            "exec",
+            "codex-sandbox-agent-workspace",
+            "yosys",
+            "-V"
+          ],
+          "version": [
+            "Yosys 0.23 (git sha1 7ce5011c24b)"
+          ]
+        }
+      },
+      "cases": [
+        {
+          "name": "w64",
+          "objective": "throughput",
+          "generator": "synth_priority_encoder",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 8388,
+              "seed": 928,
+              "stimuli_sha256": "50127556148d99647fabdfa54b59ff8db345eab1b40a0b60fce6843330691833",
+              "reference_sha256": "1ca7e0486c099e92b24291e74bda81c108069c6e026b4cc006cd0310aae153e7",
+              "candidate_sha256": "b61951905e51a5cebc45ed8221b386e15f79365ca4194e80b335b40def6651b1",
+              "logs": [
+                "6e487f/reference_vectors.log",
+                "6e487f/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "6e487f"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "1ca7e0486c099e92b24291e74bda81c108069c6e026b4cc006cd0310aae153e7",
+              "candidate_sha256": "b61951905e51a5cebc45ed8221b386e15f79365ca4194e80b335b40def6651b1",
+              "engine": "$ docker exec -w /tmp/ic-formal-00b471 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "00b471/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "00b471"
+          },
+          "status": "verified"
+        },
+        {
+          "name": "w128",
+          "objective": "throughput",
+          "generator": "synth_priority_encoder",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 8580,
+              "seed": 928,
+              "stimuli_sha256": "93357e64609ce1a36f89c766992242d6c4a441d1580dce31168e2909939d536e",
+              "reference_sha256": "bf8ec151a3081753d6b63efe31a01fbcce7a32c344344e91f1636806e2b7df4c",
+              "candidate_sha256": "981966b950b448f55502395ebf5677d6e863217331f0ea384843e416fb20bf02",
+              "logs": [
+                "fa35fa/reference_vectors.log",
+                "fa35fa/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "fa35fa"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "bf8ec151a3081753d6b63efe31a01fbcce7a32c344344e91f1636806e2b7df4c",
+              "candidate_sha256": "981966b950b448f55502395ebf5677d6e863217331f0ea384843e416fb20bf02",
+              "engine": "$ docker exec -w /tmp/ic-formal-ae45e6 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "ae45e6/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "ae45e6"
+          },
+          "status": "verified"
+        }
+      ]
+    },
+    {
+      "tool_id": "25",
+      "run_id": "5dc996",
+      "ok": true,
+      "checkpoint_key": "75321608587de37ad07abdcc99c5c8306c6cc41b95a3324f72b3d604c3a63147",
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "command": [
+            "iverilog",
+            "-V"
+          ],
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "yosys": {
+          "command": [
+            "docker",
+            "exec",
+            "codex-sandbox-agent-workspace",
+            "yosys",
+            "-V"
+          ],
+          "version": [
+            "Yosys 0.23 (git sha1 7ce5011c24b)"
+          ]
+        }
+      },
+      "cases": [
+        {
+          "name": "w64",
+          "objective": "throughput",
+          "generator": "synth_leading_zero",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 8388,
+              "seed": 928,
+              "stimuli_sha256": "50127556148d99647fabdfa54b59ff8db345eab1b40a0b60fce6843330691833",
+              "reference_sha256": "9c77988d96c846f5ecfd5d927c179b1e4c662c257eb077a3d467a3f9cb41231f",
+              "candidate_sha256": "88eb67a75a74932392c1d35b19c9d08c8d76027adf27e19c492fbea47538318e",
+              "logs": [
+                "bd017c/reference_vectors.log",
+                "bd017c/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "bd017c"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "9c77988d96c846f5ecfd5d927c179b1e4c662c257eb077a3d467a3f9cb41231f",
+              "candidate_sha256": "88eb67a75a74932392c1d35b19c9d08c8d76027adf27e19c492fbea47538318e",
+              "engine": "$ docker exec -w /tmp/ic-formal-00615b codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "00615b/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "00615b"
+          },
+          "status": "verified"
+        },
+        {
+          "name": "w128",
+          "objective": "throughput",
+          "generator": "synth_leading_zero",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 8580,
+              "seed": 928,
+              "stimuli_sha256": "93357e64609ce1a36f89c766992242d6c4a441d1580dce31168e2909939d536e",
+              "reference_sha256": "09299fc98cad8898d3ca6de0c5724a4cfdad81847d560d7b1db65e4e79dee7a4",
+              "candidate_sha256": "7dc04de6fca6211e0fbbe6d834c0541b7d7248a6e0b91fb9f8d9348d26d315f9",
+              "logs": [
+                "5ad5d1/reference_vectors.log",
+                "5ad5d1/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "5ad5d1"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "09299fc98cad8898d3ca6de0c5724a4cfdad81847d560d7b1db65e4e79dee7a4",
+              "candidate_sha256": "7dc04de6fca6211e0fbbe6d834c0541b7d7248a6e0b91fb9f8d9348d26d315f9",
+              "engine": "$ docker exec -w /tmp/ic-formal-dc475d codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "dc475d/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "dc475d"
+          },
+          "status": "verified"
+        }
+      ]
+    },
+    {
+      "tool_id": "26",
+      "run_id": "e7f051",
+      "ok": true,
+      "checkpoint_key": "3fdf8d193b055a08c417f1fced9de62b7a74e74e8ea0085aaecb0561020375ce",
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "command": [
+            "iverilog",
+            "-V"
+          ],
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "yosys": {
+          "command": [
+            "docker",
+            "exec",
+            "codex-sandbox-agent-workspace",
+            "yosys",
+            "-V"
+          ],
+          "version": [
+            "Yosys 0.23 (git sha1 7ce5011c24b)"
+          ]
+        }
+      },
+      "cases": [
+        {
+          "name": "w32",
+          "objective": "throughput",
+          "generator": "synth_barrel_shifter",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 8307,
+              "seed": 928,
+              "stimuli_sha256": "8874d6ee7b32edcffbd0add5d21444322e294e7edfa14a15f7af822d798cb963",
+              "reference_sha256": "c7a2f019d81521879fa3503931e3cb47efd041f1f3b4081754b456af6f97ac37",
+              "candidate_sha256": "6e6eabe8d7df53fbcc7f9599cb458ca7bc8c529e6e79341bb22f427f603380a8",
+              "logs": [
+                "ac0985/reference_vectors.log",
+                "ac0985/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "ac0985"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "c7a2f019d81521879fa3503931e3cb47efd041f1f3b4081754b456af6f97ac37",
+              "candidate_sha256": "6e6eabe8d7df53fbcc7f9599cb458ca7bc8c529e6e79341bb22f427f603380a8",
+              "engine": "$ docker exec -w /tmp/ic-formal-dd368e codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "dd368e/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "dd368e"
+          },
+          "status": "verified"
+        },
+        {
+          "name": "w64",
+          "objective": "throughput",
+          "generator": "synth_barrel_shifter",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 8406,
+              "seed": 928,
+              "stimuli_sha256": "ad9795120db10b3d962fe0ece770e4d1e64ab8f1c7ccc1c07e1f0eac109f6e10",
+              "reference_sha256": "cf5b51bd129758dccd4354e9fa2f6c31fb15779e3fecbf0c0e4e881fd30f63ce",
+              "candidate_sha256": "43d91a7dd487aab4dc2de996f0192c3a90c6e43db1f4ca656b643480ea5cf492",
+              "logs": [
+                "b1be9e/reference_vectors.log",
+                "b1be9e/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "b1be9e"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "cf5b51bd129758dccd4354e9fa2f6c31fb15779e3fecbf0c0e4e881fd30f63ce",
+              "candidate_sha256": "43d91a7dd487aab4dc2de996f0192c3a90c6e43db1f4ca656b643480ea5cf492",
+              "engine": "$ docker exec -w /tmp/ic-formal-d38ab3 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "d38ab3/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "d38ab3"
+          },
+          "status": "verified"
+        }
+      ]
+    },
+    {
+      "tool_id": "27",
+      "run_id": "8e99a7",
+      "ok": true,
+      "checkpoint_key": "73d70c434c63b31f94f3ee52cde53f3fc959de443b4a25d1c042759ec48265d7",
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "command": [
+            "iverilog",
+            "-V"
+          ],
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "yosys": {
+          "command": [
+            "docker",
+            "exec",
+            "codex-sandbox-agent-workspace",
+            "yosys",
+            "-V"
+          ],
+          "version": [
+            "Yosys 0.23 (git sha1 7ce5011c24b)"
+          ]
+        }
+      },
+      "cases": [
+        {
+          "name": "w16",
+          "objective": "throughput",
+          "generator": "synth_onehot_mux",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 9012,
+              "seed": 928,
+              "stimuli_sha256": "3e56000819fc6e3de361c998c9f96732acf621356210cfa70b7fe2824f9450ec",
+              "reference_sha256": "1f8eaf51af93a8038c2177a4aeff34704f0ef185ce0708b2279308ddfe4b14d6",
+              "candidate_sha256": "fb20377348656bf99a41ff13347f8c128ab43042009ae5e47027e30f3d669e39",
+              "logs": [
+                "993468/reference_vectors.log",
+                "993468/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "993468"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "1f8eaf51af93a8038c2177a4aeff34704f0ef185ce0708b2279308ddfe4b14d6",
+              "candidate_sha256": "fb20377348656bf99a41ff13347f8c128ab43042009ae5e47027e30f3d669e39",
+              "engine": "$ docker exec -w /tmp/ic-formal-fef129 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "fef129/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "fef129"
+          },
+          "status": "verified"
+        },
+        {
+          "name": "w32",
+          "objective": "throughput",
+          "generator": "synth_onehot_mux",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 9780,
+              "seed": 928,
+              "stimuli_sha256": "5ad93c016183e07016a90ebc7338b7153f61d833fda604c3b5e3453a4d2c35a4",
+              "reference_sha256": "861d644a06d5c07de526b40d1d09ad48642f247782e50e6ae37a76bb6e2428fb",
+              "candidate_sha256": "f6995fb44cba3f7aa603dafc1b8ab671ecd60d05c89e70bc43a4a4d75c42ee59",
+              "logs": [
+                "9f4785/reference_vectors.log",
+                "9f4785/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "9f4785"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "861d644a06d5c07de526b40d1d09ad48642f247782e50e6ae37a76bb6e2428fb",
+              "candidate_sha256": "f6995fb44cba3f7aa603dafc1b8ab671ecd60d05c89e70bc43a4a4d75c42ee59",
+              "engine": "$ docker exec -w /tmp/ic-formal-cafd8d codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "cafd8d/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "cafd8d"
+          },
+          "status": "verified"
+        }
+      ]
+    },
+    {
+      "tool_id": "28",
+      "run_id": "52f97f",
+      "ok": true,
+      "checkpoint_key": "3c55d920a4f9b668222952d8f709946b0ccc04776e399598a7607463ccccead5",
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "command": [
+            "iverilog",
+            "-V"
+          ],
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "yosys": {
+          "command": [
+            "docker",
+            "exec",
+            "codex-sandbox-agent-workspace",
+            "yosys",
+            "-V"
+          ],
+          "version": [
+            "Yosys 0.23 (git sha1 7ce5011c24b)"
+          ]
+        }
+      },
+      "cases": [
+        {
+          "name": "w16",
+          "objective": "throughput",
+          "generator": "synth_argmax_tree",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 8964,
+              "seed": 928,
+              "stimuli_sha256": "18083dfb31eea8b3cd4decf60c01ba73bf511d949470f95372ccac45d7c4d3f3",
+              "reference_sha256": "8e9153a7aae40faf94e2e4495eaf1d85f815d5a2a682dc02133d429e916b8d36",
+              "candidate_sha256": "a1eba312a5e4ee82755fbed012804b2daf1d673744af542f0e1b4e9e91d58f08",
+              "logs": [
+                "720323/reference_vectors.log",
+                "720323/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "720323"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "8e9153a7aae40faf94e2e4495eaf1d85f815d5a2a682dc02133d429e916b8d36",
+              "candidate_sha256": "a1eba312a5e4ee82755fbed012804b2daf1d673744af542f0e1b4e9e91d58f08",
+              "engine": "$ docker exec -w /tmp/ic-formal-49ff21 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "49ff21/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "49ff21"
+          },
+          "status": "verified"
+        },
+        {
+          "name": "w32",
+          "objective": "throughput",
+          "generator": "synth_argmax_tree",
+          "records": [],
+          "accepted": false,
+          "simulation": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 9732,
+              "seed": 928,
+              "stimuli_sha256": "a9b039ebe112e2e02b798d23ffc69bbdad714617583d89dd94d6332f3dc20639",
+              "reference_sha256": "caefdc9809ee8678aaacd95ea3f28ca837e88273d19527036d928b677b2d1092",
+              "candidate_sha256": "e852cd328fcd09b0706474bba54f727b97c3bba19556df576de4d0a1b61c5815",
+              "logs": [
+                "386c57/reference_vectors.log",
+                "386c57/candidate_vectors.log"
+              ],
+              "first_mismatch": null
+            },
+            "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+            "run_id": "386c57"
+          },
+          "formal": {
+            "ok": true,
+            "data": {
+              "proved": true,
+              "reference_sha256": "caefdc9809ee8678aaacd95ea3f28ca837e88273d19527036d928b677b2d1092",
+              "candidate_sha256": "e852cd328fcd09b0706474bba54f727b97c3bba19556df576de4d0a1b61c5815",
+              "engine": "$ docker exec -w /tmp/ic-formal-ac1972 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+              "log": "ac1972/proof.log",
+              "exit_code": 0,
+              "timed_out": false,
+              "source_unchanged": true
+            },
+            "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+            "run_id": "ac1972"
+          },
+          "status": "verified"
+        }
+      ]
+    }
+  ],
+  "fifo_correctness": [
+    {
+      "configuration": {
+        "width": 32,
+        "depth": 128
+      },
+      "architecture": "shift",
+      "generator": {
+        "ok": true,
+        "data": {
+          "files": [
+            "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\033658-cceb9d-synth\\artifacts\\fifo.sv"
+          ],
+          "source": "cceb9d/fifo.sv",
+          "source_sha256": "cc41c72054472339a0898c20339953bdf017e27dff55d59c3789b2c9f5eeb025",
+          "top": "fifo_dut",
+          "width": 32,
+          "depth": 128,
+          "minimum_latency_cycles": 1,
+          "latency_kind": "occupancy_and_backpressure_dependent",
+          "initiation_interval": 1,
+          "architecture": "shift"
+        },
+        "note": "Synchronous active-high reset flushes occupancy. No fall-through. Full FIFO may replace a popped word in the same cycle. Invalid output data is unspecified. Storage bits are not reset.",
+        "run_id": "cceb9d"
+      },
+      "scoreboard": {
+        "ok": true,
+        "data": {
+          "passed": true,
+          "source_sha256": "cc41c72054472339a0898c20339953bdf017e27dff55d59c3789b2c9f5eeb025",
+          "source_unchanged": true,
+          "stimulus_sha256": "105480be86bbbd3fea5c7e3df8d315d996714945fdeaa3d461afbf4d1483585f",
+          "cycles": 8706,
+          "coverage": {
+            "push": 6230,
+            "pop": 5119,
+            "simultaneous": 4122,
+            "full_stall": 873,
+            "empty": 20,
+            "reset_nonempty": 9,
+            "output_stall": 3557
+          },
+          "first_mismatch": null,
+          "log": "148606/cycles.log"
+        },
+        "note": "Queue-model simulation checks capacity, ordering, full replacement, stalls and reset flush. Invalid data is ignored. This is a bounded protocol test, not unbounded sequential equivalence.",
+        "run_id": "148606"
+      }
+    },
+    {
+      "configuration": {
+        "width": 32,
+        "depth": 128
+      },
+      "architecture": "circular",
+      "generator": {
+        "ok": true,
+        "data": {
+          "files": [
+            "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\033658-61c4d4-synth\\artifacts\\fifo.sv"
+          ],
+          "source": "61c4d4/fifo.sv",
+          "source_sha256": "88549b128d79fc11ed0a8c537c29567108505db63c477929dd4892548f2a8adf",
+          "top": "fifo_dut",
+          "width": 32,
+          "depth": 128,
+          "minimum_latency_cycles": 1,
+          "latency_kind": "occupancy_and_backpressure_dependent",
+          "initiation_interval": 1,
+          "architecture": "circular"
+        },
+        "note": "Synchronous active-high reset flushes occupancy. No fall-through. Full FIFO may replace a popped word in the same cycle. Invalid output data is unspecified. Storage bits are not reset.",
+        "run_id": "61c4d4"
+      },
+      "scoreboard": {
+        "ok": true,
+        "data": {
+          "passed": true,
+          "source_sha256": "88549b128d79fc11ed0a8c537c29567108505db63c477929dd4892548f2a8adf",
+          "source_unchanged": true,
+          "stimulus_sha256": "105480be86bbbd3fea5c7e3df8d315d996714945fdeaa3d461afbf4d1483585f",
+          "cycles": 8706,
+          "coverage": {
+            "push": 6230,
+            "pop": 5119,
+            "simultaneous": 4122,
+            "full_stall": 873,
+            "empty": 20,
+            "reset_nonempty": 9,
+            "output_stall": 3557
+          },
+          "first_mismatch": null,
+          "log": "16e1ca/cycles.log"
+        },
+        "note": "Queue-model simulation checks capacity, ordering, full replacement, stalls and reset flush. Invalid data is ignored. This is a bounded protocol test, not unbounded sequential equivalence.",
+        "run_id": "16e1ca"
+      }
+    },
+    {
+      "configuration": {
+        "width": 16,
+        "depth": 64
+      },
+      "architecture": "shift",
+      "generator": {
+        "ok": true,
+        "data": {
+          "files": [
+            "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\033657-f94b7d-synth\\artifacts\\fifo.sv"
+          ],
+          "source": "f94b7d/fifo.sv",
+          "source_sha256": "386bb27fc2fd21efb0b5832358222b28818b7b85c5a9dcef70e1ce84b7c2cc31",
+          "top": "fifo_dut",
+          "width": 16,
+          "depth": 64,
+          "minimum_latency_cycles": 1,
+          "latency_kind": "occupancy_and_backpressure_dependent",
+          "initiation_interval": 1,
+          "architecture": "shift"
+        },
+        "note": "Synchronous active-high reset flushes occupancy. No fall-through. Full FIFO may replace a popped word in the same cycle. Invalid output data is unspecified. Storage bits are not reset.",
+        "run_id": "f94b7d"
+      },
+      "scoreboard": {
+        "ok": true,
+        "data": {
+          "passed": true,
+          "source_sha256": "386bb27fc2fd21efb0b5832358222b28818b7b85c5a9dcef70e1ce84b7c2cc31",
+          "source_unchanged": true,
+          "stimulus_sha256": "ada7cf53564aca44717f7b407f07a9e6da4b7a61ca0e6acaa76437305cca32ac",
+          "cycles": 8450,
+          "coverage": {
+            "push": 5601,
+            "pop": 5028,
+            "simultaneous": 4144,
+            "full_stall": 1412,
+            "empty": 11,
+            "reset_nonempty": 9,
+            "output_stall": 3401
+          },
+          "first_mismatch": null,
+          "log": "198b56/cycles.log"
+        },
+        "note": "Queue-model simulation checks capacity, ordering, full replacement, stalls and reset flush. Invalid data is ignored. This is a bounded protocol test, not unbounded sequential equivalence.",
+        "run_id": "198b56"
+      }
+    },
+    {
+      "configuration": {
+        "width": 16,
+        "depth": 64
+      },
+      "architecture": "circular",
+      "generator": {
+        "ok": true,
+        "data": {
+          "files": [
+            "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\033657-6e5f78-synth\\artifacts\\fifo.sv"
+          ],
+          "source": "6e5f78/fifo.sv",
+          "source_sha256": "e99819dddccc7b9abd79e53707529c95a288ca6a364335c5cca7d77bf4528453",
+          "top": "fifo_dut",
+          "width": 16,
+          "depth": 64,
+          "minimum_latency_cycles": 1,
+          "latency_kind": "occupancy_and_backpressure_dependent",
+          "initiation_interval": 1,
+          "architecture": "circular"
+        },
+        "note": "Synchronous active-high reset flushes occupancy. No fall-through. Full FIFO may replace a popped word in the same cycle. Invalid output data is unspecified. Storage bits are not reset.",
+        "run_id": "6e5f78"
+      },
+      "scoreboard": {
+        "ok": true,
+        "data": {
+          "passed": true,
+          "source_sha256": "e99819dddccc7b9abd79e53707529c95a288ca6a364335c5cca7d77bf4528453",
+          "source_unchanged": true,
+          "stimulus_sha256": "ada7cf53564aca44717f7b407f07a9e6da4b7a61ca0e6acaa76437305cca32ac",
+          "cycles": 8450,
+          "coverage": {
+            "push": 5601,
+            "pop": 5028,
+            "simultaneous": 4144,
+            "full_stall": 1412,
+            "empty": 11,
+            "reset_nonempty": 9,
+            "output_stall": 3401
+          },
+          "first_mismatch": null,
+          "log": "29eb9d/cycles.log"
+        },
+        "note": "Queue-model simulation checks capacity, ordering, full replacement, stalls and reset flush. Invalid data is ignored. This is a bounded protocol test, not unbounded sequential equivalence.",
+        "run_id": "29eb9d"
+      }
+    }
+  ],
+  "reduction_attempts": [
+    {
+      "case": "w16-n16-balanced-r0",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w16-n16-balanced",
+            "source_sha256": "14ce288abced3deef229338ef6e232b7e6c4642f681dd30895c329a1e544f94e",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 141.0,
+              "lut_logic": 141.0,
+              "lut_memory": 0.0,
+              "ffs": 272.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -3.483,
+              "critical_period_ns": 8.483,
+              "estimated_fmax_mhz": 117.88282447247435,
+              "throughput_mtransactions_s": 117.88282447247435
+            },
+            "evidence": {
+              "metrics": "796040/clocked.txt",
+              "utilization": "796040/utilization.txt",
+              "timing": "796040/timing.txt",
+              "log": "796040/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "796040"
+      }
+    },
+    {
+      "case": "w16-n16-balanced-r1",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w16-n16-balanced",
+            "source_sha256": "14ce288abced3deef229338ef6e232b7e6c4642f681dd30895c329a1e544f94e",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 141.0,
+              "lut_logic": 141.0,
+              "lut_memory": 0.0,
+              "ffs": 272.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -3.483,
+              "critical_period_ns": 8.483,
+              "estimated_fmax_mhz": 117.88282447247435,
+              "throughput_mtransactions_s": 117.88282447247435
+            },
+            "evidence": {
+              "metrics": "b1b1a9/clocked.txt",
+              "utilization": "b1b1a9/utilization.txt",
+              "timing": "b1b1a9/timing.txt",
+              "log": "b1b1a9/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "b1b1a9"
+      }
+    },
+    {
+      "case": "w16-n16-balanced-r2",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w16-n16-balanced",
+            "source_sha256": "14ce288abced3deef229338ef6e232b7e6c4642f681dd30895c329a1e544f94e",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 141.0,
+              "lut_logic": 141.0,
+              "lut_memory": 0.0,
+              "ffs": 272.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -3.483,
+              "critical_period_ns": 8.483,
+              "estimated_fmax_mhz": 117.88282447247435,
+              "throughput_mtransactions_s": 117.88282447247435
+            },
+            "evidence": {
+              "metrics": "5fc621/clocked.txt",
+              "utilization": "5fc621/utilization.txt",
+              "timing": "5fc621/timing.txt",
+              "log": "5fc621/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "5fc621"
+      }
+    },
+    {
+      "case": "w16-n16-compressor-r0",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w16-n16-compressor",
+            "source_sha256": "f1fec32afc38bc7bd8a596f46f25555c0f3d37846f5c4d702c733637b9d4e93c",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 372.0,
+              "lut_logic": 372.0,
+              "lut_memory": 0.0,
+              "ffs": 272.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -1.007,
+              "critical_period_ns": 6.007,
+              "estimated_fmax_mhz": 166.472448809722,
+              "throughput_mtransactions_s": 166.472448809722
+            },
+            "evidence": {
+              "metrics": "2168c2/clocked.txt",
+              "utilization": "2168c2/utilization.txt",
+              "timing": "2168c2/timing.txt",
+              "log": "2168c2/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "2168c2"
+      }
+    },
+    {
+      "case": "w16-n16-compressor-r1",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w16-n16-compressor",
+            "source_sha256": "f1fec32afc38bc7bd8a596f46f25555c0f3d37846f5c4d702c733637b9d4e93c",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 372.0,
+              "lut_logic": 372.0,
+              "lut_memory": 0.0,
+              "ffs": 272.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -1.007,
+              "critical_period_ns": 6.007,
+              "estimated_fmax_mhz": 166.472448809722,
+              "throughput_mtransactions_s": 166.472448809722
+            },
+            "evidence": {
+              "metrics": "c64213/clocked.txt",
+              "utilization": "c64213/utilization.txt",
+              "timing": "c64213/timing.txt",
+              "log": "c64213/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "c64213"
+      }
+    },
+    {
+      "case": "w16-n16-compressor-r2",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w16-n16-compressor",
+            "source_sha256": "f1fec32afc38bc7bd8a596f46f25555c0f3d37846f5c4d702c733637b9d4e93c",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 372.0,
+              "lut_logic": 372.0,
+              "lut_memory": 0.0,
+              "ffs": 272.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -1.007,
+              "critical_period_ns": 6.007,
+              "estimated_fmax_mhz": 166.472448809722,
+              "throughput_mtransactions_s": 166.472448809722
+            },
+            "evidence": {
+              "metrics": "1f581f/clocked.txt",
+              "utilization": "1f581f/utilization.txt",
+              "timing": "1f581f/timing.txt",
+              "log": "1f581f/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "1f581f"
+      }
+    },
+    {
+      "case": "w16-n16-serial-r0",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w16-n16-serial",
+            "source_sha256": "43f40c96de77e4ee78b471f7d4868d8d82810f587cbcb030b984c0c001cce67c",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 141.0,
+              "lut_logic": 141.0,
+              "lut_memory": 0.0,
+              "ffs": 272.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -3.685,
+              "critical_period_ns": 8.685,
+              "estimated_fmax_mhz": 115.14104778353483,
+              "throughput_mtransactions_s": 115.14104778353483
+            },
+            "evidence": {
+              "metrics": "4e2e65/clocked.txt",
+              "utilization": "4e2e65/utilization.txt",
+              "timing": "4e2e65/timing.txt",
+              "log": "4e2e65/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "4e2e65"
+      }
+    },
+    {
+      "case": "w16-n16-serial-r1",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w16-n16-serial",
+            "source_sha256": "43f40c96de77e4ee78b471f7d4868d8d82810f587cbcb030b984c0c001cce67c",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 141.0,
+              "lut_logic": 141.0,
+              "lut_memory": 0.0,
+              "ffs": 272.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -3.685,
+              "critical_period_ns": 8.685,
+              "estimated_fmax_mhz": 115.14104778353483,
+              "throughput_mtransactions_s": 115.14104778353483
+            },
+            "evidence": {
+              "metrics": "0855a6/clocked.txt",
+              "utilization": "0855a6/utilization.txt",
+              "timing": "0855a6/timing.txt",
+              "log": "0855a6/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "0855a6"
+      }
+    },
+    {
+      "case": "w16-n16-serial-r2",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w16-n16-serial",
+            "source_sha256": "43f40c96de77e4ee78b471f7d4868d8d82810f587cbcb030b984c0c001cce67c",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 141.0,
+              "lut_logic": 141.0,
+              "lut_memory": 0.0,
+              "ffs": 272.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -3.685,
+              "critical_period_ns": 8.685,
+              "estimated_fmax_mhz": 115.14104778353483,
+              "throughput_mtransactions_s": 115.14104778353483
+            },
+            "evidence": {
+              "metrics": "2da50e/clocked.txt",
+              "utilization": "2da50e/utilization.txt",
+              "timing": "2da50e/timing.txt",
+              "log": "2da50e/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "2da50e"
+      }
+    },
+    {
+      "case": "w32-n16-balanced-r0",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w32-n16-balanced",
+            "source_sha256": "560cff65740239816fd013ec2935dd3c0ee4cec40325c2cb7f30c65542171eeb",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 285.0,
+              "lut_logic": 285.0,
+              "lut_memory": 0.0,
+              "ffs": 544.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -4.146,
+              "critical_period_ns": 9.146,
+              "estimated_fmax_mhz": 109.33741526350316,
+              "throughput_mtransactions_s": 109.33741526350316
+            },
+            "evidence": {
+              "metrics": "d2bfa5/clocked.txt",
+              "utilization": "d2bfa5/utilization.txt",
+              "timing": "d2bfa5/timing.txt",
+              "log": "d2bfa5/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "d2bfa5"
+      }
+    },
+    {
+      "case": "w32-n16-compressor-r0",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w32-n16-compressor",
+            "source_sha256": "e9c47927362c55cdaa3563722cae7ae06b8c1b22f4476eaf3ad7aa29b1cf3948",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 788.0,
+              "lut_logic": 788.0,
+              "lut_memory": 0.0,
+              "ffs": 544.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -1.568,
+              "critical_period_ns": 6.568,
+              "estimated_fmax_mhz": 152.25334957369063,
+              "throughput_mtransactions_s": 152.25334957369063
+            },
+            "evidence": {
+              "metrics": "198988/clocked.txt",
+              "utilization": "198988/utilization.txt",
+              "timing": "198988/timing.txt",
+              "log": "198988/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "198988"
+      }
+    },
+    {
+      "case": "w32-n16-serial-r0",
+      "result": {
+        "ok": true,
+        "data": {
+          "record": {
+            "name": "w32-n16-serial",
+            "source_sha256": "2a561dd4476e9cdaba8def5b20555751cb40008c0944f1a7a8112b811b1e7f02",
+            "tool": "vivado",
+            "version": "2026.1",
+            "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+            "part": "xc7z020clg400-1",
+            "stage": "routed_clocked_ooc",
+            "period_ns": 5.0,
+            "directive": "Default",
+            "latency_cycles": 1,
+            "initiation_interval": 1,
+            "metrics": {
+              "luts": 285.0,
+              "lut_logic": 285.0,
+              "lut_memory": 0.0,
+              "ffs": 544.0,
+              "brams": 0.0,
+              "dsps": 0.0,
+              "slack_ns": -4.432,
+              "critical_period_ns": 9.432,
+              "estimated_fmax_mhz": 106.02205258693807,
+              "throughput_mtransactions_s": 106.02205258693807
+            },
+            "evidence": {
+              "metrics": "87951a/clocked.txt",
+              "utilization": "87951a/utilization.txt",
+              "timing": "87951a/timing.txt",
+              "log": "87951a/clocked.log"
+            }
+          }
+        },
+        "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+        "run_id": "87951a"
+      }
+    },
+    {
+      "case": "w32-n16-serial-r1",
+      "result": {
+        "ok": false,
+        "data": {
+          "log": "4172b8/clocked.log",
+          "exit_code": 1,
+          "timed_out": false
+        },
+        "note": "Implementation failed or timed out; no clocked PPA result.",
+        "run_id": "4172b8"
+      }
+    }
+  ]
+}

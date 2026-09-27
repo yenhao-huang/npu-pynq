@@ -176,3 +176,44 @@ not a timing-closure or board-performance claim. The carry-save candidate fails
 the resource-growth gate despite its speedup. The next iteration must find a
 better area/speed balance or a different architecture; neither candidate is
 counted as a qualifying improvement.
+
+## Network and sequential expansion checkpoint
+
+Implemented exploration inventory: 23 operations. Nine additions after the
+14-tool checkpoint are six independent network generators, architecture_sweep,
+synth_fifo and sequential_scoreboard. Structural variants are not counted as
+separate operations. The target remains 50 verified and exercised tools.
+
+The network correctness study covers two substantial configurations per tool:
+
+| Family | Configurations | SAT plus directed/random simulation |
+| --- | --- | --- |
+| Popcount | 64 / 128 bits | 64 proved; 128 SAT timed out |
+| Priority encoder | 64 / 128 bits | Both proved |
+| Leading-zero count | 64 / 128 bits | Both proved |
+| Barrel shift | 32 / 64 bits | Both proved |
+| Masked one-hot mux | 16 / 32 bits, 16 lanes | Both proved, including multi-hot total semantics |
+| Stable argmax | 16 / 32 bits, 16 lanes | Both proved |
+
+Independent Python-oracle tests cover both implementations, including zero,
+all-one, walking-bit and 1,024 seeded random inputs. Oracle and RTL-to-RTL
+checks are separate. Protocol scoreboards additionally passed shift and circular
+FIFO implementations at 16x64 and 32x128, with 8,192 random cycles plus directed
+fill/drain, replacement and reset phases. Ordering, capacity and reset bugs are
+rejected by negative controls. FIFO physical results remain pending; its
+latency is variable with a one-cycle minimum, not fixed.
+
+The first priority-encoder 64-bit pair used 65 -> 50 LUTs, 71 -> 71 FFs, no
+DSP/BRAM and 220.313 -> 239.406 estimated MHz. This is a 23.08% area decrease
+and 8.67% throughput increase. The predeclared objective remains throughput;
+no objective is changed after measurement. Full paired repeats and the 128-bit
+configuration are still required before accepting the family.
+
+The earlier reduction study completed all three 16-bit repeats. The 32-bit
+first repeat was 285 LUT / 106.022 MHz serial, 285 / 109.337 balanced and
+788 / 152.253 carry-save. The second 32-bit serial implementation failed in
+opt_design with `[Synth 20-411]` and no explanatory message (run 4172b8).
+The process stopped; its successful data and failed attempt remain preserved.
+All four large reduction SAT attempts timed out. No reduction family PPA win
+is accepted. A future retry must retain the failed attempt and matched source
+and environment provenance.

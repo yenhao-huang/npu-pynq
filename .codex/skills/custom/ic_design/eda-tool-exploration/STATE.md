@@ -26,3 +26,19 @@ Target: 50 tools / at least 40 PPA-related operations.
 Acceptance: ../../../../../docs/goals/0928-tool-exploration/acceptance-50.md.
 Next: clocked PPA, scalable correctness, substantive microarchitecture generators.
 Remaining usage: 74%; stop below 30%. No new questions requested.
+
+### Network and FIFO experiments
+
+The expansion now has 23 implemented exploration operations. Use the
+architecture_sweep pipeline for new combinational studies: it fingerprints
+core source, inputs and measured tool versions, validates generated core and
+wrapper artifacts, and rejects concurrent writers. Current network SAT coverage
+is 11/12 substantial configurations; 128-bit popcount remains inconclusive.
+The FIFO scoreboard checks 64/128-word storage variants against an independent
+queue with protocol negative controls. FIFO physical coverage remains pending.
+Do not treat a one-cycle minimum queue latency as a fixed latency.
+
+Active physical study at this checkpoint: exec session 3537, priority encoder
+64/128 bits with three paired repeats. Poll its authoritative status before
+starting a duplicate. Old reduction and formal sessions are terminal; see
+expanded delivery-state.md for retained errors and timeouts.
