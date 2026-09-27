@@ -14,12 +14,14 @@ Scope: implement and validate goal.md; publish one PR to dev; no merge requested
 | Search and claim issue | completed | No matching prior issue; #80 assigned to repository owner and agent a claim verified |
 | Read contribution rules | completed | AGENTS.md and docs/rules reviewed |
 | Inspect branch and diff | completed | Entire change reviewed against dev; no production RTL or unrelated user changes included |
-| Validate and commit | in_progress | 32 focused tests; lint/sim; ten final matching experiments; full-suite baseline limitations documented |
+| Validate and commit | completed | d5951b4; 32 focused tests; lint/sim; ten final matching experiments; baseline Windows limitations recorded |
 | Draft PR | completed | .ic/pr-body.md contains summary, exact tests, measured result and limitations |
-| Push, create and verify | pending | |
-| Handoff | pending | |
+| Push, create and verify | completed | https://github.com/yenhao-huang/npu-pynq/pull/81; open, non-draft, base dev, head npu/issue80-a |
+| Handoff | completed | PR attached to the chat; report/reproduce/skill and ten evidence records committed |
 
 Remaining usage: 75%; stop below 30%.
 Known validation limitations: two full-suite Windows failures reproduced on dev;
 OpenSpec CLI is not installed. Raw evidence is in .ic and compact summaries are
 under docs/goals/0928-tool-exploration/evidence/.
+
+CI was in progress when the PR was created. Consult the PR for the exact final head status.

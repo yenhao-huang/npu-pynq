@@ -4,4 +4,4 @@
 - [x] Test validation failures, composition, and real combinational checking.
 - [x] Run ten modular experiments and record measured PPA scope.
 - [x] Publish report, reproduction instructions and exploration skill.
-- [ ] Run repository checks and publish a PR to dev.
+- [x] Run repository checks and publish PR #81 to dev; baseline Windows limitations recorded.

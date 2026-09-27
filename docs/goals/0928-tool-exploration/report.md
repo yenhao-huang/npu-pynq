@@ -1,6 +1,6 @@
 # Paper-based EDA tool exploration report
 
-Issue: [#80](https://github.com/yenhao-huang/npu-pynq/issues/80). Base: dev at
+PR: [#81](https://github.com/yenhao-huang/npu-pynq/pull/81). Issue: [#80](https://github.com/yenhao-huang/npu-pynq/issues/80). Base: dev at
 4a106811d4aaf104be99896606e68c6c8d20165c. Experiment date: 2026-09-28 (Asia/Taipei).
 
 ## Outcome

@@ -14,7 +14,7 @@ Remaining usage / stop threshold: 75% / 30%
 | Design and implementation | completed | openspec/changes/add-paper-based-eda-exploration; ten registry operations |
 | Tests and experiments | completed | 32 focused tests; 10 matching final evidence records; real Vivado retry passed |
 | Report and reproduction | completed | report.md, reproduce.md, survey.md and evidence/01-10.json |
-| PR handoff | pending | Issue #80 claimed by agent a |
+| PR handoff | completed | PR #81: https://github.com/yenhao-huang/npu-pynq/pull/81; base dev, head npu/issue80-a |
 
-Next command: review and commit the issue branch, then create a PR to dev.
+Next command: follow CI and review on PR #81.
 Blockers: no new-tool blockers. Full-suite Windows limitations are recorded in report.md; OpenSpec CLI unavailable.
