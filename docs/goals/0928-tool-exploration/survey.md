@@ -75,3 +75,16 @@ preserves order, capacity and reset behavior; it does not implement the paper's
 compiler pass. An independent queue scoreboard checks temporal correctness
 before physical comparison. Large-storage timing needs a registered fixture
 covering read and handshake paths, which remains pending.
+
+## Arithmetic and paired physical evidence
+
+The prefix generator implements explicit Kogge-Stone and Sklansky networks,
+using PrefixLLM's structured-topology idea without an LLM search loop. CSD and
+MCM expose shift/add graph choices motivated by ROVER. The shared MCM generator
+memoizes factors 2^k +/- 1; it is a bounded heuristic, not an optimal adder-graph
+solver. All numeric contracts are unsigned and retain the full product width.
+
+Physical-analysis tools validate clock/II consistency and separate LUT, FF,
+DSP and BRAM changes. Repeated results require distinct report handles and
+unchanged source/build/flow identities. These are engineering checks around
+ASPEN-style physical feedback, not extra claimed reproductions of its algorithm.

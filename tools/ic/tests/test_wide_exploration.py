@@ -58,13 +58,14 @@ def test_reduction_architectures(store, width, lanes):
 
 
 @pytest.mark.skipif(not shutil.which('yosys'), reason='Local Yosys unavailable')
+@pytest.mark.parametrize('normalization',['word','aig'])
 @pytest.mark.parametrize('expression,passes', [('x[15:0]+x[31:16]', True), ('x[15:0]-x[31:16]', False)])
-def test_sat_controls(store, tmp_path, expression, passes):
+def test_sat_controls(store, tmp_path, expression, passes, normalization):
     ref=tmp_path/'ref.sv'
     cand=tmp_path/'cand.sv'
     ref.write_text('module dut(input [31:0] x, output [15:0] y); assign y=x[15:0]+x[31:16]; endmodule')
     cand.write_text(f'module dut(input [31:0] x, output [15:0] y); assign y={expression}; endmodule')
-    result=dispatch('yosys_equivalence',dict(reference_files=[str(ref)],candidate_files=[str(cand)],top='dut',input_width=32,output_width=16),store=store)
+    result=dispatch('yosys_equivalence',dict(reference_files=[str(ref)],candidate_files=[str(cand)],top='dut',input_width=32,output_width=16,normalization=normalization),store=store)
     assert result['ok'] is passes
 
 

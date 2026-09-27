@@ -42,3 +42,17 @@ Active physical study at this checkpoint: exec session 3537, priority encoder
 64/128 bits with three paired repeats. Poll its authoritative status before
 starting a duplicate. Old reduction and formal sessions are terminal; see
 expanded delivery-state.md for retained errors and timeouts.
+
+### Arithmetic and physical analysis
+
+Inventory is 28 implemented exploration operations. Priority encoder completed
+all three paired runs at both 64/128 bits and passes the LUT-area gate; preserve
+its predeclared throughput objective for global aggregation. MCM and revised
+leading-zero physical studies remain active (sessions 31080 and 23666).
+Default/Basic optimization and implementation-thread metadata must match within
+each comparison. Do not mix historical profiles silently.
+
+The shared subprocess helper now owns a Windows Job Object / POSIX process group;
+formal Docker runs also use an internal timeout. AIG normalization is optional
+and recorded. It does not resolve the inconclusive 32-bit CSD case. Final focused
+validation is 135 passed, four local-Yosys skips, with real container controls.

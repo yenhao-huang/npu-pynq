@@ -19,6 +19,10 @@ class NetworkIn(ExplorationInput):
         return self
 
 
+class LeadingIn(NetworkIn):
+    architecture: Literal['linear','tree','binary_search'] = Field(default='tree',description='Serial priority, recursive counts, or binary-search narrowing network.')
+
+
 class LaneIn(NetworkIn):
     width: int = Field(default=16, ge=8, le=64, description='Unsigned lane word width; power of two.')
     lanes: int = Field(default=16, ge=2, le=64, description='Number of lanes; power of two.')
@@ -106,6 +110,18 @@ class Networks:
             result=f"{bits}'d{p.width}"
             for i in range(p.width):
                 result=rtl.wire(bits,f"x[{i}] ? {bits}'d{p.width-1-i} : {result}")
+        elif p.architecture=='binary_search':
+            segment='x'
+            size=p.width
+            decisions=[]
+            while size>1:
+                half=size//2
+                empty=rtl.wire(1,f'~|{segment}[{size-1}:{half}]')
+                decisions.append(empty)
+                segment=rtl.wire(half,f'{empty} ? {segment}[{half-1}:0] : {segment}[{size-1}:{half}]')
+                size=half
+            encoded="{1'b0,"+','.join(decisions)+'}'
+            result=f"(~|x) ? {bits}'d{p.width} : {encoded}"
         else:
             def count(start,size):
                 if size==1:
@@ -171,7 +187,7 @@ class Networks:
 for name,model,summary in [
     ('synth_popcount',NetworkIn,'Generate exact serial or width-aware tree population counts.'),
     ('synth_priority_encoder',NetworkIn,'Generate highest-priority valid/index selection networks.'),
-    ('synth_leading_zero',NetworkIn,'Generate exact hierarchical leading-zero counters.'),
+    ('synth_leading_zero',LeadingIn,'Generate exact hierarchical leading-zero counters.'),
     ('synth_barrel_shifter',NetworkIn,'Generate decoded or logarithmic staged logical-shift networks.'),
     ('synth_onehot_mux',LaneIn,'Generate total-semantics masked lane-selection networks.'),
     ('synth_argmax_tree',LaneIn,'Generate stable unsigned argmax comparison tournaments.')]:

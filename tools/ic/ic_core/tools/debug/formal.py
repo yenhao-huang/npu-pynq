@@ -1,4 +1,5 @@
 """Combinational SAT equivalence using local Yosys or an existing container."""
+from typing import Literal
 import shutil
 from pathlib import Path
 from pydantic import Field
@@ -18,6 +19,7 @@ class FormalIn(ExplorationInput):
     input_width: int = Field(ge=1, le=4096, description='Complete packed input port x width in bits.')
     output_width: int = Field(ge=1, le=4096, description='Complete packed output port y width in bits.')
     container: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$', description='Existing Docker container with Yosys; null uses local Yosys.')
+    normalization: Literal['word','aig'] = Field(default='word',description='Word-level SAT or techmap/ABC AND-inverter normalization before SAT.')
     timeout_s: int = Field(default=120, ge=1, le=1800, description='Maximum process runtime in seconds.')
 
 
@@ -40,6 +42,7 @@ ic_candidate cand_dut(.x(x),.y(b));
 assign pass=(a==b);
 endmodule
 ''',encoding='utf-8')
+        normalize='' if params.normalization=='word' else 'techmap; opt; abc -g AND; opt_clean'
         script=f'''read_verilog -sv reference.sv
 prep -top {params.top} -flatten
 rename {params.top} ic_reference
@@ -53,6 +56,7 @@ prep -top ic_miter -flatten
 check -assert
 select -assert-none t:$*ff* t:$*latch* t:$mem*
 select *
+{normalize}
 sat -verify -prove pass 1 -set-def-inputs -show-inputs -show-outputs -timeout {params.timeout_s}
 '''
         (stage/'prove.ys').write_text(script,encoding='utf-8')
@@ -69,11 +73,14 @@ sat -verify -prove pass 1 -set-def-inputs -show-inputs -show-outputs -timeout {p
         elif not shutil.which('yosys'):
             raise InvalidInput('Yosys executable unavailable; provide an existing container')
         version=run_process(prefix+['yosys','-V'],cwd=stage,log_path=ctx.run.artifacts/'version.log',timeout_s=30)
-        result=run_process(prefix+['yosys','-s','prove.ys'],cwd=stage,log_path=ctx.run.artifacts/'proof.log',timeout_s=params.timeout_s+60)
+        # Docker-client termination does not stop the exec process inside the container.
+        # GNU timeout owns a process group there, including any ABC child.
+        guard=['timeout','--signal=TERM','--kill-after=5s',str(params.timeout_s+30)] if params.container else []
+        result=run_process(prefix+guard+['yosys','-s','prove.ys'],cwd=stage,log_path=ctx.run.artifacts/'proof.log',timeout_s=params.timeout_s+60)
         text=result.text(limit_bytes=8_000_000)
         unchanged=hashes==[fingerprint(files,params.top) for files in designs]
         passed=(result.exit_code==0 and not result.timed_out and unchanged and 'Warning:' not in text and 'SAT proof finished - no model found: SUCCESS!' in text)
-        return Result(ok=passed,data=dict(proved=passed,reference_sha256=hashes[0],candidate_sha256=hashes[1],engine=version.text().strip(),log=ctx.run.handle('proof.log'),exit_code=result.exit_code,timed_out=result.timed_out,source_unchanged=unchanged),note='Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.')
+        return Result(ok=passed,data=dict(proved=passed,reference_sha256=hashes[0],candidate_sha256=hashes[1],engine=version.text().strip(),normalization=params.normalization,log=ctx.run.handle('proof.log'),exit_code=result.exit_code,timed_out=result.timed_out or (bool(guard) and result.exit_code in (124,137)),source_unchanged=unchanged),note='Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.')
 
 
 CATEGORY.ops.append(Op('yosys_equivalence', FormalIn, Result, 'Prove combinational packed-interface equivalence with Yosys SAT and reject state cells.',long_running=True))

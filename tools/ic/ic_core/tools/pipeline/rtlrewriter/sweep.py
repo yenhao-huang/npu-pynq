@@ -19,7 +19,7 @@ from ...synth.exploration import Result
 from .. import CATEGORY
 
 
-GENERATORS=Literal['synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
+GENERATORS=Literal['synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
 
 
 class Case(BaseModel):
@@ -38,6 +38,7 @@ class SweepIn(ExplorationInput):
     repeats: int = Field(default=3,ge=1,le=10,description='Number of paired physical runs per configuration.')
     period_ns: float = Field(default=5,gt=0,allow_inf_nan=False,description='Shared physical implementation clock period, ns.')
     device: str = Field(default='xc7z020clg400-1',pattern=r'^[A-Za-z0-9_-]+$',description='Matched FPGA part.')
+    optimization_mode: Literal['Default','Basic'] = Field(default='Default',description='Matched Vivado optimization stage for every physical pair.')
     formal_container: str | None = Field(default=None,pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$',description='Existing container providing Yosys, or null for local Yosys.')
     formal_timeout_s: int = Field(default=120,ge=1,le=1800,description='Per-case SAT time limit.')
     verify_only: bool = Field(default=False,description='Run correctness gates without physical implementation.')
@@ -154,7 +155,7 @@ class Sweep:
                 for repeat in range(p.repeats):
                     pair=[]
                     for i,label in enumerate(('baseline','candidate')):
-                        result=invoke(f'{case.name}-{label}-r{repeat}','clocked_ppa',dict(files=[str(path) for path in paths[i]],top='registered_dut',name=case.name+'-'+label,period_ns=p.period_ns,device=p.device,latency_cycles=designs[i]['latency_cycles'],initiation_interval=designs[i]['initiation_interval']))
+                        result=invoke(f'{case.name}-{label}-r{repeat}','clocked_ppa',dict(files=[str(path) for path in paths[i]],top='registered_dut',name=case.name+'-'+label,period_ns=p.period_ns,device=p.device,optimization_mode=p.optimization_mode,latency_cycles=designs[i]['latency_cycles'],initiation_interval=designs[i]['initiation_interval']))
                         if not result['ok']:
                             row['failure']=result; failed=True; break
                         record=result['data']['record']

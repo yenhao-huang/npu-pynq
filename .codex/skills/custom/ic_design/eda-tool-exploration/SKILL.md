@@ -79,3 +79,11 @@ use `sequential_scoreboard` with directed full/empty/reset phases and seeded
 backpressure; a bounded queue-model pass does not establish formal equivalence.
 Report variable latency explicitly and cover memory-read/handshake paths in the
 physical fixture before claiming whole-FIFO throughput.
+
+Validate completed physical pairs with `resource_tradeoff` and
+`paired_repeat_summary`; compare source, build, clock, directive and worker/
+optimization profiles. Distinct report handles are required for repeats.
+PPA-only gates never replace source-bound correctness or the full family audit.
+Record failed implementation attempts and retries separately. Optional AIG
+formal normalization may spend time in ABC before SAT; preserve timeout as
+inconclusive and ensure its processes terminate before further experiments.

@@ -217,3 +217,47 @@ The process stopped; its successful data and failed attempt remain preserved.
 All four large reduction SAT attempts timed out. No reduction family PPA win
 is accepted. A future retry must retain the failed attempt and matched source
 and environment provenance.
+
+## Clocked pair analysis and arithmetic expansion
+
+Implemented inventory is 28 exploration operations. The five additions are
+prefix-adder generation, CSD constant multiplication, shared multiple-constant
+multiplication, multi-resource tradeoff analysis and paired-repeat summaries.
+A source/metadata validator rejects inconsistent Fmax or throughput, changed
+build/flow settings, reused report handles and changed repeated-run sources.
+Repeated runs are reproducibility checks, not independent statistical samples.
+
+Priority encoder has completed all three pairs at both 64 and 128 bits, with
+SAT and vector checks bound to the measured sources. LUT reductions are exactly
+23.0769% and 34.1615% across the repeats. Throughput increases are 8.6665% and
+3.4468%; FF/DSP/BRAM use does not increase. Both configurations pass the LUT-area
+gate. The predeclared throughput objective is retained for the eventual all-case
+geometric mean. This is the first family with complete qualifying pair evidence;
+whole-project acceptance still requires at least six and the remaining gates.
+See evidence/priority-physical-study.json and priority-w64/128-paired.json.
+
+Arithmetic correctness: 32/64-bit native versus Kogge-Stone addition proved
+with SAT; 16/32-bit independent versus shared MCM also proved. CSD at width 16,
+constant 255 proved, while width 32, constant 65535 remains inconclusive.
+ABC normalization of the latter exceeded its time allowance; no proof is claimed.
+Independent integer-oracle tests passed all arithmetic variants, including
+maximum operands and coefficient packing. Simulation does not override missing
+proof evidence.
+
+Leading-zero Default optimization failed repeatedly for the 64-bit baseline
+with Synth 20-411. Limiting Vivado to one worker did not cure it. A Basic flow
+using explicit constant propagation and sweep successfully measured the first
+64-bit pair, but a later attempt also failed. The alternative flow is explicitly
+recorded and cannot be mixed with Default results. A binary-search narrowing
+implementation is now an additional predeclared candidate; original tree cases
+remain in the revised study. No leading-zero family win is accepted yet.
+
+The initial 16-bit MCM pairs show 213 -> 106 LUTs and 170.387 -> 230.840 estimated
+MHz. These are preliminary: 32-bit results and all repeats are still pending.
+
+Timeout handling now uses an owned Windows Job Object or POSIX process group,
+with a regression proving an unrelated sibling survives. Docker formal jobs
+also use an internal timeout so terminating the Docker client cannot leave ABC
+running. A controlled container test returned exit 124 and timed_out=true;
+the timed-out job directory had no remaining process. This fixes experiment
+resource accounting; it does not count as an additional exploration tool.

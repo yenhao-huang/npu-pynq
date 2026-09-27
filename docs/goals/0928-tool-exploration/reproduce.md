@@ -134,3 +134,28 @@ The current physical example is priority encoder only; other families still
 need matched physical runs. FIFO studies currently exercise protocol correctness;
 whole-FIFO timing awaits a registered fixture. The old reduction runner predates
 this stronger resume contract and must not be treated as equivalent provenance.
+
+## Arithmetic and pair-analysis reproduction
+
+```powershell
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 16 --container codex-sandbox-agent-workspace --verify-only
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 17 --container codex-sandbox-agent-workspace --verify-only
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 18 --container codex-sandbox-agent-workspace
+.venv/Scripts/python.exe exp/tool-exploration/physical_analysis_study.py
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 25 --configuration config-binary-search.json --container codex-sandbox-agent-workspace
+```
+
+The last command uses the explicitly declared Basic optimization profile and
+retains both original-tree and new binary-search candidates. Default and Basic
+records are incompatible; implementation-thread limits are also compared.
+Historical records without these metadata fields can be compared only to the
+same historical profile, not silently merged with new records.
+
+The preserved priority evidence contains the complete source-bound correctness
+and physical parent result. physical_analysis_study rechecks its resource and
+repeat gates without launching Vivado. It does not declare global acceptance.
+
+Formal normalization defaults to word-level Yosys SAT. The optional aig mode
+uses techmap/ABC before SAT and is recorded in the result. It did not resolve
+the difficult 32-bit CSD case. Docker runs use an internal total time guard,
+including ABC preprocessing; exit 124 is recorded as a timeout, never proof.

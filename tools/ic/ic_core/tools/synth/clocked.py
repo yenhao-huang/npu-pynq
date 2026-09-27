@@ -23,6 +23,8 @@ class ClockedIn(ExplorationInput):
     latency_cycles: int = Field(ge=1, description='Caller-verified transaction latency; timing analysis does not verify protocol.')
     initiation_interval: int = Field(ge=1, description='Caller-verified sustained cycles per transaction.')
     directive: Literal['Default', 'Explore'] = Field(default='Default', description='Matched placement and routing directive.')
+    optimization_mode: Literal['Default','Basic'] = Field(default='Default',description='Full optimization or explicit constant-propagation/sweep subset; matched per comparison.')
+    implementation_threads: int = Field(default=1,ge=1,le=8,description='Vivado implementation worker limit; part of the matched flow.')
     timeout_s: float = Field(default=900, gt=0, le=3600, allow_inf_nan=False, description='Maximum process runtime in seconds.')
 
 
@@ -55,12 +57,18 @@ class ClockedMeasure:
         timing = ctx.run.artifacts/'timing.txt'
         script = ctx.run.work/'clocked.tcl'
         reads = '\n'.join('read_verilog -sv '+tcl_path(p) for p in files)
-        script.write_text(f'''create_project -in_memory -part {params.device}
+        optimization='opt_design' if params.optimization_mode=='Default' else 'opt_design -propconst -sweep'
+        script.write_text(f'''set_param general.maxThreads {params.implementation_threads}
+create_project -in_memory -part {params.device}
 {reads}
 synth_design -mode out_of_context -top {params.top} -part {params.device} -flatten_hierarchy rebuilt
 if {{[llength [get_ports {params.clock_port}]] != 1}} {{error "Clock port missing"}}
 create_clock -name ic_clock -period {params.period_ns} [get_ports {params.clock_port}]
-opt_design
+if {{[catch {{{optimization}}} message options]}} {{
+  puts stderr "IC_OPT_ERROR: $message"
+  puts stderr [dict get $options -errorinfo]
+  error $message
+}}
 place_design -directive {params.directive}
 route_design -directive {params.directive}
 set paths [get_timing_paths -delay_type max -from [all_registers -clock ic_clock] -to [all_registers -clock ic_clock] -max_paths 1]
@@ -93,7 +101,7 @@ close $out
             return Result(ok=False, data={'log':log}, note=f'Unusable measurement: {error}')
         fmax = 1000/critical_period
         record = dict(name=params.name, source_sha256=source_hash, tool='vivado', version=raw['version'], build=raw['build'],
-                      part=params.device, stage='routed_clocked_ooc', period_ns=params.period_ns, directive=params.directive,
+                      part=params.device, stage='routed_clocked_ooc', period_ns=params.period_ns, directive=params.directive, implementation_threads=params.implementation_threads, optimization_mode=params.optimization_mode,
                       latency_cycles=params.latency_cycles, initiation_interval=params.initiation_interval,
                       metrics=dict(resources, slack_ns=slack, critical_period_ns=critical_period,
                                    estimated_fmax_mhz=fmax, throughput_mtransactions_s=fmax/params.initiation_interval),

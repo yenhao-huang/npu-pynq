@@ -78,3 +78,9 @@ endmodule
 def test_unsupported_size_rejected(store,op):
     with pytest.raises(InvalidInput):
         dispatch(op,dict(width=17),store=store)
+
+
+@pytest.mark.skipif(not shutil.which('iverilog'),reason='Icarus unavailable')
+@pytest.mark.parametrize('scale',[0,1])
+def test_leading_zero_binary_search_oracle(store,tmp_path,scale):
+    test_network_oracle(store,tmp_path,'synth_leading_zero',scale,'binary_search')

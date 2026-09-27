@@ -100,3 +100,46 @@ Physical progress update: priority 64-bit has all three matched repeats with
 are live in session 3537. Leading-zero study is independently live in session
 47144 (network_study.py --tool 25); poll these handles before launching duplicates.
 No family is marked accepted until its complete evidence has been audited.
+
+## Arithmetic and physical-analysis checkpoint
+
+Implemented count: 28 (22 operations remain). New IDs: 16 prefix adder,
+17 CSD multiplier, 18 MCM, 45 resource tradeoff, 46 paired-repeat summary.
+No lifecycle helper is counted as a tool. The compressor alias in planned ID15
+still requires replacement by a distinct useful operation.
+
+Priority session 3537 is TERMINAL success, parent 4b7973; both configurations
+pass all three area pairs. Full evidence is preserved in
+priority-physical-study.json and priority-w64/128-paired.json. This establishes
+one qualifying family, not global acceptance. The objective remains throughput.
+
+Leading-zero original session 47144 is TERMINAL with measurement failures.
+Single-worker retry session 19794 is TERMINAL, parent 3957a1: w64 fails in
+opt_design; w128 completes but does not achieve 15% gain. Errorinfo confirms
+Synth 20-411 without further detail. All these attempts remain in the run store.
+
+Live processes at this checkpoint (poll authoritative handles first):
+- 23666: leading-zero Basic revision, four predeclared cases (original tree and
+  binary-search candidate at 64/128 bits). First Basic w64 baseline passed;
+  candidate r1 later failed, so inspect retained failures and remaining cases.
+- 31080: MCM 16/32-bit three-pair physical study. First two 16-bit pairs improve
+  LUTs 213 -> 106 and estimated MHz 170.387 -> 230.840. Remaining results pending.
+
+Arithmetic verification session 1105 is TERMINAL. Prefix cases prove (19db79);
+CSD 16 proves / 32 is inconclusive (8db0bc); both MCM configurations prove
+(fa87aa). AIG normalization attempt 6f7ec7 timed out in ABC. Its orphan processes
+were explicitly identified by run directory and terminated. The formal backend
+now uses container-internal timeout, and process.run uses Windows jobs / POSIX
+groups to terminate owned children. Controlled guarded attempt 994c19 returned
+124 with timed_out=true; neither timed-out job directory retained a process.
+
+Windows parent-only/taskkill cleanup failed its first adversarial test due to
+restricted process enumeration. The replacement Windows Job Object test passes,
+including a TERM-ignoring child and an unaffected sibling. This change touches
+the shared process helper; rerun the full focused suite and CI before acceptance.
+
+Latest verification: 135 passed, four optional local-Yosys tests skipped.
+Container AIG controls pass separately (positive ac02b3, negative 0fea7e).
+The timeout helper regression passes on this Windows host. These results
+include the final shared-process cleanup implementation, not only the earlier
+parent-only cleanup attempt.
