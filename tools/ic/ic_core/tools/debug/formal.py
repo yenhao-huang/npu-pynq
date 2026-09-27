@@ -78,9 +78,11 @@ sat -verify -prove pass 1 -set-def-inputs -show-inputs -show-outputs -timeout {p
         guard=['timeout','--signal=TERM','--kill-after=5s',str(params.timeout_s+30)] if params.container else []
         result=run_process(prefix+guard+['yosys','-s','prove.ys'],cwd=stage,log_path=ctx.run.artifacts/'proof.log',timeout_s=params.timeout_s+60)
         text=result.text(limit_bytes=8_000_000)
+        solver_timeout='ERROR: Called with -verify and proof did time out!' in text
+        timed_out=result.timed_out or (bool(guard) and result.exit_code in (124,137)) or solver_timeout
         unchanged=hashes==[fingerprint(files,params.top) for files in designs]
-        passed=(result.exit_code==0 and not result.timed_out and unchanged and 'Warning:' not in text and 'SAT proof finished - no model found: SUCCESS!' in text)
-        return Result(ok=passed,data=dict(proved=passed,reference_sha256=hashes[0],candidate_sha256=hashes[1],engine=version.text().strip(),normalization=params.normalization,log=ctx.run.handle('proof.log'),exit_code=result.exit_code,timed_out=result.timed_out or (bool(guard) and result.exit_code in (124,137)),source_unchanged=unchanged),note='Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.')
+        passed=(result.exit_code==0 and not timed_out and unchanged and 'Warning:' not in text and 'SAT proof finished - no model found: SUCCESS!' in text)
+        return Result(ok=passed,data=dict(proved=passed,reference_sha256=hashes[0],candidate_sha256=hashes[1],engine=version.text().strip(),normalization=params.normalization,log=ctx.run.handle('proof.log'),exit_code=result.exit_code,timed_out=timed_out,source_unchanged=unchanged),note='Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.')
 
 
 CATEGORY.ops.append(Op('yosys_equivalence', FormalIn, Result, 'Prove combinational packed-interface equivalence with Yosys SAT and reject state cells.',long_running=True))

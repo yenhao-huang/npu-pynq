@@ -1,0 +1,124 @@
+{
+  "ok": true,
+  "data": {
+    "repeats": 3,
+    "objective": "area",
+    "comparisons": [
+      {
+        "lut_reduction_pct": 98.38709677419355,
+        "throughput_gain_pct": 49.09250585480094,
+        "throughput_ratio": 1.4909250585480094,
+        "resource_delta": {
+          "luts": -1159.0,
+          "ffs": -1028.0,
+          "dsps": 0.0,
+          "brams": 0.5
+        },
+        "resource_growth_pct": {
+          "luts": -98.38709677419355,
+          "ffs": -96.25468164794007,
+          "dsps": 0,
+          "brams": null
+        },
+        "latency_cycles": {
+          "baseline": 3,
+          "candidate": 3,
+          "kind": "minimum"
+        },
+        "initiation_interval": {
+          "baseline": 1,
+          "candidate": 1
+        },
+        "area_gate": false,
+        "throughput_gate": false,
+        "reasons": [
+          "DSP or BRAM growth prevents an unconditional LUT-area win.",
+          "Resource growth exceeds the 25% throughput-win limit."
+        ]
+      },
+      {
+        "lut_reduction_pct": 98.38709677419355,
+        "throughput_gain_pct": 49.09250585480094,
+        "throughput_ratio": 1.4909250585480094,
+        "resource_delta": {
+          "luts": -1159.0,
+          "ffs": -1028.0,
+          "dsps": 0.0,
+          "brams": 0.5
+        },
+        "resource_growth_pct": {
+          "luts": -98.38709677419355,
+          "ffs": -96.25468164794007,
+          "dsps": 0,
+          "brams": null
+        },
+        "latency_cycles": {
+          "baseline": 3,
+          "candidate": 3,
+          "kind": "minimum"
+        },
+        "initiation_interval": {
+          "baseline": 1,
+          "candidate": 1
+        },
+        "area_gate": false,
+        "throughput_gate": false,
+        "reasons": [
+          "DSP or BRAM growth prevents an unconditional LUT-area win.",
+          "Resource growth exceeds the 25% throughput-win limit."
+        ]
+      },
+      {
+        "lut_reduction_pct": 98.38709677419355,
+        "throughput_gain_pct": 49.09250585480094,
+        "throughput_ratio": 1.4909250585480094,
+        "resource_delta": {
+          "luts": -1159.0,
+          "ffs": -1028.0,
+          "dsps": 0.0,
+          "brams": 0.5
+        },
+        "resource_growth_pct": {
+          "luts": -98.38709677419355,
+          "ffs": -96.25468164794007,
+          "dsps": 0,
+          "brams": null
+        },
+        "latency_cycles": {
+          "baseline": 3,
+          "candidate": 3,
+          "kind": "minimum"
+        },
+        "initiation_interval": {
+          "baseline": 1,
+          "candidate": 1
+        },
+        "area_gate": false,
+        "throughput_gate": false,
+        "reasons": [
+          "DSP or BRAM growth prevents an unconditional LUT-area win.",
+          "Resource growth exceeds the 25% throughput-win limit."
+        ]
+      }
+    ],
+    "summary": {
+      "lut_reduction_pct": {
+        "min": 98.38709677419355,
+        "max": 98.38709677419355,
+        "mean": 98.38709677419355
+      },
+      "throughput_gain_pct": {
+        "min": 49.09250585480094,
+        "max": 49.09250585480094,
+        "mean": 49.09250585480094
+      }
+    },
+    "objective_geometric_benefit": 62.00000000000001,
+    "area_gate": false,
+    "throughput_gate": false,
+    "scope": "routed_clocked_ooc",
+    "independent_statistical_samples": false
+  },
+  "note": "At least three complete pairs are required. Every repeat must meet the PPA gate; min/max report reproducibility, not statistical confidence. This does not establish whole-family or whole-project acceptance.",
+  "run_id": "458efc"
+}

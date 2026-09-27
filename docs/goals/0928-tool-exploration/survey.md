@@ -99,3 +99,17 @@ The circular-storage comparison remains tied to Seto's scalar-replacement
 method. A distributed-RAM policy is an explicit target-resource constraint,
 not a claim that memory bits disappeared. The existing 0-BRAM baseline budget
 must be preserved for an unconditional LUT-area win.
+
+## Constant residue arithmetic (operation 32)
+
+Campbell, Lin and Chen, *Low-cost hardware architectures for mersenne modulo
+functional units*, ASP-DAC 2018, pp. 599-604, DOI 10.1109/ASPDAC.2018.8297388.
+Primary institutional record:
+https://experts.illinois.edu/en/publications/low-cost-hardware-architectures-for-mersenne-modulo-functional-un/
+
+The paper motivates inexpensive modulo shadow datapaths for arithmetic error
+checking. Our bounded adaptation emits a binary balanced chunk-sum and
+end-around-fold reducer, with canonical zero and conservative intermediate
+bounds. It is not a reproduction of the paper's full-adder-only standard-cell
+architecture, residue encoding, multiplier or equality unit. Local PPA results
+must come from the declared 16/32-bit FPGA experiments, not the paper's results.

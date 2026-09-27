@@ -78,3 +78,31 @@ def test_signed_digit_exactness_and_nonadjacency():
 
 def test_reject_duplicate_coefficients(store):
     with pytest.raises(InvalidInput): dispatch('synth_mcm',dict(constants=[3,3]),store=store)
+
+@pytest.mark.skipif(not shutil.which('iverilog'),reason='Icarus unavailable')
+@pytest.mark.parametrize('width,exponent',[(8,2),(16,4),(32,8),(33,5),(64,7),(128,16)])
+@pytest.mark.parametrize('architecture',['native','folded'])
+def test_modulo_oracle(store,tmp_path,width,exponent,architecture):
+    data=dispatch('synth_constant_modulo',dict(width=width,exponent=exponent,architecture=architecture),store=store)['data']
+    modulus=(1<<exponent)-1; maximum=(1<<width)-1
+    rng=random.Random(928)
+    values=list(range(256)) if width==8 else [0,maximum,modulus-1,modulus,modulus+1,2*modulus,maximum-1]
+    values += [1<<bit for bit in range(width)]+[rng.getrandbits(width) for _ in range(2048)]
+    values += [multiple*modulus+delta for multiple in (3,7,maximum//modulus) for delta in (-1,0,1) if 0<=multiple*modulus+delta<=maximum]
+    simulate(tmp_path,data,values,[x%modulus for x in values])
+    assert data['output_width']==exponent
+    assert all(row['input_bound']>row['output_bound'] for row in data['fold_bounds'])
+
+
+@pytest.mark.parametrize('parameters',[dict(width=8,exponent=8),dict(exponent=1),dict(width=129),dict(architecture='alias')])
+def test_modulo_invalid_contract(store,parameters):
+    with pytest.raises(InvalidInput): dispatch('synth_constant_modulo',parameters,store=store)
+
+@pytest.mark.skipif(not shutil.which('iverilog'),reason='Icarus unavailable')
+def test_modulo_noncanonical_zero_is_detected(store,tmp_path):
+    data=dispatch('synth_constant_modulo',dict(width=16,exponent=4),store=store)['data']
+    source=Path(data['core_path']).read_text()
+    assert ' >= ' in source
+    wrong=tmp_path/'wrong.sv';wrong.write_text(source.replace(' >= ',' > '))
+    checked=dispatch('vector_equivalence',dict(reference_files=[data['core_path']],candidate_files=[str(wrong)],top='dut',input_width=16,output_width=4,random_vectors=1024,combinational_contract=True),store=store)
+    assert not checked['ok']

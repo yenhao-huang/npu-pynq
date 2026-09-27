@@ -181,3 +181,12 @@ failed attempts before a successful retry. Default maximum is two; this is not
 permission to rerun indefinitely or discard failed results. Existing live studies
 retain the implementation loaded at their start; do not launch duplicates merely
 because newer source gives a new checkpoint key.
+
+### Canonical Mersenne residues
+
+Run `exp/tool-exploration/exp-tool-32-mersenne/study.py --verify-only` with local
+Yosys, or add `--container codex-sandbox-agent-workspace` on this host. Omitting
+`--verify-only` allows matched three-pair Vivado studies only after correctness
+passes. Configuration lives beside the runner. Native and folded variants share
+registered boundaries. Any SAT timeout remains inconclusive. The arithmetic test
+module includes independent integer oracles and a noncanonical-zero mutation.

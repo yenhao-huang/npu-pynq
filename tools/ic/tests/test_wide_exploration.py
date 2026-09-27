@@ -75,3 +75,22 @@ def test_vector_rejects_truncated_interface(store, tmp_path):
     source.write_text('module dut(input [63:0] x, output [31:0] y); assign y=x[31:0]; endmodule')
     result=dispatch('vector_equivalence',dict(reference_files=[str(source)],candidate_files=[str(source)],top='dut',input_width=32,output_width=32,combinational_contract=True),store=store)
     assert not result['ok']
+
+@pytest.mark.parametrize('message,timed_out',[
+    ('ERROR: Called with -verify and proof did time out!',True),
+    ('ERROR: Called with -verify and proof did fail!',False),
+])
+def test_sat_internal_timeout_classification(store,tmp_path,monkeypatch,message,timed_out):
+    from ic_core.tools.debug import formal
+    from ic_core.process import CommandResult
+    source=tmp_path/'dut.sv'
+    source.write_text('module dut(input [7:0] x, output [7:0] y); assign y=x; endmodule')
+    monkeypatch.setattr(formal.shutil,'which',lambda name:name)
+    def fake_run(argv,*,cwd,log_path,timeout_s):
+        version='-V' in argv
+        log_path.write_text('Yosys 0.23' if version else message)
+        return CommandResult(argv,0 if version else 1,0,log_path)
+    monkeypatch.setattr(formal,'run_process',fake_run)
+    result=dispatch('yosys_equivalence',dict(reference_files=[str(source)],candidate_files=[str(source)],top='dut',input_width=8,output_width=8),store=store)
+    assert result['data']['timed_out'] is timed_out
+    assert not result['ok']

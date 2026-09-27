@@ -182,3 +182,29 @@ all-case acceptance audit. Do not claim completion from 32 tool names.
 Validation for this checkpoint: 154 focused tests passed, six tests requiring a
 local Yosys executable skipped. Actual container netlist experiments passed
 separately. `make -C src/test lint sim` passed. Remaining usage is 66%.
+
+### Mersenne operation implementation
+
+Operation 32 now emits native/folded canonical Mersenne reducers; inventory is 33
+with 17 operations remaining. Independent integer-oracle and mutation checks
+passed (57 arithmetic/catalogue/sweep tests). Verify-only session 5034 is active;
+poll its status before restarting. Cases 16-bit mod-15 and 32-bit mod-255 are
+predeclared under exp-tool-32-mersenne/config.json. No physical win is claimed.
+
+The first modulo study is terminal (e2f022): 16-bit mod-15 SAT passed; 32-bit
+mod-255 hit Yosys's internal 120-second SAT limit (587be6/proof.log). The original
+record says timed_out=false because only outer-process timeouts were classified;
+the actual log explicitly reports proof timeout. The implementation now recognizes
+this internal timeout, with separate timeout/failure regression controls. Original
+evidence remains unchanged. A bounded 300-second proof retry is session 80622.
+Relevant tests including this correction: 70 passed, four local-Yosys skips.
+
+FIFO auto study 69500 is terminal success (d0d9f1), all three pairs at both sizes.
+LUT reductions are 98.39%/99.50% and throughput gains 49.09%/72.88%, but both
+candidates add 0.5 BRAM tile, so both unconditional PPA gates fail. Paired results
+and all attempts are committed; distributed session 21483 is still running.
+
+Latest full focused validation: 173 passed, six optional local-Yosys skips
+(`--basetemp=.ic/pytest-expanded-12`). Repository lint/sim passed; unchanged
+hardware simulation targets are current. The 33-operation checkpoint remains
+incomplete against the 50-operation contract.

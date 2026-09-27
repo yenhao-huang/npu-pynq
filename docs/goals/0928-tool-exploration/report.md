@@ -305,3 +305,29 @@ The pipeline now permits at most two implementation attempts by default and
 records every attempt. A transient failure is retained even when a retry passes.
 No repeated report can count as a fresh run. Leading-zero Basic revision b652b3
 remains incomplete due to failed physical attempts and is retained separately.
+
+## Mersenne residue reducer
+
+Operation 32, `synth_constant_modulo`, brings the implemented inventory to 33.
+It compares native unsigned remainder with balanced chunk sums and bounded
+end-around folding for moduli 2**k-1. The output is canonical, including zero.
+Parameters cover widths 8..128 and exponents 2..16 below input width. Native and
+folded forms count as one operation; arbitrary/signed divisors are unsupported.
+
+The independent Python oracle passes for 8/16/32/33/64/128-bit inputs, including
+exhaustive small inputs, non-aligned chunks, modulus multiples and maximum
+values. A deliberately incorrect zero canonicalization is detected. Relevant
+arithmetic/catalogue/sweep tests: 57 passed. SAT and physical acceptance are
+pending; this is not a third qualifying family. The declared cases are 16-bit
+mod-15 and 32-bit mod-255, area objective, three pairs under the Basic flow.
+
+First SAT study e2f022 proves 16-bit mod-15; 32-bit mod-255 times out internally
+at 120 seconds (proof 587be6). The old timeout flag captured only process timeout;
+the original artifact is retained and its log diagnosis is recorded. The checker
+now classifies internal SAT timeout as well. A bounded 300-second retry is pending.
+Focused tests including the timeout regression: 70 passed, four local-Yosys skips.
+
+FIFO auto study d0d9f1 completes all pairs: 16x64 LUTs 1178 -> 19, throughput
++49.09%; 32x128 LUTs 4411 -> 22, throughput +72.88%. Both candidates add 0.5 BRAM
+and therefore fail both unconditional improvement gates. This evidence illustrates
+why dramatic LUT percentages cannot replace separate memory-resource accounting.

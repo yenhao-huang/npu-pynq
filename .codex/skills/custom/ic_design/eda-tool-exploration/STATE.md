@@ -78,3 +78,14 @@ Poll before restarting; all attempts and original auto cases must remain visible
 Validation: 154 passed, six optional local-Yosys skips; make lint sim passed.
 Remaining usage at this checkpoint: 66%; stop below 30%. Eighteen operations,
 four more qualifying families and full acceptance aggregation remain unfinished.
+
+Mersenne reducer implementation raises inventory to 33; 17 operations remain.
+Its integer oracle and canonical-zero mutation checks passed (57 focused tests).
+Verify-only session 5034 is active. Do not count it as a qualifying PPA family.
+Published netlist/FIFO checkpoint 64a6f98 passed hosted CI.
+
+Modulo verification 5034 is terminal e2f022: 16-bit proved, 32-bit internal SAT
+timeout. A 300-second retry runs as session 80622. Original flag/log discrepancy
+is preserved and corrected in the checker. FIFO auto 69500 is terminal d0d9f1;
+both cases fail unconditional resource gates because BRAM increases. Distributed
+FIFO session 21483 remains active. Relevant validation: 70 passed, four skips.

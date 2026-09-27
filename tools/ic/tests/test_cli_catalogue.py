@@ -32,6 +32,7 @@ runpy.run_module('ic_cli.main', run_name='__main__')
         'synth_onehot_mux', 'synth_argmax_tree', 'architecture_sweep',
         'synth_fifo', 'sequential_scoreboard',
         'synth_prefix_adder', 'synth_csd_multiplier', 'synth_mcm',
+        'synth_constant_modulo',
         'resource_tradeoff', 'paired_repeat_summary',
         'netlist_profile', 'critical_cone', 'fanout_analysis', 'memory_inference',
     }

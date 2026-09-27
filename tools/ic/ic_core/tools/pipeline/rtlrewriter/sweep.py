@@ -19,7 +19,7 @@ from ...synth.exploration import Result
 from .. import CATEGORY
 
 
-GENERATORS=Literal['synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
+GENERATORS=Literal['synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
 
 
 class Case(BaseModel):

@@ -34,6 +34,18 @@ class McmIn(ExplorationInput):
         return self
 
 
+class ModuloIn(ExplorationInput):
+    backend: str | None = Field(default='arithmetic_rtl',description='Constant residue arithmetic generator backend.')
+    width: int = Field(default=32,ge=8,le=128,description='Unsigned input width.')
+    exponent: int = Field(default=8,ge=2,le=16,description='Modulus is 2**exponent-1; output is canonical 0..modulus-1.')
+    architecture: Literal['native','folded'] = Field(default='folded',description='Native remainder or balanced chunk addition with end-around folding.')
+
+    @model_validator(mode='after')
+    def proper_reduction(self):
+        if self.exponent>=self.width: raise ValueError('exponent must be smaller than input width')
+        return self
+
+
 def signed_digits(constant):
     result=[]
     bit=0
@@ -56,6 +68,38 @@ def shifted_sum(rtl,wide,constant,width,csd):
 
 @backend('synth','arithmetic_rtl')
 class Arithmetic:
+    def synth_constant_modulo(self,p,ctx):
+        k=p.exponent; modulus=(1<<k)-1
+        rtl=RTL(p.width,k)
+        folds=[]
+        if p.architecture=='native':
+            result=f"x % {p.width}'d{modulus}"
+        else:
+            # 2**k == 1 modulo the modulus, including a partial high chunk.
+            nodes=[]
+            for offset in range(0,p.width,k):
+                bits=min(k,p.width-offset)
+                nodes.append((rtl.wire(bits,f'x[{offset} +: {bits}]'),(1<<bits)-1))
+            while len(nodes)>1:
+                following=[]
+                for index in range(0,len(nodes),2):
+                    if index+1==len(nodes): following.append(nodes[index]);continue
+                    left,lb=nodes[index];right,rb=nodes[index+1];bound=lb+rb
+                    following.append((rtl.wire(bound.bit_length(),f'{left} + {right}'),bound))
+                nodes=following
+            value,bound=nodes[0]
+            while bound>=2*modulus:
+                next_bound=modulus+(bound>>k)
+                folds.append(dict(input_bound=bound,output_bound=next_bound))
+                value=rtl.wire(next_bound.bit_length(),f"({value} & {bound.bit_length()}'d{modulus}) + ({value} >> {k})")
+                bound=next_bound
+            # A single subtraction is sufficient once the bound is <2*m.
+            bits=bound.bit_length()
+            result=f"({value} >= {bits}'d{modulus}) ? ({value} - {bits}'d{modulus}) : {value}"
+        output=emit(ctx,rtl,result,p.architecture,'Unsigned remainder modulo 2**k-1, with one canonical zero encoding. Balanced chunk addition and bounded end-around folding; no signed input contract.')
+        output.data.update(modulus=modulus,exponent=k,fold_bounds=folds)
+        return output
+
     def synth_prefix_adder(self,p,ctx):
         width=p.width
         rtl=RTL(2*width+1,width+1)
@@ -125,3 +169,5 @@ class Arithmetic:
 CATEGORY.ops.append(Op('synth_prefix_adder',PrefixIn,Result,'Generate native, Kogge-Stone or Sklansky unsigned addition networks.'))
 CATEGORY.ops.append(Op('synth_csd_multiplier',ConstantIn,Result,'Generate exact native, binary or canonical signed-digit constant multiplication.'))
 CATEGORY.ops.append(Op('synth_mcm',McmIn,Result,'Generate independently expanded or shared factored multiple-constant products.'))
+
+CATEGORY.ops.append(Op('synth_constant_modulo',ModuloIn,Result,'Generate canonical Mersenne residue reducers with bounded fold networks.'))

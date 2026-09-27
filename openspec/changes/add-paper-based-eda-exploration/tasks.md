@@ -23,3 +23,10 @@ configurations. FIFO core/registered-fixture scoreboards pass, including
 negative controls; its physical studies are ongoing. Netlist analysis has
 actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool,
 12-family, six-win and aggregate-benefit gates remain unchecked.
+
+## Mersenne arithmetic checkpoint
+
+- [x] Implement operation 32 with canonical residues and bounded chunk folding.
+- [x] Verify independent integer oracles and a broken-zero mutation control.
+- [x] Prove 16-bit mod-15 and preserve 32-bit mod-255 SAT timeout evidence.
+- [ ] Complete the 32-bit proof and both physical configurations; no win claimed.
