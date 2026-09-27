@@ -37,3 +37,6 @@ The reviewed FP12 experiment source fixtures explicitly enumerated in
 `filetree.md` are the sole exception for its frozen experiment records. This
 exception does not permit compiled models, mapped netlists, library copies,
 replay outputs, or arbitrary generated logs to enter Git.
+
+The FP16 adder evidence explicitly enumerated in `filetree.md` is also a
+reviewed source-fixture exception, with the same build/replay exclusions.

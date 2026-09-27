@@ -248,3 +248,14 @@ mapped netlists, PDK/library installations, build directories, virtualenvs,
 acceptance outputs and regenerated CSV tables remain ignored. Do not vendor the
 referenced paper or PDK. This is the narrow source-artifact exception referenced
 by `generated-artifacts.md`.
+
+## FP16 adder experiment evidence
+
+The same narrow frozen-source exception applies to `exp/fp16_adder/`:
+reviewed numbered run directories may contain `design.sv`, `metrics.json`,
+`simulation.log`, `gate_simulation.log`, `synthesis.log`, and `sta.log`.
+`top3.json` records the joint ranking; `environment.json` and
+`docs/pdk-sources.json` record the reproducible tool/library provenance.
+All compiled models, mapped netlists,
+PDK libraries, virtualenvs and fresh replay directories remain ignored.
+The FP16 adder report must not count historical FP12 multiplier measurements.

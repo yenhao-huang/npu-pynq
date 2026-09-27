@@ -1,3 +1,6 @@
+> Historical experiment: this FP12 multiplier does not satisfy the corrected
+> FP16 adder goal. See [the active FP16 adder experiment](../fp16_adder/README.md).
+
 # FP12 run_eval
 
 Read [report.md](report.md) for measurements and [reproduce.md](reproduce.md) to replay the best three frozen designs.
