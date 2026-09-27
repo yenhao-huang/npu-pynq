@@ -128,3 +128,9 @@ period closure, hold closure or board I/O validation. Reject mixed report runs
 and missing coverage rather than upgrading historical evidence. For zero LUT
 candidates, preserve the measured zero and FF cost. Use only the explicitly
 reported conservative objective bound; the exact finite ratio is undefined.
+
+For banked register files, keep conflict policy identical across implementations.
+Check read-before-write, reset validity masking, every address and rejected-read
+data/flags against a logical-memory oracle. Count command-batch II separately
+from completed reads; conflict-limited memory is not a true unrestricted
+multiport file. Preserve register/LUTRAM/BRAM costs as separate resources.

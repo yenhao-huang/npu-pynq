@@ -198,3 +198,14 @@ constraint inference is claimed. Installed Vivado 2026.1 `help check_timing`
 and `help all_registers`, plus a real generated report, define the six internal
 coverage checks and sequential-cell enumeration (including DSP/BRAM registers).
 The experiment demonstrates actual rejection of an unclocked sequential domain.
+
+## Banked register storage
+
+LaForest and Steffan, *Efficient Multi-Ported Memories for FPGAs*, FPGA 2010,
+https://fpgacpu.ca/publications/FPGA2010-LaForest-Paper.pdf.
+The paper contrasts logic storage with conventional banking/replication and
+multipumping, then introduces an LVT architecture. Operation 35 adapts the
+conventional banking comparison with an explicit read-conflict policy and
+distributed RAM. It does not reproduce LVT, unrestricted multiwrite operation,
+the Altera implementation or the paper's performance figures. Both baseline
+and candidate enforce the same externally visible conflict semantics.

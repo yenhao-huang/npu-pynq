@@ -15,12 +15,13 @@ from . import CATEGORY
 
 
 class SequentialIn(ExplorationInput):
-    contract: Literal['fifo','phase'] = Field(default='fifo',description='Queue protocol or cyclic phase controller semantics; phase uses width=1 and depth=states.')
-    backend: str | None = Field(default='fifo_scoreboard',description='Icarus cycle-exact FIFO protocol checker.')
+    contract: Literal['fifo','phase','regfile'] = Field(default='fifo',description='FIFO, cyclic phase (width=1/depth=states), or conflict-aware register-file semantics.')
+    banks: int = Field(default=2,ge=2,le=8,description='Register-file bank count; unused for FIFO and phase contracts.')
+    backend: str | None = Field(default='fifo_scoreboard',description='Icarus cycle-exact sequential contract checker.')
     files: list[str] = Field(min_length=1,description='Self-contained sequential RTL sources.')
-    top: Identifier = Field(default='fifo_dut',description='FIFO ready/valid top, or phase top with clk/rst/advance/phases.')
-    width: int = Field(ge=1,le=64,description='FIFO transaction word width; must be one for phase contract.')
-    depth: int = Field(ge=2,le=1024,description='FIFO capacity or number of cyclic phases (power of two, 4..256).')
+    top: Identifier = Field(default='fifo_dut',description='FIFO ready/valid top, phase clk/rst/advance/phases, or regfile clk/rst/x/y.')
+    width: int = Field(ge=1,le=64,description='FIFO/register-file word width; must be one for phase contract.')
+    depth: int = Field(ge=2,le=1024,description='FIFO capacity, phase count (4..256), or register-file words (16..256); phase/regfile require powers of two.')
     timing_fixture: bool = Field(default=False,description='Check the standardized registered timing fixture with two-cycle delayed observations; not an external FIFO protocol adapter.')
     random_cycles: int = Field(default=8192,ge=64,le=100000,description='Seeded cycles after fill/drain and simultaneous-transfer phases.')
     seed: int = Field(default=928,ge=0,le=2**32-1,description='Deterministic stimulus seed.')
@@ -71,6 +72,9 @@ def fifo_vectors(width,depth,cycles,seed):
 @backend('debug','fifo_scoreboard',requires='iverilog',version_cmd=['iverilog','-V'])
 class Scoreboard:
     def sequential_scoreboard(self,p,ctx):
+        if p.contract=='regfile':
+            from .regfile import check_regfile
+            return check_regfile(p,ctx)
         if p.contract=='phase':
             from .phase import check_phase
             return check_phase(p,ctx)

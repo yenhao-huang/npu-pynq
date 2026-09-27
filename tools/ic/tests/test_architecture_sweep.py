@@ -199,3 +199,21 @@ def test_phase_pipeline_rejects_configuration_mismatch(store,tmp_path,monkeypatc
     p=dict(study_name='bad_phase',cases=[dict(name='n64',generator='synth_fsm',baseline=dict(states=64),candidate=dict(states=128),objective='area')],verify_only=True)
     with pytest.raises(InvalidInput,match='state counts differ'):
         dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+
+
+def test_register_file_pipeline_preserves_command_contract(store,tmp_path,monkeypatch):
+    calls=mock_execution(monkeypatch)
+    p=dict(study_name='rf_checks',cases=[dict(name='r64',generator='synth_banked_regfile',baseline=dict(width=16,depth=64,banks=2,architecture='registers'),candidate=dict(width=16,depth=64,banks=2,architecture='banked'),objective='area')],verify_only=False,repeats=1)
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert result['ok'],result
+    row=result['data']['cases'][0]
+    assert row['protocol_contract']=='banked_regfile' and row['transaction_unit']=='command_batch'
+    assert len(row['checks'])==4 and calls.count('clocked_ppa')==2
+    assert all(check['data']['coverage']['conflict']>0 for check in row['checks'])
+
+
+def test_register_file_pipeline_rejects_bank_count_change(store,tmp_path,monkeypatch):
+    mock_execution(monkeypatch)
+    p=dict(study_name='bad_banks',cases=[dict(name='r64',generator='synth_banked_regfile',baseline=dict(banks=2),candidate=dict(banks=4),objective='area')],verify_only=True)
+    with pytest.raises(InvalidInput,match='geometry differs'):
+        dispatch('architecture_sweep',p,store=store,cwd=tmp_path)

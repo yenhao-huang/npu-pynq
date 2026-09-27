@@ -1,0 +1,44 @@
+{
+  "study_name": "synth_banked_regfile",
+  "cases": [
+    {
+      "name": "w16_d64_b2",
+      "generator": "synth_banked_regfile",
+      "baseline": {
+        "width": 16,
+        "depth": 64,
+        "banks": 2,
+        "architecture": "registers"
+      },
+      "candidate": {
+        "width": 16,
+        "depth": 64,
+        "banks": 2,
+        "architecture": "banked"
+      },
+      "objective": "area"
+    },
+    {
+      "name": "w32_d128_b4",
+      "generator": "synth_banked_regfile",
+      "baseline": {
+        "width": 32,
+        "depth": 128,
+        "banks": 4,
+        "architecture": "registers"
+      },
+      "candidate": {
+        "width": 32,
+        "depth": 128,
+        "banks": 4,
+        "architecture": "banked"
+      },
+      "objective": "area"
+    }
+  ],
+  "repeats": 3,
+  "measurement_attempts": 2,
+  "period_ns": 5,
+  "optimization_mode": "Basic",
+  "require_proof": true
+}

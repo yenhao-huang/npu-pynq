@@ -282,3 +282,15 @@ Phase n64/n128 paired summaries contain zero_lut_candidate=true. Their exact
 area-benefit scalar is null because the ratio is unbounded; the separate
 objective_geometric_benefit_lower_bound is finite and conservative. Do not
 replace measured zero LUTs with one or omit the FF increases.
+
+## Banked register file
+
+Run the study.py under exp/tool-exploration/exp-tool-35-multiport with
+`--verify-only --container codex-sandbox-agent-workspace` to reproduce the
+16x64/two-bank and 32x128/four-bank logical-memory checks. Omit --verify-only
+for three paired physical implementations. Configuration and objective are
+fixed in config.json. Evidence regfile-verification.json records all eight
+core/fixture checks. The checker uses contract=regfile and explicit width,
+depth and banks. Read0 wins same-bank conflicts, including identical addresses.
+Physical throughput counts command batches; inspect accepted-read and conflict
+coverage before drawing any application read-bandwidth conclusion.

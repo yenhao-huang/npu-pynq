@@ -19,7 +19,7 @@ from ...synth.exploration import Result
 from .. import CATEGORY
 
 
-GENERATORS=Literal['synth_fsm','synth_booth_multiplier','synth_serial_multiplier','synth_divider','synth_crc_parallel','synth_lfsr_jump','synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
+GENERATORS=Literal['synth_banked_regfile','synth_fsm','synth_booth_multiplier','synth_serial_multiplier','synth_divider','synth_crc_parallel','synth_lfsr_jump','synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
 
 
 class Case(BaseModel):
@@ -136,8 +136,8 @@ class Sweep:
         cases=[]
         with study_lock(directory/'active.lock'):
             for case in p.cases:
-                if case.generator=='synth_fsm':
-                    cases.append(self.phase_case(p,case,invoke,measure))
+                if case.generator in ('synth_fsm','synth_banked_regfile'):
+                    cases.append(self.registered_state_case(p,case,invoke,measure))
                     continue
                 if case.generator in ('synth_serial_multiplier','synth_divider'):
                     cases.append(self.arithmetic_case(p,case,invoke,measure))
@@ -198,27 +198,30 @@ class Sweep:
         return Result(ok=all(c['status'] in ('verified','measured') for c in cases),data=summary,note='All predeclared cases retained. Measurements are not automatic acceptance; assess paired gains, resources and full diversity gates separately.')
 
 
-    def phase_case(self,p,case,invoke,measure):
-        row=dict(name=case.name,objective=case.objective,generator=case.generator,protocol_contract='cyclic_phase',records=[],attempts=[],checks=[],accepted=False)
+    def registered_state_case(self,p,case,invoke,measure):
+        memory=case.generator=='synth_banked_regfile'
+        row=dict(name=case.name,objective=case.objective,generator=case.generator,protocol_contract='banked_regfile' if memory else 'cyclic_phase',transaction_unit='command_batch' if memory else 'phase_transition',records=[],attempts=[],checks=[],accepted=False)
         designs=[]
         for label,params in [('baseline',case.baseline),('candidate',case.candidate)]:
             generated=invoke(case.name+'-'+label+'-generate',case.generator,params)
-            if not generated['ok']: raise InvalidInput('Phase generator failed')
+            if not generated['ok']: raise InvalidInput('Registered-state generator failed')
             data=generated['data'];designs.append(data)
             for fixture in (False,True):
                 files=data['timing_files'] if fixture else data['files']
                 top=data['timing_top'] if fixture else data['top']
                 expected=data['timing_sha256'] if fixture else data['source_sha256']
                 if fingerprint([Path(path) for path in files],top)!=expected:
-                    raise InvalidInput('Generated phase source changed')
-                checked=invoke(case.name+'-'+label+('-fixture' if fixture else '-protocol'),'sequential_scoreboard',dict(contract='phase',files=files,top=top,width=1,depth=data['states'],timing_fixture=fixture,random_cycles=8192))
+                    raise InvalidInput('Generated registered-state source changed')
+                contract=dict(contract='regfile',width=data['width'],depth=data['depth'],banks=data['banks']) if memory else dict(contract='phase',width=1,depth=data['states'])
+                checked=invoke(case.name+'-'+label+('-fixture' if fixture else '-protocol'),'sequential_scoreboard',dict(contract,files=files,top=top,timing_fixture=fixture,random_cycles=8192))
                 row['checks'].append(checked)
                 if not checked['ok']:
                     row['status']='correctness_not_established';return row
                 if checked['data']['source_sha256']!=expected or checked['data']['latency_cycles']!=1 or checked['data']['initiation_interval']!=1:
-                    raise InvalidInput('Phase cycle evidence mismatch')
-        if designs[0]['states']!=designs[1]['states']:
-            raise InvalidInput('Phase state counts differ')
+                    raise InvalidInput('Registered-state cycle evidence mismatch')
+        keys=('width','depth','banks') if memory else ('states',)
+        if any(designs[0][key]!=designs[1][key] for key in keys):
+            raise InvalidInput('Register-file geometry differs' if memory else 'Phase state counts differ')
         if p.verify_only:
             row['status']='verified';return row
         for repeat in range(p.repeats):
@@ -231,7 +234,7 @@ class Sweep:
                     row.update(status='measurement_failed',failure=result);return row
                 record=result['data']['record']
                 if record['source_sha256']!=data['timing_sha256'] or fingerprint([Path(path) for path in data['timing_files']],data['timing_top'])!=data['timing_sha256']:
-                    raise InvalidInput('Phase source changed between checking and measurement')
+                    raise InvalidInput('Registered-state source changed between checking and measurement')
                 pair.append(record)
             row['records'].append(pair)
         row['status']='measured'

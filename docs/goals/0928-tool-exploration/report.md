@@ -553,3 +553,32 @@ family six. The separate parallel-to-serial area comparisons remain tradeoffs:
 LUT savings 67.18%/81.92% but throughput losses 86.56%/92.27%. Preserve all four
 objectives/cases in the global denominator. No physical sessions remain live.
 Five operations and the full all-case acceptance audit remain unfinished.
+
+## Banked register-file checkpoint (46 operations)
+
+Operation 35 adds conflict-aware two-read/one-write storage. The resettable FF
+and banked distributed-RAM variants have identical externally visible bank
+arbitration: low address bits choose a bank, read0 wins conflicts, rejected read1
+returns zero, and read/write collisions return old data. RAM contents use
+per-word validity bits to make synchronous reset logically clear every word.
+There is no claim of true conflict-free arbitrary two-read access.
+
+The independent logical-memory scoreboard checks every word, conflict priority,
+read1-only requests, reset after writes, read-before-write and output latency.
+Five mutation controls break conflict handling, reset masking, row selection,
+collision ordering and registered output. The extension reuses operation 48;
+it does not add another operation to the count. Both implementations support
+one command batch per cycle; this is not two guaranteed completed reads.
+
+Actual study ee1cbf passes all eight source-bound core/fixture roles at
+16x64/two banks and 32x128/four banks. Each includes 8192 seeded stress cycles
+plus full-address directed phases. Physical session 14940 is live with three
+predeclared Basic-flow pairs per configuration and an area objective. No new
+memory PPA win is claimed. New physical records include clock-coverage reports.
+
+Validation: 77 relevant memory, phase, FIFO, sweep and registry tests passed.
+make -C src/test lint sim passed. Published 3450cf9 hosted CI passed. Four
+operations remain (37 skid buffer, 38 systolic tile, 47 ablation, 50 acceptance
+audit). Six qualifying families are complete, but diverse full coverage and
+all-case aggregate acceptance remain unproved. Remaining usage last checked:
+56%, above the mandatory below-30% stop threshold.

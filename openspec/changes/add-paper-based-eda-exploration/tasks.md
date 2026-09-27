@@ -81,3 +81,11 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Retain completed divider failures and area/throughput tradeoffs.
 - [ ] Complete remaining five operations and one more qualifying family.
 - [ ] Complete all-case aggregation, ablations and final acceptance audit.
+
+## Register-file progress
+
+- [x] Implement operation 35 with explicit banking, reset and conflict contracts.
+- [x] Verify independent memory semantics at both substantial configurations.
+- [x] Detect arbitration, validity, row, read/write ordering and fixture mutations.
+- [ ] Complete the register-file physical study without hiding any conflicts.
+- [ ] Complete remaining four operations and all-case acceptance.
