@@ -205,3 +205,20 @@ outside this kernel's performance claims; it is not a complete streaming filter.
 signed/unsigned extrema, complete sums, coefficient symmetry and negative controls.
 Distributed FIFO results are in fifo-distributed-physical-study.json and the two
 paired summaries. Auto and distributed configurations are distinct retained cases.
+
+### GF(2), CRC and LFSR
+
+Operation 15's exp-tool-15-gf2/study.py runs real positive/negative affine proof
+controls, replays a counterexample in Icarus and rejects a nonlinear AND. The
+checker derives coefficient expressions from source-bound generic Yosys netlists,
+not the generator's returned matrix. Exact affine proof is identified separately
+from attempted SAT proof. Unsupported structures are rejected conservatively.
+
+Run study.py under exp-tool-29-crc or exp-tool-30-jump with `--verify-only` and
+`--container codex-sandbox-agent-workspace`; omit verify-only for physical studies.
+The affine mode also attempts SAT and retains its outcome. A non-timeout SAT
+failure blocks acceptance. CRC retains its initial 60-second simulation failure;
+its revised bound is 300 seconds with all 8192 random and directed inputs intact.
+
+The sweep's proof engine and vector timeout participate in its checkpoint key.
+Earlier results remain at their original paths; do not rewrite failure records.

@@ -104,3 +104,17 @@ FIR 72199 (18c448) and dot 22304 (fcc669) are TERMINAL: all vectors passed,
 all SAT attempts timed out. Keep them out of qualifying-win counts. Physical
 sessions 15640/26439/62972 remain active. Full focused validation: 218 passed,
 six local-Yosys skips; make lint sim passed. Remaining usage last checked: 65%.
+
+### Linear proof and CRC/LFSR checkpoint
+
+Inventory 39; eleven operations remain. Exact affine proof replaces the planned
+compressor alias. It proves coefficient identity from actual Yosys netlists,
+rejects unsupported logic and preserves the separate SAT cross-check outcome.
+CRC initial case1 simulation timed out; 300-second revision retains 8192 random
+vectors. LFSR both sizes are proven affine and simulated. Saturation and barrel
+physical studies are terminal and do not qualify. Live: CRC 23418, LFSR 98883,
+argmax 62972. See delivery-state.md for handles and failure evidence.
+
+Full focused validation at this checkpoint: 259 passed, eight optional local
+Yosys skips. Actual container affine controls pass separately; repository gates
+pass. Remaining usage last checked: 64%, above the mandatory 30% stop threshold.

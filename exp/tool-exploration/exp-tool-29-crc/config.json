@@ -1,0 +1,47 @@
+{
+  "study_name": "synth_crc_parallel",
+  "cases": [
+    {
+      "name": "case0",
+      "generator": "synth_crc_parallel",
+      "baseline": {
+        "width": 32,
+        "polynomial": 79764919,
+        "data_width": 64,
+        "architecture": "unrolled"
+      },
+      "candidate": {
+        "width": 32,
+        "polynomial": 79764919,
+        "data_width": 64,
+        "architecture": "shared"
+      },
+      "objective": "area"
+    },
+    {
+      "name": "case1",
+      "generator": "synth_crc_parallel",
+      "baseline": {
+        "width": 32,
+        "polynomial": 79764919,
+        "data_width": 128,
+        "architecture": "unrolled"
+      },
+      "candidate": {
+        "width": 32,
+        "polynomial": 79764919,
+        "data_width": 128,
+        "architecture": "shared"
+      },
+      "objective": "area"
+    }
+  ],
+  "repeats": 3,
+  "measurement_attempts": 2,
+  "period_ns": 5,
+  "optimization_mode": "Basic",
+  "proof_engine": "affine",
+  "formal_timeout_s": 30,
+  "require_proof": true,
+  "vector_timeout_s": 300
+}

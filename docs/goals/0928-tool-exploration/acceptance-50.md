@@ -58,7 +58,7 @@ IDs 01-10 are the existing operations; they must be integrated into larger studi
 | 12 | vector_equivalence | Large-interface directed and seeded random checking |
 | 13 | yosys_equivalence | SAT proof of binary combinational equivalence |
 | 14 | synth_adder_tree | Width-aware balanced multioperand addition |
-| 15 | synth_compressor_tree | Carry-save reduction before a final carry propagation |
+| 15 | gf2_equivalence | Exact symbolic affine equivalence of source-bound binary netlists |
 | 16 | synth_prefix_adder | Explicit prefix network exploration |
 | 17 | synth_csd_multiplier | Signed-digit constant multiplication |
 | 18 | synth_mcm | Shared adder graphs for multiple constants |
@@ -97,3 +97,12 @@ IDs 01-10 are the existing operations; they must be integrated into larger studi
 
 A planned entry can be replaced when the survey justifies a better operation,
 but the reason must be recorded and the count/diversity/gain gates stay intact.
+
+Operation 15 replaces the planned compressor alias because compressor reduction
+already exists as an architecture of operation 14. The replacement compares
+complete symbolic affine functions from actual synthesized netlists. It rejects
+nonlinear/stateful/unknown structures and does not trust generation-time matrices.
+For supported affine circuits, this complete algebraic proof can establish the
+same all-input correctness requirement; an additional bounded SAT cross-check is
+retained and never relabeled as passing when it times out. This does not permit
+simulation-only evidence or an unknown proof to qualify a PPA improvement.

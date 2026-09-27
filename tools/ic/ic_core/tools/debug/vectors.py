@@ -77,7 +77,7 @@ endmodule
             name = label + '_compile.log'
             build = run_process(['iverilog', '-g2012', '-s', 'ic_vector_tb', '-o', str(exe), *map(str, files), str(bench)], cwd=ctx.run.work, log_path=ctx.run.artifacts/name, timeout_s=params.timeout_s)
             if build.exit_code or build.timed_out or re.search(r'warning:.*(port|dangling|width)', build.text(), re.I):
-                return Result(ok=False, data={'log': ctx.run.handle(name)}, note='Compilation failed or timed out; no verdict.')
+                return Result(ok=False, data={'log': ctx.run.handle(name),'exit_code':build.exit_code,'timed_out':build.timed_out}, note='Compilation failed or timed out; no verdict.')
             name = label + '_vectors.log'
             result = run_process(['vvp', str(exe)], cwd=ctx.run.work, log_path=ctx.run.artifacts/name, timeout_s=params.timeout_s)
             handles.append(ctx.run.handle(name))
@@ -86,7 +86,7 @@ endmodule
             if (result.exit_code or result.timed_out or len(rows)!=len(vectors)
                     or [int(i) for i, _ in rows]!=list(range(len(vectors)))
                     or re.search(r'\b(ERROR|FATAL)\b', text)):
-                return Result(ok=False, data={'log': handles[-1]}, note='Incomplete or failed simulation; no verdict.')
+                return Result(ok=False, data={'log': handles[-1],'exit_code':result.exit_code,'timed_out':result.timed_out,'expected_vectors':len(vectors),'observed_vectors':len(rows)}, note='Incomplete or failed simulation; no verdict.')
             tables.append([value.lower() for _, value in rows])
         if hashes != [fingerprint(files, params.top) for files in designs]:
             return Result(ok=False, data={}, note='Sources changed; result discarded.')

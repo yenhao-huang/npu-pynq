@@ -35,6 +35,8 @@ runpy.run_module('ic_cli.main', run_name='__main__')
         'synth_constant_modulo',
         'synth_fir', 'synth_dot_product',
         'synth_saturating_alu',
+        'synth_crc_parallel', 'synth_lfsr_jump',
+        'gf2_equivalence',
         'resource_tradeoff', 'paired_repeat_summary',
         'netlist_profile', 'critical_cone', 'fanout_analysis', 'memory_inference',
     }

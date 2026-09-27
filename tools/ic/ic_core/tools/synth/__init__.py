@@ -117,3 +117,4 @@ from . import physical_analysis  # noqa: E402,F401
 from . import arithmetic  # noqa: E402,F401
 from . import netlist  # noqa: E402,F401
 from . import datapaths  # noqa: E402,F401
+from . import linear  # noqa: E402,F401

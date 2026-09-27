@@ -127,3 +127,22 @@ binary preaddition plus balanced accumulation. AMD's symmetric FIR documentation
 is supplementary implementation context, not an additional paper reproduction.
 Saturation sharing adapts ROVER's equivalence-guided arithmetic resource rewriting
 with a single conditional-inversion adder; no e-graph search engine is claimed.
+
+## CRC, jump and exact linear verification
+
+Zhang, Wu, Zhou and Chen, *An optimized delay-aware common subexpression
+elimination algorithm for hardware implementation of binary-field linear
+transform*, IEICE Electronics Express 11(22), 2014, DOI 10.1587/elex.11.20140934.
+Primary PDF: https://www.jstage.jst.go.jp/article/elex/11/22/11_11.20140934/_pdf.
+We adapt repeated XOR-pair extraction; the paper's delay-aware gate is not
+implemented. Matrix equality motivates the independent exact affine checker.
+
+Haramoto et al., *Efficient Jump Ahead for F2-Linear Random Number Generators*,
+GERAD G-2006-62: https://www.gerad.ca/en/papers/G-2006-62.
+Our hardware generator uses the binary-matrix baseline, not the report's faster
+polynomial sliding-window technique. No PRNG-quality or maximum-period claim.
+
+Parallel CRC context: Gangopadhyay and Reyhani-Masoleh, DOI
+10.1109/TC.2015.2479617, author manuscript at
+https://www.eng.uwo.ca/electrical/faculty/reyhani_a/docs/publications/GRM-TC-16.pdf.
+The paper's concurrent parity fault-detection architecture is not reproduced.

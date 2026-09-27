@@ -137,3 +137,23 @@ def test_failed_measurements_stop_at_attempt_limit(store,tmp_path,monkeypatch):
     assert not result['ok'] and attempts==2
     row=result['data']['cases'][0]
     assert row['status']=='measurement_failed' and len(row['attempts'])==2
+
+@pytest.mark.parametrize('sat_timeout,accepted',[(True,True),(False,False)])
+def test_affine_sweep_requires_proof_and_retains_sat_result(store,tmp_path,monkeypatch,sat_timeout,accepted):
+    monkeypatch.setattr(sweep,'identity',lambda p,ctx:{'fixture_version':'affine'})
+    real=sweep.dispatch
+    def invoke(op,p,**kwargs):
+        if op in ('gf2_equivalence','yosys_equivalence'):
+            return dict(ok=op=='gf2_equivalence',run_id='synthetic-'+op,data=dict(timed_out=sat_timeout if op=='yosys_equivalence' else False,reference_sha256=fingerprint([Path(f) for f in p['reference_files']],p['top']),candidate_sha256=fingerprint([Path(f) for f in p['candidate_files']],p['top'])))
+        return real(op,p,**kwargs)
+    monkeypatch.setattr(sweep,'dispatch',invoke)
+    p=dict(study_name='affine',proof_engine='affine',verify_only=True,cases=[dict(name='crc',generator='synth_crc_parallel',baseline=dict(data_width=8,architecture='unrolled'),candidate=dict(data_width=8,architecture='shared'),objective='area')])
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert result['ok'] is accepted
+    assert not result['data']['cases'][0]['sat_crosscheck']['ok']
+    assert result['data']['cases'][0]['formal']['ok']
+
+
+def test_affine_sweep_rejects_nonlinear_generator(store,tmp_path):
+    with pytest.raises(InvalidInput,match='limited to CRC'):
+        dispatch('architecture_sweep',dict(payload(),proof_engine='affine'),store=store,cwd=tmp_path)

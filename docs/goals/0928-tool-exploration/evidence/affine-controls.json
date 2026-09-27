@@ -1,0 +1,132 @@
+{
+  "positive": {
+    "ok": true,
+    "data": {
+      "proved": true,
+      "method": "exact_affine_gf2",
+      "reference_sha256": "eead9667acec0985af73044c8aad11bcd6f6a4990b3c90af75d94de07e4419a9",
+      "candidate_sha256": "5c0f0434c28a1eab70140e1a1682e04c7ccff3e865003e11b45f49ed639526d8",
+      "certificate": "4cffd4/affine.json",
+      "certificate_sha256": "8e3ac2cb5dd485ce64295c5dac14770b20f19e8234551a9a63e1828b45e6c79d",
+      "counterexample": null,
+      "profiles": [
+        {
+          "ok": true,
+          "data": {
+            "source_sha256": "eead9667acec0985af73044c8aad11bcd6f6a4990b3c90af75d94de07e4419a9",
+            "netlist_sha256": "2770b657dc483d5301100a2dbdfa62e7a5ef0f1c331731c5cc73ff2ec3bb6244",
+            "netlist": "bb23a7/netlist.json",
+            "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\051219-bb23a7-synth\\artifacts\\netlist.json",
+            "top": "dut",
+            "mapping": "generic",
+            "engine": "$ docker exec -w /tmp/ic-netlist-bb23a7 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "cell_count": 192,
+            "cell_types": {
+              "$and": 64,
+              "$xor": 128
+            },
+            "output_bits_by_cell_type": {
+              "$and": 2048,
+              "$xor": 2112
+            },
+            "log": "bb23a7/netlist.log"
+          },
+          "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+          "run_id": "bb23a7"
+        },
+        {
+          "ok": true,
+          "data": {
+            "source_sha256": "5c0f0434c28a1eab70140e1a1682e04c7ccff3e865003e11b45f49ed639526d8",
+            "netlist_sha256": "7c7ddb4dea2eb6d68c3755f877b6a0a53d0b86c7c633102c0a095ef38cd5724b",
+            "netlist": "19a29a/netlist.json",
+            "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\051220-19a29a-synth\\artifacts\\netlist.json",
+            "top": "dut",
+            "mapping": "generic",
+            "engine": "$ docker exec -w /tmp/ic-netlist-19a29a codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "cell_count": 460,
+            "cell_types": {
+              "$xor": 460
+            },
+            "output_bits_by_cell_type": {
+              "$xor": 460
+            },
+            "log": "19a29a/netlist.log"
+          },
+          "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+          "run_id": "19a29a"
+        }
+      ]
+    },
+    "note": "Exact two-state equivalence of affine output expressions derived from synthesized netlists. Unsupported/nonlinear/stateful/unknown cells are rejected. This is an algebraic proof, not a SAT result or a random basis sample.",
+    "run_id": "4cffd4"
+  },
+  "negative": {
+    "ok": false,
+    "data": {
+      "proved": false,
+      "method": "exact_affine_gf2",
+      "reference_sha256": "eead9667acec0985af73044c8aad11bcd6f6a4990b3c90af75d94de07e4419a9",
+      "candidate_sha256": "7a1d158427f8191f287b2b8289f9e9c1e77803a48f39b341a7e2481bb6294941",
+      "certificate": "40d646/affine.json",
+      "certificate_sha256": "037da00f14e40713017f689bfb8bc6698598789e16e2e6715b07f0dbb077807e",
+      "counterexample": {
+        "x": "0x1",
+        "reference_y": "0x490d678d",
+        "candidate_y": "0x3aab4576"
+      },
+      "profiles": [
+        {
+          "ok": true,
+          "data": {
+            "source_sha256": "eead9667acec0985af73044c8aad11bcd6f6a4990b3c90af75d94de07e4419a9",
+            "netlist_sha256": "2770b657dc483d5301100a2dbdfa62e7a5ef0f1c331731c5cc73ff2ec3bb6244",
+            "netlist": "f41c46/netlist.json",
+            "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\051222-f41c46-synth\\artifacts\\netlist.json",
+            "top": "dut",
+            "mapping": "generic",
+            "engine": "$ docker exec -w /tmp/ic-netlist-f41c46 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "cell_count": 192,
+            "cell_types": {
+              "$and": 64,
+              "$xor": 128
+            },
+            "output_bits_by_cell_type": {
+              "$and": 2048,
+              "$xor": 2112
+            },
+            "log": "f41c46/netlist.log"
+          },
+          "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+          "run_id": "f41c46"
+        },
+        {
+          "ok": true,
+          "data": {
+            "source_sha256": "7a1d158427f8191f287b2b8289f9e9c1e77803a48f39b341a7e2481bb6294941",
+            "netlist_sha256": "d3721d3d19d85ac262a5c3bf3b8b63f97bfce0b0fba59312c6470c7d7b088210",
+            "netlist": "ca7751/netlist.json",
+            "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\051223-ca7751-synth\\artifacts\\netlist.json",
+            "top": "dut",
+            "mapping": "generic",
+            "engine": "$ docker exec -w /tmp/ic-netlist-ca7751 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "cell_count": 458,
+            "cell_types": {
+              "$xor": 458
+            },
+            "output_bits_by_cell_type": {
+              "$xor": 458
+            },
+            "log": "ca7751/netlist.log"
+          },
+          "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+          "run_id": "ca7751"
+        }
+      ]
+    },
+    "note": "Exact two-state equivalence of affine output expressions derived from synthesized netlists. Unsupported/nonlinear/stateful/unknown cells are rejected. This is an algebraic proof, not a SAT result or a random basis sample.",
+    "run_id": "40d646"
+  },
+  "witness_replayed_in_icarus": true,
+  "nonlinear_rejected": "Nonlinear AND/OR cannot receive an affine proof"
+}

@@ -94,3 +94,19 @@ def test_sat_internal_timeout_classification(store,tmp_path,monkeypatch,message,
     result=dispatch('yosys_equivalence',dict(reference_files=[str(source)],candidate_files=[str(source)],top='dut',input_width=8,output_width=8),store=store)
     assert result['data']['timed_out'] is timed_out
     assert not result['ok']
+
+@pytest.mark.parametrize('timed_out',[False,True])
+def test_vector_failure_records_process_and_coverage(store,tmp_path,monkeypatch,timed_out):
+    from ic_core.tools.debug import vectors
+    from ic_core.process import CommandResult
+    source=tmp_path/'dut.sv';source.write_text('module dut(input [7:0] x, output [7:0] y); assign y=x; endmodule')
+    def run(argv,*,cwd,log_path,timeout_s):
+        compiling=argv[0]=='iverilog'
+        log_path.write_text('' if compiling else 'IC_VECTOR 0 00\n')
+        return CommandResult(argv,0 if compiling else 1,0,log_path,timed_out=timed_out and not compiling)
+    monkeypatch.setattr(vectors,'run_process',run)
+    result=dispatch('vector_equivalence',dict(reference_files=[str(source)],candidate_files=[str(source)],top='dut',input_width=8,output_width=8,combinational_contract=True),store=store)
+    assert not result['ok']
+    assert result['data']['timed_out'] is timed_out
+    assert result['data']['observed_vectors']==1
+    assert result['data']['expected_vectors']>4096

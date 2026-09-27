@@ -19,7 +19,7 @@ from ...synth.exploration import Result
 from .. import CATEGORY
 
 
-GENERATORS=Literal['synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
+GENERATORS=Literal['synth_crc_parallel','synth_lfsr_jump','synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
 
 
 class Case(BaseModel):
@@ -42,6 +42,8 @@ class SweepIn(ExplorationInput):
     optimization_mode: Literal['Default','Basic'] = Field(default='Default',description='Matched Vivado optimization stage for every physical pair.')
     formal_container: str | None = Field(default=None,pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$',description='Existing container providing Yosys, or null for local Yosys.')
     formal_timeout_s: int = Field(default=120,ge=1,le=1800,description='Per-case SAT time limit.')
+    vector_timeout_s: int = Field(default=60,ge=1,le=600,description='Bounded compile/simulation time per process; does not reduce vector coverage.')
+    proof_engine: Literal['sat','affine'] = Field(default='sat',description='SAT proof, or exact affine netlist proof with an additional bounded SAT cross-check for CRC/LFSR only.')
     verify_only: bool = Field(default=False,description='Run correctness gates without physical implementation.')
     require_proof: bool = Field(default=True,description='Skip implementation when SAT proof is not obtained; false permits diagnostic measurements only.')
 
@@ -103,6 +105,8 @@ class Sweep:
     def architecture_sweep(self,p,ctx):
         if len({c.name for c in p.cases})!=len(p.cases):
             raise InvalidInput('Case names must be unique')
+        if p.proof_engine=='affine' and any(case.generator not in ('synth_crc_parallel','synth_lfsr_jump') for case in p.cases):
+            raise InvalidInput('Affine sweep proof is limited to CRC and LFSR generators')
         environment=identity(p,ctx)
         key=checkpoint_key(p,environment)
         directory=ctx.cwd/'.ic'/'studies'/p.study_name/key
@@ -151,9 +155,14 @@ class Sweep:
                 if hashes != [d.get('source_sha256') for d in designs]:
                     raise InvalidInput('Generated source artifacts changed since generation')
                 payload=dict(reference_files=[a['core_path']],candidate_files=[b['core_path']],top='dut',input_width=a['input_width'],output_width=a['output_width'])
-                check=invoke(case.name+'-vectors','vector_equivalence',dict(payload,random_vectors=8192,combinational_contract=True))
-                proof=invoke(case.name+'-proof','yosys_equivalence',dict(payload,container=p.formal_container,timeout_s=p.formal_timeout_s))
+                check=invoke(case.name+'-vectors','vector_equivalence',dict(payload,random_vectors=8192,combinational_contract=True,timeout_s=p.vector_timeout_s))
+                proof=invoke(case.name+'-proof','gf2_equivalence' if p.proof_engine=='affine' else 'yosys_equivalence',dict(payload,container=p.formal_container,timeout_s=min(p.formal_timeout_s,600) if p.proof_engine=='affine' else p.formal_timeout_s))
                 row.update(simulation=check,formal=proof)
+                if p.proof_engine=='affine':
+                    crosscheck=invoke(case.name+'-sat-crosscheck','yosys_equivalence',dict(payload,container=p.formal_container,timeout_s=p.formal_timeout_s))
+                    row['sat_crosscheck']=crosscheck
+                    if not crosscheck['ok'] and not crosscheck['data'].get('timed_out'):
+                        row['status']='correctness_not_established';cases.append(row);continue
                 if not check['ok'] or (p.require_proof and not proof['ok']):
                     row['status']='correctness_not_established'; cases.append(row); continue
                 core_hashes=[fingerprint([pair[0]],'dut') for pair in paths]

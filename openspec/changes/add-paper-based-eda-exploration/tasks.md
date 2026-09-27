@@ -38,3 +38,11 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Complete distributed FIFO physical pairs at both sizes with protocol evidence.
 - [ ] Complete FIR/dot proofs and ALU/network physical studies before claiming gains.
 - [ ] Implement remaining fourteen distinct operations and finish global acceptance.
+
+## Linear datapath progress
+
+- [x] Implement parallel CRC and exact LFSR jump with shared-XOR alternatives.
+- [x] Replace the duplicate compressor proposal with source-bound affine proof.
+- [x] Run real affine positive/negative controls and replay the counterexample.
+- [x] Retain completed saturation/barrel measurements that miss family gates.
+- [ ] Complete CRC/LFSR/argmax physical studies and full all-case acceptance.

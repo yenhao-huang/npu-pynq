@@ -95,3 +95,10 @@ For FIFO sweeps, check both the core protocol and registered timing fixture;
 the fixture is an observation environment rather than a deployable FIFO adapter.
 Keep auto-inference and explicitly constrained memory policies as separate cases.
 Bound physical retries and preserve every failed attempt in the study evidence.
+
+Use `gf2_equivalence` only for its supported affine combinational subset. It
+extracts exact expressions from actual netlists and must reject unknown, stateful
+or nonlinear logic. Keep algebraic proofs and SAT attempts distinct, including
+SAT timeouts. A generation-time matrix or passing basis-vector simulation is not
+an affine proof. Raising a bounded simulation timeout must preserve vector count
+and the original failed record; never silently reduce coverage for a PPA gate.

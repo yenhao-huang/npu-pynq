@@ -1,0 +1,256 @@
+{
+  "ok": true,
+  "data": {
+    "checkpoint_key": "2a778d74df07d97845490dd7ca7356dcee37ba8dffcbff845a02d5233087f6e2",
+    "checkpoint_directory": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_lfsr_jump\\2a778d74df07d97845490dd7ca7356dcee37ba8dffcbff845a02d5233087f6e2",
+    "environment": {
+      "python": "3.12.10",
+      "pydantic": "2.13.5",
+      "iverilog": {
+        "command": [
+          "iverilog",
+          "-V"
+        ],
+        "version": [
+          "Icarus Verilog version 13.0 (stable) (v13_0)"
+        ]
+      },
+      "yosys": {
+        "command": [
+          "docker",
+          "exec",
+          "codex-sandbox-agent-workspace",
+          "yosys",
+          "-V"
+        ],
+        "version": [
+          "Yosys 0.23 (git sha1 7ce5011c24b)"
+        ]
+      }
+    },
+    "cases": [
+      {
+        "name": "case0",
+        "objective": "area",
+        "generator": "synth_lfsr_jump",
+        "records": [],
+        "accepted": false,
+        "simulation": {
+          "ok": true,
+          "data": {
+            "passed": true,
+            "vectors": 8292,
+            "seed": 928,
+            "stimuli_sha256": "6b7a8871e6f797d1a7d0e426029475a51a4e17e02dc7babb98ac890df2d8ac66",
+            "reference_sha256": "f10c29876271542aece4007baa44ca802cf965095b0ac2e96726516153e4301e",
+            "candidate_sha256": "cb07bc6fc98198fd3f71baf950d4fd19cb5c32a67b2320123a1010c5b1182fac",
+            "logs": [
+              "8e7e2b/reference_vectors.log",
+              "8e7e2b/candidate_vectors.log"
+            ],
+            "first_mismatch": null
+          },
+          "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+          "run_id": "8e7e2b"
+        },
+        "formal": {
+          "ok": true,
+          "data": {
+            "proved": true,
+            "method": "exact_affine_gf2",
+            "reference_sha256": "f10c29876271542aece4007baa44ca802cf965095b0ac2e96726516153e4301e",
+            "candidate_sha256": "cb07bc6fc98198fd3f71baf950d4fd19cb5c32a67b2320123a1010c5b1182fac",
+            "certificate": "0f806f/affine.json",
+            "certificate_sha256": "87009e57e33e36334897e95b19009104670b7ad188dd9962207c91ab0d539e18",
+            "counterexample": null,
+            "profiles": [
+              {
+                "ok": true,
+                "data": {
+                  "source_sha256": "f10c29876271542aece4007baa44ca802cf965095b0ac2e96726516153e4301e",
+                  "netlist_sha256": "02a87e232ae58a4b79739a460450bf0f65e0bdd5ebcb5c9db3b35a7ef53b1c6a",
+                  "netlist": "9037bb/netlist.json",
+                  "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\051101-9037bb-synth\\artifacts\\netlist.json",
+                  "top": "dut",
+                  "mapping": "generic",
+                  "engine": "$ docker exec -w /tmp/ic-netlist-9037bb codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+                  "cell_count": 128,
+                  "cell_types": {
+                    "$and": 64,
+                    "$xor": 64
+                  },
+                  "output_bits_by_cell_type": {
+                    "$and": 2048,
+                    "$xor": 2048
+                  },
+                  "log": "9037bb/netlist.log"
+                },
+                "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+                "run_id": "9037bb"
+              },
+              {
+                "ok": true,
+                "data": {
+                  "source_sha256": "cb07bc6fc98198fd3f71baf950d4fd19cb5c32a67b2320123a1010c5b1182fac",
+                  "netlist_sha256": "0c47f57dc51efc640a358ca14d1ad578d31f85f6361fb9eccdcd553e71ace847",
+                  "netlist": "c5e3d8/netlist.json",
+                  "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\051102-c5e3d8-synth\\artifacts\\netlist.json",
+                  "top": "dut",
+                  "mapping": "generic",
+                  "engine": "$ docker exec -w /tmp/ic-netlist-c5e3d8 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+                  "cell_count": 217,
+                  "cell_types": {
+                    "$xor": 217
+                  },
+                  "output_bits_by_cell_type": {
+                    "$xor": 217
+                  },
+                  "log": "c5e3d8/netlist.log"
+                },
+                "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+                "run_id": "c5e3d8"
+              }
+            ]
+          },
+          "note": "Exact two-state equivalence of affine output expressions derived from synthesized netlists. Unsupported/nonlinear/stateful/unknown cells are rejected. This is an algebraic proof, not a SAT result or a random basis sample.",
+          "run_id": "0f806f"
+        },
+        "sat_crosscheck": {
+          "ok": false,
+          "data": {
+            "proved": false,
+            "reference_sha256": "f10c29876271542aece4007baa44ca802cf965095b0ac2e96726516153e4301e",
+            "candidate_sha256": "cb07bc6fc98198fd3f71baf950d4fd19cb5c32a67b2320123a1010c5b1182fac",
+            "engine": "$ docker exec -w /tmp/ic-formal-caed35 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "normalization": "word",
+            "log": "caed35/proof.log",
+            "exit_code": 1,
+            "timed_out": true,
+            "source_unchanged": true
+          },
+          "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+          "run_id": "caed35"
+        },
+        "status": "verified"
+      },
+      {
+        "name": "case1",
+        "objective": "area",
+        "generator": "synth_lfsr_jump",
+        "records": [],
+        "accepted": false,
+        "simulation": {
+          "ok": true,
+          "data": {
+            "passed": true,
+            "vectors": 8388,
+            "seed": 928,
+            "stimuli_sha256": "50127556148d99647fabdfa54b59ff8db345eab1b40a0b60fce6843330691833",
+            "reference_sha256": "3150f7af7e12c7498561983d957bb23ed2150635aeda732862c48fa4452032cb",
+            "candidate_sha256": "36e44e89a6b0c8590d019fd0b9b34c41b3f261fd1ee7ce63f3b249a5fba7a9ca",
+            "logs": [
+              "f998a9/reference_vectors.log",
+              "f998a9/candidate_vectors.log"
+            ],
+            "first_mismatch": null
+          },
+          "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+          "run_id": "f998a9"
+        },
+        "formal": {
+          "ok": true,
+          "data": {
+            "proved": true,
+            "method": "exact_affine_gf2",
+            "reference_sha256": "3150f7af7e12c7498561983d957bb23ed2150635aeda732862c48fa4452032cb",
+            "candidate_sha256": "36e44e89a6b0c8590d019fd0b9b34c41b3f261fd1ee7ce63f3b249a5fba7a9ca",
+            "certificate": "8a2ed9/affine.json",
+            "certificate_sha256": "ba646d18c538d3f8bfd97ba0283a5c857ce1f362c31cee8b25dce9829d6d3cd3",
+            "counterexample": null,
+            "profiles": [
+              {
+                "ok": true,
+                "data": {
+                  "source_sha256": "3150f7af7e12c7498561983d957bb23ed2150635aeda732862c48fa4452032cb",
+                  "netlist_sha256": "076e240b00efa5b2a7c391e20c1b91297552089ed7fda8d3c1388dd409ec6e52",
+                  "netlist": "44d888/netlist.json",
+                  "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\051139-44d888-synth\\artifacts\\netlist.json",
+                  "top": "dut",
+                  "mapping": "generic",
+                  "engine": "$ docker exec -w /tmp/ic-netlist-44d888 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+                  "cell_count": 256,
+                  "cell_types": {
+                    "$and": 128,
+                    "$xor": 128
+                  },
+                  "output_bits_by_cell_type": {
+                    "$and": 8192,
+                    "$xor": 8192
+                  },
+                  "log": "44d888/netlist.log"
+                },
+                "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+                "run_id": "44d888"
+              },
+              {
+                "ok": true,
+                "data": {
+                  "source_sha256": "36e44e89a6b0c8590d019fd0b9b34c41b3f261fd1ee7ce63f3b249a5fba7a9ca",
+                  "netlist_sha256": "af31af8803a989224c0faef90218f50ea8258322977ad1d1004553c831785dee",
+                  "netlist": "065144/netlist.json",
+                  "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\051141-065144-synth\\artifacts\\netlist.json",
+                  "top": "dut",
+                  "mapping": "generic",
+                  "engine": "$ docker exec -w /tmp/ic-netlist-065144 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+                  "cell_count": 153,
+                  "cell_types": {
+                    "$xor": 153
+                  },
+                  "output_bits_by_cell_type": {
+                    "$xor": 153
+                  },
+                  "log": "065144/netlist.log"
+                },
+                "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+                "run_id": "065144"
+              }
+            ]
+          },
+          "note": "Exact two-state equivalence of affine output expressions derived from synthesized netlists. Unsupported/nonlinear/stateful/unknown cells are rejected. This is an algebraic proof, not a SAT result or a random basis sample.",
+          "run_id": "8a2ed9"
+        },
+        "sat_crosscheck": {
+          "ok": true,
+          "data": {
+            "proved": true,
+            "reference_sha256": "3150f7af7e12c7498561983d957bb23ed2150635aeda732862c48fa4452032cb",
+            "candidate_sha256": "36e44e89a6b0c8590d019fd0b9b34c41b3f261fd1ee7ce63f3b249a5fba7a9ca",
+            "engine": "$ docker exec -w /tmp/ic-formal-99545a codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "normalization": "word",
+            "log": "99545a/proof.log",
+            "exit_code": 0,
+            "timed_out": false,
+            "source_unchanged": true
+          },
+          "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+          "run_id": "99545a"
+        },
+        "status": "verified"
+      }
+    ],
+    "children": [
+      "5e4622",
+      "07f77e",
+      "8e7e2b",
+      "0f806f",
+      "caed35",
+      "d8d9bf",
+      "cc53de",
+      "f998a9",
+      "8a2ed9",
+      "99545a"
+    ]
+  },
+  "note": "All predeclared cases retained. Measurements are not automatic acceptance; assess paired gains, resources and full diversity gates separately.",
+  "run_id": "6455f0"
+}

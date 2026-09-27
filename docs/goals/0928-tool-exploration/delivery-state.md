@@ -239,3 +239,32 @@ suite (`--basetemp=.ic/pytest-expanded-13`); make lint sim passed. FIR session
 checks passed, all four 120-second SAT attempts timed out. Their complete results
 are retained as fir-verification.json and dot-product-verification.json. Physical
 studies 15640, 26439 and 62972 remain active. No additional qualifying family yet.
+
+## 39-operation checkpoint
+
+Implemented CRC, LFSR jump and exact affine netlist equivalence. Operation 15
+replaces the compressor alias already covered by operation 14. Eleven operations
+remain. GF(2) proof controls passed: 4cffd4 positive, 40d646 wrong-polynomial
+counterexample replayed in Icarus, nonlinear source rejected. Primary paper
+connections and bounded proof contracts are in the modular READMEs.
+
+Terminal studies:
+- 15640 -> c3969a saturation: all pairs complete, but 64-bit LUT growth 28% exceeds
+  the throughput-gain resource limit. Whole family does not qualify.
+- 26439 -> 493114 barrel: all pairs complete, no material improvement.
+- 27823 -> 1ca255 CRC verification: both affine proofs pass, case1 unrolled vector
+  simulation hits 60 s; both SAT checks time out. Preserve the original record.
+- 14821 -> 6455f0 LFSR verification: both affine/vector checks pass; SAT passes
+  for 64-bit case and times out for 32-bit case.
+
+Live physical handles: 23418 CRC (vector bound 300 s, same vector coverage),
+98883 LFSR, and 62972 argmax pending authoritative terminal status. Poll before
+restarting. Completed qualifiers remain priority, MCM, distributed FIFO until
+another whole-family audit passes. New focused tests: 73 passed, six optional
+local-Yosys skips; final full suite running as session 60342.
+
+Final full focused validation: 259 passed, eight optional local-Yosys skips
+(`--basetemp=.ic/pytest-expanded-14`). Real container affine controls passed
+separately, including an Icarus-replayed witness. `make -C src/test lint sim`
+passed. Previous published 083c3d6 CI passed; this checkpoint is not yet CI-verified.
+Argmax is still live with two complete 32-bit pairs; do not prematurely count it.

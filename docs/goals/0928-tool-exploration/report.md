@@ -365,3 +365,32 @@ Completed FIR and dot verification studies each pass both large-interface vector
 checks but time out in both SAT configurations (120 seconds per proof). Their
 status is inconclusive, not verified equivalence; no physical improvement is
 claimed. Full focused suite: 218 passed, six local-Yosys skips; repository gates pass.
+
+## Binary linear transformations (operations 15, 29, 30)
+
+Implemented inventory is 39. Parallel CRC consumes an explicit state and 64/128
+MSB-first data bits; LFSR advances 32/64-bit state by 64/128 recurrence steps.
+Alternatives are unrolled, independent matrix rows and shared XOR pairs. These
+are architecture variants of two operations, not separately counted names.
+Independent bit-step integer models cover all semantics, including zero state.
+
+The planned compressor alias at ID 15 is replaced by exact affine equivalence:
+it synthesizes both sources and propagates input coefficients plus a constant
+through supported Yosys cells. Complete coefficient equality proves every binary
+input, rather than assuming linearity from basis tests or trusting generator
+matrices. Cycles, state, unknowns, nonlinear gates, multiple drivers and missing
+wires are rejected. Positive/wrong-polynomial controls and an Icarus-replayed
+counterexample passed, as did actual nonlinear rejection.
+
+LFSR verify-only study 6455f0 passes affine and vector checks for both sizes;
+its 64-bit SAT cross-check also passes, while the 32-bit SAT attempt times out.
+CRC initial 1ca255 has both exact affine proofs; the 128-data-bit unrolled
+simulation times out at 60 seconds and both SAT checks time out. The physical
+study revision preserves all vectors and raises only simulation time to 300 s.
+Proof kind and SAT outcomes remain distinct. No new PPA gain is claimed yet.
+
+Completed saturation study c3969a: 32-bit throughput +21.58%, LUT growth 23.08%;
+64-bit throughput +29.34%, LUT growth 28.00%. The latter exceeds the 25% resource
+limit, so the family does not qualify. Its predeclared area objective stays fixed.
+Barrel study 493114 has unchanged LUT counts, no 32-bit speed gain and only 2.21%
+64-bit speed gain. It also does not qualify. All repeated records are retained.
