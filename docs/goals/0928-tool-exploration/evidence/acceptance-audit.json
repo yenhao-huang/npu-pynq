@@ -474,11 +474,144 @@
             "case": "w32",
             "status": "verified",
             "qualified": false
+          },
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\prefix-physical-study.json",
+            "run_id": "9418c2",
+            "case": "w32",
+            "status": "measured",
+            "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
+            "valid_physical": true,
+            "summary": {
+              "repeats": 3,
+              "objective": "throughput",
+              "comparisons": [
+                {
+                  "lut_reduction_pct": -450.0,
+                  "throughput_gain_pct": -34.06805050288894,
+                  "throughput_ratio": 0.6593194949711106,
+                  "resource_delta": {
+                    "luts": 144.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 450.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit.",
+                    "Resource growth exceeds the 25% throughput-win limit."
+                  ]
+                },
+                {
+                  "lut_reduction_pct": -450.0,
+                  "throughput_gain_pct": -34.06805050288894,
+                  "throughput_ratio": 0.6593194949711106,
+                  "resource_delta": {
+                    "luts": 144.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 450.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit.",
+                    "Resource growth exceeds the 25% throughput-win limit."
+                  ]
+                },
+                {
+                  "lut_reduction_pct": -450.0,
+                  "throughput_gain_pct": -34.06805050288894,
+                  "throughput_ratio": 0.6593194949711106,
+                  "resource_delta": {
+                    "luts": 144.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 450.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit.",
+                    "Resource growth exceeds the 25% throughput-win limit."
+                  ]
+                }
+              ],
+              "summary": {
+                "lut_reduction_pct": {
+                  "min": -450.0,
+                  "max": -450.0,
+                  "mean": -450.0
+                },
+                "throughput_gain_pct": {
+                  "min": -34.06805050288894,
+                  "max": -34.06805050288894,
+                  "mean": -34.06805050288894
+                }
+              },
+              "objective_geometric_benefit": 0.6593194949711106,
+              "objective_geometric_benefit_lower_bound": 0.6593194949711106,
+              "zero_lut_candidate": false,
+              "area_gate": false,
+              "throughput_gate": false,
+              "scope": "routed_clocked_ooc",
+              "independent_statistical_samples": false
+            }
           }
         ],
         "substantial": true,
         "qualified": false,
-        "objective_benefit_lower_bound": null
+        "objective_benefit_lower_bound": 0.6593194949711106
       },
       {
         "id": "1dbec3e685e4eaac297db6c0573e78702daf011bcbaa14cfa45e50c536d659f5",
@@ -502,11 +635,144 @@
             "case": "w64",
             "status": "verified",
             "qualified": false
+          },
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\prefix-physical-study.json",
+            "run_id": "9418c2",
+            "case": "w64",
+            "status": "measured",
+            "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
+            "valid_physical": true,
+            "summary": {
+              "repeats": 3,
+              "objective": "throughput",
+              "comparisons": [
+                {
+                  "lut_reduction_pct": -718.75,
+                  "throughput_gain_pct": -20.19055341577133,
+                  "throughput_ratio": 0.7980944658422867,
+                  "resource_delta": {
+                    "luts": 460.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 718.75,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit.",
+                    "Resource growth exceeds the 25% throughput-win limit."
+                  ]
+                },
+                {
+                  "lut_reduction_pct": -718.75,
+                  "throughput_gain_pct": -20.19055341577133,
+                  "throughput_ratio": 0.7980944658422867,
+                  "resource_delta": {
+                    "luts": 460.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 718.75,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit.",
+                    "Resource growth exceeds the 25% throughput-win limit."
+                  ]
+                },
+                {
+                  "lut_reduction_pct": -718.75,
+                  "throughput_gain_pct": -20.19055341577133,
+                  "throughput_ratio": 0.7980944658422867,
+                  "resource_delta": {
+                    "luts": 460.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 718.75,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit.",
+                    "Resource growth exceeds the 25% throughput-win limit."
+                  ]
+                }
+              ],
+              "summary": {
+                "lut_reduction_pct": {
+                  "min": -718.75,
+                  "max": -718.75,
+                  "mean": -718.75
+                },
+                "throughput_gain_pct": {
+                  "min": -20.19055341577133,
+                  "max": -20.19055341577133,
+                  "mean": -20.19055341577133
+                }
+              },
+              "objective_geometric_benefit": 0.7980944658422867,
+              "objective_geometric_benefit_lower_bound": 0.7980944658422867,
+              "zero_lut_candidate": false,
+              "area_gate": false,
+              "throughput_gate": false,
+              "scope": "routed_clocked_ooc",
+              "independent_statistical_samples": false
+            }
           }
         ],
         "substantial": true,
         "qualified": false,
-        "objective_benefit_lower_bound": null
+        "objective_benefit_lower_bound": 0.7980944658422867
       },
       {
         "id": "bc57a7579c8bdfb9214726bb3fb92146a65a86b345203bd194705c85d6f65175",
@@ -523,12 +789,20 @@
         },
         "objective": "area",
         "declarations": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config-bitwise.json",
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config.json"
         ],
         "observations": [
           {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\arithmetic-and-failures.json",
             "run_id": "8db0bc",
+            "case": "w16",
+            "status": "verified",
+            "qualified": false
+          },
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-bitwise-verification.json",
+            "run_id": "fe89db",
             "case": "w16",
             "status": "verified",
             "qualified": false
@@ -553,12 +827,20 @@
         },
         "objective": "area",
         "declarations": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config-bitwise.json",
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config.json"
         ],
         "observations": [
           {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\arithmetic-and-failures.json",
             "run_id": "8db0bc",
+            "case": "w32",
+            "status": "correctness_not_established",
+            "qualified": false
+          },
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-bitwise-verification.json",
+            "run_id": "fe89db",
             "case": "w32",
             "status": "correctness_not_established",
             "qualified": false
@@ -609,6 +891,10 @@
             "case": "w16",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -769,6 +1055,10 @@
             "case": "w32",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -1037,6 +1327,7 @@
         },
         "objective": "throughput",
         "declarations": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\config-products.json",
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\config.json"
         ],
         "observations": [
@@ -1069,6 +1360,7 @@
         },
         "objective": "throughput",
         "declarations": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\config-products.json",
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\config.json"
         ],
         "observations": [
@@ -1162,6 +1454,10 @@
             "case": "w16_fold",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -1312,6 +1608,10 @@
             "case": "w16_digit",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -1453,6 +1753,10 @@
             "case": "w32_fold",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -1603,6 +1907,10 @@
             "case": "w32_digit",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -1784,6 +2092,10 @@
             "case": "w64",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -1925,6 +2237,10 @@
             "case": "w128",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -2117,6 +2433,10 @@
             "case": "w128",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -2251,6 +2571,10 @@
             "case": "w128",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -2448,6 +2772,10 @@
             "case": "w32",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -2589,6 +2917,10 @@
             "case": "w64",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -2725,10 +3057,135 @@
         "declarations": [
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-27-rtlrewriter\\config.json"
         ],
-        "observations": [],
+        "observations": [
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\onehot-physical-study.json",
+            "run_id": "bf8a99",
+            "case": "w16",
+            "status": "measured",
+            "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
+            "valid_physical": true,
+            "summary": {
+              "repeats": 3,
+              "objective": "throughput",
+              "comparisons": [
+                {
+                  "lut_reduction_pct": 0.0,
+                  "throughput_gain_pct": -4.47806354009076,
+                  "throughput_ratio": 0.9552193645990924,
+                  "resource_delta": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": 0.0,
+                  "throughput_gain_pct": -4.47806354009076,
+                  "throughput_ratio": 0.9552193645990924,
+                  "resource_delta": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": 0.0,
+                  "throughput_gain_pct": -4.47806354009076,
+                  "throughput_ratio": 0.9552193645990924,
+                  "resource_delta": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": []
+                }
+              ],
+              "summary": {
+                "lut_reduction_pct": {
+                  "min": 0.0,
+                  "max": 0.0,
+                  "mean": 0.0
+                },
+                "throughput_gain_pct": {
+                  "min": -4.47806354009076,
+                  "max": -4.47806354009076,
+                  "mean": -4.47806354009076
+                }
+              },
+              "objective_geometric_benefit": 0.9552193645990924,
+              "objective_geometric_benefit_lower_bound": 0.9552193645990924,
+              "zero_lut_candidate": false,
+              "area_gate": false,
+              "throughput_gate": false,
+              "scope": "routed_clocked_ooc",
+              "independent_statistical_samples": false
+            }
+          }
+        ],
         "substantial": true,
         "qualified": false,
-        "objective_benefit_lower_bound": null
+        "objective_benefit_lower_bound": 0.9552193645990924
       },
       {
         "id": "1fe5175555655d776447e53bc8a4d8073a6b66c4c0eafdcebfac5c82ad2116ee",
@@ -2747,10 +3204,135 @@
         "declarations": [
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-27-rtlrewriter\\config.json"
         ],
-        "observations": [],
+        "observations": [
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\onehot-physical-study.json",
+            "run_id": "bf8a99",
+            "case": "w32",
+            "status": "measured",
+            "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
+            "valid_physical": true,
+            "summary": {
+              "repeats": 3,
+              "objective": "throughput",
+              "comparisons": [
+                {
+                  "lut_reduction_pct": 0.0,
+                  "throughput_gain_pct": -1.7910447761194104,
+                  "throughput_ratio": 0.9820895522388059,
+                  "resource_delta": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": 0.0,
+                  "throughput_gain_pct": -1.7910447761194104,
+                  "throughput_ratio": 0.9820895522388059,
+                  "resource_delta": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": 0.0,
+                  "throughput_gain_pct": -1.7910447761194104,
+                  "throughput_ratio": 0.9820895522388059,
+                  "resource_delta": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 0.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": []
+                }
+              ],
+              "summary": {
+                "lut_reduction_pct": {
+                  "min": 0.0,
+                  "max": 0.0,
+                  "mean": 0.0
+                },
+                "throughput_gain_pct": {
+                  "min": -1.7910447761194104,
+                  "max": -1.7910447761194104,
+                  "mean": -1.7910447761194104
+                }
+              },
+              "objective_geometric_benefit": 0.9820895522388059,
+              "objective_geometric_benefit_lower_bound": 0.9820895522388059,
+              "zero_lut_candidate": false,
+              "area_gate": false,
+              "throughput_gate": false,
+              "scope": "routed_clocked_ooc",
+              "independent_statistical_samples": false
+            }
+          }
+        ],
         "substantial": true,
         "qualified": false,
-        "objective_benefit_lower_bound": null
+        "objective_benefit_lower_bound": 0.9820895522388059
       },
       {
         "id": "b6473bc63e734268bd64b5e5ea989195906882a02816bec5dbc4dd2870973800",
@@ -2776,6 +3358,10 @@
             "case": "w16",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -2919,6 +3505,10 @@
             "case": "w32",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -3071,6 +3661,10 @@
             "case": "case0",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -3223,6 +3817,10 @@
             "case": "case1",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -3368,6 +3966,10 @@
             "case": "case0",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -3520,6 +4122,10 @@
             "case": "case1",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -3724,6 +4330,10 @@
             "case": "w32_fold",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -3874,6 +4484,10 @@
             "case": "w32_digit",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -4083,6 +4697,10 @@
             "case": "w32_signed",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -4226,6 +4844,10 @@
             "case": "w64_signed",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -4378,6 +5000,10 @@
             "case": "w16_d64",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -4533,6 +5159,10 @@
             "case": "w32_d128",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -4687,6 +5317,10 @@
             "case": "w16_d64_distributed",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -4832,6 +5466,10 @@
             "case": "w32_d128_distributed",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -4977,6 +5615,10 @@
             "case": "w16_d64_b2",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -5129,6 +5771,10 @@
             "case": "w32_d128_b4",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -5277,6 +5923,10 @@
             "case": "n64",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -5431,6 +6081,10 @@
             "case": "n128",
             "status": "measured",
             "qualified": true,
+            "timing_coverage": {
+              "audited_records": 0,
+              "historical_unaudited_records": 6
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -5587,6 +6241,10 @@
             "case": "w32_s8",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -5743,6 +6401,10 @@
             "case": "w64_s16",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -5894,6 +6556,139 @@
         ],
         "observations": [
           {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-physical-study.json",
+            "run_id": "bb9d6b",
+            "case": "w16_n2",
+            "status": "measured",
+            "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
+            "valid_physical": true,
+            "summary": {
+              "repeats": 3,
+              "objective": "area",
+              "comparisons": [
+                {
+                  "lut_reduction_pct": -2200.0,
+                  "throughput_gain_pct": -84.51156462585034,
+                  "throughput_ratio": 0.1548843537414966,
+                  "resource_delta": {
+                    "luts": 66.0,
+                    "ffs": 488.0,
+                    "dsps": -3.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 2200.0,
+                    "ffs": 353.62318840579707,
+                    "dsps": -37.5,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 3,
+                    "candidate": 7,
+                    "kind": "minimum"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 5
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit.",
+                    "Resource growth exceeds the 25% throughput-win limit."
+                  ]
+                },
+                {
+                  "lut_reduction_pct": -2200.0,
+                  "throughput_gain_pct": -84.51156462585034,
+                  "throughput_ratio": 0.1548843537414966,
+                  "resource_delta": {
+                    "luts": 66.0,
+                    "ffs": 488.0,
+                    "dsps": -3.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 2200.0,
+                    "ffs": 353.62318840579707,
+                    "dsps": -37.5,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 3,
+                    "candidate": 7,
+                    "kind": "minimum"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 5
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit.",
+                    "Resource growth exceeds the 25% throughput-win limit."
+                  ]
+                },
+                {
+                  "lut_reduction_pct": -2200.0,
+                  "throughput_gain_pct": -84.51156462585034,
+                  "throughput_ratio": 0.1548843537414966,
+                  "resource_delta": {
+                    "luts": 66.0,
+                    "ffs": 488.0,
+                    "dsps": -3.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 2200.0,
+                    "ffs": 353.62318840579707,
+                    "dsps": -37.5,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 3,
+                    "candidate": 7,
+                    "kind": "minimum"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 5
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit.",
+                    "Resource growth exceeds the 25% throughput-win limit."
+                  ]
+                }
+              ],
+              "summary": {
+                "lut_reduction_pct": {
+                  "min": -2200.0,
+                  "max": -2200.0,
+                  "mean": -2200.0
+                },
+                "throughput_gain_pct": {
+                  "min": -84.51156462585034,
+                  "max": -84.51156462585034,
+                  "mean": -84.51156462585034
+                }
+              },
+              "objective_geometric_benefit": 0.043478260869565216,
+              "objective_geometric_benefit_lower_bound": 0.043478260869565216,
+              "zero_lut_candidate": false,
+              "area_gate": false,
+              "throughput_gate": false,
+              "scope": "routed_clocked_ooc",
+              "independent_statistical_samples": false
+            }
+          },
+          {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-verification.json",
             "run_id": "a971e4",
             "case": "w16_n2",
@@ -5903,7 +6698,7 @@
         ],
         "substantial": true,
         "qualified": false,
-        "objective_benefit_lower_bound": null
+        "objective_benefit_lower_bound": 0.043478260869565216
       },
       {
         "id": "1e4398a9c8995f347dbde05ffdbfbb3dd6efb792162b0fdb4e8b6dffd9aea9be",
@@ -5923,6 +6718,14 @@
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-38-kung\\config.json"
         ],
         "observations": [
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-physical-study.json",
+            "run_id": "bb9d6b",
+            "case": "w32_n2",
+            "status": "measured",
+            "qualified": false,
+            "error": "Timing coverage rejected: Some sequential cells are outside the measured clock"
+          },
           {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-verification.json",
             "run_id": "a971e4",
@@ -5961,6 +6764,10 @@
             "case": "w16_d128",
             "status": "measured",
             "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
             "valid_physical": true,
             "summary": {
               "repeats": 3,
@@ -6095,7 +6902,7 @@
       "memory": true
     },
     "declared_cases": 59,
-    "cases_with_verified_physical_pairs": 32,
+    "cases_with_verified_physical_pairs": 37,
     "qualifying_family_configurations": {
       "synth_mcm": 2,
       "synth_serial_multiplier": 2,
@@ -6107,11 +6914,13 @@
       "synth_fsm": 2
     },
     "measured_family_configurations": {
+      "synth_prefix_adder": 2,
       "synth_mcm": 2,
       "synth_serial_multiplier": 2,
       "synth_priority_encoder": 2,
       "synth_leading_zero": 1,
       "synth_barrel_shifter": 2,
+      "synth_onehot_mux": 2,
       "synth_argmax_tree": 2,
       "synth_crc_parallel": 2,
       "synth_lfsr_jump": 2,
@@ -6120,7 +6929,8 @@
       "synth_fifo": 3,
       "synth_banked_regfile": 2,
       "synth_fsm": 2,
-      "synth_skid_buffer": 2
+      "synth_skid_buffer": 2,
+      "synth_systolic_tile": 1
     },
     "all_case_geometric_benefit_lower_bound": null,
     "unmatched_observations": [],
@@ -6145,11 +6955,11 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-10-rtlrewriter\\README.md": "1b2615eae4fa8a2e6f94ce43a8f68290bdb4a27dce585a422097e4f0dd331208",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\clocked.py": "f9af1d6d01806f5d692cd21cd147c49f67196c36409668a40ae3b13d38f4978e",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-11-aspen\\README.md": "799cf7a6224316172f84dd12a901a8eb4c78759bfac544afd51b2491cc2740a6",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_wide_exploration.py": "e353c5094f44ad3151545f168aacb88c78777c894b9be138ccec3a7ae94d51c6",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_wide_exploration.py": "72221aac76d7ec9d471bcff24a28a3ec1dbf2c5d21fd424429a2c6d6b73c521e",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\vectors.py": "78fa10e6d95e9ab640dba201e7915dd613b3b572088b351fe3a83f88864f7ee9",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-12-rtlrewriter\\README.md": "5608d7e17477e482f1f7176465d346ec125c162b338ec041bdcfa513067a8f22",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\formal.py": "0e0e1a851c5b0da6bba4eefac84238752733490b539ab242f8eeea90ae4bb12f",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\README.md": "9bbe9c5d918dc57d18372f6bc32d0615bdc61b25a182f604f53ff49906f4223f",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\formal.py": "4871c3353f60d723e194076c83affea14889bf359fe94a48df1337d62a663c19",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\README.md": "2c535cc9013007a675628450c7eef3eb851a4319fe27834ef2cc2bbca990f337",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\reduction.py": "06fab3d3bb5e51a6f0a0f662b5997f6193fd867a05eea6280146b6c2397193a8",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\README.md": "1afc6416788e9668d84554cbfd59d0f7fc05bec418b8df4f875baf4c5aefcf8f",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\affine.py": "5eaa2e262cd12f3989335beeb51695fbcc281a2df8ea184d37710ecc7b4ce130",
@@ -6158,12 +6968,12 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\arithmetic.py": "ad69888bb38e1472a64b6d9bdf8f931273e166adf877a2fb8f3cccae5e15aefc",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-16-prefixllm\\README.md": "5224b5474ad749c1fde62d25f6e9afede98993f2bd21713bac01a3b5e410f289",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_arithmetic_exploration.py": "9e1cf8ec03fe648ec3b31bb82a08eadc04e100b75bbacfae03194b21f96b95fb",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\README.md": "b2b53da72be10cb096550178c3c6aa0c063496824959758ec591a2a639e879c5",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\README.md": "5fc8b6e54d9105fcec2a30ff60b4cde468f0bad3b54957cae010e9a0487a755f",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-18-rover\\README.md": "c13b9ceade0176b631051aeca84bcc28f52505235d777ed5c5e10e0ecfcbff35",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\datapaths.py": "828cba9b4cb7bad9f5f68a796671efa89ba9a4024dfd0e59b7ccd3477040304d",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-19-fpl\\README.md": "b90b64524681b1e6ecfd695e55bf226cf6876fc8bff05adc7c279cde33566a41",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_datapath_exploration.py": "70a28c75c7018b918e96d1191df7dde314c4979a74f80b499f16056d06fd92a6",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\README.md": "a9057e3edee9588c8a26a37cb54f8c8af3c5c432847df957a1d6edc3120a4721",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\README.md": "40b8f0ee9364575c63c530f1e4c7aebfdb5dda130b529e0acec7403c78bf97f5",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\booth.py": "5c222876dc7c6f28ea2005a30f85395460235cae286c4bc3c2acfaa45e25cd42",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-21-booth\\README.md": "274dd1324fd0981f362e436c724f8ac008f10a552be83d82a32498035e4e8f16",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_booth_exploration.py": "90840b548821e9ff68b92794842e83bd3449830b9c85c45c39df318216aaa4f8",
@@ -6220,12 +7030,12 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_candidate_ablation.py": "6d460e7c58448b49f3462a015e8f4003b7b2f94f4992424251baee5829442516",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\sequential.py": "46d7eaa2f04692011528bfdd72a4f16ce876efc18ef2ae9abbf12321a91aae9b",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-48-rtlrewriter\\README.md": "89fd6a2756552741f9fea846256d91288094e039f187a560e93242c0ba8f1a8e",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\pipeline\\rtlrewriter\\sweep.py": "fa8c557dae2f6a9f7bc2142c24e724b89b9e2c15b11e78bf8ea5197ddb3cbd50",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\pipeline\\rtlrewriter\\sweep.py": "fbdee55a3ab7ff94a5dddf4ddc31f335de5bdd7719e9ac9e2546b381ccb5864e",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-49-rtlrewriter\\README.md": "168feabc3be34fc168ee1e6f1fe9f96e4e16c96e773372901f58f425b08a99c0",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_architecture_sweep.py": "43c610c560cffbd3fdf25ae2954be1f3130cd468191f8e8c612a2c99e580c95d",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\acceptance.py": "29fef5f34ad4fd6fa2895f4bf9857b64ed90448bfd393c5dbbc3b13140f8a034",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\acceptance.py": "6b0821bfb7ca8353aeb2b9b7202fbb34d0da657850795fcca8fc215270fa11cb",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-50-rtlrewriter\\README.md": "0163dd955f0ddb5df95c15d8e3f2f3c42e5d81171267e73a8278ec38ee37fe27",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_acceptance_audit.py": "266cd06c779553f3bcfab5e968a6e704f4f553e0863e89e8d3f820901eae458b",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_acceptance_audit.py": "ac8bc34b1b065269ba0456b5d9cc91c9c08c43942fb9de5aef26b65d7e6dde48",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-01-rtlrewriter\\config.json": "379635fb50823b4528bfaad9a17eb7d4bba8b7b3f0716f760bf276ff9dfc182b",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-02-rtlrewriter\\config.json": "9c82215933c45a3b53dd72b454928b91c2602547a980f6b870a70b9373404b02",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-03-rtlrewriter\\config.json": "3540a4374523663d5c1cee169d805237ec3a8fc69ebcce6baa4c3ffaa35274e5",
@@ -6242,9 +7052,11 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config.json": "2d1b065174cca1e73bd7e01a2b18a006950861cb473f2b50537cc42a01622299",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-15-gf2\\config.json": "a31a8c77f5f45716224daadfb14cc72b9dbf344223cb0df643f63c3837af996c",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-16-prefixllm\\config.json": "cad8b69a2d28390fd72af6aed088bd270b3b065587d1e91fc653cab3310d6c4b",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config-bitwise.json": "90115816a9179afbb99422dc3fbd54d57135a0efff393e954274fc4b518cb97d",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config.json": "2eea667d4d62bbbe634843d25b1e3975267659f31a4f83a895835f9d26e51f95",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-18-rover\\config.json": "c939f553c87ef3d1b69156ba48587a2ba592bac08f952d941410a5db660d7d78",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-19-fpl\\config.json": "aa44015868a4d3cd73ab57481b8f1feeb59585b410499e7ea485d20c0ecd45bb",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\config-products.json": "438c6a64494af5270edb43514f92803e91718054e8b2264beb99cb62c057724e",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\config.json": "cbe3b4f0a910be46607ec29a6ef6fd7f3fb598e74509322aaeb0f7bb99dc00f9",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-21-booth\\config.json": "621e2c2624fa1489f7dd1ab97524b7a336a3c1f04500a1c6fc469b70f37a411a",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-22-digit\\config.json": "b52d5bafa6d73592aa2bffe7915b88da8242773c92e8883eb6ef05141f1e3b15",
@@ -6289,6 +7101,7 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\08.json": "562cb27ad27de3a6bd3a6ac617bd7bada86c75bef2c8f9fc79eb6200012ce06d",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\09.json": "cb4074007e8d900051ee5aa517e56b1d0a875d638543af8ee9f3e44e6d216603",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\10.json": "2270c0f806b58a77600ea58ff077ae7b1297d4bda82e144834634b34fa229bc0",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\acceptance-audit.json": "85c224886ac11bdc9a3369b78f062069aa43a0b7338b680d007c92ff748c3f49",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\affine-controls.json": "0161b74226a76da4b32ff0d3991c93d9eba3030c628cb88a000c6873713104e8",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\argmax-physical-study.json": "2d16f938f62baf09e3c8c965a0ff0e6e4389c6b98c2ab3a8eb304f36b63dcdc9",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_argmax_tree\\9abd938d401ce5882ed126f93ee2d4d21b327c774f6a47ff26e0742dd7c21e6f\\w16-baseline-generate.json": "8965c544bf1a0caf5addbe41bd9d85462fb7e6f8d7ecf71b3194adf166c0acc6",
@@ -6330,6 +7143,8 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_barrel_shifter\\6e0f2fecf75ff73e82582eda677958be473259501633c4394d4662995547ab88\\w64-candidate-generate.json": "cd3a7945afaf8810144392aeb0177de8ff5be363f259a80d075b658e9718e008",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\barrel-w32-paired.json": "3a476e12b4f9a177f61514aa2c8dfb34f454239dc6dda1d1c99e8ee4badca76c",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\barrel-w64-paired.json": "475cb6d7edf8efb30c900b476c0f3ef64a23d86c3976eabfec71b03e74d63408",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\bitwise-formal-controls.json": "d7dbefadc6c5af21e13b233ee046aea7f54cc3609de4814a42c0e7a3f9666917",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\bitwise-proof-controls.json": "bc328a92277187cd49c51fd680a5a32ae1e32f74dc208767f0d0017ecb52bf25",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\booth-formal-controls.json": "41b80b7423730967e2ca47ad50f9221b57f40364e147d9e652298a7ac020a09f",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\booth-verification.json": "00d1ddf71ea7a5c6dd27694dca2ff6643913313a87edf189b43074d6eb828379",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_booth_multiplier\\a0336f9491393b452549de1c0721594be66c44927141676c77ca3a236b38ad87\\w16-baseline-generate.json": "94b6ed24c44311e5d1f8903d280eea9dc5dcb781852c284a3b2aa94938c93b0b",
@@ -6348,6 +7163,11 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_crc_parallel\\3740c7c7032a8876dcfe9a80d684a9c3d7855b58d9296b1f6de0ff8517b0952d\\case0-candidate-generate.json": "67e6c9f7696e16d21a52abdd6d96b01857aebb790c0f8eb7d65c8df446aba9ae",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_crc_parallel\\3740c7c7032a8876dcfe9a80d684a9c3d7855b58d9296b1f6de0ff8517b0952d\\case1-baseline-generate.json": "4caddb7a9d766f921ce75dda2ce627faf0b201de38b3c7bda1bbe020601131a4",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_crc_parallel\\3740c7c7032a8876dcfe9a80d684a9c3d7855b58d9296b1f6de0ff8517b0952d\\case1-candidate-generate.json": "ef3838ae9ae19e32980a47187efbc6f526e24cc5edaa7318f0947434b6e0f0d6",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-bitwise-verification.json": "cea63e62386184320795e05dd643e65a8afb0ee84c4a7e4f6615ab1fc2bac630",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\47d96e74c4eecfc14830cbef65972cb5a858f0dae604dd5172c82b19c9e4075e\\w16-baseline-generate.json": "11bd7e7e3833fb1445ee3288852f3355fae60a821e84142262260723495d5b0d",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\47d96e74c4eecfc14830cbef65972cb5a858f0dae604dd5172c82b19c9e4075e\\w16-candidate-generate.json": "3356404ac02b68346f611d58cb1df43cab111e619fb0e1b837e699ccebc346c2",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\47d96e74c4eecfc14830cbef65972cb5a858f0dae604dd5172c82b19c9e4075e\\w32-baseline-generate.json": "48b33c44fbb126eab71f762cc5d2c9c2091852fa379ec884ced6dd7e40a18b88",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\47d96e74c4eecfc14830cbef65972cb5a858f0dae604dd5172c82b19c9e4075e\\w32-candidate-generate.json": "122782834cd90e1bcb3f84c54cfaeeb6d869df619a6b4d7e77d35f3f00142367",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\divider-physical-study.json": "c3913da9f203e81119a766a6fae2d076ff0b4c203dc6124b01c1ed62b8df330a",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_divider\\5ad5075095bfaf880f75d64438fe8f4fe248f99547b09302c26f38c3fb951ef6\\w16_fold-baseline-generate.json": "7e7a18dd656e5c1e5b30f93d68f586564b9e56fe586422cbe99d97305f7a3c33",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_divider\\5ad5075095bfaf880f75d64438fe8f4fe248f99547b09302c26f38c3fb951ef6\\w16_fold-candidate-generate.json": "a4526c9a9997d83b78c126dc9a7c89cbaeb429e26fd65f4faff2299b577e757a",
@@ -6441,6 +7261,14 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\multiplier-w32_fold-paired.json": "0a77e8cd544e0b0d00e94ef71d8a194bd95c2dd50c130f511311e65fd7985978",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\netlist-studies.json": "767b1377434aba9a7f35b5845b7859a09e4e22f1e76e13f801db38f055d4553e",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\networks-and-fifo.json": "eedf34da1b4413002e160bbc6005dfcd1057abe633dfde2193f998e7e42aac1e",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\onehot-physical-study.json": "742f1b33446ad0c4f569ec25b126620d5a05641eff959a4667e295238244e676",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_onehot_mux\\afc8306ba7634f9926b059fe9a68bc2f834154fd38504b0e7a160799fafd3ee0\\w16-baseline-generate.json": "73a52ffc06acb2798045489e72cd83992a968accba2e5b403c45c14f63286f3a",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_onehot_mux\\afc8306ba7634f9926b059fe9a68bc2f834154fd38504b0e7a160799fafd3ee0\\w16-candidate-generate.json": "0aca269797946867c7490672626b422b0fbbfb6018e0528ea21e588a1f1c8149",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_onehot_mux\\afc8306ba7634f9926b059fe9a68bc2f834154fd38504b0e7a160799fafd3ee0\\w32-baseline-generate.json": "8d03b65d375f33e6308e5e0732f6030ed924da480ee5f883cffda25f3050c861",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_onehot_mux\\afc8306ba7634f9926b059fe9a68bc2f834154fd38504b0e7a160799fafd3ee0\\w32-candidate-generate.json": "e6fd23b4488e01c354a029c7560d567a5c68e8934063011c2a4cd3ec5e971ed2",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\onehot-timing-audits.json": "46099264461fb43d5e368237a08d467a29283a3b3cea38d89f79da846478260a",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\onehot-w16-paired.json": "c357190a37a2d66c9f0b715fe6d429cc57d62aad0b7901a4f56806e15dbd240d",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\onehot-w32-paired.json": "7af4a6fc7d4f277e750b7c1f42b033749ab03dbb56c7915741ba4a7272c14995",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\phase-n128-paired.json": "3729b2f6f56d5c1efc5fd71eacce4155cbec4b65cd66f2c1812ffac2bccba2f1",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\phase-n64-paired.json": "c2232ca1095bb020cbd0c879a8ea2e674ee90e4b838d566d18f549aa69eca985",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\phase-physical-study.json": "4b6e6109f05e358d87759e07b11a7609f52a251b9b189f25485befa7da868d7b",
@@ -6453,6 +7281,14 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_fsm\\b36f2bcd9deb60aaf5e2e5051606556473d0e01d3a3b8394635ab1b254c992bd\\n64-candidate-generate.json": "8901221297e5515b911814eaa2f8bacd479e46c6a13e0bcbd6a8ac8dbd8911f1",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_fsm\\b36f2bcd9deb60aaf5e2e5051606556473d0e01d3a3b8394635ab1b254c992bd\\n128-baseline-generate.json": "e4b73af2440365784f1e4305d532b63ae747fc16998d764cecf685bef36b6a93",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_fsm\\b36f2bcd9deb60aaf5e2e5051606556473d0e01d3a3b8394635ab1b254c992bd\\n128-candidate-generate.json": "06d81e4782caa010de342631afcb7f0c07b6586adb0f4daffb4ebed346a4f366",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\prefix-physical-study.json": "29101843760aefc10eff8acfcc626a87b6d1e32f22f5f5eda9125728372c2414",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_prefix_adder\\dbd3d459388107f04018e03144249e7722ecc6cac9dc5ec8955f6151b2b0168a\\w32-baseline-generate.json": "cb28043e3c25bf3cc7d0cca77f422b1f229f7019dfadc400935240269c48bbfc",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_prefix_adder\\dbd3d459388107f04018e03144249e7722ecc6cac9dc5ec8955f6151b2b0168a\\w32-candidate-generate.json": "734055b8297c332e9348d898f7ef7ab490bdf3cded4989c3630408e9aa0a1a0e",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_prefix_adder\\dbd3d459388107f04018e03144249e7722ecc6cac9dc5ec8955f6151b2b0168a\\w64-baseline-generate.json": "d923eb7419f578144bf2999602adbcdcaeba4253d8680425f721cb2fbd242cf0",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_prefix_adder\\dbd3d459388107f04018e03144249e7722ecc6cac9dc5ec8955f6151b2b0168a\\w64-candidate-generate.json": "17a91706b7242b30442444f1057d829a2be373ffefa287d8e1fe032e10953ebd",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\prefix-timing-audits.json": "fa6a92a876ed949e07eefd4cbec208ff1fdba849119edf40d6232dceb7c8dd37",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\prefix-w32-paired.json": "8fa54f05910346310a2e7ad876fffac717e468eaa43f6eea146a50d0b3ce643f",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\prefix-w64-paired.json": "c68413f5baa1197393bbc1214cac9947d484a7de98b8fea28c1d676ad5bb28d6",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\priority-physical-study.json": "f0d9a3905586bfb1dd63be4d52178f62c13563ada04ece4dd20cdd04cd22c7c2",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_priority_encoder\\508bd39157c5500634c51d566ae7731b5381e237ff7a3fea3f8374b6933415f4\\w64-baseline-generate.json": "bd9df1de6829b12ab6fd9e7649b815c3bedff7e00b07344eef9debac638f5a3e",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_priority_encoder\\508bd39157c5500634c51d566ae7731b5381e237ff7a3fea3f8374b6933415f4\\w64-candidate-generate.json": "3969a51ebae742b7457fc0f0a0187342bc35e507599208f818bcc8ddcea64a05",
@@ -6460,6 +7296,7 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_priority_encoder\\508bd39157c5500634c51d566ae7731b5381e237ff7a3fea3f8374b6933415f4\\w128-candidate-generate.json": "8f30ba2c0f3f777b40dfefccb186c26f52f6c800e408c285433e2989fa5262af",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\priority-w128-paired.json": "1b2b4b5566bb757639d79126b0ae76524199d6a57c39f05690cb26df922939d7",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\priority-w64-paired.json": "9c7cc43d915779031ba08e3ae2e9da1d05b96a5add865315412be7513dfb74eb",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\product-abstraction-controls.json": "6e8f6e517eb34aa0aac8ca51a71ef6943937fcd795dd00e682afec66ecdb7731",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\regfile-physical-study.json": "56124c661c7361f7b9a50b1042d181c5c2a4c4acc43fd03affe283c7d096ded0",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_banked_regfile\\a4ad54d59f56b9dbe5fd42a5fc2ed42382c065e6f181395166eba04eebc95e16\\w16_d64_b2-baseline-generate.json": "a6ec26c623c1fc70a1b9d6fffc0859c0d21cf6d3a0858b622493f39ab59f15d8",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_banked_regfile\\a4ad54d59f56b9dbe5fd42a5fc2ed42382c065e6f181395166eba04eebc95e16\\w16_d64_b2-candidate-generate.json": "f13822eb245a7686a95812b4b131ae318fb4e93430f7f29abd1c70cb6d7cdf91",
@@ -6493,11 +7330,20 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_skid_buffer\\25fd64338101963fcf2e9ebb8e9c4a5051c62c10d0eb0a13dc5ab12076f1965c\\w64_s16-candidate-generate.json": "870114f11b893b01593ee9dfaa0873513358fa9c21c07c92ed0d8605f92bdf91",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\skid-w32_s8-paired.json": "68849ebe7250651de5c58b2d40370396a909cdd03f9bd16aa580640d7230a844",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\skid-w64_s16-paired.json": "06e3b0d32290d318b0dc8dda4706137fd2803e100c2d43d555c0cb1ed8d3a0de",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-dsp-diagnostic.json": "8d7a68e6f31560309e08aab8e14295e26058d9d6dd09979bf1ae0a67f855aa47",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-physical-study.json": "0c690845e77ee637618329e37bc16c8d231fc963cf85d3a7813caa8a1a7e56db",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\698c60023b1d356b4477bcd90dc76a57b6925d229db3f7b6170a18f43918bc05\\w16_n2-baseline-generate.json": "5a6268dc9712e5febd1f0db2c8945ac99beb65867435c9c7a317d5c0916b0db2",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\698c60023b1d356b4477bcd90dc76a57b6925d229db3f7b6170a18f43918bc05\\w16_n2-candidate-generate.json": "8ad05453dd0482bea2276c637682968a1723cce77fcb1d18f18293ceb881ec54",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\698c60023b1d356b4477bcd90dc76a57b6925d229db3f7b6170a18f43918bc05\\w32_n2-baseline-generate.json": "db2be833d3d4ec5f91f466a8bb6333ec49bc72c8b779234011fffaf7dfeb5106",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\698c60023b1d356b4477bcd90dc76a57b6925d229db3f7b6170a18f43918bc05\\w32_n2-candidate-generate.json": "ab754b12c562df407afab9cee4e68190548fa899b5b6b97489bc762d5a9223fb",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-timing-audits.json": "36b0ad0a9a73a54ab928ad9e71a7488424ed77277ddb05cd74aa62e256e927ed",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-verification.json": "566bcc5def0e42ec5e3d869a1d42ca8c0bf46e115ae635c2422820dfca77c1d2",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\aa767d9b34632efcceed7258823c6c9a7d8cedb3007841e637caa8cc4faf8304\\w16_n2-baseline-generate.json": "8a5f57df9a94acfb87adae15d2fdbd9cd5274bc1288d58ab71e21586f14eb5dd",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\aa767d9b34632efcceed7258823c6c9a7d8cedb3007841e637caa8cc4faf8304\\w16_n2-candidate-generate.json": "0dbc13fcdf16d1cfdcf9173299c173543bdd72e4ab579937ee2b85889382f110",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\aa767d9b34632efcceed7258823c6c9a7d8cedb3007841e637caa8cc4faf8304\\w32_n2-baseline-generate.json": "2fb5ee5e69435b01aae4d5035ac854e79d8a1bbc1fc8672af908a4b8b43da7eb",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\aa767d9b34632efcceed7258823c6c9a7d8cedb3007841e637caa8cc4faf8304\\w32_n2-candidate-generate.json": "52dcb9cd3080ed29d653fb5f3febca38256ad3159578c1f07d04dd2ebbe5f770",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-w16_n2-paired.json": "f0ddc76cd1e550e5b6125d7901811ae7db3e9dcdb53fad1982058b25a8e1f42a",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-w32_n2-paired.json": "cc782519f04b3f593a58531f14d92163aebbdfffdc405041422007154a6bb021",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\timing-audit-experiment.json": "bd16c0997cd71dd2026d7af3bd459676ebd77daecdb7f27ff207b9e8be7833cd"
     },
     "remaining_review": [
@@ -6510,5 +7356,5 @@
     "completion_claim_supported": false
   },
   "note": "This is a bounded mechanical acceptance audit, not a completion certificate. Missing, failed or unmatched cases keep the full aggregate undefined; no neutral ratio is imputed. Every complete retry is retained and the worst benefit is used. Structural inventory does not prove semantic distinctness or test quality. Remaining review items require independent evidence before whole-goal completion.",
-  "run_id": "f18ba5"
+  "run_id": "7d5016"
 }

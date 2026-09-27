@@ -358,5 +358,21 @@ The inventory is exp-tool-50-rtlrewriter/inventory.json. Its classifications and
 test references are review inputs, not proof of semantic distinctness or actual
 test execution. The report lists remaining review obligations and never itself
 claims whole-goal completion. Current snapshot acceptance-audit.json has 59
-cases and only 32 complete verified physical comparisons; an undefined all-case
+cases and currently 37 complete verified physical comparisons; an undefined all-case
 ratio is the expected result until the remaining evidence is established.
+
+## Complete bit proofs and strict timing integration
+
+Run `python exp/tool-exploration/exp-tool-13-rover/bitwise.py --container
+codex-sandbox-agent-workspace` as one command for ten real SAT controls.
+Then use `network_study.py --tool 17 --configuration config-bitwise.json` or
+`exp-tool-20-fpl/study.py --configuration config-products.json`, adding the same
+container option. `--verify-only` suppresses physical runs. Retry configurations
+preserve all original case parameters and objectives; they do not add new wins.
+
+The acceptance audit now dispatches timing_constraint_audit for every physical
+record carrying coverage evidence. Failed coverage prevents a complete ratio.
+Records predating coverage reports retain an explicit historical-unaudited count;
+their coverage remains an independent review obligation. The matrix32 baseline
+has eight DSP48E1 differences and remains rejected pending an explanation of
+which internal registers are actually active. Do not overwrite its reports.

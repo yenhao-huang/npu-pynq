@@ -130,3 +130,14 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [ ] Resolve remaining proof/measurement gaps and all-case aggregate benefit.
 - [ ] Review all operation semantics, experiment/negative-test coverage and provenance.
 - [ ] Complete final documents, OpenSpec validation where available and PR readiness.
+
+## Proof completeness and physical coverage follow-up
+
+- [x] Require all bitwise SAT obligations and preserve partial proof timeouts.
+- [x] Validate conservative product abstraction against ten real SAT controls.
+- [x] Reject unknown/partial operations and X/Z values before abstract acceptance.
+- [x] Automatically audit physical records carrying timing-coverage reports.
+- [x] Complete prefix, one-hot and matrix physical pairs; preserve regressions.
+- [x] Keep the matrix32 DSP clock-count mismatch rejected pending diagnosis.
+- [ ] Resolve remaining proof and physical gaps, including running retries.
+- [ ] Establish all-case benefit and complete independent semantic/evidence review.

@@ -19,3 +19,9 @@ explicit; CSD is canonical signed-digit expansion; MCM uses memoized factors
 of the form 2^k +/- 1. No globally optimal adder graph is claimed. Native FPGA
 carry chains or multiplier inference may outperform these alternatives; all
 regressions and inconclusive proofs must remain visible.
+
+Use `network_study.py --tool 17 --configuration config-bitwise.json --container
+codex-sandbox-agent-workspace --verify-only` for the bounded 300-second bitwise
+retry. It keeps the original widths, constants, architectures and area objective.
+Study fe89db proves all 24 bits of the 16-bit case; the 32-bit case remains
+inconclusive. Old whole-output timeouts remain part of the evidence history.

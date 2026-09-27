@@ -12,6 +12,7 @@ from ..exploration_common import ExplorationInput, fingerprint
 from . import CATEGORY
 from .exploration import Result
 from .physical_analysis import ClockPair, PhysicalAnalysis, RepeatsIn
+from .timing_audit import Audit, AuditIn
 
 
 class AcceptanceIn(ExplorationInput):
@@ -86,6 +87,21 @@ def source_check(row,designs):
         if any(r['stage']!='routed_clocked_ooc' or r['tool']!='vivado' for r in pair):
             raise InvalidInput('Synthetic or nonphysical records cannot qualify')
     return physical
+
+
+def timing_checks(row,designs,ctx):
+    audited=0;historical=0
+    for pair in row['records']:
+        for record,design in zip(pair,designs):
+            if not {'coverage','constraint_checks'} & record['evidence'].keys():
+                historical+=1
+                continue
+            files=design.get('timing_files',[design.get('core_path'),design.get('wrapper_path')])
+            top=design.get('timing_top','registered_dut')
+            audit=Audit().timing_constraint_audit(AuditIn(record=record,files=files,top=top),ctx)
+            if not audit.ok: raise InvalidInput('Timing coverage rejected: '+'; '.join(audit.data['reasons']))
+            audited+=1
+    return dict(audited_records=audited,historical_unaudited_records=historical)
 
 
 @backend('synth','acceptance')
@@ -174,7 +190,9 @@ class Acceptance:
                             unmatched.append(dict(**observation,reason='Observed case absent from current declarations'));continue
                         target=declarations[key];target['observations'].append(observation)
                         if row['status']!='measured': continue
-                        source_check(row,[g['result']['data'] for g in generated])
+                        designs=[g['result']['data'] for g in generated]
+                        source_check(row,designs)
+                        observation['timing_coverage']=timing_checks(row,designs,ctx)
                         params=RepeatsIn(pairs=[ClockPair(baseline=a,candidate=b) for a,b in row['records']],objective=row['objective'])
                         summary=PhysicalAnalysis().paired_repeat_summary(params,ctx).data
                         observation.update(valid_physical=True,summary=summary,qualified=summary['area_gate'] or summary['throughput_gate'])

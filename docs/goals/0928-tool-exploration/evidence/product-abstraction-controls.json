@@ -1,0 +1,38 @@
+[
+  {
+    "ok": true,
+    "data": {
+      "proved": true,
+      "reference_sha256": "b0077f53724a1ed713acaf650cf77136ead1ba294aa7b1282203aca3cd8bfce1",
+      "candidate_sha256": "ae4418d684e4e73540b6f4110f2a4c0de295742a17ca4e9e5b7ee43e68fa6387",
+      "engine": "$ docker exec -w /tmp/ic-formal-24d1f8 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+      "normalization": "bitwise_products",
+      "proof_obligations": 16,
+      "completed_obligations": 16,
+      "log": "24d1f8/proof.log",
+      "exit_code": 0,
+      "timed_out": false,
+      "source_unchanged": true
+    },
+    "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample.",
+    "run_id": "24d1f8"
+  },
+  {
+    "ok": false,
+    "data": {
+      "proved": false,
+      "reference_sha256": "b0077f53724a1ed713acaf650cf77136ead1ba294aa7b1282203aca3cd8bfce1",
+      "candidate_sha256": "6a6dea1c9afe7af3091905c572612820c3e299255038afef2635916e1fdc28fd",
+      "engine": "$ docker exec -w /tmp/ic-formal-a45f0b codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+      "normalization": "bitwise_products",
+      "proof_obligations": 16,
+      "completed_obligations": 15,
+      "log": "a45f0b/proof.log",
+      "exit_code": 1,
+      "timed_out": false,
+      "source_unchanged": true
+    },
+    "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample.",
+    "run_id": "a45f0b"
+  }
+]

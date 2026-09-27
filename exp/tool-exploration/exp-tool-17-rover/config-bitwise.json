@@ -1,0 +1,40 @@
+{
+  "study_name": "synth_csd_bitwise",
+  "cases": [
+    {
+      "name": "w16",
+      "generator": "synth_csd_multiplier",
+      "baseline": {
+        "width": 16,
+        "constant": 255,
+        "architecture": "binary"
+      },
+      "candidate": {
+        "width": 16,
+        "constant": 255,
+        "architecture": "csd"
+      },
+      "objective": "area"
+    },
+    {
+      "name": "w32",
+      "generator": "synth_csd_multiplier",
+      "baseline": {
+        "width": 32,
+        "constant": 65535,
+        "architecture": "binary"
+      },
+      "candidate": {
+        "width": 32,
+        "constant": 65535,
+        "architecture": "csd"
+      },
+      "objective": "area"
+    }
+  ],
+  "period_ns": 5,
+  "repeats": 3,
+  "require_proof": true,
+  "formal_normalization": "bitwise",
+  "formal_timeout_s": 300
+}

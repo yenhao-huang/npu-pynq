@@ -1,6 +1,7 @@
 """Combinational SAT equivalence using local Yosys or an existing container."""
 from typing import Literal
 import shutil
+import json
 from pathlib import Path
 from pydantic import Field
 from ...errors import InvalidInput
@@ -11,6 +12,18 @@ from ..synth.exploration import Result
 from . import CATEGORY
 
 
+# These word cells have total binary semantics. In particular, division by
+# zero, out-of-range $shiftx, priority-mux ambiguity and symbolic cells cannot
+# become hidden behind an abstract product. Unknown future cells fail closed.
+TOTAL_BINARY_CELLS={
+    '$add','$sub','$mul','$and','$or','$xor','$xnor','$not',
+    '$logic_not','$logic_and','$logic_or','$eq','$ne','$eqx','$nex',
+    '$lt','$le','$ge','$gt','$reduce_and','$reduce_or','$reduce_xor',
+    '$reduce_xnor','$reduce_bool','$shl','$shr','$sshl','$sshr','$shift',
+    '$mux','$pos','$neg','$concat','$slice',
+}
+
+
 class FormalIn(ExplorationInput):
     backend: str | None = Field(default='equivalence_yosys', description='Operation-specific execution backend.')
     reference_files: list[str] = Field(min_length=1, description='Reference self-contained SystemVerilog sources.')
@@ -19,7 +32,7 @@ class FormalIn(ExplorationInput):
     input_width: int = Field(ge=1, le=4096, description='Complete packed input port x width in bits.')
     output_width: int = Field(ge=1, le=4096, description='Complete packed output port y width in bits.')
     container: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$', description='Existing Docker container with Yosys; null uses local Yosys.')
-    normalization: Literal['word','aig'] = Field(default='word',description='Word-level SAT or techmap/ABC AND-inverter normalization before SAT.')
+    normalization: Literal['word','aig','bitwise','bitwise_products'] = Field(default='word',description='Whole-output SAT, AIG normalization, independent SAT per output bit, or per-bit SAT after making product-node outputs arbitrary (a stronger proof obligation).')
     timeout_s: int = Field(default=120, ge=1, le=1800, description='Maximum process runtime in seconds.')
 
 
@@ -35,14 +48,22 @@ class FormalChecker:
             if any('`include' in p.read_text(encoding='utf-8') for p in files):
                 raise InvalidInput('inline include dependencies before SAT checking')
             (stage/(label+'.sv')).write_text('\n'.join(p.read_text(encoding='utf-8') for p in files),encoding='utf-8')
-        (stage/'miter.sv').write_text(f'''module ic_miter(input [{params.input_width-1}:0] x, output pass);
+        bitwise=params.normalization in ('bitwise','bitwise_products')
+        match_port=f', output [{params.output_width-1}:0] matches' if bitwise else ''
+        match_assign='assign matches=~(a^b);' if bitwise else ''
+        (stage/'miter.sv').write_text(f'''module ic_miter(input [{params.input_width-1}:0] x, output pass{match_port});
 wire [{params.output_width-1}:0] a,b;
 ic_reference ref_dut(.x(x),.y(a));
 ic_candidate cand_dut(.x(x),.y(b));
 assign pass=(a==b);
+{match_assign}
 endmodule
 ''',encoding='utf-8')
-        normalize='' if params.normalization=='word' else 'techmap; opt; abc -g AND; opt_clean'
+        normalize='techmap; opt; abc -g AND; opt_clean' if params.normalization=='aig' else ''
+        if params.normalization=='bitwise_products':
+            normalize='select -assert-none t:$any* t:$all*; write_json original.json; opt_merge; cutpoint t:$mul; rename -witness; expose -input t:$anyseq %co1; opt_clean; check -assert'
+        signals=[f'matches[{i}]' for i in range(params.output_width)] if bitwise else ['pass']
+        proofs='\n'.join(f'sat -verify -prove {signal} 1 -set-def-inputs -show-inputs -show-outputs -timeout {params.timeout_s}' for signal in signals)
         script=f'''read_verilog -sv reference.sv
 prep -top {params.top} -flatten
 rename {params.top} ic_reference
@@ -57,7 +78,7 @@ check -assert
 select -assert-none t:$*ff* t:$*latch* t:$mem*
 select *
 {normalize}
-sat -verify -prove pass 1 -set-def-inputs -show-inputs -show-outputs -timeout {params.timeout_s}
+{proofs}
 '''
         (stage/'prove.ys').write_text(script,encoding='utf-8')
         prefix=[]
@@ -81,8 +102,26 @@ sat -verify -prove pass 1 -set-def-inputs -show-inputs -show-outputs -timeout {p
         solver_timeout='ERROR: Called with -verify and proof did time out!' in text
         timed_out=result.timed_out or (bool(guard) and result.exit_code in (124,137)) or solver_timeout
         unchanged=hashes==[fingerprint(files,params.top) for files in designs]
-        passed=(result.exit_code==0 and not timed_out and unchanged and 'Warning:' not in text and 'SAT proof finished - no model found: SUCCESS!' in text)
-        return Result(ok=passed,data=dict(proved=passed,reference_sha256=hashes[0],candidate_sha256=hashes[1],engine=version.text().strip(),normalization=params.normalization,log=ctx.run.handle('proof.log'),exit_code=result.exit_code,timed_out=timed_out,source_unchanged=unchanged),note='Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.')
+        completed=text.count('SAT proof finished - no model found: SUCCESS!')
+        abstraction_defined=True
+        if params.normalization=='bitwise_products':
+            if params.container:
+                copied=run_process(['docker','cp',params.container+':'+remote+'/original.json',str(stage/'original.json')],cwd=stage,log_path=ctx.run.artifacts/'netlist-copy.log',timeout_s=30)
+                abstraction_defined=copied.exit_code==0 and not copied.timed_out
+            try:
+                original=json.loads((stage/'original.json').read_text())
+                # Replacing an X/Z-producing product with a defined input would
+                # narrow four-state behavior. Reject such source netlists even
+                # when the abstract SAT obligations happened to succeed.
+                for module in original['modules'].values():
+                    abstraction_defined &= all(cell['type'] in TOTAL_BINARY_CELLS for cell in module['cells'].values())
+                    buses=[wire['bits'] for wire in module['netnames'].values()]
+                    buses += [bits for cell in module['cells'].values() for bits in cell['connections'].values()]
+                    abstraction_defined &= all(isinstance(bit,int) or bit in ('0','1') for bus in buses for bit in bus)
+            except (OSError,ValueError,KeyError,TypeError):
+                abstraction_defined=False
+        passed=(result.exit_code==0 and not timed_out and unchanged and abstraction_defined and 'Warning:' not in text and completed==len(signals))
+        return Result(ok=passed,data=dict(proved=passed,reference_sha256=hashes[0],candidate_sha256=hashes[1],engine=version.text().strip(),normalization=params.normalization,proof_obligations=len(signals),completed_obligations=completed,abstraction_defined=abstraction_defined,log=ctx.run.handle('proof.log'),exit_code=result.exit_code,timed_out=timed_out,source_unchanged=unchanged),note='Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Original X/Z constants and preexisting symbolic sources are rejected in this mode.')
 
 
 CATEGORY.ops.append(Op('yosys_equivalence', FormalIn, Result, 'Prove combinational packed-interface equivalence with Yosys SAT and reject state cells.',long_running=True))

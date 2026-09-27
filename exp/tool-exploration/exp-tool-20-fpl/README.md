@@ -21,3 +21,9 @@ and seeded data. Removing signed multiplication is a failing mutation control.
 Run `study.py --verify-only --container codex-sandbox-agent-workspace`; omit
 `--verify-only` for gated physical execution. SAT timeout remains unknown.
 No improved II, latency, PPA or power is assumed from the architecture label.
+
+`--configuration config-products.json` selects the separately recorded
+300-second bitwise product-abstraction retry. Geometry, architectures, resource
+policy and throughput objective are identical to the original declaration.
+Only identical elaborated multiplication cells can be shared before abstraction.
+Every output bit must pass; unresolved proofs still block physical execution.

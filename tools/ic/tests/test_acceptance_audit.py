@@ -119,3 +119,23 @@ def test_unrecognized_legacy_declaration_blocks_aggregate(tmp_path,store):
     write(folder/'unknown.json',dict(widths=[16,32],architectures=['a','b']))
     out=dispatch('acceptance_audit',p,store=store)['data']
     assert out['unsupported_declarations'] and out['all_case_geometric_benefit_lower_bound'] is None
+
+
+def test_new_coverage_cannot_be_ignored_or_replaced_by_success_flag(tmp_path,store,monkeypatch):
+    from ic_core.tools.synth import acceptance
+    from ic_core.tools.synth.exploration import Result
+    p,report,path,_,_=fixture(tmp_path,store)
+    for pair in report['data']['cases'][0]['records']:
+        for r in pair: r['evidence'].update(coverage='abcdef/coverage',constraint_checks='abcdef/checks')
+    write(path,report)
+    monkeypatch.setattr(acceptance.Audit,'timing_constraint_audit',lambda self,p,ctx:Result(ok=False,data=dict(reasons=['unclocked domain'])))
+    out=dispatch('acceptance_audit',p,store=store)['data']
+    assert out['all_case_geometric_benefit_lower_bound'] is None
+    assert 'unclocked domain' in out['cases'][0]['observations'][0]['error']
+
+
+def test_historical_coverage_is_explicitly_unaudited(tmp_path,store):
+    p,*_=fixture(tmp_path,store)
+    out=dispatch('acceptance_audit',p,store=store)['data']
+    coverage=out['cases'][0]['observations'][0]['timing_coverage']
+    assert coverage==dict(audited_records=0,historical_unaudited_records=6)

@@ -1,5 +1,9 @@
 # GitHub delivery state
 
+Current target: 50 tools; acceptance incomplete. The latest checkpoint below
+replaces historical scope/status entries. Never treat the initial milestone as
+whole-goal completion.
+
 Run ID: 2026-0928-issue80-a
 Started: 2026-09-28 Asia/Taipei
 Repository: yenhao-huang/npu-pynq (configured remote npu_in_pynq redirects here)
@@ -448,3 +452,44 @@ operations remain (37 skid buffer, 38 systolic tile, 47 ablation, 50 acceptance
 audit). Six qualifying families are complete, but diverse full coverage and
 all-case aggregate acceptance remain unproved. Remaining usage last checked:
 56%, above the mandatory below-30% stop threshold.
+
+## Proof and timing integration checkpoint
+
+All 50 planned operations exist; whole-study acceptance is still incomplete.
+Bitwise SAT requires every output obligation. Product abstraction shares only
+identical multiplication cells and proves every bit with arbitrary defined
+products. An explicit total-binary-cell allowlist plus an original-netlist X/Z
+check prevents hiding undefined behavior. Ten real SAT controls cover positive,
+highest-bit mutation, different products, X outputs and division by zero.
+Initial private-wire abstraction controls failed; public witness naming fixed
+the exposure. Their failed run handles remain c87d20 and de8e14.
+
+CSD retry fe89db proves 24/24 output bits at width16; width32 reaches only
+23/48 before timeout and remains unknown. The full dot-product retry is pending.
+Geometry, objectives, original failures and all denominator cases are preserved.
+
+Completed prefix study 9418c2 has LUT growth 450%/718.75% and throughput losses
+34.07%/20.19% at widths32/64. One-hot study bf8a99 has unchanged LUTs and throughput
+losses 4.48%/1.79% at widths16/32. All 24 timing audits pass; neither family gains.
+Matrix study bb9d6b completes all physical pairs but loses throughput
+84.51%/82.91%. Its width16 LUT growth is 2200%; width32 LUT saving is 15.04%.
+Width32 remains excluded from complete evidence because its baseline timing
+coverage fails. Strict auditing is now automatic for coverage-bearing records;
+historical records without coverage remain explicitly unaudited.
+
+The current audit has 37/59 complete comparisons and seven qualifying families.
+The all-case geometric benefit remains undefined. This is not a completion claim.
+See acceptance-status.md and evidence/ for the exact current snapshot.
+
+Validation for this checkpoint: the complete explicit CI tool-test list passed
+448 tests with 15 optional native-Yosys skips (`--basetemp=.ic/pytest-expanded-21`).
+Ten actual container controls pass. Repository `make -C src/test lint sim` passes
+via MSYS2. A preceding focused run encountered one Windows run-store rename
+PermissionError; the isolated retry passed (27 passed, 11 optional skips), and
+the subsequent complete tool-test list passed. Published 7ac8e6d CI passed;
+new-head hosted CI is pending. OpenSpec CLI remains unavailable.
+
+Live sessions at this checkpoint: popcount physical 84635, CSD physical 69232,
+dot-product proof 23888 and matrix DSP diagnostic 44357. Inspect these before
+starting replacements. No goal completion, merge, reset credit or artifact
+cleanup is authorized by this checkpoint.

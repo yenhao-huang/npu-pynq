@@ -1,0 +1,38 @@
+[
+  {
+    "ok": true,
+    "data": {
+      "proved": true,
+      "reference_sha256": "3639923a633dbd21a97f2ed2f8f7ea46badc67561ba3f9db36ebe5d625c2a958",
+      "candidate_sha256": "3639923a633dbd21a97f2ed2f8f7ea46badc67561ba3f9db36ebe5d625c2a958",
+      "engine": "$ docker exec -w /tmp/ic-formal-f5010d codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+      "normalization": "bitwise",
+      "proof_obligations": 8,
+      "completed_obligations": 8,
+      "log": "f5010d/proof.log",
+      "exit_code": 0,
+      "timed_out": false,
+      "source_unchanged": true
+    },
+    "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+    "run_id": "f5010d"
+  },
+  {
+    "ok": false,
+    "data": {
+      "proved": false,
+      "reference_sha256": "3639923a633dbd21a97f2ed2f8f7ea46badc67561ba3f9db36ebe5d625c2a958",
+      "candidate_sha256": "46c940be523ffb01c2755ac2bdd517771327b7faedafe12f138fda374d7b55ba",
+      "engine": "$ docker exec -w /tmp/ic-formal-9d02c4 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+      "normalization": "bitwise",
+      "proof_obligations": 8,
+      "completed_obligations": 7,
+      "log": "9d02c4/proof.log",
+      "exit_code": 1,
+      "timed_out": false,
+      "source_unchanged": true
+    },
+    "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+    "run_id": "9d02c4"
+  }
+]

@@ -43,6 +43,7 @@ class SweepIn(ExplorationInput):
     formal_container: str | None = Field(default=None,pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$',description='Existing container providing Yosys, or null for local Yosys.')
     formal_timeout_s: int = Field(default=120,ge=1,le=1800,description='Per-case SAT time limit.')
     vector_timeout_s: int = Field(default=60,ge=1,le=600,description='Bounded compile/simulation time per process; does not reduce vector coverage.')
+    formal_normalization: Literal['word','aig','bitwise','bitwise_products'] = Field(default='word',description='SAT normalization; bitwise requires all output bits within the same process budget.')
     proof_engine: Literal['sat','affine'] = Field(default='sat',description='SAT proof, or exact affine netlist proof with an additional bounded SAT cross-check for CRC/LFSR only.')
     verify_only: bool = Field(default=False,description='Run correctness gates without physical implementation.')
     require_proof: bool = Field(default=True,description='Skip implementation when SAT proof is not obtained; false permits diagnostic measurements only.')
@@ -162,10 +163,10 @@ class Sweep:
                     raise InvalidInput('Generated source artifacts changed since generation')
                 payload=dict(reference_files=[a['core_path']],candidate_files=[b['core_path']],top='dut',input_width=a['input_width'],output_width=a['output_width'])
                 check=invoke(case.name+'-vectors','vector_equivalence',dict(payload,random_vectors=8192,combinational_contract=True,timeout_s=p.vector_timeout_s))
-                proof=invoke(case.name+'-proof','gf2_equivalence' if p.proof_engine=='affine' else 'yosys_equivalence',dict(payload,container=p.formal_container,timeout_s=min(p.formal_timeout_s,600) if p.proof_engine=='affine' else p.formal_timeout_s))
+                proof=invoke(case.name+'-proof','gf2_equivalence' if p.proof_engine=='affine' else 'yosys_equivalence',dict(payload,container=p.formal_container,timeout_s=min(p.formal_timeout_s,600) if p.proof_engine=='affine' else p.formal_timeout_s,**({} if p.proof_engine=='affine' else {'normalization':p.formal_normalization})))
                 row.update(simulation=check,formal=proof)
                 if p.proof_engine=='affine':
-                    crosscheck=invoke(case.name+'-sat-crosscheck','yosys_equivalence',dict(payload,container=p.formal_container,timeout_s=p.formal_timeout_s))
+                    crosscheck=invoke(case.name+'-sat-crosscheck','yosys_equivalence',dict(payload,container=p.formal_container,timeout_s=p.formal_timeout_s,normalization=p.formal_normalization))
                     row['sat_crosscheck']=crosscheck
                     if not crosscheck['ok'] and not crosscheck['data'].get('timed_out'):
                         row['status']='correctness_not_established';cases.append(row);continue
