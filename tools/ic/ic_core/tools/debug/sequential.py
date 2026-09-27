@@ -15,7 +15,8 @@ from . import CATEGORY
 
 
 class SequentialIn(ExplorationInput):
-    contract: Literal['fifo','phase','regfile'] = Field(default='fifo',description='FIFO, cyclic phase (width=1/depth=states), or conflict-aware register-file semantics.')
+    contract: Literal['fifo','phase','regfile','stream'] = Field(default='fifo',description='FIFO, phase, regfile or elastic/skid pipeline; stream uses depth=stages.')
+    stream_architecture: Literal['elastic','skid'] = Field(default='skid',description='Stream stage policy; ignored for other contracts.')
     banks: int = Field(default=2,ge=2,le=8,description='Register-file bank count; unused for FIFO and phase contracts.')
     backend: str | None = Field(default='fifo_scoreboard',description='Icarus cycle-exact sequential contract checker.')
     files: list[str] = Field(min_length=1,description='Self-contained sequential RTL sources.')
@@ -82,7 +83,12 @@ class Scoreboard:
         if any('`include' in path.read_text(encoding='utf-8') for path in files):
             raise InvalidInput('Inline includes for complete sequential source identity')
         sha=fingerprint(files,p.top)
-        vectors,coverage=fifo_vectors(p.width,p.depth,p.random_cycles,p.seed)
+        calibration=None
+        if p.contract=='stream':
+            from .stream import stream_vectors
+            vectors,coverage,calibration=stream_vectors(p.width,p.depth,p.stream_architecture,p.random_cycles,p.seed)
+        else:
+            vectors,coverage=fifo_vectors(p.width,p.depth,p.random_cycles,p.seed)
         expected_vectors=vectors
         delay=2 if p.timing_fixture else 0
         vectors=vectors+[(1,0,0,0,0,0,None)]*delay
@@ -128,7 +134,7 @@ endmodule
                 mismatch=dict(cycle=i,observed=dict(ready=ready,valid=valid,data=data),expected=dict(ready=expected_ready,valid=expected_valid,data=expected_data));break
         unchanged=sha==fingerprint(files,p.top)
         passed=mismatch is None and unchanged and all(coverage.values())
-        return Result(ok=passed,data=dict(passed=passed,source_sha256=sha,source_unchanged=unchanged,stimulus_sha256=hashlib.sha256(stimulus.encode()).hexdigest(),cycles=len(vectors),observation_delay_cycles=delay,coverage=coverage,first_mismatch=mismatch,log=ctx.run.handle('cycles.log')),note='Timing-fixture mode compares two-cycle delayed observations of a predetermined queue trace; it is not an external ready/valid adapter. Queue-model simulation checks capacity, ordering, full replacement, stalls and reset flush. Invalid data is ignored. This is a bounded protocol test, not unbounded sequential equivalence.')
+        return Result(ok=passed,data=dict(passed=passed,source_sha256=sha,source_unchanged=unchanged,stimulus_sha256=hashlib.sha256(stimulus.encode()).hexdigest(),cycles=len(vectors),observation_delay_cycles=delay,coverage=coverage,calibration=calibration if passed else None,first_mismatch=mismatch,log=ctx.run.handle('cycles.log')),note='Timing-fixture mode compares two-cycle delayed observations of a predetermined queue trace; it is not an external ready/valid adapter. Queue-model simulation checks capacity, ordering, stalls and reset flush. Stream calibration verifies no-stall latency and II only after the entire trace matches. Invalid data is ignored. This is a bounded protocol test, not unbounded sequential equivalence.')
 
 
-CATEGORY.ops.append(Op('sequential_scoreboard',SequentialIn,Result,'Verify ready/valid FIFO behavior against an independent cycle-exact queue model.',long_running=True))
+CATEGORY.ops.append(Op('sequential_scoreboard',SequentialIn,Result,'Verify FIFO, stream, phase and banked-memory contracts with independent cycle models.',long_running=True))

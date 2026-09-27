@@ -89,3 +89,12 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Detect arbitration, validity, row, read/write ordering and fixture mutations.
 - [ ] Complete the register-file physical study without hiding any conflicts.
 - [ ] Complete remaining four operations and all-case acceptance.
+
+
+## Backpressure pipeline progress
+
+- [x] Implement operation 37 with elastic and skid-stage architectures.
+- [x] Verify both substantial configurations, all core/fixture roles and mutations.
+- [x] Establish six qualifying families with all paired runs (including multiplier).
+- [ ] Complete ongoing memory and skid physical studies.
+- [ ] Complete remaining operations 38, 47 and 50 and the all-case acceptance gate.

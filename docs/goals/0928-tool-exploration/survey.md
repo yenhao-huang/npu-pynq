@@ -209,3 +209,15 @@ conventional banking comparison with an explicit read-conflict policy and
 distributed RAM. It does not reproduce LVT, unrestricted multiwrite operation,
 the Altera implementation or the paper's performance figures. Both baseline
 and candidate enforce the same externally visible conflict semantics.
+
+
+## Stallable stream channels
+
+Carloni, McMillan and Sangiovanni-Vincentelli, *Theory of Latency-Insensitive
+Design*, IEEE TCAD 20(9), 1059-1076 (2001), DOI 10.1109/43.945302,
+https://www.cs.columbia.edu/~luca/research/lipTransactions.pdf.
+The paper develops stallable channels and relay stations. Operation 37 is a
+bounded ready/valid buffering adaptation with independent ordering checks.
+It does not reproduce the full patient-process framework or establish arbitrary
+network deadlock freedom. The experiment exposes storage capacity and full-stage
+recovery costs alongside any timing improvement.

@@ -19,7 +19,7 @@ from ...synth.exploration import Result
 from .. import CATEGORY
 
 
-GENERATORS=Literal['synth_banked_regfile','synth_fsm','synth_booth_multiplier','synth_serial_multiplier','synth_divider','synth_crc_parallel','synth_lfsr_jump','synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
+GENERATORS=Literal['synth_skid_buffer','synth_banked_regfile','synth_fsm','synth_booth_multiplier','synth_serial_multiplier','synth_divider','synth_crc_parallel','synth_lfsr_jump','synth_saturating_alu','synth_fir','synth_dot_product','synth_constant_modulo','synth_fifo','synth_prefix_adder','synth_csd_multiplier','synth_mcm','synth_adder_tree','synth_popcount','synth_priority_encoder','synth_leading_zero','synth_barrel_shifter','synth_onehot_mux','synth_argmax_tree']
 
 
 class Case(BaseModel):
@@ -136,7 +136,7 @@ class Sweep:
         cases=[]
         with study_lock(directory/'active.lock'):
             for case in p.cases:
-                if case.generator in ('synth_fsm','synth_banked_regfile'):
+                if case.generator in ('synth_fsm','synth_banked_regfile','synth_skid_buffer'):
                     cases.append(self.registered_state_case(p,case,invoke,measure))
                     continue
                 if case.generator in ('synth_serial_multiplier','synth_divider'):
@@ -200,7 +200,8 @@ class Sweep:
 
     def registered_state_case(self,p,case,invoke,measure):
         memory=case.generator=='synth_banked_regfile'
-        row=dict(name=case.name,objective=case.objective,generator=case.generator,protocol_contract='banked_regfile' if memory else 'cyclic_phase',transaction_unit='command_batch' if memory else 'phase_transition',records=[],attempts=[],checks=[],accepted=False)
+        stream=case.generator=='synth_skid_buffer'
+        row=dict(name=case.name,objective=case.objective,generator=case.generator,protocol_contract='stream_pipeline' if stream else ('banked_regfile' if memory else 'cyclic_phase'),transaction_unit='transaction' if stream else ('command_batch' if memory else 'phase_transition'),records=[],attempts=[],checks=[],accepted=False)
         designs=[]
         for label,params in [('baseline',case.baseline),('candidate',case.candidate)]:
             generated=invoke(case.name+'-'+label+'-generate',case.generator,params)
@@ -212,23 +213,27 @@ class Sweep:
                 expected=data['timing_sha256'] if fixture else data['source_sha256']
                 if fingerprint([Path(path) for path in files],top)!=expected:
                     raise InvalidInput('Generated registered-state source changed')
-                contract=dict(contract='regfile',width=data['width'],depth=data['depth'],banks=data['banks']) if memory else dict(contract='phase',width=1,depth=data['states'])
+                contract=(dict(contract='stream',width=data['width'],depth=data['stages'],stream_architecture=data['architecture']) if stream else
+                    (dict(contract='regfile',width=data['width'],depth=data['depth'],banks=data['banks']) if memory else dict(contract='phase',width=1,depth=data['states'])))
                 checked=invoke(case.name+'-'+label+('-fixture' if fixture else '-protocol'),'sequential_scoreboard',dict(contract,files=files,top=top,timing_fixture=fixture,random_cycles=8192))
                 row['checks'].append(checked)
                 if not checked['ok']:
                     row['status']='correctness_not_established';return row
-                if checked['data']['source_sha256']!=expected or checked['data']['latency_cycles']!=1 or checked['data']['initiation_interval']!=1:
+                cycles=checked['data']['calibration'] if stream else checked['data']
+                latency=cycles['minimum_latency_cycles'] if stream else cycles['latency_cycles']
+                if checked['data']['source_sha256']!=expected or latency!=(data['stages'] if stream else 1) or cycles['initiation_interval']!=1:
                     raise InvalidInput('Registered-state cycle evidence mismatch')
-        keys=('width','depth','banks') if memory else ('states',)
+        keys=('width','stages') if stream else (('width','depth','banks') if memory else ('states',))
         if any(designs[0][key]!=designs[1][key] for key in keys):
-            raise InvalidInput('Register-file geometry differs' if memory else 'Phase state counts differ')
+            raise InvalidInput('Stream geometry differs' if stream else ('Register-file geometry differs' if memory else 'Phase state counts differ'))
+        if stream: row['capacities']={role:d['capacity'] for role,d in zip(('baseline','candidate'),designs)}
         if p.verify_only:
             row['status']='verified';return row
         for repeat in range(p.repeats):
             pair=[]
             for label,data in zip(('baseline','candidate'),designs):
                 result,attempts=measure(f'{case.name}-{label}-r{repeat}',dict(files=data['timing_files'],top=data['timing_top'],name=case.name+'-'+label,period_ns=p.period_ns,device=p.device,optimization_mode=p.optimization_mode,
-                    latency_cycles=3,latency_kind='fixed',initiation_interval=1))
+                    latency_cycles=data['stages']+2 if stream else 3,latency_kind='minimum' if stream else 'fixed',initiation_interval=1))
                 row['attempts'].extend(attempts)
                 if not result['ok']:
                     row.update(status='measurement_failed',failure=result);return row

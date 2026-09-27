@@ -1,0 +1,40 @@
+{
+  "study_name": "synth_skid_buffer",
+  "cases": [
+    {
+      "name": "w32_s8",
+      "generator": "synth_skid_buffer",
+      "baseline": {
+        "width": 32,
+        "stages": 8,
+        "architecture": "elastic"
+      },
+      "candidate": {
+        "width": 32,
+        "stages": 8,
+        "architecture": "skid"
+      },
+      "objective": "throughput"
+    },
+    {
+      "name": "w64_s16",
+      "generator": "synth_skid_buffer",
+      "baseline": {
+        "width": 64,
+        "stages": 16,
+        "architecture": "elastic"
+      },
+      "candidate": {
+        "width": 64,
+        "stages": 16,
+        "architecture": "skid"
+      },
+      "objective": "throughput"
+    }
+  ],
+  "repeats": 3,
+  "measurement_attempts": 2,
+  "period_ns": 5,
+  "optimization_mode": "Basic",
+  "require_proof": true
+}

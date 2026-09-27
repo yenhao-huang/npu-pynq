@@ -217,3 +217,21 @@ def test_register_file_pipeline_rejects_bank_count_change(store,tmp_path,monkeyp
     p=dict(study_name='bad_banks',cases=[dict(name='r64',generator='synth_banked_regfile',baseline=dict(banks=2),candidate=dict(banks=4),objective='area')],verify_only=True)
     with pytest.raises(InvalidInput,match='geometry differs'):
         dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+
+
+def test_skid_pipeline_preserves_capacity_and_latency_cost(store,tmp_path,monkeypatch):
+    calls=mock_execution(monkeypatch)
+    p=dict(study_name='stream_checks',cases=[dict(name='s8',generator='synth_skid_buffer',baseline=dict(width=32,stages=8,architecture='elastic'),candidate=dict(width=32,stages=8,architecture='skid'),objective='throughput')],verify_only=False,repeats=1)
+    result=dispatch('architecture_sweep',p,store=store,cwd=tmp_path)
+    assert result['ok'],result
+    row=result['data']['cases'][0]
+    assert row['protocol_contract']=='stream_pipeline' and row['capacities']==dict(baseline=8,candidate=16)
+    assert len(row['checks'])==4 and calls.count('clocked_ppa')==2
+    assert all(check['data']['calibration']['minimum_latency_cycles']==8 for check in row['checks'])
+
+
+def test_skid_pipeline_rejects_stage_count_change(store,tmp_path,monkeypatch):
+    mock_execution(monkeypatch)
+    p=dict(study_name='bad_stages',cases=[dict(name='s8',generator='synth_skid_buffer',baseline=dict(stages=8),candidate=dict(stages=16),objective='throughput')],verify_only=True)
+    with pytest.raises(InvalidInput,match='Stream geometry differs'):
+        dispatch('architecture_sweep',p,store=store,cwd=tmp_path)

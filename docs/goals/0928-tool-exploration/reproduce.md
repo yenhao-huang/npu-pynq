@@ -294,3 +294,16 @@ core/fixture checks. The checker uses contract=regfile and explicit width,
 depth and banks. Read0 wins same-bank conflicts, including identical addresses.
 Physical throughput counts command batches; inspect accepted-read and conflict
 coverage before drawing any application read-bandwidth conclusion.
+
+
+## Elastic and skid pipelines
+
+Run `python exp/tool-exploration/exp-tool-37-lid/study.py --verify-only
+--container codex-sandbox-agent-workspace` (one command) for both substantial
+configurations. Omit --verify-only to run the three paired physical repeats.
+The fixed config declares throughput before measurement. Evidence
+skid-verification.json records all eight source-bound core/fixture checks.
+Use sequential_scoreboard with contract=stream, depth=stages, explicit width
+and stream_architecture. Check calibrated no-stall II and minimum latency,
+capacity differences and resource costs. The fixture delays observations by two
+cycles; it does not provide a valid external backpressure interface.

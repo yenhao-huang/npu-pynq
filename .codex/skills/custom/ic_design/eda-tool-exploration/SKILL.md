@@ -134,3 +134,10 @@ Check read-before-write, reset validity masking, every address and rejected-read
 data/flags against a logical-memory oracle. Count command-batch II separately
 from completed reads; conflict-limited memory is not a true unrestricted
 multiport file. Preserve register/LUTRAM/BRAM costs as separate resources.
+
+
+For skid/elastic pipelines, check both per-stage cycle behavior and end-to-end
+transaction order. Calibrate no-stall latency and II, then stress full capacity,
+backpressure, recovery and reset flush. Report differing capacities and all
+storage costs. Never use the observation fixture as an external handshake
+adapter or treat no-stall II as guaranteed throughput under arbitrary stalls.

@@ -282,3 +282,26 @@ operations remain (37 skid buffer, 38 systolic tile, 47 ablation, 50 acceptance
 audit). Six qualifying families are complete, but diverse full coverage and
 all-case aggregate acceptance remain unproved. Remaining usage last checked:
 56%, above the mandatory below-30% stop threshold.
+
+
+## Backpressure pipeline checkpoint (47 operations)
+
+Operation 37 generates one-slot elastic stages and two-slot skid stages that
+cut combinational downstream readiness. Independent stage queues and an
+end-to-end transaction queue check order, stalls, simultaneous transfer, reset
+flush and drain. Sustained traffic calibrates minimum latency=stages and II=1.
+The fixture adds two observation cycles, not an external handshake adapter.
+Capacity is explicit: stages versus twice stages. Full skid stages have a
+recovery bubble; no claim hides the extra storage or variable stalled latency.
+
+Study 9a51bb passes all eight core/fixture checks at 32 bits/eight stages and
+64 bits/16 stages, each with 8192 random cycles plus directed phases. Five
+mutation controls detect reset, spill, capacity, architecture and fixture bugs.
+The focused regression passes 96 tests. Physical session 12766 is live with
+three predeclared Basic-flow pairs and a throughput objective. Register-file
+session 14940 remains live. Neither pending study establishes a new PPA win.
+
+Three operations remain: 38 systolic tile, 47 candidate ablation and 50 whole-
+study acceptance audit. Six qualifying families are complete; full coverage,
+ablations and the all-case aggregate remain unproved. Published 8e0c363 CI
+passed. Account usage remaining is 54%; no reset credit was used.
