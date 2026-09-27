@@ -158,3 +158,12 @@ identity, extrema and every row/column product route. Count setup and wavefront
 drain in latency/II, and use matrix batches as the throughput unit. Report all
 DSP and storage costs. A throughput loss cannot be hidden by presenting MAC
 frequency alone. Simulator coverage at larger sizes is not physical evidence.
+
+
+Run acceptance_audit against the complete experiment/evidence roots. Never select
+only successful study files or remove old declarations after observing results.
+Inspect unmatched observations and unsupported declaration formats. Preserve
+failed ratios as unknown and use the worst complete retry, not the best. Confirm
+all remaining review items independently: structural registry/test-file presence
+is not substantive tool or negative-test evidence. A null full-case aggregate
+or completion_claim_supported=false cannot support a completed-goal claim.

@@ -119,3 +119,14 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Audit all eighteen new skid/capacity physical timing records.
 - [ ] Complete matrix physical repeats and operation 50.
 - [ ] Prove every whole-study acceptance gate, including the all-case aggregate.
+
+
+## Complete operation inventory and acceptance gaps
+
+- [x] Implement operation 50 with complete declaration and source-bound evidence audit.
+- [x] Exercise the real 59-case inventory and retain 27 incomplete comparisons.
+- [x] Reject invalid provenance, missing data and favorable-retry selection.
+- [x] Reach 50 implemented operation names without claiming complete acceptance.
+- [ ] Resolve remaining proof/measurement gaps and all-case aggregate benefit.
+- [ ] Review all operation semantics, experiment/negative-test coverage and provenance.
+- [ ] Complete final documents, OpenSpec validation where available and PR readiness.

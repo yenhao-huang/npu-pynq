@@ -126,3 +126,4 @@ from . import regfile  # noqa: E402,F401
 from . import skid  # noqa: E402,F401
 from . import ablation  # noqa: E402,F401
 from . import systolic  # noqa: E402,F401
+from . import acceptance  # noqa: E402,F401

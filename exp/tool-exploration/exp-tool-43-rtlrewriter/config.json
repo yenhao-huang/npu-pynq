@@ -4,5 +4,6 @@
     32
   ],
   "period_ns": 5,
-  "optimization_mode": "Basic"
+  "optimization_mode": "Basic",
+  "op": "timing_constraint_audit"
 }

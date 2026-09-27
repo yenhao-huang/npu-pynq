@@ -343,3 +343,20 @@ all resource regressions. Their corresponding timing-audits.json files record
 exp/tool-exploration/exp-tool-47-rtlrewriter/output/study-b9190f.json` as one
 command, replacing the supplemental filename when rerunning that study.
 The committed result is evidence/fifo-factorial-ablation.json.
+
+
+## Whole-study acceptance audit
+
+Run `python exp/tool-exploration/exp-tool-50-rtlrewriter/run.py` from the configured
+Python environment. It scans every modular JSON declaration and every nested
+study envelope under the committed evidence root. Use repeated --study PATH
+arguments to include freshly exported studies before committing their summaries.
+Existing source artifacts and generation checkpoints must remain available.
+Missing artifacts fail evidence binding rather than silently rebuilding designs.
+
+The inventory is exp-tool-50-rtlrewriter/inventory.json. Its classifications and
+test references are review inputs, not proof of semantic distinctness or actual
+test execution. The report lists remaining review obligations and never itself
+claims whole-goal completion. Current snapshot acceptance-audit.json has 59
+cases and only 32 complete verified physical comparisons; an undefined all-case
+ratio is the expected result until the remaining evidence is established.

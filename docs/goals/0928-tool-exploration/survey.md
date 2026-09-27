@@ -243,3 +243,12 @@ small signed matrix batches. A skewed 2D wavefront exposes spatial reuse and
 explicit fill/drain latency. The parallel baseline and systolic implementation
 use the same complete matrix semantics; no historical chip replication or paper
 performance result is claimed.
+
+
+## Acceptance across the complete study
+
+RTLRewriter's verification-before-evaluation and ablation workflow
+(https://arxiv.org/html/2409.11414v1) motivates operation 50's evidence binding.
+The inventory and whole-study acceptance calculation are an engineering extension,
+not a paper algorithm. Missing ratios are left unknown. A mechanical report
+cannot replace review of semantic scope, primary sources and declaration history.

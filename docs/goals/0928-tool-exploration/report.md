@@ -1,5 +1,10 @@
 # Paper-based EDA tool exploration report
 
+Current expanded status: [acceptance-status.md](acceptance-status.md). Fifty operations
+are implemented, but whole-study acceptance remains incomplete. Earlier sections
+record historical milestones; they are not a current completion claim.
+
+
 PR: [#81](https://github.com/yenhao-huang/npu-pynq/pull/81). Issue: [#80](https://github.com/yenhao-huang/npu-pynq/issues/80). Base: dev at
 4a106811d4aaf104be99896606e68c6c8d20165c. Experiment date: 2026-09-28 (Asia/Taipei).
 
@@ -682,3 +687,45 @@ remaining, above the below-30% stop threshold; no reset credit used.
 Final focused validation: 420 passed, eight optional native-Yosys skips
 (--basetemp=.ic/pytest-expanded-19). Repository lint/sim passed. Matrix physical
 session 34631 is the only remaining live experiment.
+
+
+## Whole-study audit checkpoint (50 implemented operations; acceptance incomplete)
+
+Operation 50 performs a bounded mechanical audit of the complete modular
+configuration tree and committed study envelopes. It normalizes generator
+parameters, preserves failed/missing cases, binds current core/wrapper bytes to
+correctness and physical records, verifies cycle contracts and paired conditions,
+and computes family coverage. The worst complete benefit across retries is used.
+A missing ratio keeps the full aggregate undefined; failed candidates receive no
+invented neutral value. The inventory checks 50 unique IDs/names and implementation
+bodies, experiment READMEs, primary-paper references and test source files.
+
+Actual audit f18ba5 finds 59 unique declared cases; 32 have complete verified
+physical pairs. Structural inventory, all five architecture categories, at least
+12 measured families and seven qualifying families pass. The full-case measurement
+and aggregate-benefit gates FAIL. All-case geometric benefit is null, not an
+average over only successful cases. Source files, declarations and evidence
+inputs are hashed in acceptance-audit.json. Legacy reduction/FIFO declarations
+remain in the denominator. Timing and cycle validation-control configurations
+are explicitly identified as controls rather than candidate comparisons.
+
+Structural inventory does not prove meaningful distinct purposes, PPA labels,
+negative-test quality or actual exercise of every operation. These remain explicit
+review items, as do historical report authenticity/coverage, declaration timing,
+full historical inventory, documents and PR/usage state. The tool deliberately
+returns completion_claim_supported=false; it is not a completion certificate.
+The 50 implemented names do not fulfill the user's complete objective.
+
+The focused acceptance/physical/registry suite passes 38 tests. They reject
+missing declarations/evidence, changed sources, wrong proofs/cycle contracts,
+duplicate measurements, synthetic PPA, changed objectives and favorable-retry
+selection. They cover separate combinational core/wrapper identities and embedded
+RTL strings in registry implementation inspection. Published f024667 CI passed.
+Full focused validation completed: 435 passed, eight optional native-Yosys
+skips (--basetemp=.ic/pytest-expanded-20). Repository lint/sim passed.
+
+Live physical sessions: 34631 matrix tile, 20840 prefix adder, 39899 one-hot mux.
+The latter two fill concrete gaps found by the audit, using existing declared
+configurations and objectives. Proof timeouts and other physical failures still
+need resolution; no acceptance gate is weakened. Last usage check: 51% remaining,
+above the below-30% stop threshold; no reset credit used. PR #81 stays draft.
