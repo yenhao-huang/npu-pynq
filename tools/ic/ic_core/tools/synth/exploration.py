@@ -164,8 +164,13 @@ class Exploration:
         total = sum(c.visits for c in params.candidates)
         # Unvisited feasible actions are explored first, deterministically by cost/name.
         unseen = sorted((c for c in feasible if c.visits == 0), key=lambda c: (c.estimated_cost_s, c.name))
-        scores = {c.name: (c.mean_reward + params.exploration * math.sqrt(2 * math.log(max(2, total)) / c.visits)) / c.estimated_cost_s
-                  for c in feasible if c.visits}
+        try:
+            scores = {c.name: (c.mean_reward + params.exploration * math.sqrt(2 * math.log(max(2, total)) / c.visits)) / c.estimated_cost_s
+                      for c in feasible if c.visits}
+        except OverflowError as error:
+            raise InvalidInput('selection score exceeds finite numeric range') from error
+        if any(not math.isfinite(score) for score in scores.values()):
+            raise InvalidInput('selection score exceeds finite numeric range')
         chosen = unseen[0].name if unseen else (min(scores, key=lambda n: (-scores[n], n)) if scores else None)
         return Result(data={'selected': chosen, 'scores': scores, 'unvisited': [c.name for c in unseen]},
                       note='Cost-normalized UCB adaptation inspired by RTLRewriter; estimates do not reserve or enforce execution time.')

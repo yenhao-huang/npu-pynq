@@ -1,0 +1,75 @@
+{
+  "study_evidence": "docs\\goals\\0928-tool-exploration\\evidence\\wide-workflow.json",
+  "source_sha256": [
+    "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+    "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+  ],
+  "reward_run": "e76b79",
+  "measurement_pipeline": "23e593",
+  "positive": {
+    "ok": true,
+    "data": {
+      "selected": "repeat-csd-evaluation",
+      "scores": {
+        "repeat-csd-evaluation": 0.011081583290634819
+      },
+      "unvisited": []
+    },
+    "note": "Cost-normalized UCB adaptation inspired by RTLRewriter; estimates do not reserve or enforce execution time.",
+    "run_id": "da1511"
+  },
+  "negative_controls": [
+    {
+      "label": "division_overflow",
+      "payload": {
+        "candidates": [
+          {
+            "name": "division_overflow",
+            "mean_reward": 1e+308,
+            "visits": 1,
+            "estimated_cost_s": 1e-308
+          }
+        ],
+        "budget_s": 1,
+        "exploration": 1
+      },
+      "rejected": true,
+      "reason": "selection score exceeds finite numeric range"
+    },
+    {
+      "label": "addition_overflow",
+      "payload": {
+        "candidates": [
+          {
+            "name": "addition_overflow",
+            "mean_reward": 1e+308,
+            "visits": 1,
+            "estimated_cost_s": 1
+          }
+        ],
+        "budget_s": 1,
+        "exploration": 1e+308
+      },
+      "rejected": true,
+      "reason": "selection score exceeds finite numeric range"
+    },
+    {
+      "label": "integer_conversion_overflow",
+      "payload": {
+        "candidates": [
+          {
+            "name": "integer_conversion_overflow",
+            "mean_reward": 1,
+            "visits": 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
+            "estimated_cost_s": 1
+          }
+        ],
+        "budget_s": 1,
+        "exploration": 1
+      },
+      "rejected": true,
+      "reason": "selection score exceeds finite numeric range"
+    }
+  ],
+  "scope": "Reuses the committed larger CSD study reward and measured cost; does not perform or claim a new physical measurement."
+}

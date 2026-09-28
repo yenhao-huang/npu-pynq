@@ -77,6 +77,17 @@ def test_budget_and_unvisited_selection(store):
     assert dispatch('ppa_select',dict(candidates=rows,budget_s=1),store=store)['data']['selected'] is None
 
 
+@pytest.mark.parametrize('reward,cost,visits,exploration',[
+    (1e308,1e-308,1,1),
+    (1e308,1,1,1e308),
+    (1,1,10**1000,1),
+])
+def test_selector_rejects_overflow_from_finite_inputs(store,reward,cost,visits,exploration):
+    candidate=dict(name='overflow',mean_reward=reward,visits=visits,estimated_cost_s=cost)
+    with pytest.raises(InvalidInput,match='finite numeric range'):
+        dispatch('ppa_select',dict(candidates=[candidate],budget_s=1,exploration=exploration),store=store)
+
+
 @pytest.mark.parametrize('bounds,operation,expected', [((0,15,0,15),'add',(0,30,5,False)),
     ((-8,7,-8,7),'mul',(-56,64,8,True)),((0,7,0,7),'sub',(-7,7,4,True)),
     ((-1,-1,0,0),'add',(-1,-1,1,True)),((0,0,0,0),'mul',(0,0,1,False))])

@@ -185,3 +185,8 @@ obligation in order, a clean exit, unchanged complete sources and a bounded
 process. Verify lowest/highest-bit mutations and partial-source controls before
 using a new proof mode to unlock physical experiments. Proof speed or success
 does not count as a PPA gain.
+
+Validate derived analytics as well as inputs. Finite reward and cost inputs can
+still overflow a selection score. Reject a nonfinite result before choosing an
+action; exercise normal study-derived selection and arithmetic boundary controls.
+Record semantic review separately from structural inventory checks.
