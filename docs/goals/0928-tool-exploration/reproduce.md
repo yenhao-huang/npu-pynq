@@ -475,3 +475,32 @@ in the study envelopes. Both FIR normalization retries and Booth AIG remain
 unknown after their 300-second budgets. Prefix and ABC failures are also retained;
 no timeout is converted to proof. Re-run audit_interfaces.py after adding new
 study evidence: its latest audit covers 94 sources from 47 successful SAT runs.
+
+## Affine source guard reproduction
+
+Development run 14c87d incorrectly accepted `x[x] ^ x[x]` on an 8-bit input:
+out-of-range indexing was simplified out before coefficient propagation. This
+result is rejected, not accepted equivalence evidence. The affine checker now
+composes `yosys_equivalence` self-checks for each source with its coefficient
+algorithm. Each self-check requires complete interfaces, total binary source
+semantics and matching source hashes before netlist optimization. A self-check
+never replaces the cross-design affine proof. Runtime limits apply to each child
+proof or synthesis process; a failed or unknown guard returns no affine proof.
+
+Eight actual source controls match their expected verdicts, including cancelled
+out-of-range indexing in either source separately. Valid constant division by
+one passes. The original CRC64 pair still proves, a different polynomial fails,
+and its concrete counterexample replays in Icarus. Nonlinear AND still rejects.
+All four distinct historical CRC/LFSR source pairs (eight recorded study proofs)
+prove again with the new guards, after validating original hashes. Old studies
+and physical measurements remain unchanged; these are additional proof records.
+
+```sh
+python exp/tool-exploration/exp-tool-15-gf2/source_controls.py --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-15-gf2/recheck_studies.py --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-15-gf2/study.py
+```
+
+See `affine-source-controls.json`, `affine-source-rechecks.json`,
+`affine-guarded-controls.json` and `affine-source-development-failure.json` under
+`docs/goals/0928-tool-exploration/evidence/`. No new operation is counted.

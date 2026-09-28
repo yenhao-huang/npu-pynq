@@ -20,7 +20,7 @@ class AffineIn(ExplorationInput):
     input_width: int = Field(ge=1,le=4096,description='Complete x input width.')
     output_width: int = Field(ge=1,le=4096,description='Complete y output width.')
     container: str | None = Field(default=None,pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$',description='Existing Yosys Docker container; null uses local Yosys.')
-    timeout_s: int = Field(default=120,ge=1,le=600,description='Bounded synthesis time per design.')
+    timeout_s: int = Field(default=120,ge=1,le=600,description='Maximum runtime per source self-check or netlist synthesis process.')
 
 
 def affine_rows(module,inputs,outputs):
@@ -113,11 +113,22 @@ class Affine:
     def gf2_equivalence(self,p,ctx):
         designs=[sources(p.reference_files,ctx.cwd),sources(p.candidate_files,ctx.cwd)]
         hashes=[fingerprint(paths,p.top) for paths in designs]
-        profiles=[];matrices=[]
+        profiles=[];matrices=[];source_guards=[]
         for paths,sha in zip(designs,hashes):
+            # Optimized affine logic alone cannot establish source semantics:
+            # e.g. an out-of-range select XOR itself may disappear. Reuse the
+            # SAT backend's pre-optimization total-binary/interface checks on
+            # each source before trusting its simplified affine expression.
+            guard=dispatch('yosys_equivalence',dict(reference_files=[str(path) for path in paths],candidate_files=[str(path) for path in paths],top=p.top,input_width=p.input_width,output_width=p.output_width,container=p.container,timeout_s=p.timeout_s),cwd=ctx.cwd,store=ctx.store)
+            source_guards.append(guard)
+            data=guard.get('data',{})
+            if (not guard.get('ok') or not data.get('proved')
+                    or not data.get('interface_complete') or not data.get('abstraction_defined')
+                    or any(data.get(role+'_sha256')!=sha for role in ('reference','candidate'))):
+                return Result(ok=False,data=dict(proved=False,source_guards=source_guards,profiles=profiles),note='Original source semantics or complete interface not established; no affine proof.')
             profile=dispatch('netlist_profile',dict(files=[str(path) for path in paths],top=p.top,mapping='generic',container=p.container,timeout_s=p.timeout_s),cwd=ctx.cwd,store=ctx.store)
             profiles.append(profile)
-            if not profile['ok']: return Result(ok=False,data=dict(profiles=profiles),note='Netlist synthesis failed; no affine proof.')
+            if not profile['ok']: return Result(ok=False,data=dict(source_guards=source_guards,profiles=profiles),note='Netlist synthesis failed; no affine proof.')
             data=profile['data']
             if data['source_sha256']!=sha: raise InvalidInput('Affine proof source identity changed')
             module,_=read_netlist(data['netlist_file'],p.top,data['netlist_sha256'])
@@ -131,7 +142,7 @@ class Affine:
             counterexample=dict(x=hex(value),reference_y=hex(evaluate(matrices[0],value,p.input_width)),candidate_y=hex(evaluate(matrices[1],value,p.input_width)))
         certificate=dict(source_sha256=hashes,input_width=p.input_width,output_width=p.output_width,rows=[[hex(row) for row in matrix] for matrix in matrices],netlist_sha256=[profile['data']['netlist_sha256'] for profile in profiles])
         raw=json.dumps(certificate,sort_keys=True).encode();(ctx.run.artifacts/'affine.json').write_bytes(raw)
-        return Result(ok=mismatch is None,data=dict(proved=mismatch is None,method='exact_affine_gf2',reference_sha256=hashes[0],candidate_sha256=hashes[1],certificate=ctx.run.handle('affine.json'),certificate_sha256=hashlib.sha256(raw).hexdigest(),counterexample=counterexample,profiles=profiles),note='Exact two-state equivalence of affine output expressions derived from synthesized netlists. Unsupported/nonlinear/stateful/unknown cells are rejected. This is an algebraic proof, not a SAT result or a random basis sample.')
+        return Result(ok=mismatch is None,data=dict(proved=mismatch is None,method='exact_affine_gf2',reference_sha256=hashes[0],candidate_sha256=hashes[1],certificate=ctx.run.handle('affine.json'),certificate_sha256=hashlib.sha256(raw).hexdigest(),counterexample=counterexample,profiles=profiles,source_guards=source_guards),note='Exact two-state equivalence of affine output expressions derived from synthesized netlists, after separate source-semantic and complete-interface guards. Unsupported/nonlinear/stateful/unknown cells are rejected. The cross-design proof is algebraic; source self-checks do not establish cross-design equivalence.')
 
 
 CATEGORY.ops.append(Op('gf2_equivalence',AffineIn,Result,'Prove complete affine binary interfaces using source-bound netlist coefficient propagation.',long_running=True))

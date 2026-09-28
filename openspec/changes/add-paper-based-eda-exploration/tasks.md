@@ -188,3 +188,10 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Extend historical SAT interface audit to 94 sources from 47 successful runs.
 - [ ] Complete dot-product physical runs and establish FIR/Booth equivalence.
 - [ ] Reach full-case objective benefit and finish independent operation review.
+
+## Affine source guard review
+
+- [x] Reject source partial semantics that disappear during affine synthesis.
+- [x] Exercise eight source controls and replay the wrong-polynomial witness.
+- [x] Reprove four distinct historical CRC/LFSR pairs with complete source guards.
+- [ ] Finish the remaining substantive operation and whole-case acceptance review.

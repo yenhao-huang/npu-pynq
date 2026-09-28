@@ -948,3 +948,20 @@ time out at both original sizes. No physical acceptance follows these unknowns.
 The full explicit CI Python list passes 564 tests with 37 optional native-Yosys
 skips; make lint/sim passes (simulation targets current). Hosted CI passed at
 30cdd46. New commits require their own hosted result. PR81 remains draft.
+
+## Affine source semantics correction
+
+The operation15 review exposed cancelled out-of-range indexing incorrectly
+accepted after synthesis (development14c87d, explicitly rejected). The checker
+now composes source-semantic/interface guards with exact affine coefficient
+propagation. Eight actual source controls match; CRC64's wrong-polynomial
+counterexample replays in Icarus. All four distinct historical CRC/LFSR source
+pairs reprove with the corrected checker, bound to their original hashes.
+These additional proofs preserve old study and measurement records. The physical
+comparison count and nine-family result are unchanged. Hosted CI at b033f16
+passed; the new source correction requires its own validation and CI.
+
+Affine-guard validation: the complete explicit CI Python list passes 574 tests
+with 37 optional native-Yosys skips. Focused affine tests pass23/skip2; eight
+actual source controls additionally require semantic rejection, complete source
+interfaces, unchanged hashes and no timeout. Make lint/sim passes.

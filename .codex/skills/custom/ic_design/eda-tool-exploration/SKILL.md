@@ -196,3 +196,8 @@ interfaces: exactly input x and output y, with the declared widths. Extra ports
 cannot be ignored even when the miter succeeds. Exercise hidden-output mutations
 in every normalization mode, and audit historical sources against their recorded
 hashes before reusing them. An interface audit is not a new SAT proof.
+
+Affine netlist simplification must not hide undefined source operations. Compose
+source-semantic and complete-interface guards before coefficient propagation;
+a source self-check is not cross-design equivalence. Retain rejected development
+results and reprove historical source pairs against their original hashes.

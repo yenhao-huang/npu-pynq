@@ -1,0 +1,58 @@
+{
+  "classification": "Rejected development control: an undefined out-of-range select cancelled during optimization and the old checker incorrectly proved self-equivalence.",
+  "expression": "x[x]^x[x]",
+  "input_width": 8,
+  "output_width": 8,
+  "result": {
+    "ok": true,
+    "data": {
+      "proved": true,
+      "method": "exact_affine_gf2",
+      "reference_sha256": "afab46c16a3919bbe8f5c4f6016dd1c9158658de4fa1fe05aebda5159942f7b4",
+      "candidate_sha256": "afab46c16a3919bbe8f5c4f6016dd1c9158658de4fa1fe05aebda5159942f7b4",
+      "certificate": "14c87d/affine.json",
+      "certificate_sha256": "dc4c3b580be8d78ba4d0223ae95aaeafb74ec9269d04cced39a6e1e6d6de5aa9",
+      "counterexample": null,
+      "profiles": [
+        {
+          "ok": true,
+          "data": {
+            "source_sha256": "afab46c16a3919bbe8f5c4f6016dd1c9158658de4fa1fe05aebda5159942f7b4",
+            "netlist_sha256": "ceb166ba98f63a9b54283dadb1af389c0c26967ded09a6f2267c98d20725a088",
+            "netlist": "005775/netlist.json",
+            "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\095519-005775-synth\\artifacts\\netlist.json",
+            "top": "dut",
+            "mapping": "generic",
+            "engine": "$ docker exec -w /tmp/ic-netlist-005775 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "cell_count": 0,
+            "cell_types": {},
+            "output_bits_by_cell_type": {},
+            "log": "005775/netlist.log"
+          },
+          "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+          "run_id": "005775"
+        },
+        {
+          "ok": true,
+          "data": {
+            "source_sha256": "afab46c16a3919bbe8f5c4f6016dd1c9158658de4fa1fe05aebda5159942f7b4",
+            "netlist_sha256": "ceb166ba98f63a9b54283dadb1af389c0c26967ded09a6f2267c98d20725a088",
+            "netlist": "8e2af7/netlist.json",
+            "netlist_file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\095520-8e2af7-synth\\artifacts\\netlist.json",
+            "top": "dut",
+            "mapping": "generic",
+            "engine": "$ docker exec -w /tmp/ic-netlist-8e2af7 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "cell_count": 0,
+            "cell_types": {},
+            "output_bits_by_cell_type": {},
+            "log": "8e2af7/netlist.log"
+          },
+          "note": "Yosys structural estimate, not routed Vivado area or timing. Generic cells remain word-level operators; xc7 cells are mapped estimates.",
+          "run_id": "8e2af7"
+        }
+      ]
+    },
+    "note": "Exact two-state equivalence of affine output expressions derived from synthesized netlists. Unsupported/nonlinear/stateful/unknown cells are rejected. This is an algebraic proof, not a SAT result or a random basis sample.",
+    "run_id": "14c87d"
+  }
+}

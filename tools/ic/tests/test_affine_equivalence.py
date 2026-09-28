@@ -1,5 +1,6 @@
 """Conservative netlist algebra, with nonlinear/state/unknown rejection controls."""
 from copy import deepcopy
+from pathlib import Path
 import shutil
 import pytest
 from ic_core import dispatch
@@ -67,3 +68,43 @@ def test_actual_source_bound_affine_check(store,wrong):
     if wrong:
         witness=result['data']['counterexample']
         assert witness['reference_y']!=witness['candidate_y']
+
+
+@pytest.mark.parametrize('failed_role',[0,1])
+@pytest.mark.parametrize('fault',['failure','missing_interface','partial_semantics','wrong_hash','missing_proof'])
+def test_source_guards_precede_affine_simplification(store,tmp_path,monkeypatch,failed_role,fault):
+    import hashlib
+    import json
+    from ic_core.tools.debug import affine
+    from ic_core.tools.exploration_common import fingerprint
+    files=[]
+    for role in ('reference','candidate'):
+        path=tmp_path/(role+'.sv')
+        path.write_text('module dut(input x,output y); assign y=x; endmodule')
+        files.append(path)
+    netlist=tmp_path/'netlist.json'
+    netlist.write_text(json.dumps({'modules':{'dut':{'ports':{'x':{'direction':'input','bits':[2]},'y':{'direction':'output','bits':[2]}},'cells':{}}}}))
+    sha=hashlib.sha256(netlist.read_bytes()).hexdigest()
+    calls=[];guards=[]
+    def fake_dispatch(op,params,**kwargs):
+        calls.append(op)
+        if op=='yosys_equivalence':
+            assert params['reference_files']==params['candidate_files']
+            source_sha=fingerprint([Path(params['reference_files'][0])],'dut')
+            data=dict(proved=True,interface_complete=True,abstraction_defined=True,reference_sha256=source_sha,candidate_sha256=source_sha)
+            result=dict(ok=True,data=data)
+            if len(guards)==failed_role:
+                if fault=='failure':result['ok']=False
+                elif fault=='missing_interface':data.pop('interface_complete')
+                elif fault=='partial_semantics':data['abstraction_defined']=False
+                elif fault=='wrong_hash':data['candidate_sha256']='0'*64
+                elif fault=='missing_proof':data.pop('proved')
+            guards.append(result)
+            return result
+        assert op=='netlist_profile'
+        return dict(ok=True,data=dict(source_sha256=fingerprint([files[0]],'dut'),netlist_file=str(netlist),netlist_sha256=sha))
+    monkeypatch.setattr(affine,'dispatch',fake_dispatch)
+    result=dispatch('gf2_equivalence',dict(reference_files=[str(files[0])],candidate_files=[str(files[1])],input_width=1,output_width=1),store=store)
+    assert not result['ok'] and not result['data']['proved']
+    assert result['data']['source_guards']==guards
+    assert calls==(['yosys_equivalence'] if failed_role==0 else ['yosys_equivalence','netlist_profile','yosys_equivalence'])
