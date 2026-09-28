@@ -9,6 +9,44 @@ import pytest
 from ic_core.errors import HandleNotFound
 
 
+@pytest.mark.parametrize('winerror',[5,32])
+def test_transient_windows_publish_preserves_atomicity(store,monkeypatch,winerror):
+    from ic_core import runstore
+    original=runstore.os.replace
+    attempts=[];delays=[]
+    def replace(source,target):
+        attempts.append((source,target))
+        assert source.exists() and not target.exists()
+        if len(attempts)<3:
+            error=PermissionError('transient lock');error.winerror=winerror
+            raise error
+        original(source,target)
+    monkeypatch.setattr(runstore.os,'replace',replace)
+    monkeypatch.setattr(runstore.time,'sleep',delays.append)
+    with store.begin(category='synth',op='synth',backend='yosys',inputs={}) as run:
+        (run.artifacts/'proof.txt').write_text('preserved')
+        run.finish(state='succeeded',out={'ok':True})
+    assert delays==[.02,.04]
+    assert store.resolve(run.handle('proof.txt')).read_text()=='preserved'
+    assert store.meta(run.run_id)['state']=='succeeded'
+
+
+@pytest.mark.parametrize('winerror,attempts',[(5,7),(32,7),(None,1),(123,1)])
+def test_permanent_publish_failure_retains_unpublished_artifacts(tmp_path,monkeypatch,winerror,attempts):
+    from ic_core import runstore
+    source=tmp_path/'run.tmp';source.mkdir();(source/'out.json').write_text('evidence')
+    target=tmp_path/'run';calls=[];delays=[]
+    def replace(a,b):
+        calls.append((a,b));error=PermissionError('denied')
+        if winerror is not None:error.winerror=winerror
+        raise error
+    monkeypatch.setattr(runstore.os,'replace',replace)
+    monkeypatch.setattr(runstore.time,'sleep',delays.append)
+    with pytest.raises(PermissionError):runstore._publish_directory(source,target)
+    assert len(calls)==attempts and len(delays)==attempts-1
+    assert (source/'out.json').read_text()=='evidence' and not target.exists()
+
+
 def test_run_is_invisible_until_it_finishes(store):
     with store.begin(category="sim", op="sim", backend="verilator", inputs={"top": "x"}) as run:
         (run.artifacts / "wave.fst").write_bytes(b"x" * 16)
