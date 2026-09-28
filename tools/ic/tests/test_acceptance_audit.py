@@ -141,7 +141,10 @@ def test_historical_interface_supplement_is_source_bound(store,tmp_path):
     audit=write(tmp_path/'interfaces.json',dict(scope='Interface and total-binary source-netlist re-elaboration test fixture',rows=[dict(role=role,source_sha256=sha,interface_complete=True,abstraction_defined=True) for role,sha in zip(('reference','candidate'),hashes)],passed=True))
     supplements=correctness_supplements([str(audit)],tmp_path,{})
     assert source_check(row,designs,supplements)==[d['source_sha256'] for d in designs]
-    document=json.loads(audit.read_text());document['rows'][0]['abstraction_defined']=False;write(audit,document)
+    document=json.loads(audit.read_text());document['rows'][0]['source_sha256']='0'*64;write(audit,document)
+    with pytest.raises(InvalidInput,match='complete-interface'):
+        source_check(row,designs,correctness_supplements([str(audit)],tmp_path,{}))
+    document['rows'][0]['source_sha256']=hashes[0];document['rows'][0]['abstraction_defined']=False;write(audit,document)
     with pytest.raises(InvalidInput,match='failed source audit'):
         source_check(row,designs,correctness_supplements([str(audit)],tmp_path,{}))
 

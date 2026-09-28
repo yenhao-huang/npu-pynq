@@ -47,6 +47,11 @@ for run_id,item in sorted(records.items()):
             or meta.get('state')!='succeeded' or not out.get('ok')
             or out.get('run_id')!=run_id or out.get('data',{}).get('record')!=record):
         raise RuntimeError('Run envelope or exported record mismatch: '+run_id)
+    expected_handles={key:f'{run_id}/{name}' for key,name in (
+        ('metrics','clocked.txt'),('utilization','utilization.txt'),
+        ('timing','timing.txt'),('log','clocked.log'))}
+    if record.get('evidence')!=expected_handles:
+        raise RuntimeError('Historical evidence handles do not identify their run: '+run_id)
     params=meta['inputs'];files=[]
     for descriptor in params['files']:
         path=Path(descriptor['path'])

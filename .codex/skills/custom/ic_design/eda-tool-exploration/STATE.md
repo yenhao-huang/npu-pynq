@@ -512,3 +512,36 @@ complete comparisons. Only adder physical session18618 remains live.
 Final source-safety regression: 40 passed, 28 optional native-Yosys skips;
 45 actual container controls cover all skipped normalization safety cases.
 Usage remaining at this checkpoint: 43%; stop below30%, no reset credit used.
+
+## Complete semantic and provenance review checkpoint
+
+All 50 operations now have an independent purpose, bounded contract and reviewed
+failure-path evidence. New substantial controls cover the clocked PPA boundary,
+prefix/constant arithmetic graphs, and count/selection/shift networks. The
+microarchitecture guide explains every generated baseline and candidate without
+counting architecture choices as extra tools.
+
+Accepted formal results must now state that the full declared interface was
+checked and the binary abstraction is defined. The source-bound historical audit
+re-elaborates 98 SAT interfaces under that contract. Its only `$pmux` exception
+requires a distinct, exhaustive equality decoder. The historical affine pairs
+retain guarded source rechecks.
+
+All 182 preserved pre-coverage physical records match their original run
+envelopes, source bytes, raw reports, Tcl flows, Vivado identity and parsed
+metrics. Fifty-seven parent study envelopes predeclare every case, objective and
+architecture payload before 362 successful physical child runs start. Historical
+clock/register coverage remains unavailable because those in-memory runs saved
+neither the newer reports nor routed checkpoints.
+
+Acceptance run 668609 reports 55/59 complete comparisons and nine qualifying
+families at both substantial configurations. FIR16/32 and Booth16/32 remain
+unproved, so the all-case geometric benefit is undefined. Validation passes 581
+Python tests with 37 optional native-Yosys skips; the required make lint/sim target
+passes, with all eight RTL testbenches also forced directly through Icarus/VVP.
+Commit e811a31 is pushed to draft PR #81 and hosted CI passes.
+
+The user's current instruction overrides this skill's default threshold for this
+run: continue review until 20% usage remains. The last account check showed 27%
+remaining; no reset credit was used. Next: inspect CI and remaining evidence
+bindings. Do not merge or claim whole-goal completion.

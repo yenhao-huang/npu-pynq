@@ -1,8 +1,9 @@
 # Paper-based EDA tool exploration report
 
-Current expanded status: [acceptance-status.md](acceptance-status.md). Fifty operations
-are implemented, but whole-study acceptance remains incomplete. Earlier sections
-record historical milestones; they are not a current completion claim.
+The original request is preserved in [goal.md](goal.md). Current expanded status:
+[acceptance-status.md](acceptance-status.md). Fifty operations are implemented,
+but whole-study acceptance remains incomplete. Earlier sections record historical
+milestones; they are not a current completion claim.
 
 The [microarchitecture guide](microarchitecture-guide.md) explains every
 generated baseline and candidate, including its structural tradeoff and the
