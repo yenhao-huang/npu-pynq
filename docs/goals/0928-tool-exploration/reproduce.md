@@ -504,3 +504,26 @@ python exp/tool-exploration/exp-tool-15-gf2/study.py
 See `affine-source-controls.json`, `affine-source-rechecks.json`,
 `affine-guarded-controls.json` and `affine-source-development-failure.json` under
 `docs/goals/0928-tool-exploration/evidence/`. No new operation is counted.
+
+## Arithmetic mutation controls
+
+Run `python exp/tool-exploration/exp-tool-14-rover/controls.py`. At both original
+16/32-bit,16-lane sizes, the correct balanced/compressor cores pass directed and
+seeded vector checks. Replacing the first addition with subtraction or shifting
+the first compressor carry by two instead of one yields concrete mismatches.
+All eight expected verdicts match. These controls check failure detection; they
+are not additional physical measurements or formal proofs. See the goal evidence
+file reduction-mutation-controls.json.
+
+## Completed dot-product retry
+
+```sh
+python exp/tool-exploration/exp-tool-20-fpl/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace
+```
+
+Study 515cd1 contains three pairs at each original width, all attempts and the
+complete source-bound correctness records. Both sizes measure modest gains below
+15%; all 12 timing audits pass. Run exp-tool-13-rover/audit_interfaces.py after
+exporting this evidence to check the old proof interfaces; the current export
+covers 98 source interfaces. A changed backend fingerprint may start a new
+checkpoint, so preserve the completed original evidence before rerunning.

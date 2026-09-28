@@ -34,3 +34,18 @@ every bit, complete source guards and a successful bounded process. Use
 `--configuration config-prefix.json` with this module's study command. Full
 verification now passes; physical gain still requires all three measured pairs.
 Historical failures and the original objective remain in the evidence.
+
+## Dot-product physical completion
+
+Study 515cd1 completes all three paired runs for the original 16/32-bit, eight-
+lane dot-product comparisons. The compressor candidate improves normalized
+throughput by 9.30%/6.18% and grows LUTs by 7.56%/3.66%. Neither size reaches
+the 15% gain threshold. All 12 source-bound timing audits pass. Failed physical
+attempts remain in the study envelope, with the original throughput objectives.
+
+Snapshot 2ab6a9 has 55/59 complete comparisons and nine qualifying families.
+Only the two FIR and two Booth comparisons lack complete evidence; their formal
+proofs remain unknown. Whole-case objective benefit is still undefined. There
+are no active physical runs at this checkpoint. The historical SAT interface
+audit now covers 98 source interfaces from 49 successful study proofs, all
+matching their original source hashes. Hosted CI at 0342196 passes.

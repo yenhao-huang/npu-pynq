@@ -1,0 +1,498 @@
+[
+  {
+    "width": 16,
+    "lanes": 16,
+    "architecture": "balanced",
+    "label": "positive",
+    "mutation": null,
+    "baseline": {
+      "ok": true,
+      "data": {
+        "core": "7863b5/core.sv",
+        "wrapper": "7863b5/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-7863b5-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-7863b5-synth\\artifacts\\registered.sv",
+        "input_width": 256,
+        "source_sha256": "43f40c96de77e4ee78b471f7d4868d8d82810f587cbcb030b984c0c001cce67c",
+        "output_width": 16,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "serial"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "7863b5"
+    },
+    "candidate": {
+      "ok": true,
+      "data": {
+        "core": "680ebb/core.sv",
+        "wrapper": "680ebb/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-680ebb-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-680ebb-synth\\artifacts\\registered.sv",
+        "input_width": 256,
+        "source_sha256": "14ce288abced3deef229338ef6e232b7e6c4642f681dd30895c329a1e544f94e",
+        "output_width": 16,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "balanced"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "680ebb"
+    },
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 4868,
+        "seed": 928,
+        "stimuli_sha256": "b8c7388a32f535a1c018b23ddf567698bd7ce4648412af7cedee2a33ab3eea5e",
+        "reference_sha256": "396b8f9f84595669c537bd5e066c3b22974af91f88a476d6bb6ecd0ed7015cb8",
+        "candidate_sha256": "cdc6e365decd70cb3ee39660759e33f4f8e1c38c9165da09010161b838aaeaf2",
+        "logs": [
+          "8b98d7/reference_vectors.log",
+          "8b98d7/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "8b98d7"
+    }
+  },
+  {
+    "width": 16,
+    "lanes": 16,
+    "architecture": "balanced",
+    "label": "mutation",
+    "mutation": {
+      "target": " + ",
+      "replacement": " - "
+    },
+    "baseline": {
+      "ok": true,
+      "data": {
+        "core": "7863b5/core.sv",
+        "wrapper": "7863b5/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-7863b5-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-7863b5-synth\\artifacts\\registered.sv",
+        "input_width": 256,
+        "source_sha256": "43f40c96de77e4ee78b471f7d4868d8d82810f587cbcb030b984c0c001cce67c",
+        "output_width": 16,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "serial"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "7863b5"
+    },
+    "candidate": {
+      "ok": true,
+      "data": {
+        "core": "680ebb/core.sv",
+        "wrapper": "680ebb/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-680ebb-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-680ebb-synth\\artifacts\\registered.sv",
+        "input_width": 256,
+        "source_sha256": "14ce288abced3deef229338ef6e232b7e6c4642f681dd30895c329a1e544f94e",
+        "output_width": 16,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "balanced"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "680ebb"
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 4868,
+        "seed": 928,
+        "stimuli_sha256": "b8c7388a32f535a1c018b23ddf567698bd7ce4648412af7cedee2a33ab3eea5e",
+        "reference_sha256": "396b8f9f84595669c537bd5e066c3b22974af91f88a476d6bb6ecd0ed7015cb8",
+        "candidate_sha256": "d4ac2e54c63286ffb995e819d666210797a9d81e0256f72f9c95703d2df61fb4",
+        "logs": [
+          "489920/reference_vectors.log",
+          "489920/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "reference_value": "fff0",
+        "candidate_value": "fff2"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "489920"
+    }
+  },
+  {
+    "width": 16,
+    "lanes": 16,
+    "architecture": "compressor",
+    "label": "positive",
+    "mutation": null,
+    "baseline": {
+      "ok": true,
+      "data": {
+        "core": "7863b5/core.sv",
+        "wrapper": "7863b5/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-7863b5-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-7863b5-synth\\artifacts\\registered.sv",
+        "input_width": 256,
+        "source_sha256": "43f40c96de77e4ee78b471f7d4868d8d82810f587cbcb030b984c0c001cce67c",
+        "output_width": 16,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "serial"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "7863b5"
+    },
+    "candidate": {
+      "ok": true,
+      "data": {
+        "core": "2ee2d2/core.sv",
+        "wrapper": "2ee2d2/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100420-2ee2d2-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100420-2ee2d2-synth\\artifacts\\registered.sv",
+        "input_width": 256,
+        "source_sha256": "f1fec32afc38bc7bd8a596f46f25555c0f3d37846f5c4d702c733637b9d4e93c",
+        "output_width": 16,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "compressor"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "2ee2d2"
+    },
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 4868,
+        "seed": 928,
+        "stimuli_sha256": "b8c7388a32f535a1c018b23ddf567698bd7ce4648412af7cedee2a33ab3eea5e",
+        "reference_sha256": "396b8f9f84595669c537bd5e066c3b22974af91f88a476d6bb6ecd0ed7015cb8",
+        "candidate_sha256": "ab357d65f43d68364545eee6b1a88559feee71f64054fc818e6a1edf172feade",
+        "logs": [
+          "f25f1a/reference_vectors.log",
+          "f25f1a/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "f25f1a"
+    }
+  },
+  {
+    "width": 16,
+    "lanes": 16,
+    "architecture": "compressor",
+    "label": "mutation",
+    "mutation": {
+      "target": "<< 1",
+      "replacement": "<< 2"
+    },
+    "baseline": {
+      "ok": true,
+      "data": {
+        "core": "7863b5/core.sv",
+        "wrapper": "7863b5/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-7863b5-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100418-7863b5-synth\\artifacts\\registered.sv",
+        "input_width": 256,
+        "source_sha256": "43f40c96de77e4ee78b471f7d4868d8d82810f587cbcb030b984c0c001cce67c",
+        "output_width": 16,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "serial"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "7863b5"
+    },
+    "candidate": {
+      "ok": true,
+      "data": {
+        "core": "2ee2d2/core.sv",
+        "wrapper": "2ee2d2/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100420-2ee2d2-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100420-2ee2d2-synth\\artifacts\\registered.sv",
+        "input_width": 256,
+        "source_sha256": "f1fec32afc38bc7bd8a596f46f25555c0f3d37846f5c4d702c733637b9d4e93c",
+        "output_width": 16,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "compressor"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "2ee2d2"
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 4868,
+        "seed": 928,
+        "stimuli_sha256": "b8c7388a32f535a1c018b23ddf567698bd7ce4648412af7cedee2a33ab3eea5e",
+        "reference_sha256": "396b8f9f84595669c537bd5e066c3b22974af91f88a476d6bb6ecd0ed7015cb8",
+        "candidate_sha256": "7de4fd41c2b3e90f972b467bf800f74e936c99ce697d92527a2155160a0690e2",
+        "logs": [
+          "69c123/reference_vectors.log",
+          "69c123/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "reference_value": "fff0",
+        "candidate_value": "ffee"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "69c123"
+    }
+  },
+  {
+    "width": 32,
+    "lanes": 16,
+    "architecture": "balanced",
+    "label": "positive",
+    "mutation": null,
+    "baseline": {
+      "ok": true,
+      "data": {
+        "core": "2b0b79/core.sv",
+        "wrapper": "2b0b79/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-2b0b79-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-2b0b79-synth\\artifacts\\registered.sv",
+        "input_width": 512,
+        "source_sha256": "2a561dd4476e9cdaba8def5b20555751cb40008c0944f1a7a8112b811b1e7f02",
+        "output_width": 32,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "serial"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "2b0b79"
+    },
+    "candidate": {
+      "ok": true,
+      "data": {
+        "core": "269d1e/core.sv",
+        "wrapper": "269d1e/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-269d1e-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-269d1e-synth\\artifacts\\registered.sv",
+        "input_width": 512,
+        "source_sha256": "560cff65740239816fd013ec2935dd3c0ee4cec40325c2cb7f30c65542171eeb",
+        "output_width": 32,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "balanced"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "269d1e"
+    },
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 5636,
+        "seed": 928,
+        "stimuli_sha256": "a5369bcfa5f94e96d63d98f950a9764e66c8a372c746df2c8c4d1a2666ecda6d",
+        "reference_sha256": "c156b393c97947444a783c022337dd26bb2f5f5207c2adfa731f2df8ae0a8cf3",
+        "candidate_sha256": "97c0c449247b9e2d9947d4a6fa3060e204eae3d54dab159d1fd8cef804fec3ff",
+        "logs": [
+          "afd7e9/reference_vectors.log",
+          "afd7e9/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "afd7e9"
+    }
+  },
+  {
+    "width": 32,
+    "lanes": 16,
+    "architecture": "balanced",
+    "label": "mutation",
+    "mutation": {
+      "target": " + ",
+      "replacement": " - "
+    },
+    "baseline": {
+      "ok": true,
+      "data": {
+        "core": "2b0b79/core.sv",
+        "wrapper": "2b0b79/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-2b0b79-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-2b0b79-synth\\artifacts\\registered.sv",
+        "input_width": 512,
+        "source_sha256": "2a561dd4476e9cdaba8def5b20555751cb40008c0944f1a7a8112b811b1e7f02",
+        "output_width": 32,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "serial"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "2b0b79"
+    },
+    "candidate": {
+      "ok": true,
+      "data": {
+        "core": "269d1e/core.sv",
+        "wrapper": "269d1e/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-269d1e-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-269d1e-synth\\artifacts\\registered.sv",
+        "input_width": 512,
+        "source_sha256": "560cff65740239816fd013ec2935dd3c0ee4cec40325c2cb7f30c65542171eeb",
+        "output_width": 32,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "balanced"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "269d1e"
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 5636,
+        "seed": 928,
+        "stimuli_sha256": "a5369bcfa5f94e96d63d98f950a9764e66c8a372c746df2c8c4d1a2666ecda6d",
+        "reference_sha256": "c156b393c97947444a783c022337dd26bb2f5f5207c2adfa731f2df8ae0a8cf3",
+        "candidate_sha256": "b6bb48696385617999c4ed6a480203a1ff13c196219d3e5c4aa5a236af605d03",
+        "logs": [
+          "f020b7/reference_vectors.log",
+          "f020b7/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "reference_value": "fffffff0",
+        "candidate_value": "fffffff2"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "f020b7"
+    }
+  },
+  {
+    "width": 32,
+    "lanes": 16,
+    "architecture": "compressor",
+    "label": "positive",
+    "mutation": null,
+    "baseline": {
+      "ok": true,
+      "data": {
+        "core": "2b0b79/core.sv",
+        "wrapper": "2b0b79/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-2b0b79-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-2b0b79-synth\\artifacts\\registered.sv",
+        "input_width": 512,
+        "source_sha256": "2a561dd4476e9cdaba8def5b20555751cb40008c0944f1a7a8112b811b1e7f02",
+        "output_width": 32,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "serial"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "2b0b79"
+    },
+    "candidate": {
+      "ok": true,
+      "data": {
+        "core": "2e7ad1/core.sv",
+        "wrapper": "2e7ad1/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100425-2e7ad1-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100425-2e7ad1-synth\\artifacts\\registered.sv",
+        "input_width": 512,
+        "source_sha256": "e9c47927362c55cdaa3563722cae7ae06b8c1b22f4476eaf3ad7aa29b1cf3948",
+        "output_width": 32,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "compressor"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "2e7ad1"
+    },
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 5636,
+        "seed": 928,
+        "stimuli_sha256": "a5369bcfa5f94e96d63d98f950a9764e66c8a372c746df2c8c4d1a2666ecda6d",
+        "reference_sha256": "c156b393c97947444a783c022337dd26bb2f5f5207c2adfa731f2df8ae0a8cf3",
+        "candidate_sha256": "3252813993939ce2c266dd20da9283c4e3bbabcc50cfb79bde626e35ef043204",
+        "logs": [
+          "cf7cd9/reference_vectors.log",
+          "cf7cd9/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "cf7cd9"
+    }
+  },
+  {
+    "width": 32,
+    "lanes": 16,
+    "architecture": "compressor",
+    "label": "mutation",
+    "mutation": {
+      "target": "<< 1",
+      "replacement": "<< 2"
+    },
+    "baseline": {
+      "ok": true,
+      "data": {
+        "core": "2b0b79/core.sv",
+        "wrapper": "2b0b79/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-2b0b79-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100423-2b0b79-synth\\artifacts\\registered.sv",
+        "input_width": 512,
+        "source_sha256": "2a561dd4476e9cdaba8def5b20555751cb40008c0944f1a7a8112b811b1e7f02",
+        "output_width": 32,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "serial"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "2b0b79"
+    },
+    "candidate": {
+      "ok": true,
+      "data": {
+        "core": "2e7ad1/core.sv",
+        "wrapper": "2e7ad1/registered.sv",
+        "core_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100425-2e7ad1-synth\\artifacts\\core.sv",
+        "wrapper_path": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\100425-2e7ad1-synth\\artifacts\\registered.sv",
+        "input_width": 512,
+        "source_sha256": "e9c47927362c55cdaa3563722cae7ae06b8c1b22f4476eaf3ad7aa29b1cf3948",
+        "output_width": 32,
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "architecture": "compressor"
+      },
+      "note": "Unsigned modular sum. Serial, balanced carry-propagate, or carry-save reduction; registered wrapper is identical across alternatives. PPA benefit requires measurement.",
+      "run_id": "2e7ad1"
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 5636,
+        "seed": 928,
+        "stimuli_sha256": "a5369bcfa5f94e96d63d98f950a9764e66c8a372c746df2c8c4d1a2666ecda6d",
+        "reference_sha256": "c156b393c97947444a783c022337dd26bb2f5f5207c2adfa731f2df8ae0a8cf3",
+        "candidate_sha256": "22b69002ec838c81de3e7f111255af477fad31846db4927522cdb4f28580b86a",
+        "logs": [
+          "afa574/reference_vectors.log",
+          "afa574/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "reference_value": "fffffff0",
+        "candidate_value": "ffffffee"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "afa574"
+    }
+  }
+]

@@ -6,19 +6,19 @@
       "exec",
       "codex-sandbox-agent-workspace",
       "mkdir",
-      "/tmp/ic-interface-audit-e611f8b6adc3"
+      "/tmp/ic-interface-audit-8a5b0ddd655b"
     ],
     [
       "docker",
       "cp",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\output\\interface-audit-e611f8b6adc3/.",
-      "codex-sandbox-agent-workspace:/tmp/ic-interface-audit-e611f8b6adc3"
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\output\\interface-audit-8a5b0ddd655b/.",
+      "codex-sandbox-agent-workspace:/tmp/ic-interface-audit-8a5b0ddd655b"
     ],
     [
       "docker",
       "exec",
       "-w",
-      "/tmp/ic-interface-audit-e611f8b6adc3",
+      "/tmp/ic-interface-audit-8a5b0ddd655b",
       "codex-sandbox-agent-workspace",
       "timeout",
       "180",
@@ -29,11 +29,11 @@
     [
       "docker",
       "cp",
-      "codex-sandbox-agent-workspace:/tmp/ic-interface-audit-e611f8b6adc3/.",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\output\\interface-audit-e611f8b6adc3"
+      "codex-sandbox-agent-workspace:/tmp/ic-interface-audit-8a5b0ddd655b/.",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\output\\interface-audit-8a5b0ddd655b"
     ]
   ],
-  "script_sha256": "e3c370aca24d2aefb8a67d5404548c1399216566e7d12d4a4964cf568fcc5245",
+  "script_sha256": "c3613d6743cb3d07c567b35693f34716688dd09d053a9aae952be89c8bbcfc50",
   "excluded_non_sat": [
     {
       "run_id": "07651f",
@@ -238,6 +238,48 @@
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
+      "run_id": "07f6a8",
+      "role": "reference",
+      "source_sha256": "e5a7387839b98f056827c3efa6fb7585bdabea07ca3f46b30d51a03d869b33e2",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 67,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 67
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "c5766fe4bfe6d38dc3adbb438a009d573996b1f036af77a51f5d439105a7572e",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "07f6a8",
+      "role": "candidate",
+      "source_sha256": "edb8daac0fa30414515be0b74c6c6ca651bc843583b478544d987dcdb403b249",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 67,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 67
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "7488732d2ec09a2bf015a5675860a14e09b5ab88e723582f77428a2af9008751",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
       "run_id": "09351f",
       "role": "reference",
       "source_sha256": "9c77988d96c846f5ecfd5d927c179b1e4c662c257eb077a3d467a3f9cb41231f",
@@ -255,7 +297,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "7187643e73313898ae95778be44401dcfba6fa05499f2feef388391b5c9e483e",
+      "netlist_sha256": "a7d6d292c3f4cf3e1ed117a55d8fb70180a431456fc3d527db2078ac68e65ec4",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -276,7 +318,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "bde773bd81d5db722fb9edfb1bb316613d913356a1adb88a8108d599ab8f558a",
+      "netlist_sha256": "26c70970265100a7b48932ffd20a2462a2011094edd508490a84ae558e4da132",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -297,7 +339,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "fb3334166bf76c3674ff193d583aef3cd256e41af23df9ea62f535a246cb952e",
+      "netlist_sha256": "005516989360a2031170ec99dcccc3b6a7a8d84fe85ee19144ef251918bb2627",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -318,7 +360,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "7bb93949cdc5fe38e6b37d13b48d847c87488097d6c669be89be4d90e9af672b",
+      "netlist_sha256": "7e4f32c3e7f89e06dec10e1b303fe5ec2694b059c1767da7f262965a6f5f8611",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -339,7 +381,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "a7e9740152c215ce3632e859fb903fb18bf9312e70a7aaf875a480b7450eaa33",
+      "netlist_sha256": "e402f4eaf087721c13150b2a519aa7830ccc3b86098c84a11ce2cebc9162faf8",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -360,7 +402,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "8f204437ed039c90e66b42e94950db483883b0911f38ee72397452e6486d972b",
+      "netlist_sha256": "9447e3afa31532ab8c63ac8358e3479f1ba7534bc949a53ca97db4538826d8c0",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -381,7 +423,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "3f330f94d553fa499264cfcb856ae5453e7a4c09a771424253679d1b35dda752",
+      "netlist_sha256": "d0550c124397cebddab04b96b26027aeecb9f21aa2ac940e6d4cc1c2318c7d12",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -402,7 +444,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "d0f3d2cb50a199880e95db8793a1057ab31bd9276a41cc78a7957e1c28fb0dfe",
+      "netlist_sha256": "5d6ae259622f0b5c50a32db95b252af64a4a5997f332689ce8689a5322e293a6",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -423,7 +465,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "55fe59bc31711853169ec39d299ee0fbb0f460591e293e4215d4d9a624cfaad0",
+      "netlist_sha256": "419d27bd1eb37832f8439c318aaa947b92a51b7e9dded43225259fee8adb5883",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -444,7 +486,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "90cd3879e0936fcceea0fdb7a449303db4e6934acbd528e1c64f0d84f2250f66",
+      "netlist_sha256": "9d7fb73a9851af5faf1eb41904c7233cd426212b925502e00d4752b9067e6ee9",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -465,7 +507,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "17ac444d3fcce28987baae0dcdcd2d2926c13fc734577f75da8234b7c2989c37",
+      "netlist_sha256": "b9b167e682ef3a42501d29ebd6b0e2c2e2ffe2bdb877ac81eb0dc6db19aad98a",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -486,7 +528,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "afab71670c8f4d158af67360994eddc9d94ab66d07b5cdd0c69532a9f664155e",
+      "netlist_sha256": "ac54647d8035ecdedae475cac6f5bc406a6ccd5aa988676ce3a0e99181a88650",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -507,7 +549,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "491c5f3bfdd6c868dd46ad24ea59164e9c4c15b1519b918faab0d7301e1d2436",
+      "netlist_sha256": "50e89f04314e894aaeee3bb0ed5aa53b9e1d6e09de00d45beeefacd51bdb5ef1",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -528,7 +570,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "9be6aeae8f005b4da97cae4de12ef4e0183b68f24af879a74663d6d76009519d",
+      "netlist_sha256": "41a42f8f73f5b42cc25d15b00a3399c6a34046c408085d123b7d05f863c33289",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -549,7 +591,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "6a66628a858c19b2cd2799fc28cc6e5fe20be6ecf9c847e3e77b093b5b5d5eee",
+      "netlist_sha256": "8c5425c0fc16e6777abb0f1385987ae42a27a00ee501a3369823b67cc57bb35c",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -570,7 +612,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "a75f51c6cdea48f35bb032f33ddd997ba80e6ed693a78b3a95e9a59675a350d3",
+      "netlist_sha256": "e37ec90c612a85555605205459abe2552b94d0efa2b4f0a7c022bbe5d8250b4c",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -591,7 +633,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "ea08ed8a71c15f60a80c157a6c248ffe51bd99819090ee566dc86a1d5c2aba71",
+      "netlist_sha256": "0534950f8e4978077335a239329cd1ec216ff4700b4ed55acd916ea87f5f1e76",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -612,7 +654,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "f237dbff111fc841e1237490243b9e217f30632b27bb6afbe8c6a4225c22cb3b",
+      "netlist_sha256": "ddbe0bdd33b62741465713280fb08b605f5ae4af110405b1c69f080e1f3871ef",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -633,7 +675,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "d9fd4505880c77d9d7f1e3c78b92d9f0054c96529f1b6856ddfac542e058b589",
+      "netlist_sha256": "c9e478ff3587dfa6df1d7633f0f37d53b86993aa75e222a5761d8e9afd230edb",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -654,7 +696,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "3dd2a735cca2e0d50a4d6ab36617a6c7a9f92c8461777c667ecf8e53494ce1e4",
+      "netlist_sha256": "dd37ecbeef1e32e3847cf0487488d54e62083aec4a90684e34d3f0ae5ecbe938",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -675,7 +717,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "02e04d6a4632dffb1c85ce6be8f462c17e00b72644ec342ad62dacafd8390248",
+      "netlist_sha256": "83dcb517c816ece59b11db45c361c357e3b569ed875ac648f8d555eed367fc9b",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -696,7 +738,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "9bae46eb3d8a678442c72a6c6e18ca40407cde62a977e15ca04fefcc1cd38aa4",
+      "netlist_sha256": "79a874897b94ba09760dbb0b35fb1a5e269a08e4a160a8a3e2a6d262fd8057fe",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -717,7 +759,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "3d70d6095d046473aa0a70e695d61953fa5153e9c80c966fdb63dcfc360a2b84",
+      "netlist_sha256": "b6fabaf0252eb23118834f76e27d40f5cff6657816a06500a75dacf29620493c",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -738,7 +780,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "4aabf0fd681602442843b3d03986744df5402c397be58bf5af92bcb69b582f77",
+      "netlist_sha256": "d0e7606b70234c114932609b3be12e16de378c7bfda5341c4e30cf356018c0e0",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -759,7 +801,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "d04381e42b8d8af178d4916a3fe91db2912d761172f015c7b34193c6a5c6ba9d",
+      "netlist_sha256": "835733739b0e51a962649ffb54be9689721b7857773f4b00cca1e2aeb1c54170",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -780,7 +822,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "6a77ebf84e7a84cc3f512ed5f9d4760782514cc0fb735d6f611c42dbc0397289",
+      "netlist_sha256": "be0d42270724118ee90d98a442985d63e4b8f03fa4172699cc4cffa0895e7dec",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -801,7 +843,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "c1c4c875e1ff8fb835e1968d18f75fbcec8b19632e6fc260b7acbbcabe928237",
+      "netlist_sha256": "890b226b79e501618770d57264d9ae932748621fac8c27476c63ce605d122b4b",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -822,7 +864,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "4201498949a50b5583b14ea41dda3f91a783b2064f7c40fba8f248d71cacc8b3",
+      "netlist_sha256": "e83b84d5161b69b21be8605f7ef428d3f25f573c80c21f4769455ce1d0b2f27f",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -843,7 +885,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "d5317b436e4c17085d6c2511b99fd37d740f4a5d44d5339cbf415853d63f7e30",
+      "netlist_sha256": "df69fc57a508103bf64fb609f0172776aaff6cdd0f1865dd160d396f46132550",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -864,7 +906,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "e94546d8b2ea5db763401f5d1267fbfb514174182c37e8094820b827d320b8b0",
+      "netlist_sha256": "2d69d096da3e3e0cd46631e206e86976230e3013979a5008056d7b8d08a800dc",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -885,7 +927,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "db7977b5b65f7fb1af0e520d6ce01f868325f0ae604c37ff2d24b4ef02eb91dd",
+      "netlist_sha256": "d2fb57e009d05e931382332d7c4de11eeaa6e6b2a391a9f2154811a27e31ef84",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -906,7 +948,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "bcdd7abea4771b1e9ca67725e984246b2a237017fad63add62ca48ba2c646021",
+      "netlist_sha256": "4777f4b6322558cb1af101cd697b4fecff9f3b14dd7f07da05773e90d9e2fee5",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -927,7 +969,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "04987e37b73cd629441455a6d16e6f158de27e3ceb3137d671df21bcc4666d96",
+      "netlist_sha256": "71211f2fc227ee8ef1576fea6ebdd406a964475bb0ecaa4fea9660a11211818c",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -948,7 +990,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "319020c4036e7f50c9a0a9063ff85c5b0540c679c287d6252002c35627cdf349",
+      "netlist_sha256": "13988200057b7f4d25fb46b5779105edf441ded0e699070f09668c653ddcd453",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -969,7 +1011,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "b76852349e72521947c27e414ef11bb7f5681c49bb29611d466a9ab04317469e",
+      "netlist_sha256": "f1dd6cea70f33e71b6a292b9b12d81e844e34c45326c20b7b5840a7750ff0423",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -990,7 +1032,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "c79fc3db02ec228ad966a3c32fbb0e781e6ce6736a327ee6ad2631e41cbdc976",
+      "netlist_sha256": "7216ff852d391b9cb3c8967a488bbb6045250dce36e356280d5cefc6e2f2285e",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1011,7 +1053,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "e1a690f513d9ec78c4f75365d2d5594dbeaf3fd3163606cef15289e71ae81b37",
+      "netlist_sha256": "4e1f1fb22d779beccfe55a0d98f059df5bf4aeff567abfbf8dd08954ecf4001a",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1032,7 +1074,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "476d43e25484e6f21bfcef48972b9deac5cb5fdae9e1dab170cae4eef8405ac5",
+      "netlist_sha256": "81ce8346925ba2cfa130a6f16bc6749d3180f71c7216f88c029d0e993c368737",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1053,7 +1095,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "bbc7c3f58963d8df8ed88524d6db28e62e598d0cf155d5a740c21806f3506506",
+      "netlist_sha256": "01cacde24ea5b0e68a1ec5cf6e570e651d2ff387835309f3cb1d99d80283f183",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1074,7 +1116,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "5484044c5abd509411ebcfd783dce86175a77787c1496a59f231c21ca98d5105",
+      "netlist_sha256": "45993057767b1b0c2b39e13391466ada21a3051dc292922d2e41e76a0a16c64a",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1095,7 +1137,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "85b04cb072e094cc55ca5a101e23b45f65897dac94d138b547680caa8c894d9e",
+      "netlist_sha256": "db1614234dad0467a36bc68fe75866c7d70fd07df5b9055844eeba05846ca71c",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1116,7 +1158,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "8f46ed06d243cdf6957874113310b74a57139223033adbae78b3f5fd9561d0b3",
+      "netlist_sha256": "cae7e5bf660f5bed0a2377e023febbc972b98fa37bb932fc1ad8457f5d78b9cb",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1137,7 +1179,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "4277df9ce1b14dfc1e34e7f3263c632d416e27d269f5d3bb261cdd03cf811712",
+      "netlist_sha256": "bf85487d5efce818da8cda790b4dd3264eaf9a81e963b5cc71d286e1bd2a7ead",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1158,7 +1200,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "0190bb314914ef40c90be6f3f6a78a881c7c37b2ee57faa3dbba404a38618dc7",
+      "netlist_sha256": "cb1f7737ac7c1c1c678f2f352895cdc3e3a3bdea2b7b2d56979d6ab3b3c41a44",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1179,7 +1221,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "c668122b376dd032cbc3a86c5e34096394cb3df4b024629e2b619e700b7f8aaf",
+      "netlist_sha256": "89785da36bc6de014066bb7e8ed5b3b394380ab9747b711c11104135905eccc2",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1200,7 +1242,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "fb48bb1a9f90ce2dfde94a3a495bdf53022d96dac1fb4863f67e076d697d0622",
+      "netlist_sha256": "d94261c4c871d303935ddb40582378314c382948fb2f6c9343f7eef392c97edc",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1221,7 +1263,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "93acc1a7ae5da89f0071cbc11be3b31591fd82e5f497946e184e79de8ea205f2",
+      "netlist_sha256": "01d889a0cdcc650ed0154b23f2cfac57716fc3d311b5dfa6e70be245e3a136af",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1242,7 +1284,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "6156756ac8be62b3060afb92b413079e3012cfe095118c4f21ecd94167a7cf5c",
+      "netlist_sha256": "d0ec141622ce654e71f62e765e09f9a894e177a51957b436c48f79c0a49ac422",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1263,7 +1305,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "e93b8121674410f18c62cea50b80d1da1e5aee21e1bb8761be75464e4e57907e",
+      "netlist_sha256": "415b1e342739b8aa9138eec1406921795ac777ea01fcf952784ecd2df24a83c0",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1284,7 +1326,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "5267513fe7e590d4e40725035daa54f5abdac1ea3b768426cabd1eb7462c38a0",
+      "netlist_sha256": "387b9ecd0f84aab0cad40e401b92d65142d8710be046423a23327910f770482b",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1305,7 +1347,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "91c6ad86cf904763a91cf42790b0c704d4dd6ae9b81faf66253fee48109e921a",
+      "netlist_sha256": "4e009598917ba1e86550ee5db440630a5deadf4bca0bd55c80ab5662c4f89de9",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1326,7 +1368,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "e55741ceac7904872151130696a6d12c122dc3b9eb462931c3a2e9f256694428",
+      "netlist_sha256": "239e254feefb1a7dde00ef019282a1de4feb9c94c26247dfca4ab8caccd053fc",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1347,7 +1389,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "c79fe5089d5c9453a2292d00c77d13b44ff00847ce37c811d2074585e44d9ad6",
+      "netlist_sha256": "dd887965eb1b1a3f690e7df5d36baf994a2be4449a677455949b196b90f97e8a",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1368,7 +1410,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "29ba566648b7781f0b1ac6bbac8aadef7056e79a6d21fbca0cfd403b942b8284",
+      "netlist_sha256": "6e681817468ef85c662df65b0c533da4b0d37e21900abb90f8ae58936e16b8d6",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1389,7 +1431,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "8c08d3b9d96ec4ec89f58f62462f4b459b76fff7f134be713b579da22704bb8d",
+      "netlist_sha256": "c2286f56ec4a89a937d93051b73c24c04b42bdb302ebac35773c57530b403098",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1410,7 +1452,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "6b27729480825329ac27c7fc9619aca14ac385ef5d7575ba90c81be77988ce86",
+      "netlist_sha256": "b716178fd471a36a169d6c32bec5d2b126b84075557e2d34f79e77386598781b",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1431,7 +1473,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "a540adf6858122c8d1ca5312bfbf69bb70042101b9c42857072f89446d756afd",
+      "netlist_sha256": "e98a18e612621c9ace01ecfec2068a8c2c0122f3a125d55ea1d3046e804ab07f",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1452,7 +1494,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "13f224b10a41ab518fd643a6b649c30023b8e4dae6f94ba6a06e38d7d618a693",
+      "netlist_sha256": "9e3adf009bbe50b566246d7369bc16342f9672de6d484f79f30f692019a21517",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1473,7 +1515,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "6ef3b6513d15d8efb55292d8e8e04863d4b87d48620c50a6520020b7b5d6f9d7",
+      "netlist_sha256": "6e0bb83da4851b2505577ae032cec699c476ec0d9279a2409b3e00f31b085707",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1494,7 +1536,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "01f0510bd3b516291d8de4d11089a50d948093b1180ffa3a45ff8cf1ed3b30c8",
+      "netlist_sha256": "9fa3c4070fd4e99bd9d50c174d4bfccb6c68b4335411b7827e154805e90b7114",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1515,7 +1557,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "ec4c2b5e948b2aa50e8f21dabf8d592e12aa0575c5a48480ee939e52778ceb03",
+      "netlist_sha256": "2ff0cbcdb9977123f7f823d2677d702fe00b44fa7aa50991e3e15471d9c5b256",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1536,7 +1578,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "b733b5a8089fde921d7cc31e1aca5f50145d413f33349943727206ddbce8527c",
+      "netlist_sha256": "e8b985c45ce0fd009e5bd3b9724ee1b0ddbbc5517e7542b47cf224567b904b66",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1557,7 +1599,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "c52b919020e92ad46ded6a493fe6d1710f51537c09b63b54c7d033ba2cf27d9f",
+      "netlist_sha256": "ca3cdb20b2d476b5215e9ee9e17753eb695ee9e78daa3d0b9e553aba2e009c85",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1578,7 +1620,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "b852c8c744011cb02014eb36daedb22e2b9975a458bb1c836170a6a57fc9b6ed",
+      "netlist_sha256": "1ac86b86dd5592af6622dae623c42ee67a2e307ab8c1582346ea1b2e1566c668",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1599,7 +1641,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "e95315db54c9dec35cd1228b10a22e3759f7d2f06bf4414c41b592701e3aa686",
+      "netlist_sha256": "fc9a3c3cb572f948eb8a006f1b190e3184a24b0985fe0a68a64b31eda828d3d7",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1620,7 +1662,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "46dd686ce3a22841b6b90345b019180e91d2cb25cfcce4ebc742e32c56c07fd9",
+      "netlist_sha256": "c554fcf6338a7a56ef0762d4fbf494eeea3ff74977bcdc7df5f59b7164da2a6d",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1641,7 +1683,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "5772299274852fd751b38118e55b03ae880a908e8af962e6e768853e98599583",
+      "netlist_sha256": "288b7ec15ae75e776d8677b72ee1edb056b0b61b44bba7018f70001979c66682",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1662,7 +1704,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "0b91b6a9a8460e1ce57d9cf1c42e4012cfeaa126a96bb32b56a97f2e669a3de1",
+      "netlist_sha256": "0118bcdce8721f7771af51f8d63dd87f180c472f7939b2bd7b22a6641bfa0f38",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1683,7 +1725,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "602b7d68aa283a8e784802f00e25a004a1f901e7bc6d2e8c3c6518fb22e18809",
+      "netlist_sha256": "c82616b1a3c3c1f33299e2a9c6756868d51855c777f23e5b89910aa0895fabe7",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1704,7 +1746,49 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "b3f45b7b3185d9cf0204bd008ca3c8d3ef13de1bb24e3146f38e223409416075",
+      "netlist_sha256": "e61cd5ebac76dd8ea1f4f1ff1b847609b169c151c410103e9fd2b5fbb7cfd477",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "d0d465",
+      "role": "reference",
+      "source_sha256": "fe9da61b44ea0190c3f0a9fc3e2e80e6c2598fc9b605bfcbcc7bbc65001e1aa9",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 35,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 35
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "e217874689e8b68ce68817c505d783bdbbf01e59047ceb5c138ea96545b8d850",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "d0d465",
+      "role": "candidate",
+      "source_sha256": "0a546be8f4713bc022c057247b402d6481241622a5c2ad3e21f15a22c485c159",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 35,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 35
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "d891e5103bd2c8e5f1bb00ba485ce60a9cfe49f22c1d04297d6ac3be5456917f",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1725,7 +1809,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "e55b48f18712c548788b0b3d57eaf5f2e00e66d2e7a549ac9ca888c11317eee4",
+      "netlist_sha256": "ffd98def44acbad1c78caec8feca6615db8df9a185d78261d4e05c89863063c6",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1746,7 +1830,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "1232641e55007e38930f467ccec2f25eaf5a8a59df1363b55d5ff190ebe3e313",
+      "netlist_sha256": "b117287ceb81e27b4656d67b9f13db397a12f03befb7c6a9d8af6b95cf0222e9",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1767,7 +1851,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "6bbd10ed430b17a80d009bfacda25dd386009af8dde66614c4c253acd26c222c",
+      "netlist_sha256": "ab7f04c6fb7ed298776272f07bd31f11cc2ae7f3f10a434374e7d60c5c8184b4",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1788,7 +1872,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "83a0f3889bc91f5e415e66fcadcbd08654ed7c406736b57ee04558eaa62882cc",
+      "netlist_sha256": "a18de830282d53c3e2b058808f46df57326726d069bad9302ae1d359c9f19528",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1809,7 +1893,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "0eb03dc7294351bad3ec2d76b2af11806ed768b194edeec917e65276196bbabf",
+      "netlist_sha256": "f204d529df210ed290c796d2f1edc8f986db36f07e0c8662f954704f159423df",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1830,7 +1914,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "4c9f739c620f93d60de49565d8c68319ddd784ae33aec9d9537cff7fbba6d215",
+      "netlist_sha256": "c169b518903aa69266bdb7757d7020f749c5033423187fb8b325eec8fb521530",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1851,7 +1935,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "768e35bdd9aad153e2abb8a4292fa2f3808e9707cc258c49ce4c0f7ddbf83a4c",
+      "netlist_sha256": "541cb821409451052b625ef76c35ed0b7e40afa9b5651a3052211a2c8d749be1",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1872,7 +1956,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "d218801870e0b76665d316a6960462eb493d7b9786cf8560c8490750b68ba12d",
+      "netlist_sha256": "ef199083f1114b8b9753205ca600108ce1ee1743c4c32226f2b353e67deca0c7",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1893,7 +1977,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "95a06043abcf98bf95c6279b306768e734aa76756f82a06f0f4a1f52d3ca3dfd",
+      "netlist_sha256": "c2acd116a77b95f58489da62ea5229f4851fb7f23afb3cef4aabe3c42cbf3b3c",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1914,7 +1998,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "fb913b2ee01832f05c4b967b4cfacb7e8064d428ca8018009acf18fac7794ac4",
+      "netlist_sha256": "ae0ad192cb27248ebe9b6c32caf8ec190137aa894cf41a80077c2f330709466a",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1935,7 +2019,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "bd8fd7d31719d55f0cba4f3b98164ed7564bd3a011baa0c7a56414ba716e6ad3",
+      "netlist_sha256": "3614ace035af8c4ef7bddf0147124183565ef288e78ae80596dfe21dbb0bfcc1",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1956,7 +2040,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "19a1dccbcc15a8df3827687f0b3be9df8f028fe73890007446e545ec0d3a9762",
+      "netlist_sha256": "fc209d2696ac15324826264fe9d59ae4f53c9b7dd06e6796996043e93f2454d2",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1977,7 +2061,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "6dc39e5fcbdcf6c0b92f018f079296d172af2b1ede29c23694cc903fb90010df",
+      "netlist_sha256": "606d6dd5d45ebd4c664337ccf8ac7f9bfa397bfa18a56e113c452d527c4abdd9",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -1998,7 +2082,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "7d4c3fd98f91454b4dd38fe54e9655852295c6329ea4ca7b52aef05404dddad0",
+      "netlist_sha256": "753f79aa549bb73b1aa89c8eb06eb61a1b81fd0b3784868ec0b2a0e3c295f1c7",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -2019,7 +2103,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "f87935c3b1be9c4c88a4254fe8b35dc0795f7f5918940f5826ca047325ecc706",
+      "netlist_sha256": "f8f70b4b7e3c2cb4acf247ee8ba8d7763a6e8ee31b4969c892d15b4a217d60dd",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     },
     {
@@ -2040,7 +2124,7 @@
         }
       },
       "interface_complete": true,
-      "netlist_sha256": "b82f65b90c6d0244df3e7b31e589194e9852f0d23a8f9025f1187900de148f44",
+      "netlist_sha256": "3476490060de60293f945c804d16bef4a6debfa65280f7eafe15539b961d4809",
       "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
     }
   ],

@@ -3,7 +3,8 @@
 This review checks engineering purpose, implementation behavior and exercised
 failure paths. Registry names, schemas and passing inventory checks alone do
 not establish these properties. The review is incomplete: this checkpoint covers
-operations 01-10. Operations 11-50 and historical physical coverage remain open.
+operations 01-10 and 12-15. Operation 11, operations 16-50 and historical
+physical coverage remain open.
 
 ## Original ten operations
 
@@ -102,3 +103,18 @@ python exp/tool-exploration/exp-tool-15-gf2/study.py
 See `affine-source-controls.json`, `affine-source-rechecks.json`,
 `affine-guarded-controls.json` and `affine-source-development-failure.json` under
 `docs/goals/0928-tool-exploration/evidence/`. No new operation is counted.
+
+## Operations 12 and 14: wide vectors and modular reductions
+
+| ID | Distinct purpose and contract | Exercised failure path |
+| --- | --- | --- |
+| 12 | Simulate directed all-zero/one, walking-bit/carry patterns plus seeded random vectors on 1..4096-bit packed interfaces. Require a caller-confirmed complete combinational contract, all ordered transcript rows, defined outputs and unchanged sources. This is sampling, not proof or automatic verification of the caller's contract. | Subtraction replacing addition, unknown outputs and truncated input widths reject; process timeout/incomplete transcripts reject. New 16/32-bit reduction mutations give concrete input/output mismatches. |
+| 14 | Generate unsigned sums modulo 2**width, with width 8..128 and lanes 3..128. Serial, balanced and carry-save implementations are architectures of one operation. Width truncation at each node preserves the modular sum; leftover nodes are forwarded at each level. The same registered wrapper supplies latency 1/II 1. | Replace the first balanced addition by subtraction, or shift the first compressor carry by two instead of one. Both fail at both original widths with concrete vector mismatches. Odd lane counts 3/7 and declared large 16-lane cases also pass existing integration tests. |
+
+`exp/tool-exploration/exp-tool-14-rover/controls.py` runs eight actual checks at
+16 and 32 bits with 16 lanes. All four correct candidates pass and all four
+mutations fail with observed data mismatches (not compilation errors/timeouts).
+See reduction-mutation-controls.json. The four existing physical comparisons
+remain complete but do not qualify the family: balanced gains are small and
+compressor resource growth exceeds the throughput gate. This review adds no
+PPA win, no new operation and no sampled-equivalence claim of formal proof.

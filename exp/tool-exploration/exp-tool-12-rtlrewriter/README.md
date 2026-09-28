@@ -12,3 +12,13 @@ process errors and source changes fail the verdict.
 
 Run `study.py` in `../exp-tool-14-rover/`. Focused negative controls and
 reproducibility checks live in `tools/ic/tests/test_wide_exploration.py`.
+
+## Arithmetic mutation controls
+
+Run `python exp/tool-exploration/exp-tool-14-rover/controls.py`. At both original
+16/32-bit,16-lane sizes, the correct balanced/compressor cores pass directed and
+seeded vector checks. Replacing the first addition with subtraction or shifting
+the first compressor carry by two instead of one yields concrete mismatches.
+All eight expected verdicts match. These controls check failure detection; they
+are not additional physical measurements or formal proofs. See the goal evidence
+file reduction-mutation-controls.json.

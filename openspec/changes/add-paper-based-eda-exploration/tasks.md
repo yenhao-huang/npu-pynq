@@ -195,3 +195,11 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Exercise eight source controls and replay the wrong-polynomial witness.
 - [x] Reprove four distinct historical CRC/LFSR pairs with complete source guards.
 - [ ] Finish the remaining substantive operation and whole-case acceptance review.
+
+## Dot-product and reduction checkpoint
+
+- [x] Complete both original dot-product physical comparisons and 12 timing audits.
+- [x] Extend historical SAT interface checks to 98 source interfaces.
+- [x] Detect balanced-adder and compressor-carry mutations at both original widths.
+- [ ] Establish complete proofs and physical evidence for FIR and Booth.
+- [ ] Finish operation11 and16-50 semantic review and full-case acceptance.

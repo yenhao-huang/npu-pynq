@@ -43,3 +43,13 @@ The balanced tree yields only 2.38%/3.13% throughput gain; compressor throughput
 gain exceeds 43% but LUT growth exceeds 160%. Neither qualifies the family gate.
 All three paired results and the transient implementation retry are retained in
 `evidence/adder-macc-physical-study.json` under the goal report.
+
+## Arithmetic mutation controls
+
+Run `python exp/tool-exploration/exp-tool-14-rover/controls.py`. At both original
+16/32-bit,16-lane sizes, the correct balanced/compressor cores pass directed and
+seeded vector checks. Replacing the first addition with subtraction or shifting
+the first compressor carry by two instead of one yields concrete mismatches.
+All eight expected verdicts match. These controls check failure detection; they
+are not additional physical measurements or formal proofs. See the goal evidence
+file reduction-mutation-controls.json.
