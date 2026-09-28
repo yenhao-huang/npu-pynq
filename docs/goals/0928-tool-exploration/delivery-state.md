@@ -18,17 +18,15 @@ Scope: implement and validate goal.md; publish one PR to dev; no merge requested
 | Search and claim issue | completed | No matching prior issue; #80 assigned to repository owner and agent a claim verified |
 | Read contribution rules | completed | AGENTS.md and docs/rules reviewed |
 | Inspect branch and diff | completed | Entire change reviewed against dev; no production RTL or unrelated user changes included |
-| Validate and commit | completed | d5951b4; 32 focused tests; lint/sim; ten final matching experiments; baseline Windows limitations recorded |
-| Draft PR | completed | .ic/pr-body.md contains summary, exact tests, measured result and limitations |
-| Push, create and verify | completed | https://github.com/yenhao-huang/npu-pynq/pull/81; open, non-draft, base dev, head npu/issue80-a |
-| Handoff | completed | PR attached to the chat; report/reproduce/skill and ten evidence records committed |
+| Validate and commit | completed | 581 Python tests pass with 37 optional skips; lint passes; all eight RTL simulations pass |
+| Draft PR | completed | Description has the current 55/59 result, nine qualifying families, evidence scope and limitations |
+| Push, create and verify | completed | https://github.com/yenhao-huang/npu-pynq/pull/81; open draft, base dev, head npu/issue80-a |
+| Handoff | completed | PR attached; goal, report, reproduction guide, skill state and evidence are committed |
 
-Remaining usage: 75%; stop below 30%.
-Known validation limitations: two full-suite Windows failures reproduced on dev;
-OpenSpec CLI is not installed. Raw evidence is in .ic and compact summaries are
-under docs/goals/0928-tool-exploration/evidence/.
-
-CI was in progress when the PR was created. Consult the PR for the exact final head status.
+Remaining usage at the latest check: 26%. The user's current instruction overrides
+the default threshold for this run and stops at 20%. OpenSpec CLI is not installed.
+Raw evidence is in .ic and compact summaries are under
+docs/goals/0928-tool-exploration/evidence/. Consult the PR for the current head CI.
 
 ## Expanded user goal (supersedes initial completion)
 
@@ -536,3 +534,26 @@ complete comparisons. Only adder physical session18618 remains live.
 Final source-safety regression: 40 passed, 28 optional native-Yosys skips;
 45 actual container controls cover all skipped normalization safety cases.
 Usage remaining at this checkpoint: 43%; stop below30%, no reset credit used.
+
+## Complete semantic and provenance review checkpoint
+
+All 50 operations have reviewed purposes, contracts, architecture boundaries and
+failure-path evidence. The microarchitecture guide documents every baseline and
+candidate. The current proof contract requires complete interfaces and defined
+binary source semantics; 98 historical SAT interfaces pass source-bound
+re-elaboration. FIR16/32 and Booth16/32 remain unproved after bounded attempts.
+
+All 182 preserved pre-coverage Vivado records match their original run envelopes,
+source bytes, raw reports, Tcl flows, tool identity and parsed metrics. All 57
+parent study envelopes fix their objectives and full architecture payloads before
+362 successful physical children start. The old in-memory runs still lack the
+newer timing-coverage reports and saved routed checkpoints.
+
+Acceptance run 96042e reports 55/59 complete comparisons, nine qualifying
+families at both substantial configurations and an undefined all-case geometric
+benefit. The complete Python suite passes 581 tests with 37 optional native-Yosys
+skips. The required make lint/sim target passes; all eight simulations were also
+forced directly through Icarus/VVP. Hosted CI passed commits e811a31 and 3ac2ecb;
+the latest documentation-only head is 5d97754. PR #81 remains draft. No merge or
+reset credit is authorized. The user's active stop threshold is 20% remaining;
+the latest check showed 26%.

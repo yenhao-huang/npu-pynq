@@ -52,8 +52,9 @@ throughput. Its timing estimate is scoped to register-to-register setup paths.
 
 [PrefixLLM](https://arxiv.org/html/2412.02594v1) and
 [PrefixRL](https://arxiv.org/abs/2205.07000) motivate structured prefix-network
-exploration with synthesis feedback. Prefix generators and their experiments
-remain planned work, not delivered tools.
+exploration with synthesis feedback. The delivered prefix-adder and priority
+networks are bounded hand-authored architectures; they do not reproduce either
+paper's learned search.
 
 ## Diverse network and storage studies
 
@@ -74,7 +75,8 @@ The FIFO generator adapts that storage choice to ready/valid buffering. It
 preserves order, capacity and reset behavior; it does not implement the paper's
 compiler pass. An independent queue scoreboard checks temporal correctness
 before physical comparison. Large-storage timing needs a registered fixture
-covering read and handshake paths, which remains pending.
+covering read and handshake paths. The completed studies use that fixture and
+verify its additional observation latency separately from the FIFO protocol.
 
 ## Arithmetic and paired physical evidence
 

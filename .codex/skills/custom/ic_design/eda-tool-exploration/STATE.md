@@ -534,7 +534,7 @@ architecture payload before 362 successful physical child runs start. Historical
 clock/register coverage remains unavailable because those in-memory runs saved
 neither the newer reports nor routed checkpoints.
 
-Acceptance run 668609 reports 55/59 complete comparisons and nine qualifying
+Acceptance run 96042e reports 55/59 complete comparisons and nine qualifying
 families at both substantial configurations. FIR16/32 and Booth16/32 remain
 unproved, so the all-case geometric benefit is undefined. Validation passes 581
 Python tests with 37 optional native-Yosys skips; the required make lint/sim target

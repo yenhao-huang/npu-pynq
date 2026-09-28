@@ -356,10 +356,10 @@ Missing artifacts fail evidence binding rather than silently rebuilding designs.
 
 The inventory is exp-tool-50-rtlrewriter/inventory.json. Its classifications and
 test references are review inputs, not proof of semantic distinctness or actual
-test execution. The report lists remaining review obligations and never itself
-claims whole-goal completion. Current snapshot acceptance-audit.json has 59
-cases and currently 37 complete verified physical comparisons; an undefined all-case
-ratio is the expected result until the remaining evidence is established.
+test execution. The separate semantic review records the exercised contracts and
+failure paths. Current snapshot acceptance-audit.json has 59 cases and 55 complete
+verified physical comparisons; an undefined all-case ratio is the expected result
+until the four FIR/Booth proof and measurement gaps are resolved.
 
 ## Complete bit proofs and strict timing integration
 
@@ -373,9 +373,10 @@ preserve all original case parameters and objectives; they do not add new wins.
 The acceptance audit now dispatches timing_constraint_audit for every physical
 record carrying coverage evidence. Failed coverage prevents a complete ratio.
 Records predating coverage reports retain an explicit historical-unaudited count;
-their coverage remains an independent review obligation. The matrix32 baseline
-has eight DSP48E1 differences and remains rejected pending an explanation of
-which internal registers are actually active. Do not overwrite its reports.
+their coverage remains unavailable. The independent authenticity audit binds all
+182 preserved records to raw reports without inventing missing coverage. The
+bounded matrix32 DSP retry now passes its static register-use and timing audits;
+the earlier rejected record remains preserved. Do not overwrite its reports.
 
 ## Arithmetic-normalized retries and DSP controls
 
@@ -386,7 +387,7 @@ network_study.py accepts --configuration config-macc.json for tools17/23;
 exp-tool-14-rover/sweep.py runs all original adder-tree cases with mandatory SAT.
 exp-tool-38-kung/study.py --case w32_n2 preserves the original matrix declaration.
 All retry outputs are separate; retain old failures and source-bound artifacts.
-Current committed physical completeness is 41/59, not whole-goal acceptance.
+Current committed physical completeness is 55/59, not whole-goal acceptance.
 
 ## Larger integration of tools 01-10
 
