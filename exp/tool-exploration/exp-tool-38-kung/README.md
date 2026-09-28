@@ -44,3 +44,10 @@ Verification a971e4 passes all eight source-bound core/fixture checks. Pipeline
 tests reject changing matrix dimensions across a comparison. Larger 3x3/4x4
 configurations have simulator coverage; they are not substituted for the two
 declared physical configurations.
+
+`study.py --case w32_n2` reruns only the existing declared width32 case. Retry
+514661 preserves the original area objective and all three physical pairs.
+The new detailed audit accepts the baseline's bypassed DSPs, but still rejects
+four candidate DSPs with CREG=1. LUT reduction 15.04% and throughput loss 82.91%
+are diagnostic until coverage is complete. Neither threshold qualifies anyway.
+Do not replace the older physical study or edit its coverage reports.

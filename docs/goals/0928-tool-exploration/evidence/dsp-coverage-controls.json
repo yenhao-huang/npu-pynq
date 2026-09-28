@@ -1,0 +1,221 @@
+[
+  {
+    "label": "bypassed",
+    "expected": true,
+    "measurement": {
+      "ok": true,
+      "data": {
+        "record": {
+          "name": "bypassed",
+          "source_sha256": "71f090449365198c1534fa6419b07f8174eedbbd39f486c10384d488ef6c61f2",
+          "tool": "vivado",
+          "version": "2026.1",
+          "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+          "part": "xc7z020clg400-1",
+          "stage": "routed_clocked_ooc",
+          "period_ns": 5.0,
+          "directive": "Default",
+          "implementation_threads": 1,
+          "optimization_mode": "Basic",
+          "latency_cycles": 2,
+          "latency_kind": "fixed",
+          "initiation_interval": 1,
+          "metrics": {
+            "luts": 48.0,
+            "lut_logic": 48.0,
+            "lut_memory": 0.0,
+            "ffs": 144.0,
+            "brams": 0.0,
+            "dsps": 1.0,
+            "slack_ns": -1.069,
+            "critical_period_ns": 6.069,
+            "estimated_fmax_mhz": 164.77179106936893,
+            "throughput_mtransactions_s": 164.77179106936893
+          },
+          "evidence": {
+            "metrics": "548b77/clocked.txt",
+            "utilization": "548b77/utilization.txt",
+            "timing": "548b77/timing.txt",
+            "log": "548b77/clocked.log",
+            "coverage": "548b77/coverage.txt",
+            "constraint_checks": "548b77/constraint-checks.txt"
+          }
+        }
+      },
+      "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+      "run_id": "548b77"
+    },
+    "audit": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "source_sha256": "71f090449365198c1534fa6419b07f8174eedbbd39f486c10384d488ef6c61f2",
+        "scope": "single_clock_register_to_register_ooc",
+        "coverage": {
+          "clock_count": 1,
+          "register_count": 145,
+          "clocked_register_count": 144,
+          "latch_count": 0,
+          "setup_path_count": 1
+        },
+        "violations": {
+          "no_clock": 0,
+          "constant_clock": 0,
+          "multiple_clock": 0,
+          "loops": 0,
+          "latch_loops": 0,
+          "unconstrained_internal_endpoints": 0
+        },
+        "reasons": [],
+        "inactive_dsp48e1_cells": [
+          {
+            "name": "core",
+            "REF_NAME": "DSP48E1",
+            "USE_DPORT": "0",
+            "USE_MULT": "NONE",
+            "ADREG": "1",
+            "DREG": "1",
+            "AREG": "0",
+            "ACASCREG": "0",
+            "BREG": "0",
+            "BCASCREG": "0",
+            "CREG": "0",
+            "MREG": "0",
+            "PREG": "0",
+            "INMODEREG": "0",
+            "OPMODEREG": "0",
+            "ALUMODEREG": "0",
+            "CARRYINREG": "0",
+            "CARRYINSELREG": "0"
+          }
+        ],
+        "evidence": {
+          "metrics": "548b77/clocked.txt",
+          "utilization": "548b77/utilization.txt",
+          "timing": "548b77/timing.txt",
+          "log": "548b77/clocked.log",
+          "coverage": "548b77/coverage.txt",
+          "constraint_checks": "548b77/constraint-checks.txt"
+        },
+        "report_sha256": {
+          "metrics": "6b1414c4c128ced76c3b31cbb013fecaaef329b0b8966770bb5024b9212b6e81",
+          "timing": "d8d50fe13b1d4799f9f72cb7d2af7c88639dfda11eb927c16d4847ac5f011389",
+          "coverage": "633a3a6d05a34b841d547fb7bc1265939a2405f017b144e3e984fe119b515054",
+          "constraint_checks": "766a97ed34177f168e6dad56338b86f9d98dcc4a1d6fbbef52ceb66fec8cc8c0"
+        },
+        "period_ns": 5.0,
+        "setup_slack_ns": -1.069,
+        "requested_setup_met": false,
+        "excluded": [
+          "top-level input/output delays",
+          "hold-time closure",
+          "board constraints",
+          "protocol correctness"
+        ]
+      },
+      "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+      "run_id": "a349d5"
+    }
+  },
+  {
+    "label": "active_unclocked",
+    "expected": false,
+    "measurement": {
+      "ok": true,
+      "data": {
+        "record": {
+          "name": "active_unclocked",
+          "source_sha256": "8c387dccc902a42b786bcb10a6d6103f9df870e169419a3f6ea61f3130588927",
+          "tool": "vivado",
+          "version": "2026.1",
+          "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+          "part": "xc7z020clg400-1",
+          "stage": "routed_clocked_ooc",
+          "period_ns": 5.0,
+          "directive": "Default",
+          "implementation_threads": 1,
+          "optimization_mode": "Basic",
+          "latency_cycles": 2,
+          "latency_kind": "fixed",
+          "initiation_interval": 1,
+          "metrics": {
+            "luts": 48.0,
+            "lut_logic": 48.0,
+            "lut_memory": 0.0,
+            "ffs": 144.0,
+            "brams": 0.0,
+            "dsps": 1.0,
+            "slack_ns": 1.949,
+            "critical_period_ns": 3.051,
+            "estimated_fmax_mhz": 327.76138970829237,
+            "throughput_mtransactions_s": 327.76138970829237
+          },
+          "evidence": {
+            "metrics": "70daa5/clocked.txt",
+            "utilization": "70daa5/utilization.txt",
+            "timing": "70daa5/timing.txt",
+            "log": "70daa5/clocked.log",
+            "coverage": "70daa5/coverage.txt",
+            "constraint_checks": "70daa5/constraint-checks.txt"
+          }
+        }
+      },
+      "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+      "run_id": "70daa5"
+    },
+    "audit": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "source_sha256": "8c387dccc902a42b786bcb10a6d6103f9df870e169419a3f6ea61f3130588927",
+        "scope": "single_clock_register_to_register_ooc",
+        "coverage": {
+          "clock_count": 1,
+          "register_count": 145,
+          "clocked_register_count": 144,
+          "latch_count": 0,
+          "setup_path_count": 1
+        },
+        "violations": {
+          "no_clock": 1,
+          "constant_clock": 0,
+          "multiple_clock": 0,
+          "loops": 0,
+          "latch_loops": 0,
+          "unconstrained_internal_endpoints": 96
+        },
+        "reasons": [
+          "no_clock has 1 violations",
+          "unconstrained_internal_endpoints has 96 violations",
+          "Some sequential cells are outside the measured clock"
+        ],
+        "inactive_dsp48e1_cells": [],
+        "evidence": {
+          "metrics": "70daa5/clocked.txt",
+          "utilization": "70daa5/utilization.txt",
+          "timing": "70daa5/timing.txt",
+          "log": "70daa5/clocked.log",
+          "coverage": "70daa5/coverage.txt",
+          "constraint_checks": "70daa5/constraint-checks.txt"
+        },
+        "report_sha256": {
+          "metrics": "8ec982ffbbe3d563f1b66d26f743d42f33ee25d01c8e506ded2840d613f16c31",
+          "timing": "4f158bdbc011aa2470035c600785c7e2472eac17b167d3d5e2dbec2a61f552e2",
+          "coverage": "faa1ba0bbae18913a17eec5c032f25456197ed42ab3258b1ad220ca1b55c44b9",
+          "constraint_checks": "a24605b02ded9805cdf6e02ed6386d778fb6e89e42e335410e48ccb9b218cf33"
+        },
+        "period_ns": 5.0,
+        "setup_slack_ns": 1.949,
+        "requested_setup_met": true,
+        "excluded": [
+          "top-level input/output delays",
+          "hold-time closure",
+          "board constraints",
+          "protocol correctness"
+        ]
+      },
+      "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+      "run_id": "3ebf43"
+    }
+  }
+]

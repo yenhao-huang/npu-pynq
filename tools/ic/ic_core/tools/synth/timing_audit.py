@@ -9,6 +9,7 @@ from ..exploration_common import ExplorationInput, Identifier, fingerprint, sour
 from . import CATEGORY
 from .exploration import Result
 from .physical_analysis import ClockRecord
+from .clocked import DSP48E1_ACTIVE_REGS,DSP48E1_PROPERTIES
 
 CHECKS=('no_clock','constant_clock','multiple_clock','loops','latch_loops','unconstrained_internal_endpoints')
 
@@ -36,6 +37,37 @@ def fields(text):
         if key in out: raise InvalidInput('Duplicate audit field: '+key)
         out[key]=value
     return out
+
+
+def inactive_dsp_cells(coverage,total,clocked):
+    """Recognize only fully bypassed DSP48E1 storage (UG479 Table 2-3).
+
+    all_registers includes unused ADREG/DREG defaults when the D path is
+    disabled. This is not a general exemption for DSPs or unclocked registers.
+    Old reports without cell details keep the strict original count check.
+    """
+    if 'unclocked_cell_count' not in coverage:return []
+    try: count=int(coverage['unclocked_cell_count'])
+    except ValueError as exc:raise InvalidInput('Malformed unclocked cell count') from exc
+    if count<0 or count!=total-clocked:raise InvalidInput('Unclocked cell list disagrees with coverage counts')
+    rows=[];names=set()
+    actual={key for key in coverage if key.startswith('unclocked.')}
+    expected=set()
+    for i in range(count):
+        prefix=f'unclocked.{i}.'
+        keys=['name','REF_NAME']
+        if coverage.get(prefix+'REF_NAME')=='DSP48E1':keys+=list(DSP48E1_PROPERTIES[1:])
+        expected.update(prefix+k for k in keys)
+        row={k:coverage.get(prefix+k) for k in keys}
+        if not row['name'] or row['name'] in names:raise InvalidInput('Missing or duplicate unclocked cell identity')
+        names.add(row['name'])
+        if (row['REF_NAME']=='DSP48E1' and row.get('USE_DPORT') in ('0','FALSE')
+            and row.get('USE_MULT')=='NONE' and row.get('ADREG') in ('0','1')
+            and row.get('DREG') in ('0','1')
+            and all(row.get(prop)=='0' for prop in DSP48E1_ACTIVE_REGS)):
+            rows.append(row)
+    if actual!=expected:raise InvalidInput('Missing or unexpected unclocked cell property evidence')
+    return rows
 
 
 class AuditIn(ExplorationInput):
@@ -88,14 +120,15 @@ class Audit:
         counts=parse_checks(contents['constraint_checks'])
         reasons=[name+' has '+str(count)+' violations' for name,count in counts.items() if count]
         if integers['clock_count']!=1: reasons.append('Expected exactly one clock')
-        if not integers['register_count'] or integers['clocked_register_count']!=integers['register_count']:
+        inactive=inactive_dsp_cells(coverage,integers['register_count'],integers['clocked_register_count'])
+        if not integers['clocked_register_count'] or integers['clocked_register_count']+len(inactive)!=integers['register_count']:
             reasons.append('Some sequential cells are outside the measured clock')
         if integers['latch_count']: reasons.append('Level-sensitive storage is outside this audit contract')
         if integers['setup_path_count']!=1: reasons.append('Missing register-to-register setup path')
         if sha!=fingerprint(files,p.top) or digests!={name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in paths.items()}:
             raise InvalidInput('Evidence changed during audit')
         passed=not reasons
-        return Result(ok=passed,data=dict(passed=passed,source_sha256=sha,scope=coverage['scope'],coverage=integers,violations=counts,reasons=reasons,
+        return Result(ok=passed,data=dict(passed=passed,source_sha256=sha,scope=coverage['scope'],coverage=integers,violations=counts,reasons=reasons,inactive_dsp48e1_cells=inactive,
             evidence=dict(r.evidence),report_sha256=digests,period_ns=period,setup_slack_ns=slack,requested_setup_met=slack>=0,
             excluded=['top-level input/output delays','hold-time closure','board constraints','protocol correctness']),
             note='Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.')

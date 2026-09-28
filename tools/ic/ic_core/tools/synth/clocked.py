@@ -12,6 +12,11 @@ from . import CATEGORY, DEFAULT_PART
 from .exploration import Result
 
 
+DSP48E1_ACTIVE_REGS=('AREG','ACASCREG','BREG','BCASCREG','CREG','MREG','PREG',
+    'INMODEREG','OPMODEREG','ALUMODEREG','CARRYINREG','CARRYINSELREG')
+DSP48E1_PROPERTIES=('REF_NAME','USE_DPORT','USE_MULT','ADREG','DREG')+DSP48E1_ACTIVE_REGS
+
+
 class ClockedIn(ExplorationInput):
     backend: str | None = Field(default='clocked_vivado', description='Operation-specific execution backend.')
     files: list[str] = Field(min_length=1, description='Self-contained synthesizable SystemVerilog sources.')
@@ -91,6 +96,20 @@ puts $audit "clocked_register_count=[llength [all_registers -clock ic_clock]]"
 puts $audit "latch_count=[llength [all_registers -level_sensitive]]"
 puts $audit "setup_path_count=[llength $paths]"
 puts $audit "io_delays_constrained=0"
+set clocked_cells [all_registers -clock ic_clock]
+set unclocked_index 0
+foreach cell [all_registers] {{
+  if {{[lsearch -exact $clocked_cells $cell]>=0}} {{continue}}
+  puts $audit "unclocked.$unclocked_index.name=$cell"
+  puts $audit "unclocked.$unclocked_index.REF_NAME=[get_property REF_NAME $cell]"
+  if {{[get_property REF_NAME $cell] eq "DSP48E1"}} {{
+    foreach prop {{{' '.join(DSP48E1_PROPERTIES[1:])}}} {{
+      puts $audit "unclocked.$unclocked_index.$prop=[get_property $prop $cell]"
+    }}
+  }}
+  incr unclocked_index
+}}
+puts $audit "unclocked_cell_count=$unclocked_index"
 close $audit
 set out [open {tcl_path(metrics)} w]
 puts $out "slack_ns=[get_property SLACK $path]"

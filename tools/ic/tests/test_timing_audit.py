@@ -6,6 +6,7 @@ from ic_core.errors import InvalidInput
 from ic_core.tools.exploration_common import fingerprint
 from ic_core.tools.synth.timing_audit import CHECKS,parse_checks
 from test_physical_analysis import record
+from ic_core.tools.synth.clocked import DSP48E1_ACTIVE_REGS,DSP48E1_PROPERTIES
 
 
 def fixture(store,tmp_path,monkeypatch):
@@ -74,3 +75,42 @@ def test_nonzero_check_summary_fails(store,tmp_path,monkeypatch):
     f=paths['abcdef/checks'];s=f.read_text().replace('checking loops (0)','checking loops (1)');f.write_text(s)
     r=dispatch('timing_constraint_audit',p,store=store)
     assert not r['ok'] and r['data']['violations']['loops']==1
+
+
+def dsp_fixture(store,tmp_path,monkeypatch):
+    p,paths=fixture(store,tmp_path,monkeypatch)
+    f=paths['abcdef/coverage']
+    props=dict.fromkeys(DSP48E1_ACTIVE_REGS,'0')
+    props.update(name='core/dsp',REF_NAME='DSP48E1',USE_DPORT='0',USE_MULT='NONE',ADREG='1',DREG='1')
+    f.write_text(f.read_text().replace('register_count=20\nclocked','register_count=21\nclocked')+'unclocked_cell_count=1\n'+''.join(f'unclocked.0.{k}={v}\n' for k,v in props.items()))
+    return p,f
+
+
+def test_only_unused_dsp_registers_are_excluded(store,tmp_path,monkeypatch):
+    p,_=dsp_fixture(store,tmp_path,monkeypatch)
+    r=dispatch('timing_constraint_audit',p,store=store)
+    assert r['ok'] and len(r['data']['inactive_dsp48e1_cells'])==1
+    assert r['data']['coverage']['register_count']==21
+    assert r['data']['coverage']['clocked_register_count']==20
+
+
+@pytest.mark.parametrize('prop,value',[(p,'1') for p in DSP48E1_ACTIVE_REGS]+[('USE_DPORT','1'),('USE_MULT','MULTIPLY'),('DREG','unknown')])
+def test_active_or_unknown_dsp_storage_cannot_be_excluded(store,tmp_path,monkeypatch,prop,value):
+    p,f=dsp_fixture(store,tmp_path,monkeypatch)
+    lines=f.read_text().splitlines()
+    f.write_text('\n'.join(f'unclocked.0.{prop}={value}' if line.startswith(f'unclocked.0.{prop}=') else line for line in lines))
+    r=dispatch('timing_constraint_audit',p,store=store)
+    assert not r['ok'] and not r['data']['inactive_dsp48e1_cells']
+
+
+@pytest.mark.parametrize('mutation',['missing_property','wrong_count','extra_cell','duplicate_name'])
+def test_incomplete_dsp_property_evidence_rejected(store,tmp_path,monkeypatch,mutation):
+    p,f=dsp_fixture(store,tmp_path,monkeypatch);text=f.read_text()
+    if mutation=='missing_property':text=text.replace('unclocked.0.PREG=0\n','')
+    elif mutation=='wrong_count':text=text.replace('unclocked_cell_count=1','unclocked_cell_count=0')
+    elif mutation=='extra_cell':text+='unclocked.1.name=extra\n'
+    else:
+        text=text.replace('register_count=21','register_count=22').replace('unclocked_cell_count=1','unclocked_cell_count=2')
+        text+='\n'.join(line.replace('unclocked.0.','unclocked.1.') for line in text.splitlines() if line.startswith('unclocked.0.'))+'\n'
+    f.write_text(text)
+    with pytest.raises(InvalidInput):dispatch('timing_constraint_audit',p,store=store)
