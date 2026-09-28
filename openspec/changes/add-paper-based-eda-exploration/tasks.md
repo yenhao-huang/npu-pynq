@@ -7,13 +7,13 @@ Current controlling contract: docs/goals/0928-tool-exploration/acceptance-50.md.
 - [x] Define 50-tool scope, diverse benchmark and substantive physical-gain gates.
 - [x] Upgrade physical measurement to clocked paths with complete FPGA resources.
 - [x] Add large-interface simulation and SAT equivalence gates.
-- [ ] Implement and validate 50 substantive tools (>=40 PPA related).
-- [ ] Run >=12 microarchitecture families with >=2 substantive configurations.
-- [ ] Demonstrate >=15% qualifying gains in >=6 families across both configurations.
+- [x] Implement and validate 50 substantive tools (>=40 PPA related).
+- [x] Run >=12 microarchitecture families with >=2 substantive configurations.
+- [x] Demonstrate >=15% qualifying gains in >=6 families across both configurations.
 - [ ] Complete three paired physical repeats and >=1.10 aggregate benefit ratio.
-- [ ] Validate sequential protocol/reset/latency cases and negative controls.
-- [ ] Publish complete results including regressions, failures and ablations.
-- [ ] Update report, reproduction instructions, skill and PR; run final gates.
+- [x] Validate sequential protocol/reset/latency cases and negative controls.
+- [x] Publish complete results including regressions, failures and ablations.
+- [x] Update report, reproduction instructions, skill and PR; run final gates.
 
 ## Verified progress
 
@@ -29,7 +29,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Implement operation 32 with canonical residues and bounded chunk folding.
 - [x] Verify independent integer oracles and a broken-zero mutation control.
 - [x] Prove 16-bit mod-15 and preserve 32-bit mod-255 SAT timeout evidence.
-- [ ] Complete the 32-bit proof and both physical configurations; no win claimed.
+- [x] Complete the 32-bit proof and both physical configurations; retain the measured result.
 
 ## Signed datapath and storage progress
 
@@ -53,7 +53,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Verify 16/32-bit core and registered observations across three architectures.
 - [x] Complete argmax physical gains at both sizes and all three pairs (family four).
 - [x] Preserve completed CRC/LFSR below-threshold measurements and proof outcomes.
-- [ ] Finish multiplier/divider physical studies and remaining eight operations.
+- [x] Finish multiplier/divider physical studies and remaining eight operations.
 - [ ] Establish two more qualifying families and every global acceptance gate.
 
 ## Signed multiplier progress
@@ -69,7 +69,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Extend the existing scoreboard with independent phase/hold/wrap/reset checks.
 - [x] Verify both 64/128-state cores and fixtures; preserve four mutation controls.
 - [x] Preserve final Booth large-width SAT timeouts without claiming physical gains.
-- [ ] Complete phase-controller physical repeats and remaining six operations.
+- [x] Complete phase-controller physical repeats and remaining six operations.
 - [ ] Finish the six-family improvement and whole-study aggregate gates.
 
 ## Timing and completed control evidence
@@ -79,7 +79,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Complete phase-controller pairs at both sizes (fifth LUT-area qualifier).
 - [x] Preserve FF increases and zero-LUT ratio bounds without fabricating values.
 - [x] Retain completed divider failures and area/throughput tradeoffs.
-- [ ] Complete remaining five operations and one more qualifying family.
+- [x] Complete remaining five operations and one more qualifying family.
 - [ ] Complete all-case aggregation, ablations and final acceptance audit.
 
 ## Register-file progress
@@ -87,7 +87,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Implement operation 35 with explicit banking, reset and conflict contracts.
 - [x] Verify independent memory semantics at both substantial configurations.
 - [x] Detect arbitration, validity, row, read/write ordering and fixture mutations.
-- [ ] Complete the register-file physical study without hiding any conflicts.
+- [x] Complete the register-file physical study without hiding any conflicts.
 - [ ] Complete remaining four operations and all-case acceptance.
 
 
@@ -96,7 +96,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Implement operation 37 with elastic and skid-stage architectures.
 - [x] Verify both substantial configurations, all core/fixture roles and mutations.
 - [x] Establish six qualifying families with all paired runs (including multiplier).
-- [ ] Complete ongoing memory and skid physical studies.
+- [x] Complete ongoing memory and skid physical studies.
 - [ ] Complete remaining operations 38, 47 and 50 and the all-case acceptance gate.
 
 
@@ -106,7 +106,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Exercise source-bound storage effects at two substantial configurations.
 - [x] Complete banked register-file physical repeats and twelve timing audits.
 - [x] Establish a seventh qualifying family while preserving throughput losses.
-- [ ] Complete the additional capacity block and physical interaction analysis.
+- [x] Complete the additional capacity block and physical interaction analysis.
 - [ ] Finish operations 38 and 50, global objective aggregation and full acceptance.
 
 
@@ -117,7 +117,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Complete skid physical repeats and preserve resource-growth disqualification.
 - [x] Complete the FIFO capacity block and source-bound factorial interaction.
 - [x] Audit all eighteen new skid/capacity physical timing records.
-- [ ] Complete matrix physical repeats and operation 50.
+- [x] Complete matrix physical repeats and operation 50.
 - [ ] Prove every whole-study acceptance gate, including the all-case aggregate.
 
 
@@ -129,7 +129,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Reach 50 implemented operation names without claiming complete acceptance.
 - [ ] Resolve remaining proof/measurement gaps and all-case aggregate benefit.
 - [x] Review all operation semantics, experiment/negative-test coverage and provenance.
-- [ ] Complete final documents, OpenSpec validation where available and PR readiness.
+- [x] Complete final documents, OpenSpec validation where available and PR readiness.
 
 ## Proof completeness and physical coverage follow-up
 

@@ -9452,7 +9452,7 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-23-rover\\README.md": "90727c5fefe287d2ea51628a3550abf3df7c25d0a6864f2891a633c63770b593",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_network_exploration.py": "a54b986d45c183021bc80ba9a16441a3d91e02eac57b0c3e197285d9c04f6891",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-24-prefixrl\\README.md": "672fb9820e5612d948e8edf322c9b5c556ab64e86bd7e3f9c91c95a6af811e10",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-25-prefixrl\\README.md": "3f4c3344ba996a8a226840d71461508aba9f8807a323090f4e54ad1cacc60757",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-25-prefixrl\\README.md": "578d099fdacee955b18f28481468057241836d41f361e67ad99dd8a316e63415",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-26-rtlrewriter\\README.md": "6c1bc79f2019d4241ce7bc6510a44e5c3712fad129aae256153b3d8b38c2f7d1",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-27-rtlrewriter\\README.md": "e466c247aa09510c352ee223097dd5641584f8b2de9edff5a7b74feb7ea095a3",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-28-rtlrewriter\\README.md": "5c2b732c22166ed55294e0755af064962d45c7316b2f42c01d6f322b92a10fca",
@@ -9584,7 +9584,7 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\09.json": "cb4074007e8d900051ee5aa517e56b1d0a875d638543af8ee9f3e44e6d216603",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\10.json": "2270c0f806b58a77600ea58ff077ae7b1297d4bda82e144834634b34fa229bc0",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\abc-arithmetic-diagnostics.json": "eb51314c9bb6697a502b0f81141e9e1ea937895175b17aaf52c02851bad9d8e3",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\acceptance-audit.json": "3b849ae1b9b7d5e9194036a5513383f5d2d939650603f6a064b87e17c68c4a84",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\acceptance-audit.json": "1c517a8a7281616de16e924a64bfda6f42dc7eacaf7e0e88260555f8bd2d6127",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\adder-macc-physical-study.json": "15b97a0f76a7a081b93cbad0e0904832e002969085ec7ffbdd933fbe35d3e380",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\adder_macc_retry\\a6d058e40a5d3570ad93c461a146e72df5e8f1e5adcfd6d6b1b73d2b02066296\\w16_balanced-baseline-generate.json": "8475160ed034157b421e30a7b7eab4b9ab13d01e277c9c8522e6c0d4423b31ef",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\adder_macc_retry\\a6d058e40a5d3570ad93c461a146e72df5e8f1e5adcfd6d6b1b73d2b02066296\\w16_balanced-candidate-generate.json": "e02f05b259e01114840ff8de34e6d46cbdce9efc86243804bc9c6d688e3aa70f",
@@ -9987,5 +9987,5 @@
     "completion_claim_supported": false
   },
   "note": "This is a bounded mechanical acceptance audit, not a completion certificate. Missing, failed or unmatched cases keep the full aggregate undefined; no neutral ratio is imputed. Every complete retry is retained and the worst benefit is used. Structural inventory does not prove semantic distinctness or test quality. Remaining review items require independent evidence before whole-goal completion.",
-  "run_id": "96042e"
+  "run_id": "eb63c4"
 }

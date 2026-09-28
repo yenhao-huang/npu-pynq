@@ -549,11 +549,11 @@ parent study envelopes fix their objectives and full architecture payloads befor
 362 successful physical children start. The old in-memory runs still lack the
 newer timing-coverage reports and saved routed checkpoints.
 
-Acceptance run 96042e reports 55/59 complete comparisons, nine qualifying
+Acceptance run eb63c4 reports 55/59 complete comparisons, nine qualifying
 families at both substantial configurations and an undefined all-case geometric
 benefit. The complete Python suite passes 581 tests with 37 optional native-Yosys
 skips. The required make lint/sim target passes; all eight simulations were also
 forced directly through Icarus/VVP. Hosted CI passed commits e811a31 and 3ac2ecb;
-the latest documentation-only head is 5d97754. PR #81 remains draft. No merge or
-reset credit is authorized. The user's active stop threshold is 20% remaining;
-the latest check showed 26%.
+current head status is tracked on PR #81, which remains draft. No merge or reset
+credit is authorized. The user's active stop threshold is 20% remaining; the
+latest check showed 26%.

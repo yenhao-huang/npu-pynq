@@ -20,9 +20,10 @@ timed-out proof attempts remain failures, and do not disappear from acceptance.
 Paper connection: prefixrl, as documented in survey.md. This is a bounded
 architecture adaptation, not a reproduction of the paper's learned search.
 All declared physical comparisons are complete. Tree64 saves 20.55% LUTs but
-loses 3.39% throughput; binary-search64 is unchanged in LUTs and loses 8.29%
-throughput; binary-search128 grows LUTs 11.69% and loses 16.11% throughput. The
-family does not qualify at both sizes.
+loses 3.39% throughput; tree128 saves 6.49% LUTs and loses 4.00% throughput.
+Binary-search64 is unchanged in LUTs and loses 8.29% throughput;
+binary-search128 grows LUTs 11.69% and loses 16.11% throughput. The family does
+not qualify at both sizes.
 
 ## Bounded same-case retry
 
