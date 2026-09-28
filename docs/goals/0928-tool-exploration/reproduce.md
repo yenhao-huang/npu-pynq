@@ -419,3 +419,18 @@ data and an unconstrained clock. Preserve implementation failures and rejected
 development fixtures. A correct inactive-cell count cannot override any nonzero
 check_timing violation. Historical reports without static mux evidence remain
 rejected for unclocked CREG=1.
+
+## Ordered bit proofs
+
+```sh
+python exp/tool-exploration/exp-tool-13-rover/bitwise.py --container codex-sandbox-agent-workspace --normalization bitwise_prefix
+python exp/tool-exploration/network_study.py --tool 17 --configuration config-prefix.json --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-32-mersenne/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-20-fpl/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace
+```
+
+Add `--verify-only` to each study command to run its correctness gates without
+physical measurements. Every prefix equality depends only on earlier proved
+bits; partial success, timeout, nonzero exit or undefined source semantics cannot
+pass. Individual normalization controls have separate output summaries. The
+default controls command covers all six modes. Retain the older failed retries.

@@ -1,0 +1,123 @@
+{
+  "ok": true,
+  "data": {
+    "repeats": 3,
+    "objective": "throughput",
+    "comparisons": [
+      {
+        "lut_reduction_pct": -163.82978723404253,
+        "throughput_gain_pct": 44.58132179124357,
+        "throughput_ratio": 1.4458132179124357,
+        "resource_delta": {
+          "luts": 231.0,
+          "ffs": 0.0,
+          "dsps": 0.0,
+          "brams": 0.0
+        },
+        "resource_growth_pct": {
+          "luts": 163.82978723404253,
+          "ffs": 0.0,
+          "dsps": 0,
+          "brams": 0
+        },
+        "latency_cycles": {
+          "baseline": 1,
+          "candidate": 1,
+          "kind": "fixed"
+        },
+        "initiation_interval": {
+          "baseline": 1,
+          "candidate": 1
+        },
+        "area_gate": false,
+        "throughput_gate": false,
+        "reasons": [
+          "Resource growth exceeds the 25% throughput-win limit."
+        ]
+      },
+      {
+        "lut_reduction_pct": -163.82978723404253,
+        "throughput_gain_pct": 44.58132179124357,
+        "throughput_ratio": 1.4458132179124357,
+        "resource_delta": {
+          "luts": 231.0,
+          "ffs": 0.0,
+          "dsps": 0.0,
+          "brams": 0.0
+        },
+        "resource_growth_pct": {
+          "luts": 163.82978723404253,
+          "ffs": 0.0,
+          "dsps": 0,
+          "brams": 0
+        },
+        "latency_cycles": {
+          "baseline": 1,
+          "candidate": 1,
+          "kind": "fixed"
+        },
+        "initiation_interval": {
+          "baseline": 1,
+          "candidate": 1
+        },
+        "area_gate": false,
+        "throughput_gate": false,
+        "reasons": [
+          "Resource growth exceeds the 25% throughput-win limit."
+        ]
+      },
+      {
+        "lut_reduction_pct": -163.82978723404253,
+        "throughput_gain_pct": 44.58132179124357,
+        "throughput_ratio": 1.4458132179124357,
+        "resource_delta": {
+          "luts": 231.0,
+          "ffs": 0.0,
+          "dsps": 0.0,
+          "brams": 0.0
+        },
+        "resource_growth_pct": {
+          "luts": 163.82978723404253,
+          "ffs": 0.0,
+          "dsps": 0,
+          "brams": 0
+        },
+        "latency_cycles": {
+          "baseline": 1,
+          "candidate": 1,
+          "kind": "fixed"
+        },
+        "initiation_interval": {
+          "baseline": 1,
+          "candidate": 1
+        },
+        "area_gate": false,
+        "throughput_gate": false,
+        "reasons": [
+          "Resource growth exceeds the 25% throughput-win limit."
+        ]
+      }
+    ],
+    "summary": {
+      "lut_reduction_pct": {
+        "min": -163.82978723404253,
+        "max": -163.82978723404253,
+        "mean": -163.82978723404253
+      },
+      "throughput_gain_pct": {
+        "min": 44.58132179124357,
+        "max": 44.58132179124357,
+        "mean": 44.58132179124357
+      }
+    },
+    "objective_geometric_benefit": 1.4458132179124357,
+    "objective_geometric_benefit_lower_bound": 1.4458132179124357,
+    "zero_lut_candidate": false,
+    "area_gate": false,
+    "throughput_gate": false,
+    "scope": "routed_clocked_ooc",
+    "independent_statistical_samples": false
+  },
+  "note": "At least three complete pairs are required. Every repeat must meet the PPA gate; min/max report reproducibility, not statistical confidence. For zero candidate LUTs the exact ratio is unbounded, so its scalar is null and a conservative finite lower bound uses one LUT only in the ratio denominator; measured resources and gates remain unchanged. This does not establish whole-family or whole-project acceptance.",
+  "run_id": "a60b7b"
+}

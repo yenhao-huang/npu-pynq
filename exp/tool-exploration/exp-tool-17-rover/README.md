@@ -30,3 +30,10 @@ Physical study 7830ae completes three width16 pairs: LUT reduction 76%,
 throughput gain 102.60%, six timing audits pass. Width32 remains unknown in both
 bitwise and macc retries (eb1594); a single passing size does not qualify a family.
 config-macc.json retains the original width32/constant65535 area comparison.
+
+`config-prefix.json` retries the original unresolved case(s) with ordered
+output-bit SAT. It uses already-proved lower-bit equalities and still requires
+every bit, complete source guards and a successful bounded process. Use
+`--configuration config-prefix.json` with this module's study command. Full
+verification now passes; physical gain still requires all three measured pairs.
+Historical failures and the original objective remain in the evidence.

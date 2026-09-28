@@ -43,7 +43,7 @@ class SweepIn(ExplorationInput):
     formal_container: str | None = Field(default=None,pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$',description='Existing container providing Yosys, or null for local Yosys.')
     formal_timeout_s: int = Field(default=120,ge=1,le=1800,description='Per-case SAT time limit.')
     vector_timeout_s: int = Field(default=60,ge=1,le=600,description='Bounded compile/simulation time per process; does not reduce vector coverage.')
-    formal_normalization: Literal['word','aig','macc','bitwise','bitwise_products'] = Field(default='word',description='SAT normalization; bitwise requires all output bits within the same process budget.')
+    formal_normalization: Literal['word','aig','macc','bitwise','bitwise_products','bitwise_prefix'] = Field(default='word',description='SAT normalization; per-bit modes require all output bits within the same process budget.')
     proof_engine: Literal['sat','affine'] = Field(default='sat',description='SAT proof, or exact affine netlist proof with an additional bounded SAT cross-check for CRC/LFSR only.')
     verify_only: bool = Field(default=False,description='Run correctness gates without physical implementation.')
     require_proof: bool = Field(default=True,description='Skip implementation when SAT proof is not obtained; false permits diagnostic measurements only.')

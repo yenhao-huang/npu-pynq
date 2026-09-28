@@ -1,0 +1,25 @@
+{
+  "study_name": "csd_prefix_retry",
+  "cases": [
+    {
+      "name": "w32",
+      "generator": "synth_csd_multiplier",
+      "baseline": {
+        "width": 32,
+        "constant": 65535,
+        "architecture": "binary"
+      },
+      "candidate": {
+        "width": 32,
+        "constant": 65535,
+        "architecture": "csd"
+      },
+      "objective": "area"
+    }
+  ],
+  "period_ns": 5,
+  "repeats": 3,
+  "require_proof": true,
+  "formal_normalization": "bitwise_prefix",
+  "formal_timeout_s": 300
+}

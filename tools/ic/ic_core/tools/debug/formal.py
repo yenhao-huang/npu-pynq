@@ -32,7 +32,7 @@ class FormalIn(ExplorationInput):
     input_width: int = Field(ge=1, le=4096, description='Complete packed input port x width in bits.')
     output_width: int = Field(ge=1, le=4096, description='Complete packed output port y width in bits.')
     container: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$', description='Existing Docker container with Yosys; null uses local Yosys.')
-    normalization: Literal['word','aig','macc','bitwise','bitwise_products'] = Field(default='word',description='Whole-output SAT, AIG or arithmetic normalization, independent SAT per output bit, or per-bit SAT after making product-node outputs arbitrary (a stronger proof obligation).')
+    normalization: Literal['word','aig','macc','bitwise','bitwise_products','bitwise_prefix'] = Field(default='word',description='Whole-output SAT, AIG or arithmetic normalization, per-bit SAT, product abstraction, or ordered bit proofs using only already-proved lower-bit equalities.')
     timeout_s: int = Field(default=120, ge=1, le=1800, description='Maximum process runtime in seconds.')
 
 
@@ -48,7 +48,7 @@ class FormalChecker:
             if any('`include' in p.read_text(encoding='utf-8') for p in files):
                 raise InvalidInput('inline include dependencies before SAT checking')
             (stage/(label+'.sv')).write_text('\n'.join(p.read_text(encoding='utf-8') for p in files),encoding='utf-8')
-        bitwise=params.normalization in ('bitwise','bitwise_products')
+        bitwise=params.normalization in ('bitwise','bitwise_products','bitwise_prefix')
         match_port=f', output [{params.output_width-1}:0] matches' if bitwise else ''
         match_assign='assign matches=~(a^b);' if bitwise else ''
         (stage/'miter.sv').write_text(f'''module ic_miter(input [{params.input_width-1}:0] x, output pass{match_port});
@@ -64,7 +64,16 @@ endmodule
         if params.normalization=='bitwise_products':
             normalize='opt_merge; cutpoint t:$mul; rename -witness; expose -input t:$anyseq %co1; opt_clean; check -assert'
         signals=[f'matches[{i}]' for i in range(params.output_width)] if bitwise else ['pass']
-        proofs='\n'.join(f'sat -verify -prove {signal} 1 -set-def-inputs -show-inputs -show-outputs -timeout {params.timeout_s}' for signal in signals)
+        proofs=[]
+        for bit,signal in enumerate(signals):
+            # Induction over output bits: bit zero has no assumption; every
+            # later assumption was proved unconditionally by earlier steps.
+            # -verify stops at the first failure, and acceptance still requires
+            # every success marker plus a clean exit within the overall budget.
+            prefix=(f"-set matches[{bit-1}:0] {bit}'b"+'1'*bit
+                if params.normalization=='bitwise_prefix' and bit else '')
+            proofs.append(f'sat -verify -prove {signal} 1 {prefix} -set-def-inputs -show-inputs -show-outputs -timeout {params.timeout_s}')
+        proofs='\n'.join(proofs)
         script=f'''read_verilog -sv reference.sv
 hierarchy -check -top {params.top}
 proc -noopt

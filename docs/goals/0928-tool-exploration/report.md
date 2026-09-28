@@ -849,3 +849,37 @@ unclocked C. A development fixture with data-connected unused C pins produced
 disqualifying. A separate Synth 20-411 implementation failure is preserved.
 See [controls](evidence/dsp-creg-controls.json). Old physical reports are unchanged.
 The new matrix retry must independently pass every pair's source-bound audit.
+
+## Ordered output-bit proofs and completed reductions
+
+The `bitwise_prefix` mode proves bit zero without assumptions, then proves each
+higher bit using only previously proved lower-output equalities. This is an
+induction over output positions. Every obligation must succeed in order, with
+a clean process exit and within the same overall budget. The separate original
+source guards, full interface checks and X/partial-operation rejection remain.
+No unconstrained assumption is introduced about unproved bits.
+
+Ten real container controls match expected verdicts, including lowest/highest
+bit mutations, changed products, partial self-equivalence and safe nonzero
+constant division. The final native-focused suite passes 133 tests with 33
+optional native-Yosys skips. All skipped prefix semantic controls also run in
+the actual container. See [prefix controls](evidence/prefix-proof-controls.json).
+
+The unchanged CSD32 case proves 48/48 bits (c65187). Modulo32 verifies in study
+6092f9, and both dot-product sizes verify in 2beca2 (35/35 and 67/67 bits).
+Their original whole-word and independent-bit timeouts remain preserved.
+Physical retries are running; these proof results alone claim no PPA gain.
+
+Adder retry 2eaf36 completes all four original cases with 24 passing timing
+audits. Balanced trees retain LUT count and improve throughput 2.38%/3.13%.
+Compressor trees improve throughput 44.58%/43.61%, but grow LUTs 163.83%/176.49%,
+so no additional family qualifies. Matrix32 retry f84cee passes all six source-
+bound timing audits with unchanged LUT saving 15.04% and throughput loss 82.91%.
+
+Acceptance snapshot44edba therefore has 46/59 complete comparisons and seven
+qualifying families. The all-case benefit remains undefined. PR81 stays draft;
+hosted CI at 863873c passed. No objective, workload or failed case was removed.
+
+Final ordered-proof regression: the complete explicit CI tool list passes
+525 tests with 37 optional native-Yosys skips. Ten actual prefix controls pass,
+and make lint/sim passes. Refreshed acceptance049aa8 remains46/59, seven families.

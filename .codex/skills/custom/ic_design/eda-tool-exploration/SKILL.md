@@ -178,3 +178,10 @@ pattern-control evidence from the same routed run. Permit only the implemented
 bounded configurations. An unused output path does not waive unconstrained
 input endpoints or any other check_timing violation. Keep older missing-evidence
 reports rejected and preserve failed development controls.
+
+For ordered-bit SAT, prove the lowest bit without assumptions and allow each
+later proof to assume only already-proved lower-bit equality. Require every
+obligation in order, a clean exit, unchanged complete sources and a bounded
+process. Verify lowest/highest-bit mutations and partial-source controls before
+using a new proof mode to unlock physical experiments. Proof speed or success
+does not count as a PPA gain.

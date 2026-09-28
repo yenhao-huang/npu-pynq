@@ -1,32 +1,27 @@
 # Current expanded acceptance status
 
-Snapshot: 11c679. Whole-study acceptance remains incomplete.
+Snapshot: 049aa8. Whole-study acceptance remains incomplete.
 
 - Implemented operation inventory: 50; semantic/exercise review remains.
-- Declared comparisons: 59; complete physical comparisons: 41.
-- Qualifying families at both substantial configurations: seven.
-- All-case objective geometric benefit: **undefined**.
-- Active physical retry: all four original adder-tree cases.
+- Declared comparisons: 59; complete physical comparisons: 46.
+- Qualifying families at both substantial configurations: 7.
+- All-case objective geometric benefit: None.
 
-Matrix32 retry 514661 preserves identical resources and throughput regressions.
-The baseline's eight unused ADREG/DREG defaults now pass a narrow DSP audit.
-The candidate still has four additional DSPs with CREG=1 and USE_MULT=MULTIPLY;
-their C-register use is unresolved. The comparison remains incomplete. Old
-reports remain unchanged. Historical coverage omissions require review.
+The original ten operations now have complete larger CSD16 integration evidence.
+All four original adder comparisons and matrix32 have complete timing audits;
+their resource/throughput regressions remain visible. Ordered-bit proofs unlock
+CSD32, modulo32 and both dot-product sizes; physical retries are in progress.
+Historical missing-coverage records and failed retries remain in the inventory.
 
 ## Missing complete comparisons
 
 | Generator | Geometry | Candidate | Objective | Recorded status |
 | --- | --- | --- | --- | --- |
-| synth_adder_tree | width=16, lanes=16 | balanced | throughput | no compatible complete study envelope |
-| synth_adder_tree | width=16, lanes=16 | compressor | throughput | no compatible complete study envelope |
-| synth_adder_tree | width=32, lanes=16 | balanced | throughput | no compatible complete study envelope |
-| synth_adder_tree | width=32, lanes=16 | compressor | throughput | no compatible complete study envelope |
 | synth_csd_multiplier | width=32, constant=65535 | csd | area | correctness_not_established |
 | synth_fir | width=16 | symmetric | area | correctness_not_established |
 | synth_fir | width=32 | symmetric | area | correctness_not_established |
-| synth_dot_product | width=16, lanes=8 | compressor | throughput | correctness_not_established |
-| synth_dot_product | width=32, lanes=8 | compressor | throughput | correctness_not_established |
+| synth_dot_product | width=16, lanes=8 | compressor | throughput | correctness_not_established; verified |
+| synth_dot_product | width=32, lanes=8 | compressor | throughput | correctness_not_established; verified |
 | synth_booth_multiplier | width=16 | radix4 | area | correctness_not_established |
 | synth_booth_multiplier | width=32 | radix4 | area | correctness_not_established |
 | synth_leading_zero | width=64 | tree | throughput | measurement_failed; verified |
@@ -34,13 +29,12 @@ reports remain unchanged. Historical coverage omissions require review.
 | synth_leading_zero | width=128 | binary_search | throughput | measurement_failed |
 | synth_divider | width=16 | serial | area | measurement_failed |
 | synth_divider | width=16 | radix4 | throughput | measurement_failed |
-| synth_constant_modulo | width=32, exponent=8 | folded | area | correctness_not_established |
-| synth_systolic_tile | width=32, size=2 | systolic | area | Timing coverage rejected: Some sequential cells are outside the measured clock; verified |
+| synth_constant_modulo | width=32, exponent=8 | folded | area | correctness_not_established; verified |
 
 ## Remaining independent review
 
 - Distinct substantive operation purposes and direct PPA classification.
-- Actual per-operation experiments and meaningful negative-test coverage.
+- Meaningful negative tests and actual per-operation experiment coverage.
 - Historical timing coverage, report authenticity and declaration history.
 - Complete documents, OpenSpec validation and PR readiness.
 

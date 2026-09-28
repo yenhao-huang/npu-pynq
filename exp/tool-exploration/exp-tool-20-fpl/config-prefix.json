@@ -1,0 +1,46 @@
+{
+  "study_name": "synth_dot_product_prefix",
+  "cases": [
+    {
+      "name": "w16",
+      "generator": "synth_dot_product",
+      "baseline": {
+        "width": 16,
+        "architecture": "serial",
+        "multiplier_mapping": "logic",
+        "lanes": 8
+      },
+      "candidate": {
+        "width": 16,
+        "architecture": "compressor",
+        "multiplier_mapping": "logic",
+        "lanes": 8
+      },
+      "objective": "throughput"
+    },
+    {
+      "name": "w32",
+      "generator": "synth_dot_product",
+      "baseline": {
+        "width": 32,
+        "architecture": "serial",
+        "multiplier_mapping": "logic",
+        "lanes": 8
+      },
+      "candidate": {
+        "width": 32,
+        "architecture": "compressor",
+        "multiplier_mapping": "logic",
+        "lanes": 8
+      },
+      "objective": "throughput"
+    }
+  ],
+  "repeats": 3,
+  "measurement_attempts": 2,
+  "period_ns": 5,
+  "optimization_mode": "Basic",
+  "formal_timeout_s": 300,
+  "require_proof": true,
+  "formal_normalization": "bitwise_prefix"
+}

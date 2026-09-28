@@ -58,7 +58,7 @@ def test_reduction_architectures(store, width, lanes):
 
 
 @pytest.mark.skipif(not shutil.which('yosys'), reason='Local Yosys unavailable')
-@pytest.mark.parametrize('normalization',['word','aig','macc','bitwise','bitwise_products'])
+@pytest.mark.parametrize('normalization',['word','aig','macc','bitwise','bitwise_products','bitwise_prefix'])
 @pytest.mark.parametrize('expression,passes', [('x[15:0]+x[31:16]', True), ('x[15:0]-x[31:16]', False)])
 def test_sat_controls(store, tmp_path, expression, passes, normalization):
     ref=tmp_path/'ref.sv'
@@ -113,7 +113,8 @@ def test_vector_failure_records_process_and_coverage(store,tmp_path,monkeypatch,
 
 
 @pytest.mark.parametrize('completed,exit_code,timed_out,passes',[(8,0,False,True),(7,0,False,False),(8,1,False,False),(8,0,True,False)])
-def test_bitwise_requires_every_obligation_and_successful_process(store,tmp_path,monkeypatch,completed,exit_code,timed_out,passes):
+@pytest.mark.parametrize('normalization',['bitwise','bitwise_prefix'])
+def test_bitwise_requires_every_obligation_and_successful_process(store,tmp_path,monkeypatch,completed,exit_code,timed_out,passes,normalization):
     from ic_core.tools.debug import formal
     from ic_core.process import CommandResult
     source=tmp_path/'dut.sv';source.write_text('module dut(input [7:0] x, output [7:0] y); assign y=x; endmodule')
@@ -122,11 +123,18 @@ def test_bitwise_requires_every_obligation_and_successful_process(store,tmp_path
         version='-V' in argv
         log_path.write_text('Yosys 0.23' if version else 'SAT proof finished - no model found: SUCCESS!\n'*completed)
         if not version:
+            commands=[line for line in (cwd/'prove.ys').read_text().splitlines() if line.startswith('sat ')]
+            assert len(commands)==8
+            for bit,command in enumerate(commands):
+                assert f'-prove matches[{bit}] 1 ' in command
+                if normalization=='bitwise_prefix' and bit:
+                    assert f"-set matches[{bit-1}:0] {bit}'b"+'1'*bit+' ' in command
+                else:assert '-set matches' not in command
             for label in ('reference','candidate'):
                 (cwd/(label+'.json')).write_text('{"modules":{"dut":{"netnames":{},"cells":{}}}}')
         return CommandResult(argv,0 if version else exit_code,0,log_path,timed_out=False if version else timed_out)
     monkeypatch.setattr(formal,'run_process',fake_run)
-    result=dispatch('yosys_equivalence',dict(reference_files=[str(source)],candidate_files=[str(source)],top='dut',input_width=8,output_width=8,normalization='bitwise'),store=store)
+    result=dispatch('yosys_equivalence',dict(reference_files=[str(source)],candidate_files=[str(source)],top='dut',input_width=8,output_width=8,normalization=normalization),store=store)
     assert result['ok'] is passes
     assert result['data']['proof_obligations']==8
     assert result['data']['completed_obligations']==completed
@@ -148,7 +156,7 @@ def test_product_abstraction_controls(store,tmp_path,expression,passes):
 
 
 @pytest.mark.skipif(not shutil.which('yosys'), reason='Local Yosys unavailable')
-@pytest.mark.parametrize('normalization',['word','aig','macc','bitwise','bitwise_products'])
+@pytest.mark.parametrize('normalization',['word','aig','macc','bitwise','bitwise_products','bitwise_prefix'])
 @pytest.mark.parametrize('expression',["x[7:0]/x[7:0]","16'b0*(x[7:0]*8'bx)","x[x[7:0]]"])
 def test_self_equivalence_does_not_hide_partial_semantics(store,tmp_path,normalization,expression):
     source=tmp_path/'dut.sv'
@@ -158,7 +166,7 @@ def test_self_equivalence_does_not_hide_partial_semantics(store,tmp_path,normali
 
 
 @pytest.mark.parametrize('bits,cell_type,expected',[(None,'$mul',False),(['x'],'$mul',False),(['z'],'$mul',False),([1,'0','1'],'$mul',True),([1],'$div',False),([1],'$shiftx',False),([1],'$pmux',False)])
-@pytest.mark.parametrize('normalization',['bitwise_products','macc','aig'])
+@pytest.mark.parametrize('normalization',['bitwise_products','macc','aig','bitwise_prefix'])
 def test_product_abstraction_requires_defined_original_netlist(store,tmp_path,monkeypatch,bits,cell_type,expected,normalization):
     import json
     from ic_core.tools.debug import formal

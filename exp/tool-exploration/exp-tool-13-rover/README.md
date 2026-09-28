@@ -74,3 +74,9 @@ nine cases, including mutations, X values, self/variable division, masked X,
 out-of-range indexing and valid constant division. Every expected verdict
 matches. See normalization-controls.json; failed development attempts remain
 in normalization-development-failures.json.
+
+Run `bitwise.py --normalization bitwise_prefix --container
+codex-sandbox-agent-workspace` for ten ordered-bit controls. The low-bit mutation
+must fail before any prefix assumption, and the high-bit mutation must still
+fail after earlier obligations succeed. Missing success markers, process failure,
+timeout and partial source semantics remain rejection conditions.

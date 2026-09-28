@@ -37,3 +37,9 @@ It keeps the throughput objective, 5 ns Default flow and three pairs, but adds
 mandatory vectors/SAT before measurement and complete architecture_sweep envelopes.
 The older study.py records remain diagnostic history; none is promoted by this
 retry. Add --verify-only to suppress physical execution.
+
+Retry 2eaf36 completes all four original comparisons and 24 timing audits.
+The balanced tree yields only 2.38%/3.13% throughput gain; compressor throughput
+gain exceeds 43% but LUT growth exceeds 160%. Neither qualifies the family gate.
+All three paired results and the transient implementation retry are retained in
+`evidence/adder-macc-physical-study.json` under the goal report.

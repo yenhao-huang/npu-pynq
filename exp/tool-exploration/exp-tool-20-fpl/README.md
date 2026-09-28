@@ -27,3 +27,10 @@ No improved II, latency, PPA or power is assumed from the architecture label.
 policy and throughput objective are identical to the original declaration.
 Only identical elaborated multiplication cells can be shared before abstraction.
 Every output bit must pass; unresolved proofs still block physical execution.
+
+`config-prefix.json` retries the original unresolved case(s) with ordered
+output-bit SAT. It uses already-proved lower-bit equalities and still requires
+every bit, complete source guards and a successful bounded process. Use
+`--configuration config-prefix.json` with this module's study command. Full
+verification now passes; physical gain still requires all three measured pairs.
+Historical failures and the original objective remain in the evidence.

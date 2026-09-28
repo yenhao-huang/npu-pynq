@@ -1,0 +1,36 @@
+{
+  "operation": "yosys_equivalence",
+  "payload": {
+    "reference_files": [
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\085341-90b906-synth\\artifacts\\core.sv"
+    ],
+    "candidate_files": [
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\085341-926ac9-synth\\artifacts\\core.sv"
+    ],
+    "top": "dut",
+    "input_width": 32,
+    "output_width": 48,
+    "container": "codex-sandbox-agent-workspace",
+    "timeout_s": 300,
+    "normalization": "bitwise_prefix"
+  },
+  "result": {
+    "ok": true,
+    "data": {
+      "proved": true,
+      "reference_sha256": "dbaf429572265035d668af75ad2ebafe849d9ee377e38fc9129f8528b86704d8",
+      "candidate_sha256": "764e0fe741fa143eeecade5acf2591edf3e958c36c9e41f693d182e2b3e70b95",
+      "engine": "$ docker exec -w /tmp/ic-formal-c65187 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+      "normalization": "bitwise_prefix",
+      "proof_obligations": 48,
+      "completed_obligations": 48,
+      "abstraction_defined": true,
+      "log": "c65187/proof.log",
+      "exit_code": 0,
+      "timed_out": false,
+      "source_unchanged": true
+    },
+    "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+    "run_id": "c65187"
+  }
+}

@@ -31,3 +31,10 @@ Python integer-oracle tests cover 8/16/32/33/64/128-bit inputs, non-aligned chun
 modulus boundaries, multiples, maximum values, exhaustive 8-bit inputs and seeded
 random data. An incorrect zero canonicalization must be detected by the checker.
 Actual study results belong in the report after execution; no PPA gain is assumed.
+
+`config-prefix.json` retries the original unresolved case(s) with ordered
+output-bit SAT. It uses already-proved lower-bit equalities and still requires
+every bit, complete source guards and a successful bounded process. Use
+`--configuration config-prefix.json` with this module's study command. Full
+verification now passes; physical gain still requires all three measured pairs.
+Historical failures and the original objective remain in the evidence.
