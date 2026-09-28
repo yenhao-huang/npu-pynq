@@ -387,3 +387,20 @@ exp-tool-14-rover/sweep.py runs all original adder-tree cases with mandatory SAT
 exp-tool-38-kung/study.py --case w32_n2 preserves the original matrix declaration.
 All retry outputs are separate; retain old failures and source-bound artifacts.
 Current committed physical completeness is 41/59, not whole-goal acceptance.
+
+## Larger integration of tools 01-10
+
+```sh
+python exp/tool-exploration/wide_workflow.py --tool all
+python exp/tool-exploration/wide_workflow.py --tool 09
+```
+
+Use the configured Icarus and licensed Vivado environment. Each operation stores
+its own positive/negative evidence; cached dependencies require matching source,
+configuration, runner, backend and runtime fingerprints. Review each positive
+`ok` and the negative outcome; negative `ok=true` can correctly mean a structured
+refusal (for example, no eligible reward or no selected candidate). A nonzero
+exit denotes a failed positive dependency. The first full run performs exhaustive
+16-bit simulation and two combinational physical measurements. No new registered
+acceptance comparison is introduced. Match source hashes to the CSD16 formal
+proof in `evidence/csd-physical-study.json` before linking study results.

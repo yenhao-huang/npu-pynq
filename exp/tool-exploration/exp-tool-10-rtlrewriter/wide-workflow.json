@@ -1,0 +1,10 @@
+{
+  "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+  "generator": "synth_csd_multiplier",
+  "baseline": {"width": 16, "constant": 255, "architecture": "binary"},
+  "candidate": {"width": 16, "constant": 255, "architecture": "csd"},
+  "objective": "area",
+  "constraint_ns": 10,
+  "measure_timeout_s": 600,
+  "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+}

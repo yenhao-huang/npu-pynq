@@ -152,3 +152,11 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Bound Windows run-publication retries without losing failed evidence.
 - [ ] Resolve candidate matrix CREG usage and remaining large arithmetic proofs.
 - [ ] Complete current popcount/adder physical retries and full all-case acceptance.
+
+## Larger integration of the original operations
+
+- [x] Exercise tools 01-10 on the original CSD16 study with actual measurements.
+- [x] Exhaust all 65,536 inputs and reject a highest-output-bit mutation.
+- [x] Record an explicit negative control for each original operation.
+- [x] Bind the core hashes to the separate registered study's formal proof.
+- [x] Preserve combinational scope and the original 59-case denominator.

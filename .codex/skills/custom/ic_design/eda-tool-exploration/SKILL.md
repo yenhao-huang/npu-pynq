@@ -167,3 +167,8 @@ failed ratios as unknown and use the worst complete retry, not the best. Confirm
 all remaining review items independently: structural registry/test-file presence
 is not substantive tool or negative-test evidence. A null full-case aggregate
 or completion_claim_supported=false cannot support a completed-goal claim.
+
+Use `wide_workflow.py --tool all` to exercise tools 01-10 on the larger CSD16
+study. Inspect explicit negative controls and bind core hashes to its formal
+proof. Keep the workflow's combinational PPA records outside registered physical
+acceptance. A cached or schema-valid output alone does not establish success.

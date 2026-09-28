@@ -813,3 +813,21 @@ complete comparisons. Only adder physical session18618 remains live.
 Final source-safety regression: 40 passed, 28 optional native-Yosys skips;
 45 actual container controls cover all skipped normalization safety cases.
 Usage remaining at this checkpoint: 43%; stop below30%, no reset credit used.
+
+## Original ten tools integrated into CSD16
+
+The larger workflow completes all ten operations with explicit negative controls.
+The CSD16 cores match formal run f8af95 in the registered physical study exactly.
+Exhaustive simulation checks all 65,536 inputs. A highest-output-bit mutation is
+rejected at correctness, with no child physical measurement. Other controls cover
+unknown rule topics, undersized output advice, sequential input rejection,
+mismatched device, invalid units, duplicate Pareto names, failed-correctness
+reward gating, and insufficient selection budget.
+
+Actual combinational Vivado records feed provenance, comparison, Pareto, reward,
+and cost-based selection. These measurements are integration diagnostics and do
+not enter the registered PPA aggregate. This closes the tools 01-10 larger-study
+integration gap without changing the 59 declarations or claiming another family.
+See [complete integration evidence](evidence/wide-workflow.json). The runner
+returns nonzero when any requested positive operation fails and keeps per-tool
+summaries separate from the complete summary. Hosted CI at 7510a8c passed.
