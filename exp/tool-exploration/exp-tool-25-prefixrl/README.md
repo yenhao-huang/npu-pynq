@@ -20,3 +20,15 @@ timed-out proof attempts remain failures, and do not disappear from acceptance.
 Paper connection: prefixrl, as documented in survey.md. This is a bounded
 architecture adaptation, not a reproduction of the paper's learned search.
 Results are pending; a structural change alone is not a measured PPA gain.
+
+## Bounded same-case retry
+
+Run `python exp/tool-exploration/network_study.py --tool 25 --configuration
+config-retry.json --container codex-sandbox-agent-workspace` as one command.
+The three unfinished original cases keep their throughput objectives and Basic
+flow; up to three attempts per physical measurement preserve every failure.
+Study 684174 completes three pairs per case and 18 passing timing audits.
+Tree64 reduces LUTs 20.55% with throughput -3.39%; binary-search64 is unchanged
+in LUTs with throughput -8.29%; binary-search128 grows LUTs 11.69% and loses
+16.11% throughput. The tree's area win does not change its declared objective,
+and this family does not qualify at both widths.

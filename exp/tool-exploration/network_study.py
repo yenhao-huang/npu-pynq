@@ -10,7 +10,7 @@ here=Path(__file__).resolve().parent
 parser=argparse.ArgumentParser()
 parser.add_argument('--tool',choices=['16','17','18','23','24','25','26','27','28','all'],default='all')
 parser.add_argument('--container')
-parser.add_argument('--configuration',default='config.json',choices=['config.json','config-binary-search.json','config-bitwise.json','config-macc.json','config-prefix.json'])
+parser.add_argument('--configuration',default='config.json',choices=['config.json','config-binary-search.json','config-bitwise.json','config-macc.json','config-prefix.json','config-retry.json'])
 parser.add_argument('--verify-only',action='store_true')
 args=parser.parse_args()
 os.chdir(root)

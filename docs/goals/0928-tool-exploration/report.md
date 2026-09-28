@@ -906,3 +906,45 @@ Together with width16/mod15 this is the ninth qualifying family. Snapshot 66d4c9
 has 48/59 complete comparisons; all-case objective benefit remains undefined.
 Dot-product physical runs and FIR/Booth proof retries remain active. No original
 workload, objective, failed proof or implementation attempt was removed.
+
+## First operation review and retained proof limits
+
+The [semantic review](semantic-review.md) examines operations 01-10 beyond
+registry presence and identifies a finite-input UCB score overflow. Development
+run 68600c is rejected; the corrected selector rejects all three arithmetic
+controls and still selects the action derived from actual CSD reward/cost data.
+The exploration regression suite passes 28 tests. Operations 11-50 still need the
+remaining substantive review; this is not a full completion certificate.
+
+FIR prefix study 183558 times out at 3/24 and3/40 output bits. Booth prefix study
+6d6ef5 times out at 14/32 and14/64. Neither unlocks PPA acceptance. A bounded ABC
+arithmetic diagnostic also times out for both 16-bit circuits and reports ignored
+signal names; it is not an accepted proof or an integrated backend. FIR arithmetic
+normalization and same-case leading-zero/divider physical retries are in progress.
+
+## Complete interfaces and five additional comparisons
+
+SAT development control 0ccec1 exposed an ignored extra output; it is rejected
+evidence. Both original netlists must now have exactly the declared input x and
+output y. All 48 interface controls and 60 normalization controls match expected
+verdicts. The extended historical audit checks 94 sources from 47 successful
+SAT study runs against their original hashes; all interfaces pass. This does
+not rerun SAT or resolve historical timing-coverage limitations.
+
+| Completed study | LUT reduction | Throughput gain | Result |
+| --- | --- | --- | --- |
+| Leading-zero64 tree | 20.55% | -3.39% | Area gain; original objective remains throughput |
+| Leading-zero64 binary search | 0.00% | -8.29% | Regression |
+| Leading-zero128 binary search | -11.69% | -16.11% | Regression |
+| Divider16 folding | 90.88% | -53.53% | Area/throughput trade-off |
+| Divider16 radix4 | -52.73% | 10.84% | Resource trade-off |
+
+Studies 684174 and 80362d retain all attempts and pass 30 source-bound timing
+audits. Snapshot 3bef5e contains 53/59 complete comparisons and nine qualifying
+families. No additional family qualifies; full-case benefit remains undefined.
+Dot-product physical runs continue. FIR macc09fb37/AIG08c404 and Booth AIG66caf5
+time out at both original sizes. No physical acceptance follows these unknowns.
+
+The full explicit CI Python list passes 564 tests with 37 optional native-Yosys
+skips; make lint/sim passes (simulation targets current). Hosted CI passed at
+30cdd46. New commits require their own hosted result. PR81 remains draft.

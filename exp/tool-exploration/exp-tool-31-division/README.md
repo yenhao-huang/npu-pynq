@@ -29,3 +29,12 @@ No unbounded sequential formal proof is claimed. Directed extrema, zero divisor,
 8192 random stress cycles, reset cancellation, held outputs and sustained
 acceptance spacing are required before physical runs. Negative controls are in
 test_iterative_exploration.py. Generated RTL and reports stay in ignored stores.
+
+## Original width16 retry
+
+Run `python exp/tool-exploration/exp-tool-31-division/study.py --configuration
+config-retry.json --container codex-sandbox-agent-workspace` as one command.
+Both original objectives and the Basic flow remain unchanged; the attempt cap
+is three. Study 80362d completes three pairs per case and 12 passing timing
+audits. Folding reduces LUTs 90.88% but loses 53.53% throughput. Radix4 raises
+throughput 10.84% and grows LUTs 52.73%. Neither is an unconditional win.

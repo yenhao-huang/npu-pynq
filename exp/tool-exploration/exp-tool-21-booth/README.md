@@ -33,3 +33,11 @@ codex-sandbox-agent-workspace --verify-only` for a 300-second ordered-bit retry
 per original configuration. This retry preserves the exact original cases,
 architectures and area objectives. Its outcome remains pending at this checkpoint;
 partial obligations and timeouts cannot unlock physical acceptance.
+
+## Bounded AIG retry
+
+Run `python exp/tool-exploration/exp-tool-21-booth/study.py --configuration
+config-aig.json --verify-only --container codex-sandbox-agent-workspace` as one
+command. Both original sizes and area objectives are retained with a 300-second
+formal budget. Study 66caf5 times out on both cases; earlier prefix study 6d6ef5
+proves only 14/32 and 14/64 obligations. These are unknown results.

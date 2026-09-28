@@ -458,3 +458,20 @@ The first two commands exercise 48 interface and 60 source-semantics controls.
 The third re-elaborates successful SAT study sources after verifying their old
 hashes; it checks the complete interface without rerunning SAT or changing old
 verdicts. Non-SAT algebraic proofs are explicitly excluded from that audit.
+
+## Retained arithmetic failures and completed physical retries
+
+```sh
+python exp/tool-exploration/network_study.py --tool 25 --configuration config-retry.json --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-31-division/study.py --configuration config-retry.json --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-19-fpl/study.py --configuration config-macc.json --verify-only --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-19-fpl/study.py --configuration config-aig.json --verify-only --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-21-booth/study.py --configuration config-aig.json --verify-only --container codex-sandbox-agent-workspace
+```
+
+The physical retries preserve original cases/objectives and Basic flow, with
+three pairs and at most three attempts per measurement. Keep failed attempts
+in the study envelopes. Both FIR normalization retries and Booth AIG remain
+unknown after their 300-second budgets. Prefix and ABC failures are also retained;
+no timeout is converted to proof. Re-run audit_interfaces.py after adding new
+study evidence: its latest audit covers 94 sources from 47 successful SAT runs.

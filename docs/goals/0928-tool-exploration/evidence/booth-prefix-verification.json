@@ -1,0 +1,136 @@
+{
+  "ok": false,
+  "data": {
+    "checkpoint_key": "9cbaf1c440d8e3aa749f1960fd2875ebc5f2838b7ca54108d5acbd68d4fd4c90",
+    "checkpoint_directory": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_booth_multiplier_prefix\\9cbaf1c440d8e3aa749f1960fd2875ebc5f2838b7ca54108d5acbd68d4fd4c90",
+    "environment": {
+      "python": "3.12.10",
+      "pydantic": "2.13.5",
+      "iverilog": {
+        "command": [
+          "iverilog",
+          "-V"
+        ],
+        "version": [
+          "Icarus Verilog version 13.0 (stable) (v13_0)"
+        ]
+      },
+      "yosys": {
+        "command": [
+          "docker",
+          "exec",
+          "codex-sandbox-agent-workspace",
+          "yosys",
+          "-V"
+        ],
+        "version": [
+          "Yosys 0.23 (git sha1 7ce5011c24b)"
+        ]
+      }
+    },
+    "cases": [
+      {
+        "name": "w16",
+        "objective": "area",
+        "generator": "synth_booth_multiplier",
+        "records": [],
+        "accepted": false,
+        "simulation": {
+          "ok": true,
+          "data": {
+            "passed": true,
+            "vectors": 8292,
+            "seed": 928,
+            "stimuli_sha256": "6b7a8871e6f797d1a7d0e426029475a51a4e17e02dc7babb98ac890df2d8ac66",
+            "reference_sha256": "7a4a00ed809b35087f7738e55c3a8b4cc5704d9b6395b4724ee774d3d3859542",
+            "candidate_sha256": "d9a08bec29a7ec7c89946b7c0b48fdea5931ffd7854a0f5356cc2166cda0bc88",
+            "logs": [
+              "a4b157/reference_vectors.log",
+              "a4b157/candidate_vectors.log"
+            ],
+            "first_mismatch": null
+          },
+          "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+          "run_id": "a4b157"
+        },
+        "formal": {
+          "ok": false,
+          "data": {
+            "proved": false,
+            "reference_sha256": "7a4a00ed809b35087f7738e55c3a8b4cc5704d9b6395b4724ee774d3d3859542",
+            "candidate_sha256": "d9a08bec29a7ec7c89946b7c0b48fdea5931ffd7854a0f5356cc2166cda0bc88",
+            "engine": "$ docker exec -w /tmp/ic-formal-798ab9 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "normalization": "bitwise_prefix",
+            "proof_obligations": 32,
+            "completed_obligations": 14,
+            "abstraction_defined": true,
+            "log": "798ab9/proof.log",
+            "exit_code": 1,
+            "timed_out": true,
+            "source_unchanged": true
+          },
+          "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+          "run_id": "798ab9"
+        },
+        "status": "correctness_not_established"
+      },
+      {
+        "name": "w32",
+        "objective": "area",
+        "generator": "synth_booth_multiplier",
+        "records": [],
+        "accepted": false,
+        "simulation": {
+          "ok": true,
+          "data": {
+            "passed": true,
+            "vectors": 8388,
+            "seed": 928,
+            "stimuli_sha256": "50127556148d99647fabdfa54b59ff8db345eab1b40a0b60fce6843330691833",
+            "reference_sha256": "25a73a34c39b4dcf75ec3e651b695131e4a7752d72e0f598364ecbdb7aa4e4dd",
+            "candidate_sha256": "097ffd803ac38cd9e8ae1a14b7b1f79d4cb341a7e4e7047c1b74484e899c8fd0",
+            "logs": [
+              "13409f/reference_vectors.log",
+              "13409f/candidate_vectors.log"
+            ],
+            "first_mismatch": null
+          },
+          "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+          "run_id": "13409f"
+        },
+        "formal": {
+          "ok": false,
+          "data": {
+            "proved": false,
+            "reference_sha256": "25a73a34c39b4dcf75ec3e651b695131e4a7752d72e0f598364ecbdb7aa4e4dd",
+            "candidate_sha256": "097ffd803ac38cd9e8ae1a14b7b1f79d4cb341a7e4e7047c1b74484e899c8fd0",
+            "engine": "$ docker exec -w /tmp/ic-formal-3179d9 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "normalization": "bitwise_prefix",
+            "proof_obligations": 64,
+            "completed_obligations": 14,
+            "abstraction_defined": true,
+            "log": "3179d9/proof.log",
+            "exit_code": 1,
+            "timed_out": true,
+            "source_unchanged": true
+          },
+          "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+          "run_id": "3179d9"
+        },
+        "status": "correctness_not_established"
+      }
+    ],
+    "children": [
+      "ae2bca",
+      "37c792",
+      "a4b157",
+      "798ab9",
+      "789365",
+      "7f1bf1",
+      "13409f",
+      "3179d9"
+    ]
+  },
+  "note": "All predeclared cases retained. Measurements are not automatic acceptance; assess paired gains, resources and full diversity gates separately.",
+  "run_id": "6d6ef5"
+}

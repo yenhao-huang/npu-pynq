@@ -35,3 +35,13 @@ codex-sandbox-agent-workspace --verify-only` for a 300-second ordered-bit retry
 per original configuration. This retry preserves the exact original cases,
 architectures and area objectives. Its outcome remains pending at this checkpoint;
 partial obligations and timeouts cannot unlock physical acceptance.
+
+## Bounded proof normalization attempts
+
+Run `study.py --configuration config-macc.json --verify-only --container
+codex-sandbox-agent-workspace`, or substitute `config-aig.json`, using this
+directory's study.py path from the repository root. Each keeps the original
+width16/32 designs and area objectives with a 300-second formal budget.
+Macc study 09fb37 and AIG study 08c404 both time out on both cases. Earlier
+prefix study 183558 proves only 3/24 and 3/40 obligations. No attempt establishes
+complete equivalence or permits a physical acceptance claim.

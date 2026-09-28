@@ -179,3 +179,12 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Reject hidden/unobserved ports in both SAT source interfaces; run 48 actual
   interface controls and 60 normalization controls. Re-elaborate 88 historical
   source interfaces without altering their old proof records.
+
+## Physical retry checkpoint
+
+- [x] Complete original leading-zero64/tree and 64/128 binary-search comparisons.
+- [x] Complete original divider16 folding/radix4 comparisons with all timing audits.
+- [x] Retain FIR/Booth prefix, arithmetic and AIG unknowns without shrinking cases.
+- [x] Extend historical SAT interface audit to 94 sources from 47 successful runs.
+- [ ] Complete dot-product physical runs and establish FIR/Booth equivalence.
+- [ ] Reach full-case objective benefit and finish independent operation review.
