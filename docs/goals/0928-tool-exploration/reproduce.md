@@ -434,3 +434,14 @@ physical measurements. Every prefix equality depends only on earlier proved
 bits; partial success, timeout, nonzero exit or undefined source semantics cannot
 pass. Individual normalization controls have separate output summaries. The
 default controls command covers all six modes. Retain the older failed retries.
+
+## Remaining signed arithmetic verification
+
+```sh
+python exp/tool-exploration/exp-tool-19-fpl/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace --verify-only
+python exp/tool-exploration/exp-tool-21-booth/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace --verify-only
+```
+
+These preserve the original two configurations per family and use the same
+300-second ordered-bit proof budget. Only a complete source-bound proof can
+unlock a subsequent physical run. Pending/failed outcomes must remain recorded.

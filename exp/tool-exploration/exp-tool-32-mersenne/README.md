@@ -38,3 +38,8 @@ every bit, complete source guards and a successful bounded process. Use
 `--configuration config-prefix.json` with this module's study command. Full
 verification now passes; physical gain still requires all three measured pairs.
 Historical failures and the original objective remain in the evidence.
+
+Study 25c912 completes all three original width32/mod255 pairs with 49.48% LUT
+reduction and 108.22% throughput gain. Six timing audits pass. With width16/mod15,
+this family now meets the two-configuration gate. The original timeout remains
+preserved alongside `evidence/modulo-prefix-physical-study.json`.

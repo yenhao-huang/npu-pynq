@@ -37,3 +37,8 @@ every bit, complete source guards and a successful bounded process. Use
 `--configuration config-prefix.json` with this module's study command. Full
 verification now passes; physical gain still requires all three measured pairs.
 Historical failures and the original objective remain in the evidence.
+
+Study b0dbc4 completes all three CSD32 pairs with 86.78% LUT reduction and
+153.30% throughput gain, with six passing timing audits. CSD now qualifies at
+both declared widths. See `evidence/csd-prefix-physical-study.json` in the goal
+report; its failed implementation attempt remains visible.

@@ -29,3 +29,9 @@ minimum samples and maximum coefficients. Broken preaddition must fail checking.
 Run `study.py --verify-only --container codex-sandbox-agent-workspace` first;
 omit `--verify-only` for physical execution after proof. Preserve all SAT timeouts
 and failed implementations. A generator node count never establishes a PPA gain.
+
+Use `study.py --configuration config-prefix.json --container
+codex-sandbox-agent-workspace --verify-only` for a 300-second ordered-bit retry
+per original configuration. This retry preserves the exact original cases,
+architectures and area objectives. Its outcome remains pending at this checkpoint;
+partial obligations and timeouts cannot unlock physical acceptance.

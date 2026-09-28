@@ -27,3 +27,9 @@ Predeclared cases: 16/32-bit native versus radix4, area objective, matched Basic
 flow, three physical pairs. SAT and 8192 seeded random vectors gate physical
 measurement. Timeout remains inconclusive; simulation alone cannot qualify a
 combinational PPA win. No performance gain is assumed from fewer partial rows.
+
+Use `study.py --configuration config-prefix.json --container
+codex-sandbox-agent-workspace --verify-only` for a 300-second ordered-bit retry
+per original configuration. This retry preserves the exact original cases,
+architectures and area objectives. Its outcome remains pending at this checkpoint;
+partial obligations and timeouts cannot unlock physical acceptance.

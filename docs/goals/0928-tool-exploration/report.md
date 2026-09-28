@@ -883,3 +883,26 @@ hosted CI at 863873c passed. No objective, workload or failed case was removed.
 Final ordered-proof regression: the complete explicit CI tool list passes
 525 tests with 37 optional native-Yosys skips. Ten actual prefix controls pass,
 and make lint/sim passes. Refreshed acceptance049aa8 remains46/59, seven families.
+
+## CSD32 physical completion
+
+Study b0dbc4 completes the original width32/constant65535 CSD comparison:
+all three pairs reduce LUTs 86.78% and increase II-normalized throughput 153.30%.
+All six source-bound timing audits pass. Together with CSD16, this makes CSD the
+eighth qualifying family. Snapshot eaa3b8 records 47/59 complete comparisons;
+whole-case benefit remains undefined. A failed candidate implementation attempt
+and successful bounded retry are both retained in the study envelope.
+
+Hosted CI at 7ae4588 passes. Modulo32 and both dot-product physical studies remain
+in progress. FIR and Booth now have bounded ordered-bit verification retries;
+neither source configurations nor original area objectives changed. Do not
+count these pending verifications or partial physical results as completed cases.
+
+## Modulo32 physical completion
+
+Study 25c912 completes all three original width32/mod255 pairs: LUT reduction
+49.48%, throughput gain 108.22%, all six source-bound timing audits pass.
+Together with width16/mod15 this is the ninth qualifying family. Snapshot 66d4c9
+has 48/59 complete comparisons; all-case objective benefit remains undefined.
+Dot-product physical runs and FIR/Booth proof retries remain active. No original
+workload, objective, failed proof or implementation attempt was removed.
