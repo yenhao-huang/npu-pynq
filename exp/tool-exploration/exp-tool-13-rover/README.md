@@ -52,3 +52,25 @@ codex-sandbox-agent-workspace` as one command. Positive, highest-bit mutation,
 different-product, X-product and divide-by-zero controls exercise both modes.
 All ten expected verdicts match; results are in bitwise-proof-controls.json.
 No new operation is counted for these proof modes.
+
+## Arithmetic normalization and source-level safety
+
+`normalization=macc` uses installed Yosys `alumacc; opt; techmap; opt` before SAT.
+It canonicalizes arithmetic structure; it is not a custom arithmetic proof or a
+new operation. A copied-source 128-bit popcount diagnostic collapses both
+representations to identical logic and proves in under one CPU second. The
+registry retry still requires complete vectors, SAT and physical measurements.
+
+All five modes now inspect **both separately elaborated source netlists** after
+`proc -noopt`/flatten and before `prep`, normalization or miter construction.
+Checking only the optimized miter is unsafe: matching partial functions can
+disappear during optimization. Two failed development controls (56e17b and
+99fd8b) exposed this; neither is accepted evidence. A total-binary-cell allowlist
+rejects X/Z values, symbolic sources, variable division, shiftx and unknown cells.
+Constant nonzero divisors are supported. Existing state/interface checks remain.
+
+The bitwise.py experiment now exercises 45 actual controls: five modes times
+nine cases, including mutations, X values, self/variable division, masked X,
+out-of-range indexing and valid constant division. Every expected verdict
+matches. See normalization-controls.json; failed development attempts remain
+in normalization-development-failures.json.

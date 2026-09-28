@@ -20,3 +20,8 @@ timed-out proof attempts remain failures, and do not disappear from acceptance.
 Paper connection: rover, as documented in survey.md. This is a bounded
 architecture adaptation, not a reproduction of the paper's learned search.
 Results are pending; a structural change alone is not a measured PPA gain.
+
+Use network_study.py --tool 23 --configuration config-macc.json with the same
+container option for the original width128 retry after word SAT timed out.
+Width64 is already measured and remains a regression: LUT growth 6.25%,
+throughput loss 3.66%, all six timing audits pass. No declaration is removed.

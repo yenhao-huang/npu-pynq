@@ -1,0 +1,48 @@
+[
+  {
+    "run_id": "56e17b",
+    "classification": "Rejected development control: partial self-equivalence incorrectly passed before separate source-netlist validation. Never use as accepted proof.",
+    "result": {
+      "ok": true,
+      "data": {
+        "proved": true,
+        "reference_sha256": "895f924e618d83c0cd65b62e27ddd2c4c161026469c9c3edfb5049e1a0caabae",
+        "candidate_sha256": "895f924e618d83c0cd65b62e27ddd2c4c161026469c9c3edfb5049e1a0caabae",
+        "engine": "$ docker exec -w /tmp/ic-formal-56e17b codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "macc",
+        "proof_obligations": 1,
+        "completed_obligations": 1,
+        "abstraction_defined": true,
+        "log": "56e17b/proof.log",
+        "exit_code": 0,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Original X/Z constants and preexisting symbolic sources are rejected in this mode.",
+      "run_id": "56e17b"
+    }
+  },
+  {
+    "run_id": "99fd8b",
+    "classification": "Rejected development control: partial self-equivalence incorrectly passed before separate source-netlist validation. Never use as accepted proof.",
+    "result": {
+      "ok": true,
+      "data": {
+        "proved": true,
+        "reference_sha256": "895f924e618d83c0cd65b62e27ddd2c4c161026469c9c3edfb5049e1a0caabae",
+        "candidate_sha256": "895f924e618d83c0cd65b62e27ddd2c4c161026469c9c3edfb5049e1a0caabae",
+        "engine": "$ docker exec -w /tmp/ic-formal-99fd8b codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "macc",
+        "proof_obligations": 1,
+        "completed_obligations": 1,
+        "abstraction_defined": true,
+        "log": "99fd8b/proof.log",
+        "exit_code": 0,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Original X/Z constants and preexisting symbolic sources are rejected in this mode.",
+      "run_id": "99fd8b"
+    }
+  }
+]

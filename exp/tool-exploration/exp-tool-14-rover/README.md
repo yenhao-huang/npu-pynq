@@ -27,3 +27,13 @@ microarchitecture families and the remaining tools.
 Hypothesis: carry-save compression may shorten long carry-propagate reductions.
 Balanced syntax alone may synthesize to nearly the same netlist. Both outcomes
 must remain in the report; a small timing variation is not a qualifying win.
+
+## Proof-gated complete retry
+
+Run `python exp/tool-exploration/exp-tool-14-rover/sweep.py --container
+codex-sandbox-agent-workspace` as one command. The config-macc.json retry includes
+all four original width16/32, lanes16, serial-to-balanced/compressor comparisons.
+It keeps the throughput objective, 5 ns Default flow and three pairs, but adds
+mandatory vectors/SAT before measurement and complete architecture_sweep envelopes.
+The older study.py records remain diagnostic history; none is promoted by this
+retry. Add --verify-only to suppress physical execution.

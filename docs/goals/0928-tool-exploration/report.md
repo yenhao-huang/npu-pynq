@@ -770,3 +770,46 @@ Live sessions at this checkpoint: popcount physical 84635, CSD physical 69232,
 dot-product proof 23888 and matrix DSP diagnostic 44357. Inspect these before
 starting replacements. No goal completion, merge, reset credit or artifact
 cleanup is authorized by this checkpoint.
+
+## Source-normalization and DSP coverage checkpoint
+
+There are still 50 operations and seven qualifying families. Complete comparisons
+increase to 40/59; the all-case aggregate remains undefined. Three new completed
+configurations retain their original objectives and all three paired repeats:
+
+| Case | LUT reduction | Throughput change | Timing audits |
+| --- | ---: | ---: | --- |
+| CSD width16, constant255 | 76.00% | +102.60% | 6 pass |
+| Modulo width16, modulus15 | 62.22% | +104.30% | 6 pass |
+| Popcount width64 | -6.25% | -3.66% | 6 pass |
+
+The larger CSD/modulo cases remain unproved, so neither is a new qualifying
+family. Both dot-product abstraction retries time out at 10/35 and 10/67 bits.
+No partial proof is promoted. Arithmetic normalization proves the original
+128-bit popcount diagnostic; its formal-gated physical retry is running.
+
+Every formal mode now checks each source before normalization/miter optimization
+can erase partial behavior. Forty-five actual positive/negative controls match;
+two earlier false-positive development controls are explicitly rejected and
+preserved. Source widths, constants, objectives and historical failures remain.
+
+The narrow DSP48E1 audit distinguishes unused ADREG/DREG defaults from active
+registers using complete per-cell properties. Real bypassed/active-unclocked
+controls respectively pass/fail. Matrix32 retry514661 accepts the baseline but
+still rejects four candidate DSPs with CREG=1; do not generalize that exception.
+Its PPA result is unchanged and remains a regression with incomplete coverage.
+
+Windows run publication now retries only WinError5/32 for at most 1.26 seconds,
+retaining the atomic rename and all evidence on permanent failure. The dedicated
+13-test run-store suite passes and is included in CI. The complete explicit tool
+list passes 495 tests with 17 native-Yosys skips; final source-guard controls and
+focused tests run separately. Repository lint/sim passes. 636fbf3 hosted CI passes.
+New commits retain draft PR #81; full acceptance and independent review remain.
+
+Popcount width128 retry c3a4fc is now complete: all three pairs grow LUTs 2.18%
+and lose throughput 9.21%; all six timing audits pass. The normalized proof
+closes an evidence gap but creates no PPA win. Current audit11c679 has 41/59
+complete comparisons. Only adder physical session18618 remains live.
+Final source-safety regression: 40 passed, 28 optional native-Yosys skips;
+45 actual container controls cover all skipped normalization safety cases.
+Usage remaining at this checkpoint: 43%; stop below30%, no reset credit used.

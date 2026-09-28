@@ -379,6 +379,7 @@
         },
         "objective": "throughput",
         "declarations": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config-macc.json",
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config.json"
         ],
         "observations": [],
@@ -401,6 +402,7 @@
         },
         "objective": "throughput",
         "declarations": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config-macc.json",
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config.json"
         ],
         "observations": [],
@@ -423,6 +425,7 @@
         },
         "objective": "throughput",
         "declarations": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config-macc.json",
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config.json"
         ],
         "observations": [],
@@ -445,6 +448,7 @@
         },
         "objective": "throughput",
         "declarations": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config-macc.json",
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config.json"
         ],
         "observations": [],
@@ -806,11 +810,135 @@
             "case": "w16",
             "status": "verified",
             "qualified": false
+          },
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-physical-study.json",
+            "run_id": "7830ae",
+            "case": "w16",
+            "status": "measured",
+            "qualified": true,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
+            "valid_physical": true,
+            "summary": {
+              "repeats": 3,
+              "objective": "area",
+              "comparisons": [
+                {
+                  "lut_reduction_pct": 76.0,
+                  "throughput_gain_pct": 102.59547645532075,
+                  "throughput_ratio": 2.0259547645532074,
+                  "resource_delta": {
+                    "luts": -76.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": -76.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": true,
+                  "throughput_gate": true,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": 76.0,
+                  "throughput_gain_pct": 102.59547645532075,
+                  "throughput_ratio": 2.0259547645532074,
+                  "resource_delta": {
+                    "luts": -76.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": -76.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": true,
+                  "throughput_gate": true,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": 76.0,
+                  "throughput_gain_pct": 102.59547645532075,
+                  "throughput_ratio": 2.0259547645532074,
+                  "resource_delta": {
+                    "luts": -76.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": -76.0,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": true,
+                  "throughput_gate": true,
+                  "reasons": []
+                }
+              ],
+              "summary": {
+                "lut_reduction_pct": {
+                  "min": 76.0,
+                  "max": 76.0,
+                  "mean": 76.0
+                },
+                "throughput_gain_pct": {
+                  "min": 102.59547645532075,
+                  "max": 102.59547645532075,
+                  "mean": 102.59547645532075
+                }
+              },
+              "objective_geometric_benefit": 4.166666666666667,
+              "objective_geometric_benefit_lower_bound": 4.166666666666667,
+              "zero_lut_candidate": false,
+              "area_gate": true,
+              "throughput_gate": true,
+              "scope": "routed_clocked_ooc",
+              "independent_statistical_samples": false
+            }
           }
         ],
         "substantial": true,
-        "qualified": false,
-        "objective_benefit_lower_bound": null
+        "qualified": true,
+        "objective_benefit_lower_bound": 4.166666666666667
       },
       {
         "id": "e78af9d618b19aa608522615fdb9e27f38b12ce288654fd28741a0f0b087a24d",
@@ -828,6 +956,7 @@
         "objective": "area",
         "declarations": [
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config-bitwise.json",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config-macc.json",
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config.json"
         ],
         "observations": [
@@ -841,6 +970,20 @@
           {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-bitwise-verification.json",
             "run_id": "fe89db",
+            "case": "w32",
+            "status": "correctness_not_established",
+            "qualified": false
+          },
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-macc-verification.json",
+            "run_id": "eb1594",
+            "case": "w32",
+            "status": "correctness_not_established",
+            "qualified": false
+          },
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-physical-study.json",
+            "run_id": "7830ae",
             "case": "w32",
             "status": "correctness_not_established",
             "qualified": false
@@ -1332,6 +1475,13 @@
         ],
         "observations": [
           {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\dot-product-abstraction-verification.json",
+            "run_id": "ab7317",
+            "case": "w16",
+            "status": "correctness_not_established",
+            "qualified": false
+          },
+          {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\dot-product-verification.json",
             "run_id": "fcc669",
             "case": "w16",
@@ -1364,6 +1514,13 @@
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\config.json"
         ],
         "observations": [
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\dot-product-abstraction-verification.json",
+            "run_id": "ab7317",
+            "case": "w32",
+            "status": "correctness_not_established",
+            "qualified": false
+          },
           {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\dot-product-verification.json",
             "run_id": "fcc669",
@@ -2031,6 +2188,165 @@
         "objective_benefit_lower_bound": 1.6188094399436421
       },
       {
+        "id": "7afb75259e6e4e92a1e00bf22d37d582055e06461b5b557483cf88ea507a1367",
+        "generator": "synth_popcount",
+        "baseline": {
+          "width": 128,
+          "architecture": "linear"
+        },
+        "candidate": {
+          "width": 128,
+          "architecture": "tree"
+        },
+        "objective": "throughput",
+        "declarations": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-23-rover\\config-macc.json",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-23-rover\\config.json"
+        ],
+        "observations": [
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\popcount-macc-physical-study.json",
+            "run_id": "c3a4fc",
+            "case": "w128",
+            "status": "measured",
+            "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
+            "valid_physical": true,
+            "summary": {
+              "repeats": 3,
+              "objective": "throughput",
+              "comparisons": [
+                {
+                  "lut_reduction_pct": -2.183406113537112,
+                  "throughput_gain_pct": -9.208802724652864,
+                  "throughput_ratio": 0.9079119727534714,
+                  "resource_delta": {
+                    "luts": 5.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 2.183406113537112,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit."
+                  ]
+                },
+                {
+                  "lut_reduction_pct": -2.183406113537112,
+                  "throughput_gain_pct": -9.208802724652864,
+                  "throughput_ratio": 0.9079119727534714,
+                  "resource_delta": {
+                    "luts": 5.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 2.183406113537112,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit."
+                  ]
+                },
+                {
+                  "lut_reduction_pct": -2.183406113537112,
+                  "throughput_gain_pct": -9.208802724652864,
+                  "throughput_ratio": 0.9079119727534714,
+                  "resource_delta": {
+                    "luts": 5.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 2.183406113537112,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": [
+                    "Throughput regression exceeds the 5% area-win limit."
+                  ]
+                }
+              ],
+              "summary": {
+                "lut_reduction_pct": {
+                  "min": -2.183406113537112,
+                  "max": -2.183406113537112,
+                  "mean": -2.183406113537112
+                },
+                "throughput_gain_pct": {
+                  "min": -9.208802724652864,
+                  "max": -9.208802724652864,
+                  "mean": -9.208802724652864
+                }
+              },
+              "objective_geometric_benefit": 0.9079119727534714,
+              "objective_geometric_benefit_lower_bound": 0.9079119727534714,
+              "zero_lut_candidate": false,
+              "area_gate": false,
+              "throughput_gate": false,
+              "scope": "routed_clocked_ooc",
+              "independent_statistical_samples": false
+            }
+          },
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\popcount-physical-study.json",
+            "run_id": "b2a38d",
+            "case": "w128",
+            "status": "correctness_not_established",
+            "qualified": false
+          }
+        ],
+        "substantial": true,
+        "qualified": false,
+        "objective_benefit_lower_bound": 0.9079119727534714
+      },
+      {
         "id": "7d010bf5247a82cc03154ad92cccb013b0ecf156cff43d0427661ed0998c8b1e",
         "generator": "synth_popcount",
         "baseline": {
@@ -2045,30 +2361,135 @@
         "declarations": [
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-23-rover\\config.json"
         ],
-        "observations": [],
-        "substantial": true,
-        "qualified": false,
-        "objective_benefit_lower_bound": null
-      },
-      {
-        "id": "7afb75259e6e4e92a1e00bf22d37d582055e06461b5b557483cf88ea507a1367",
-        "generator": "synth_popcount",
-        "baseline": {
-          "width": 128,
-          "architecture": "linear"
-        },
-        "candidate": {
-          "width": 128,
-          "architecture": "tree"
-        },
-        "objective": "throughput",
-        "declarations": [
-          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-23-rover\\config.json"
+        "observations": [
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\popcount-physical-study.json",
+            "run_id": "b2a38d",
+            "case": "w64",
+            "status": "measured",
+            "qualified": false,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
+            "valid_physical": true,
+            "summary": {
+              "repeats": 3,
+              "objective": "throughput",
+              "comparisons": [
+                {
+                  "lut_reduction_pct": -6.25,
+                  "throughput_gain_pct": -3.6576576576576647,
+                  "throughput_ratio": 0.9634234234234234,
+                  "resource_delta": {
+                    "luts": 7.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 6.25,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": -6.25,
+                  "throughput_gain_pct": -3.6576576576576647,
+                  "throughput_ratio": 0.9634234234234234,
+                  "resource_delta": {
+                    "luts": 7.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 6.25,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": -6.25,
+                  "throughput_gain_pct": -3.6576576576576647,
+                  "throughput_ratio": 0.9634234234234234,
+                  "resource_delta": {
+                    "luts": 7.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": 6.25,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": false,
+                  "throughput_gate": false,
+                  "reasons": []
+                }
+              ],
+              "summary": {
+                "lut_reduction_pct": {
+                  "min": -6.25,
+                  "max": -6.25,
+                  "mean": -6.25
+                },
+                "throughput_gain_pct": {
+                  "min": -3.6576576576576647,
+                  "max": -3.6576576576576647,
+                  "mean": -3.6576576576576647
+                }
+              },
+              "objective_geometric_benefit": 0.9634234234234234,
+              "objective_geometric_benefit_lower_bound": 0.9634234234234234,
+              "zero_lut_candidate": false,
+              "area_gate": false,
+              "throughput_gate": false,
+              "scope": "routed_clocked_ooc",
+              "independent_statistical_samples": false
+            }
+          }
         ],
-        "observations": [],
         "substantial": true,
         "qualified": false,
-        "objective_benefit_lower_bound": null
+        "objective_benefit_lower_bound": 0.9634234234234234
       },
       {
         "id": "e087eae1340b7b53c4ca3be18d689c9e9e2799b441b17159ae265ae468ab485c",
@@ -4632,6 +5053,130 @@
         ],
         "observations": [
           {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\modulo-physical-study.json",
+            "run_id": "cd9c81",
+            "case": "w16_mod15",
+            "status": "measured",
+            "qualified": true,
+            "timing_coverage": {
+              "audited_records": 6,
+              "historical_unaudited_records": 0
+            },
+            "valid_physical": true,
+            "summary": {
+              "repeats": 3,
+              "objective": "area",
+              "comparisons": [
+                {
+                  "lut_reduction_pct": 62.22222222222222,
+                  "throughput_gain_pct": 104.29643100704706,
+                  "throughput_ratio": 2.0429643100704706,
+                  "resource_delta": {
+                    "luts": -28.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": -62.22222222222222,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": true,
+                  "throughput_gate": true,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": 62.22222222222222,
+                  "throughput_gain_pct": 104.29643100704706,
+                  "throughput_ratio": 2.0429643100704706,
+                  "resource_delta": {
+                    "luts": -28.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": -62.22222222222222,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": true,
+                  "throughput_gate": true,
+                  "reasons": []
+                },
+                {
+                  "lut_reduction_pct": 62.22222222222222,
+                  "throughput_gain_pct": 104.29643100704706,
+                  "throughput_ratio": 2.0429643100704706,
+                  "resource_delta": {
+                    "luts": -28.0,
+                    "ffs": 0.0,
+                    "dsps": 0.0,
+                    "brams": 0.0
+                  },
+                  "resource_growth_pct": {
+                    "luts": -62.22222222222222,
+                    "ffs": 0.0,
+                    "dsps": 0,
+                    "brams": 0
+                  },
+                  "latency_cycles": {
+                    "baseline": 1,
+                    "candidate": 1,
+                    "kind": "fixed"
+                  },
+                  "initiation_interval": {
+                    "baseline": 1,
+                    "candidate": 1
+                  },
+                  "area_gate": true,
+                  "throughput_gate": true,
+                  "reasons": []
+                }
+              ],
+              "summary": {
+                "lut_reduction_pct": {
+                  "min": 62.22222222222222,
+                  "max": 62.22222222222222,
+                  "mean": 62.22222222222222
+                },
+                "throughput_gain_pct": {
+                  "min": 104.29643100704706,
+                  "max": 104.29643100704706,
+                  "mean": 104.29643100704706
+                }
+              },
+              "objective_geometric_benefit": 2.6470588235294117,
+              "objective_geometric_benefit_lower_bound": 2.6470588235294117,
+              "zero_lut_candidate": false,
+              "area_gate": true,
+              "throughput_gate": true,
+              "scope": "routed_clocked_ooc",
+              "independent_statistical_samples": false
+            }
+          },
+          {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\modulo-verification.json",
             "run_id": "e2f022",
             "case": "w16_mod15",
@@ -4640,8 +5185,8 @@
           }
         ],
         "substantial": true,
-        "qualified": false,
-        "objective_benefit_lower_bound": null
+        "qualified": true,
+        "objective_benefit_lower_bound": 2.6470588235294117
       },
       {
         "id": "6b9f11fbc6dd6e8f95b07b83354c978f287dde100cdcdb644c899960483e74d5",
@@ -4661,6 +5206,13 @@
           "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-32-mersenne\\config.json"
         ],
         "observations": [
+          {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\modulo-physical-study.json",
+            "run_id": "cd9c81",
+            "case": "w32_mod255",
+            "status": "correctness_not_established",
+            "qualified": false
+          },
           {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\modulo-verification.json",
             "run_id": "e2f022",
@@ -6719,6 +7271,14 @@
         ],
         "observations": [
           {
+            "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-dsp-physical-study.json",
+            "run_id": "514661",
+            "case": "w32_n2",
+            "status": "measured",
+            "qualified": false,
+            "error": "Timing coverage rejected: Some sequential cells are outside the measured clock"
+          },
+          {
             "file": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-physical-study.json",
             "run_id": "bb9d6b",
             "case": "w32_n2",
@@ -6902,12 +7462,14 @@
       "memory": true
     },
     "declared_cases": 59,
-    "cases_with_verified_physical_pairs": 37,
+    "cases_with_verified_physical_pairs": 41,
     "qualifying_family_configurations": {
+      "synth_csd_multiplier": 1,
       "synth_mcm": 2,
       "synth_serial_multiplier": 2,
       "synth_priority_encoder": 2,
       "synth_argmax_tree": 2,
+      "synth_constant_modulo": 1,
       "synth_saturating_alu": 1,
       "synth_fifo": 2,
       "synth_banked_regfile": 2,
@@ -6915,8 +7477,10 @@
     },
     "measured_family_configurations": {
       "synth_prefix_adder": 2,
+      "synth_csd_multiplier": 1,
       "synth_mcm": 2,
       "synth_serial_multiplier": 2,
+      "synth_popcount": 2,
       "synth_priority_encoder": 2,
       "synth_leading_zero": 1,
       "synth_barrel_shifter": 2,
@@ -6925,6 +7489,7 @@
       "synth_crc_parallel": 2,
       "synth_lfsr_jump": 2,
       "synth_divider": 1,
+      "synth_constant_modulo": 1,
       "synth_saturating_alu": 2,
       "synth_fifo": 3,
       "synth_banked_regfile": 2,
@@ -6953,22 +7518,22 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-09-rtlrewriter\\README.md": "bdc77977a0fe3fa7380356afc499006cad3b90f69d835093090f3be941f654fb",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\pipeline\\rtlrewriter\\__init__.py": "4f6adc7d4e860005efd35426414f32afe76c3cdb7c917f3ea49fed6c89824e3b",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-10-rtlrewriter\\README.md": "1b2615eae4fa8a2e6f94ce43a8f68290bdb4a27dce585a422097e4f0dd331208",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\clocked.py": "f9af1d6d01806f5d692cd21cd147c49f67196c36409668a40ae3b13d38f4978e",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\clocked.py": "d4f940f16d392cfee75a59d5195abee710335cb32f1513fc7d100f1ffc9b4f86",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-11-aspen\\README.md": "799cf7a6224316172f84dd12a901a8eb4c78759bfac544afd51b2491cc2740a6",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_wide_exploration.py": "72221aac76d7ec9d471bcff24a28a3ec1dbf2c5d21fd424429a2c6d6b73c521e",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_wide_exploration.py": "ce0b7d4991b0285576d061a1badf9c829c9290ddcba960e4bf431f04187a27d2",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\vectors.py": "78fa10e6d95e9ab640dba201e7915dd613b3b572088b351fe3a83f88864f7ee9",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-12-rtlrewriter\\README.md": "5608d7e17477e482f1f7176465d346ec125c162b338ec041bdcfa513067a8f22",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\formal.py": "4871c3353f60d723e194076c83affea14889bf359fe94a48df1337d62a663c19",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\README.md": "2c535cc9013007a675628450c7eef3eb851a4319fe27834ef2cc2bbca990f337",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\formal.py": "375b9e7bf58c51a3629044a7ffe7cf68fe9e9983e7080c638c338d61d4c33328",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\README.md": "5977d1633dbe18f156b518d054a027f58263fb912034dee3d0f9d7ed91004247",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\reduction.py": "06fab3d3bb5e51a6f0a0f662b5997f6193fd867a05eea6280146b6c2397193a8",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\README.md": "1afc6416788e9668d84554cbfd59d0f7fc05bec418b8df4f875baf4c5aefcf8f",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\README.md": "2269b4a474e4a7edc8960bb222c2248c5451be7f4389a799c8d13c5b5abe16cf",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\affine.py": "5eaa2e262cd12f3989335beeb51695fbcc281a2df8ea184d37710ecc7b4ce130",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-15-gf2\\README.md": "01691a123d8a649e4f76338260e4ea39253060e7e65ca350f603cb0ea37b15ba",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_affine_equivalence.py": "66ec408d6dfb793eae7d26dfcf68e3d4f68c836bbcc953dd15c9396fdb0f39d8",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\arithmetic.py": "ad69888bb38e1472a64b6d9bdf8f931273e166adf877a2fb8f3cccae5e15aefc",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-16-prefixllm\\README.md": "5224b5474ad749c1fde62d25f6e9afede98993f2bd21713bac01a3b5e410f289",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_arithmetic_exploration.py": "9e1cf8ec03fe648ec3b31bb82a08eadc04e100b75bbacfae03194b21f96b95fb",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\README.md": "5fc8b6e54d9105fcec2a30ff60b4cde468f0bad3b54957cae010e9a0487a755f",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\README.md": "e5f860eb353c499f141ea264677ea14e386f8f8d5d0334000cd4ecc52ca2615b",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-18-rover\\README.md": "c13b9ceade0176b631051aeca84bcc28f52505235d777ed5c5e10e0ecfcbff35",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\datapaths.py": "828cba9b4cb7bad9f5f68a796671efa89ba9a4024dfd0e59b7ccd3477040304d",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-19-fpl\\README.md": "b90b64524681b1e6ecfd695e55bf226cf6876fc8bff05adc7c279cde33566a41",
@@ -6981,7 +7546,7 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-22-digit\\README.md": "4283e847dea910e44f3bfcb9033d34db8cfd24e27fbb87ca294e2680c7559f87",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_iterative_exploration.py": "60f085864afbb36691f8b7d256a2c9e766b190cfddc26846c1f938472c5ad0d4",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\networks.py": "943627f1cfab67cb36bf1a6d32723012aa1df6367f5ab7941fda3e7dfbeadb90",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-23-rover\\README.md": "fd2c88f4ac8e21a2baab02b568841c033f12aa5b858a648f26bbae5a0491ea3e",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-23-rover\\README.md": "81ae19de625f5617b7a7f2277eef1d6e41c71923315ac337caa5c1a36cd10bf1",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_network_exploration.py": "a54b986d45c183021bc80ba9a16441a3d91e02eac57b0c3e197285d9c04f6891",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-24-prefixrl\\README.md": "cd13a0307d112c83860af445e9da64f905d828be141f9b5e634f9f0eac9213f7",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-25-prefixrl\\README.md": "0531b3739b7cc9dc1096c24a5ea18814323e47a0a4d5969e775cd195447f7fb6",
@@ -7008,7 +7573,7 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-37-lid\\README.md": "1420557bd515eca977799180572c81961080f294b048fbe12e92162f160aed9f",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_skid_exploration.py": "76408918400eed07a358e2df591e521339927044f7d1309d8d0f3a5b8301d542",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\systolic.py": "f2ce92532e35ff6b4dbd066a16038ca4f46c5825410f645f8c0c20d1d8c45eac",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-38-kung\\README.md": "574d47381a2a17aa3f05aa2053a3add4a041edbb7bf09d2b29aa9c6d9b272782",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-38-kung\\README.md": "a9716c84137138bc12bd2d24f394f07d9d7e961a666b03e1f24cc07fff4e2323",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_systolic_exploration.py": "e9128145b5995d67f73a8407d4e076cc6486d6769a034ec83b9bccaaa531b9d0",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\netlist.py": "d7d2fb29bf5e01f776d942f5ead5ed61833a7070bcd6d61305fced7f67966ba2",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-39-aspen\\README.md": "8b5979f8858d3ce1cf369258805e652b5c6dcaa464ff30bdfa66ea5aaa5a10f7",
@@ -7016,9 +7581,9 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-40-rtlrewriter\\README.md": "207cacc6aa85e870a5e99ddaf7127928bdeaaab4587c979c1e668b6af26a08f6",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-41-rtlrewriter\\README.md": "cfbbe259f3375cb9338839a5a4e27437fe4b3725c1798c80e8907f854762ff91",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-42-scalar\\README.md": "f92b1df0ca0af039273a8df296c5ffd0757bd0ebf5a5225398585d693341fdae",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\timing_audit.py": "209d03831cd0211241b6bfa920b892edba1d140b0e923b487497fe78824d278d",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-43-rtlrewriter\\README.md": "95bb3567c089ee74260ed29cff1a2c386a5db33939af958648bc1b0e679f65ad",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_timing_audit.py": "0e692b47bfbd43b12fb7c96d90225227c9ce54e2193502515b9afa467f9a18c0",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\timing_audit.py": "c0fe67da986ff77e1f4a9a008eeb07a32f3a51273c88b4b553cdc7df2f9a1643",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-43-rtlrewriter\\README.md": "d6a567c960eb43f634c9a3267f5bca599c24785fe7e0449ae4d0ba613da3a041",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_timing_audit.py": "74bd1b3ba541885c140285068c29089338b23e186393f562deb94510c9de9d19",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\cycles.py": "91077c0c00918c1d5ea383bce33a0fbd0aae0cafe053e12b8201fc09adb6dd6a",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-44-rtlrewriter\\README.md": "5e80834e34044de65559a030878c0c1221b54534ead8ecb2651b7786dbe5f327",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\physical_analysis.py": "e5f530f541eeb7c3703289cb03d9187270fae89f75b64b3f45402f601f1fe259",
@@ -7030,7 +7595,7 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_candidate_ablation.py": "6d460e7c58448b49f3462a015e8f4003b7b2f94f4992424251baee5829442516",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\debug\\sequential.py": "46d7eaa2f04692011528bfdd72a4f16ce876efc18ef2ae9abbf12321a91aae9b",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-48-rtlrewriter\\README.md": "89fd6a2756552741f9fea846256d91288094e039f187a560e93242c0ba8f1a8e",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\pipeline\\rtlrewriter\\sweep.py": "fbdee55a3ab7ff94a5dddf4ddc31f335de5bdd7719e9ac9e2546b381ccb5864e",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\pipeline\\rtlrewriter\\sweep.py": "2a71c8cdb993aecf182831c5541b718ba3d28d04be0abdaa64483cbbcf598136",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-49-rtlrewriter\\README.md": "168feabc3be34fc168ee1e6f1fe9f96e4e16c96e773372901f58f425b08a99c0",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\tests\\test_architecture_sweep.py": "43c610c560cffbd3fdf25ae2954be1f3130cd468191f8e8c612a2c99e580c95d",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\tools\\ic\\ic_core\\tools\\synth\\acceptance.py": "6b0821bfb7ca8353aeb2b9b7202fbb34d0da657850795fcca8fc215270fa11cb",
@@ -7049,10 +7614,12 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-11-aspen\\config.json": "c5321e7eb0fdcfe1c4a6c467ca780524a76fe84de65d03d4927f1c65e7a0829b",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-12-rtlrewriter\\config.json": "acf0a5cf634e2b097bb537bf2a0aeaf9025966ba7bd2cf9e805ec60f6cdf25a7",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\config.json": "9f6e266e7403fdc174c040e923e6c4340829336c2cf2c29d99e2e544aa39a097",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config-macc.json": "f8d0d2836078471ab6b9254d52135ab87fad007c73128f6e0ced54dac6c0d6e9",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-14-rover\\config.json": "2d1b065174cca1e73bd7e01a2b18a006950861cb473f2b50537cc42a01622299",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-15-gf2\\config.json": "a31a8c77f5f45716224daadfb14cc72b9dbf344223cb0df643f63c3837af996c",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-16-prefixllm\\config.json": "cad8b69a2d28390fd72af6aed088bd270b3b065587d1e91fc653cab3310d6c4b",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config-bitwise.json": "90115816a9179afbb99422dc3fbd54d57135a0efff393e954274fc4b518cb97d",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config-macc.json": "e7d72098efa01a21928bbe0a0031a12e0ef65d390f064690f1be1a0ce8ece936",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-17-rover\\config.json": "2eea667d4d62bbbe634843d25b1e3975267659f31a4f83a895835f9d26e51f95",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-18-rover\\config.json": "c939f553c87ef3d1b69156ba48587a2ba592bac08f952d941410a5db660d7d78",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-19-fpl\\config.json": "aa44015868a4d3cd73ab57481b8f1feeb59585b410499e7ea485d20c0ecd45bb",
@@ -7060,6 +7627,7 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-20-fpl\\config.json": "cbe3b4f0a910be46607ec29a6ef6fd7f3fb598e74509322aaeb0f7bb99dc00f9",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-21-booth\\config.json": "621e2c2624fa1489f7dd1ab97524b7a336a3c1f04500a1c6fc469b70f37a411a",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-22-digit\\config.json": "b52d5bafa6d73592aa2bffe7915b88da8242773c92e8883eb6ef05141f1e3b15",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-23-rover\\config-macc.json": "3841b77250f185bd1a941ca99e637b17d03b371b262baf06916aa6d2084c5dc2",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-23-rover\\config.json": "986eb7b292c29c0e7f7c2fc649cd471ceabd2d8d4be8e93da0b26674bd377bcc",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-24-prefixrl\\config.json": "001f736b586e6b0b04bef3de5123c23c46f3d5a5a2aa6518d6c31cbd60fcb80f",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-25-prefixrl\\config-binary-search.json": "9e371fd626eec1de35b42cad63b9733759e8b7f7182e38847badf0008fe3de61",
@@ -7101,7 +7669,7 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\08.json": "562cb27ad27de3a6bd3a6ac617bd7bada86c75bef2c8f9fc79eb6200012ce06d",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\09.json": "cb4074007e8d900051ee5aa517e56b1d0a875d638543af8ee9f3e44e6d216603",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\10.json": "2270c0f806b58a77600ea58ff077ae7b1297d4bda82e144834634b34fa229bc0",
-      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\acceptance-audit.json": "85c224886ac11bdc9a3369b78f062069aa43a0b7338b680d007c92ff748c3f49",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\acceptance-audit.json": "2e0356a156390fe890d31c632b974982e93d50384f2553b06a65738093055237",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\affine-controls.json": "0161b74226a76da4b32ff0d3991c93d9eba3030c628cb88a000c6873713104e8",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\argmax-physical-study.json": "2d16f938f62baf09e3c8c965a0ff0e6e4389c6b98c2ab3a8eb304f36b63dcdc9",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_argmax_tree\\9abd938d401ce5882ed126f93ee2d4d21b327c774f6a47ff26e0742dd7c21e6f\\w16-baseline-generate.json": "8965c544bf1a0caf5addbe41bd9d85462fb7e6f8d7ecf71b3194adf166c0acc6",
@@ -7168,6 +7736,16 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\47d96e74c4eecfc14830cbef65972cb5a858f0dae604dd5172c82b19c9e4075e\\w16-candidate-generate.json": "3356404ac02b68346f611d58cb1df43cab111e619fb0e1b837e699ccebc346c2",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\47d96e74c4eecfc14830cbef65972cb5a858f0dae604dd5172c82b19c9e4075e\\w32-baseline-generate.json": "48b33c44fbb126eab71f762cc5d2c9c2091852fa379ec884ced6dd7e40a18b88",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\47d96e74c4eecfc14830cbef65972cb5a858f0dae604dd5172c82b19c9e4075e\\w32-candidate-generate.json": "122782834cd90e1bcb3f84c54cfaeeb6d869df619a6b4d7e77d35f3f00142367",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-macc-verification.json": "f99e56c2d4889aec06661daf3aa97bd2946f4f3ab89b64d79f7ffcb61e16b66d",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\csd_macc_retry\\6d1722c11e4a8ccc5caab258092be2375c10a62dc10adc80cdd2a8c105bc1632\\w32-baseline-generate.json": "9fa3e8f83f3fd7fe4a822b7d0e5bf83e987e88424e8417c205b22b272d72fe6c",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\csd_macc_retry\\6d1722c11e4a8ccc5caab258092be2375c10a62dc10adc80cdd2a8c105bc1632\\w32-candidate-generate.json": "5304c9aef177ec3f0557d9e9943b7193b19789882b2b429c2ad9ab6f490de8f0",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-physical-study.json": "7243b5539ed2de8c637f4ca2c1903425dd255d01bf7def46dc6306cd15423ca6",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\a32c6c711fc1a3473b67a2abe0b399de5bf2dff5a425cf3474700006b31c0cfc\\w16-baseline-generate.json": "6590585fdd0ce4f3a1278c3775b1a3f37c52a05222546260f76f2657f6477b1a",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\a32c6c711fc1a3473b67a2abe0b399de5bf2dff5a425cf3474700006b31c0cfc\\w16-candidate-generate.json": "5783cb0b58a0036181cc28bb572cce95664f39c5e4e87015b288cb0ccc7d88c1",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\a32c6c711fc1a3473b67a2abe0b399de5bf2dff5a425cf3474700006b31c0cfc\\w32-baseline-generate.json": "cefd840d8b19d5ab12681808103c652bacc969fb77b7dddfb6b34c4f10dfdb09",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_csd_bitwise\\a32c6c711fc1a3473b67a2abe0b399de5bf2dff5a425cf3474700006b31c0cfc\\w32-candidate-generate.json": "7d92aaa96dbfb2c207b9c8106e8043551ee56c48fdd577954516a0c5248d07a5",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-timing-audits.json": "710aa83b31593ea02f84f6387603954c7c9ce7146807f4c519054c1e078d9ce7",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\csd-w16-paired.json": "f6435b6cf799c075c3ca3c3b0a11bb346b2f7e3f0ba7e8b02c6664891ed76621",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\divider-physical-study.json": "c3913da9f203e81119a766a6fae2d076ff0b4c203dc6124b01c1ed62b8df330a",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_divider\\5ad5075095bfaf880f75d64438fe8f4fe248f99547b09302c26f38c3fb951ef6\\w16_fold-baseline-generate.json": "7e7a18dd656e5c1e5b30f93d68f586564b9e56fe586422cbe99d97305f7a3c33",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_divider\\5ad5075095bfaf880f75d64438fe8f4fe248f99547b09302c26f38c3fb951ef6\\w16_fold-candidate-generate.json": "a4526c9a9997d83b78c126dc9a7c89cbaeb429e26fd65f4faff2299b577e757a",
@@ -7179,11 +7757,17 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_divider\\5ad5075095bfaf880f75d64438fe8f4fe248f99547b09302c26f38c3fb951ef6\\w32_digit-candidate-generate.json": "012f7328c890b2384732f71b75d2a29885282d84b9db042e15680570a93115f0",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\divider-w32_digit-paired.json": "172b97caa3b1d3cdf8ada44487319cdbea78d6ad0122e5d2a6a3e44be12e5faf",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\divider-w32_fold-paired.json": "1e9a4773e2922ad5299d1d8d3d3e544752502407477be1fb266780dee9d20f4e",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\dot-product-abstraction-verification.json": "1fbe8736bc9f7a554c60495ff1120af1ddcf023a56cf4211886398930e77616c",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_dot_product_products\\7524f1105ef0de779a66ad55dfad603620ed8c4c9d1461f8fddaea9322f41cc8\\w16-baseline-generate.json": "c0640f0c89f645f41e483db14eee07ee45990127d786d82c666afe430825c125",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_dot_product_products\\7524f1105ef0de779a66ad55dfad603620ed8c4c9d1461f8fddaea9322f41cc8\\w16-candidate-generate.json": "f5bd141ee3641cb195feebc33a46b079de1e84712a8c7396ef2ece28790f68fe",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_dot_product_products\\7524f1105ef0de779a66ad55dfad603620ed8c4c9d1461f8fddaea9322f41cc8\\w32-baseline-generate.json": "3c5b6522339087ab5f4dd10ff3cda4a9a5fd11ff4ef17df5847fc770c856a796",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_dot_product_products\\7524f1105ef0de779a66ad55dfad603620ed8c4c9d1461f8fddaea9322f41cc8\\w32-candidate-generate.json": "9472021f55260c677ab1ccbeaa7af8120a884af5759fc022f0d8434ff3339739",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\dot-product-verification.json": "5cbc715b5e4634ea80ab5d9fb7cdde0d0761b1943af683fe9096aaf276866177",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_dot_product\\c04a96f32285ec609a9ea06c57a50f1a18fd6474363f7572ab711539efb3a938\\w16-baseline-generate.json": "774605d7705bd66f7ad01947cbfd99a6ead82b110ac13dc7917f89d784830621",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_dot_product\\c04a96f32285ec609a9ea06c57a50f1a18fd6474363f7572ab711539efb3a938\\w16-candidate-generate.json": "aa5356cabcbc850fbac80f79e2c0f8ecbaac941bfada213ba42dc6080d6e2baa",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_dot_product\\c04a96f32285ec609a9ea06c57a50f1a18fd6474363f7572ab711539efb3a938\\w32-baseline-generate.json": "84475946d0993cfe4bae5dc469c70f2474a77fc1c9632dbf5820f17611c5644d",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_dot_product\\c04a96f32285ec609a9ea06c57a50f1a18fd6474363f7572ab711539efb3a938\\w32-candidate-generate.json": "0b68cfe7c72a8204174c77918788b8bf7b0d5b0ec08ee1f982822722346f7119",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\dsp-coverage-controls.json": "5c7c95a3fa5b7bc226f4a3955ead7d9a56610eda05a8e2f6e95cb5dfb6e77d97",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\expansion-foundations.json": "2315cec5854c7550aa4844a17531a335ee8c2d5a22e9af94fc4541a0b60ac1ca",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\fifo-auto-physical-study.json": "d138f3aa1408b228a3e3190f7046b40b40ec0210dbf20534f85bd40fcdb32a13",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\fifo_registered_storage\\8568e9d8d7573acbe3005cc5a6ea99b32aebbeb1da3af22d75c80c7bdb43dda6\\w16_d64-baseline-generate.json": "dc2f52941eb767346e66e0a823fa1d9ac4dc1137838fea6b66f9823b0768b71f",
@@ -7240,12 +7824,19 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_mcm\\6f62a750687d31a063e6f846a91e45410c44b43ddda0a47288aa7a2ce7fe52a3\\w32-candidate-generate.json": "bbf49204739a3e14699fb5cd8d159fbf364c8b3db2157e7fd975ae74230d32c3",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\mcm-w16-paired.json": "49495e2b8cf2cc8a353266f3e795f88d0da226a1900de5ec723a67866767d960",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\mcm-w32-paired.json": "ece5995dbff3cbcdcf0ac50d7523c5348f7681fb3019b164eabfca2e43c77950",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\modulo-physical-study.json": "cac1a111703ef148b91ebf451440ed5884d206ca0ba545e64d20dd468a7da253",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\mersenne_modulo\\44bec237a9f9b0caf5ee9488358cc83fd2dac287f8973315cc2de23b16f2d4ce\\w16_mod15-baseline-generate.json": "442858db81aef05abf24a3ee386cf1697d559ec163b4ce5ccc9da8b2fe7a0f1d",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\mersenne_modulo\\44bec237a9f9b0caf5ee9488358cc83fd2dac287f8973315cc2de23b16f2d4ce\\w16_mod15-candidate-generate.json": "1a5e3737d191501b537d8fd0ddc4e5b92ca6cabf17c7b0a82ed8a6e6aaddae9a",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\mersenne_modulo\\44bec237a9f9b0caf5ee9488358cc83fd2dac287f8973315cc2de23b16f2d4ce\\w32_mod255-baseline-generate.json": "0f4e93a10e13f899346333e3692b23c592482c711b20745a43ff2838aa5f0b37",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\mersenne_modulo\\44bec237a9f9b0caf5ee9488358cc83fd2dac287f8973315cc2de23b16f2d4ce\\w32_mod255-candidate-generate.json": "3d44bfb340f80770746134f71ab6d3fe7bbb6b4ab843e6cc72ec540a784d8f36",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\modulo-proof-retry.json": "aef5d10e5f3c106912092346764c38837ed77f5dbf347128d51394544b21c560",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\modulo-timing-audits.json": "f1215606dee49c0af76503a310af4870445e403992869470baafd9fa0fc17aa2",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\modulo-verification.json": "27855fc248ace6cc4a03c05b5a65c32b4843776d317d404bc898ed471b5242ec",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\mersenne_modulo\\6c30049f9f56b9c11f962c6e0a76e0e87a914c3373e246f62b7586866f1b1385\\w16_mod15-baseline-generate.json": "9c8ad12e09033e5f44f790cc61daee100dc625875f7d5d1c29acc0bae1de929e",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\mersenne_modulo\\6c30049f9f56b9c11f962c6e0a76e0e87a914c3373e246f62b7586866f1b1385\\w16_mod15-candidate-generate.json": "d52954701d0c8384e67164782c7fd1a826a087813fb8f1f0dee4559c5b9997b7",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\mersenne_modulo\\6c30049f9f56b9c11f962c6e0a76e0e87a914c3373e246f62b7586866f1b1385\\w32_mod255-baseline-generate.json": "8bd24084510656f58c6c24f3b6cdf8a958dc2d9065ad406eb70da9fd0123006a",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\mersenne_modulo\\6c30049f9f56b9c11f962c6e0a76e0e87a914c3373e246f62b7586866f1b1385\\w32_mod255-candidate-generate.json": "dbde40fe17cab51d796c8c4fcb78cd7508ca00e4f9d703ec969e760ef5593de7",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\modulo-w16_mod15-paired.json": "6e294d0649a18b23a21dd77a85c6aacd7a62dffa146dfb7b772f81753fc833d9",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\multiplier-physical-study.json": "13b4502ae753ed1af567e2150efab01727e77d33ab4dbf7d2aab0a0fdddbf771",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_serial_multiplier\\58412109df52c95954e2d737d2cfa9b5dd38bfdf66a8acfaf959c3af7bb28e21\\w16_fold-baseline-generate.json": "53de487107f56f8e4ebf263107bb07e680b4bb578563e0eb1e7e5b4b38263e1e",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_serial_multiplier\\58412109df52c95954e2d737d2cfa9b5dd38bfdf66a8acfaf959c3af7bb28e21\\w16_fold-candidate-generate.json": "da38d11e8900f1586b2c5dea5a45680083d6327b135b644bd08971171497d9e8",
@@ -7261,6 +7852,8 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\multiplier-w32_fold-paired.json": "0a77e8cd544e0b0d00e94ef71d8a194bd95c2dd50c130f511311e65fd7985978",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\netlist-studies.json": "767b1377434aba9a7f35b5845b7859a09e4e22f1e76e13f801db38f055d4553e",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\networks-and-fifo.json": "eedf34da1b4413002e160bbc6005dfcd1057abe633dfde2193f998e7e42aac1e",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\normalization-controls.json": "d40b403c46849357ac5fd94a8cc50b5dad0ff827e9f38295befe90472ff0ac56",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\normalization-development-failures.json": "db841a7579eb5727243473cee72b3e8471584e64277abc255924e92e3fcd014c",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\onehot-physical-study.json": "742f1b33446ad0c4f569ec25b126620d5a05641eff959a4667e295238244e676",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_onehot_mux\\afc8306ba7634f9926b059fe9a68bc2f834154fd38504b0e7a160799fafd3ee0\\w16-baseline-generate.json": "73a52ffc06acb2798045489e72cd83992a968accba2e5b403c45c14f63286f3a",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_onehot_mux\\afc8306ba7634f9926b059fe9a68bc2f834154fd38504b0e7a160799fafd3ee0\\w16-candidate-generate.json": "0aca269797946867c7490672626b422b0fbbfb6018e0528ea21e588a1f1c8149",
@@ -7281,6 +7874,18 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_fsm\\b36f2bcd9deb60aaf5e2e5051606556473d0e01d3a3b8394635ab1b254c992bd\\n64-candidate-generate.json": "8901221297e5515b911814eaa2f8bacd479e46c6a13e0bcbd6a8ac8dbd8911f1",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_fsm\\b36f2bcd9deb60aaf5e2e5051606556473d0e01d3a3b8394635ab1b254c992bd\\n128-baseline-generate.json": "e4b73af2440365784f1e4305d532b63ae747fc16998d764cecf685bef36b6a93",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_fsm\\b36f2bcd9deb60aaf5e2e5051606556473d0e01d3a3b8394635ab1b254c992bd\\n128-candidate-generate.json": "06d81e4782caa010de342631afcb7f0c07b6586adb0f4daffb4ebed346a4f366",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\popcount-macc-physical-study.json": "e7dd85d0a0e103eac7ea7f53bbc5d243658014222c9ed83e2995ba73c9f886cc",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\popcount_macc_retry\\35bee2d0cfe0af855d5c9dcbb97c955f643053348f5ef47f9e6804a4e3e2e372\\w128-baseline-generate.json": "77816bca6dcce9b8c5dc84d9a4b8be144323c28f0918048b548ca27fb2e6dea8",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\popcount_macc_retry\\35bee2d0cfe0af855d5c9dcbb97c955f643053348f5ef47f9e6804a4e3e2e372\\w128-candidate-generate.json": "cdf8e3b675a154c5cc9a37498d10ab04686a6ba10f8ebe8910e6803c146b03cb",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\popcount-macc-timing-audits.json": "c1a1d886ebc713b1b0c9946044412c8c44ab7d9baada704184bdf394485c49ce",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\popcount-macc-w128-paired.json": "0bd286ad24d05338f0acec89d743753be7df06777a8164d6b8a799c2f8524df1",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\popcount-physical-study.json": "34d8dabbc7dde02713e9dae7523d845d9933ac649614d67322dbb6fde4e92b6d",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_popcount\\7054930e6cf953b37df36306c7f863c0f3741b8605b692b26ad8914cb28733b3\\w64-baseline-generate.json": "493e02a25a5dd0ff1079e94df721300f0adaaec509f128b67137a0f9db93939a",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_popcount\\7054930e6cf953b37df36306c7f863c0f3741b8605b692b26ad8914cb28733b3\\w64-candidate-generate.json": "cc8d639e014b09eef93d738dc471124b416b27563c7e63b45b0908fa934862f6",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_popcount\\7054930e6cf953b37df36306c7f863c0f3741b8605b692b26ad8914cb28733b3\\w128-baseline-generate.json": "a15fc38f534f831dc9d1402a46a6ea80eb819ca9e9f7a3ae6c4965f31e50a937",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_popcount\\7054930e6cf953b37df36306c7f863c0f3741b8605b692b26ad8914cb28733b3\\w128-candidate-generate.json": "801a81f200ab41a51290fa451ace1cfb8600b5c97818d58ead4453e26578661e",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\popcount-timing-audits.json": "c8ee61c9f78885cb36517e1e45adadb47dd39f275428f399f7b66b1c34b13c11",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\popcount-w64-paired.json": "20a475d43da8fe1438e0836517cef9a9a357159b5d701cfb093478a140b5ade9",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\prefix-physical-study.json": "29101843760aefc10eff8acfcc626a87b6d1e32f22f5f5eda9125728372c2414",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_prefix_adder\\dbd3d459388107f04018e03144249e7722ecc6cac9dc5ec8955f6151b2b0168a\\w32-baseline-generate.json": "cb28043e3c25bf3cc7d0cca77f422b1f229f7019dfadc400935240269c48bbfc",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_prefix_adder\\dbd3d459388107f04018e03144249e7722ecc6cac9dc5ec8955f6151b2b0168a\\w32-candidate-generate.json": "734055b8297c332e9348d898f7ef7ab490bdf3cded4989c3630408e9aa0a1a0e",
@@ -7331,6 +7936,11 @@
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\skid-w32_s8-paired.json": "68849ebe7250651de5c58b2d40370396a909cdd03f9bd16aa580640d7230a844",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\skid-w64_s16-paired.json": "06e3b0d32290d318b0dc8dda4706137fd2803e100c2d43d555c0cb1ed8d3a0de",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-dsp-diagnostic.json": "8d7a68e6f31560309e08aab8e14295e26058d9d6dd09979bf1ae0a67f855aa47",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-dsp-physical-study.json": "3ed67f6294360322cb86ec9c4293abe02a12dd3d11bcc8fb4c493063b82d9845",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\a5041cb00d1deb4a05ebebed220cf48755f9de940df69d9c784dd41f899bc109\\w32_n2-baseline-generate.json": "2e2379263219637c7863f7b38aa153d94fd5cb89fa6b1c13c5d0745a6cba2770",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\a5041cb00d1deb4a05ebebed220cf48755f9de940df69d9c784dd41f899bc109\\w32_n2-candidate-generate.json": "848b9c7b01037d5e1bbf47f77c26d5ccaedae25951f4dbd98377368718b6ef99",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-dsp-timing-audits.json": "9f04f0579dc36bc98047e6427bf895d83999359435944616ac40e46cc2d463e2",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-dsp-w32_n2-paired.json": "755473f747a5a7d140436629ce013c25dd4474d79445e85ba1c1660b6c0838e2",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\docs\\goals\\0928-tool-exploration\\evidence\\systolic-physical-study.json": "0c690845e77ee637618329e37bc16c8d231fc963cf85d3a7813caa8a1a7e56db",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\698c60023b1d356b4477bcd90dc76a57b6925d229db3f7b6170a18f43918bc05\\w16_n2-baseline-generate.json": "5a6268dc9712e5febd1f0db2c8945ac99beb65867435c9c7a317d5c0916b0db2",
       "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\systolic_matrix_tile\\698c60023b1d356b4477bcd90dc76a57b6925d229db3f7b6170a18f43918bc05\\w16_n2-candidate-generate.json": "8ad05453dd0482bea2276c637682968a1723cce77fcb1d18f18293ceb881ec54",
@@ -7356,5 +7966,5 @@
     "completion_claim_supported": false
   },
   "note": "This is a bounded mechanical acceptance audit, not a completion certificate. Missing, failed or unmatched cases keep the full aggregate undefined; no neutral ratio is imputed. Every complete retry is retained and the worst benefit is used. Structural inventory does not prove semantic distinctness or test quality. Remaining review items require independent evidence before whole-goal completion.",
-  "run_id": "7d5016"
+  "run_id": "11c679"
 }

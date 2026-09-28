@@ -141,3 +141,14 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Keep the matrix32 DSP clock-count mismatch rejected pending diagnosis.
 - [ ] Resolve remaining proof and physical gaps, including running retries.
 - [ ] Establish all-case benefit and complete independent semantic/evidence review.
+
+## Source semantics and inactive DSP storage
+
+- [x] Require separate source-netlist validation before miter simplification.
+- [x] Validate five normalization modes with 45 actual semantic controls.
+- [x] Record arithmetic-normalized retries without changing declarations/objectives.
+- [x] Audit complete per-cell DSP properties and actual active/inactive controls.
+- [x] Complete CSD16, modulo16 and popcount64 physical pairs and timing audits.
+- [x] Bound Windows run-publication retries without losing failed evidence.
+- [ ] Resolve candidate matrix CREG usage and remaining large arithmetic proofs.
+- [ ] Complete current popcount/adder physical retries and full all-case acceptance.

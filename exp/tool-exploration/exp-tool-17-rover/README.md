@@ -25,3 +25,8 @@ codex-sandbox-agent-workspace --verify-only` for the bounded 300-second bitwise
 retry. It keeps the original widths, constants, architectures and area objective.
 Study fe89db proves all 24 bits of the 16-bit case; the 32-bit case remains
 inconclusive. Old whole-output timeouts remain part of the evidence history.
+
+Physical study 7830ae completes three width16 pairs: LUT reduction 76%,
+throughput gain 102.60%, six timing audits pass. Width32 remains unknown in both
+bitwise and macc retries (eb1594); a single passing size does not qualify a family.
+config-macc.json retains the original width32/constant65535 area comparison.

@@ -376,3 +376,14 @@ Records predating coverage reports retain an explicit historical-unaudited count
 their coverage remains an independent review obligation. The matrix32 baseline
 has eight DSP48E1 differences and remains rejected pending an explanation of
 which internal registers are actually active. Do not overwrite its reports.
+
+## Arithmetic-normalized retries and DSP controls
+
+Run exp-tool-13-rover/bitwise.py with --container codex-sandbox-agent-workspace
+for all 45 real source-safety/proof-mode controls. Run exp-tool-43-rtlrewriter/dsp.py
+for real bypassed and active unclocked DSP cases. Both use normal registry calls.
+network_study.py accepts --configuration config-macc.json for tools17/23;
+exp-tool-14-rover/sweep.py runs all original adder-tree cases with mandatory SAT.
+exp-tool-38-kung/study.py --case w32_n2 preserves the original matrix declaration.
+All retry outputs are separate; retain old failures and source-bound artifacts.
+Current committed physical completeness is 41/59, not whole-goal acceptance.
