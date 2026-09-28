@@ -19,4 +19,6 @@ timed-out proof attempts remain failures, and do not disappear from acceptance.
 
 Paper connection: rtlrewriter, as documented in survey.md. This is a bounded
 architecture adaptation, not a reproduction of the paper's learned search.
-Results are pending; a structural change alone is not a measured PPA gain.
+All three pairs at 16/32-bit lane widths are complete. Tournament throughput
+improves 106.43%/99.44%; LUTs grow 2.71%/2.75%, within the throughput gate. Both
+configurations qualify.

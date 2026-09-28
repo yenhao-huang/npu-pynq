@@ -31,8 +31,9 @@ combinational PPA win. No performance gain is assumed from fewer partial rows.
 Use `study.py --configuration config-prefix.json --container
 codex-sandbox-agent-workspace --verify-only` for a 300-second ordered-bit retry
 per original configuration. This retry preserves the exact original cases,
-architectures and area objectives. Its outcome remains pending at this checkpoint;
-partial obligations and timeouts cannot unlock physical acceptance.
+architectures and area objectives. Prefix and AIG attempts are terminal without
+a complete proof; partial obligations and timeouts cannot unlock physical
+acceptance.
 
 ## Bounded AIG retry
 

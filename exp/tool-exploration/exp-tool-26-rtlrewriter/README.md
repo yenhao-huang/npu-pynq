@@ -19,4 +19,6 @@ timed-out proof attempts remain failures, and do not disappear from acceptance.
 
 Paper connection: rtlrewriter, as documented in survey.md. This is a bounded
 architecture adaptation, not a reproduction of the paper's learned search.
-Results are pending; a structural change alone is not a measured PPA gain.
+All three pairs at 32/64 bits are complete. LUT counts are unchanged; the tree
+has no 32-bit throughput gain and only a 2.21% gain at 64 bits. The family does
+not qualify.

@@ -21,8 +21,8 @@ The runner checkpoints successful calls under ignored `output/<source-digest>`.
 Failed calls remain visible and are retried on resumption. Do not launch a second
 copy while an existing study is running. The current runner does not yet validate
 tool-version changes on resume; use a fresh output namespace after environment
-changes. Full expanded acceptance also requires formal coverage, other
-microarchitecture families and the remaining tools.
+changes. Full expanded acceptance requires complete proof and physical evidence
+for every declared comparison.
 
 Hypothesis: carry-save compression may shorten long carry-propagate reductions.
 Balanced syntax alone may synthesize to nearly the same netlist. Both outcomes

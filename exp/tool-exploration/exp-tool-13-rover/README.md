@@ -13,7 +13,9 @@ staging uses a unique run directory and never edits the container configuration.
 
 Local validation used Yosys 0.23 (7ce5011c24b), with a 16-bit four-operand
 balanced reduction, an incorrect candidate, and a truncated input interface.
-Only the correct candidate passed. Large-study SAT coverage is still pending.
+Only the correct candidate passed. The historical source audit now covers all
+98 interfaces from 49 successful SAT study proofs; FIR and Booth remain unknown
+after bounded proof attempts.
 
 Run reproducible positive/negative/interface controls:
 
