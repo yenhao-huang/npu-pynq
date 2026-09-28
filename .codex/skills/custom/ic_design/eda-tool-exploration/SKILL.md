@@ -190,3 +190,9 @@ Validate derived analytics as well as inputs. Finite reward and cost inputs can
 still overflow a selection score. Reject a nonfinite result before choosing an
 action; exercise normal study-derived selection and arithmetic boundary controls.
 Record semantic review separately from structural inventory checks.
+
+Before accepting SAT equivalence, inspect both original elaborated source
+interfaces: exactly input x and output y, with the declared widths. Extra ports
+cannot be ignored even when the miter succeeds. Exercise hidden-output mutations
+in every normalization mode, and audit historical sources against their recorded
+hashes before reusing them. An interface audit is not a new SAT proof.

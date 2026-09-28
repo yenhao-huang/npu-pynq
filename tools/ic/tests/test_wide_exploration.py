@@ -131,7 +131,7 @@ def test_bitwise_requires_every_obligation_and_successful_process(store,tmp_path
                     assert f"-set matches[{bit-1}:0] {bit}'b"+'1'*bit+' ' in command
                 else:assert '-set matches' not in command
             for label in ('reference','candidate'):
-                (cwd/(label+'.json')).write_text('{"modules":{"dut":{"netnames":{},"cells":{}}}}')
+                (cwd/(label+'.json')).write_text('{"modules":{"dut":{"ports":{"x":{"direction":"input","bits":[2,3,4,5,6,7,8,9]},"y":{"direction":"output","bits":[2,3,4,5,6,7,8,9]}},"netnames":{},"cells":{}}}}')
         return CommandResult(argv,0 if version else exit_code,0,log_path,timed_out=False if version else timed_out)
     monkeypatch.setattr(formal,'run_process',fake_run)
     result=dispatch('yosys_equivalence',dict(reference_files=[str(source)],candidate_files=[str(source)],top='dut',input_width=8,output_width=8,normalization=normalization),store=store)
@@ -180,9 +180,36 @@ def test_product_abstraction_requires_defined_original_netlist(store,tmp_path,mo
             log_path.write_text('SAT proof finished - no model found: SUCCESS!\n')
             if bits is not None:
                 for label in ('reference','candidate'):
-                    (cwd/(label+'.json')).write_text(json.dumps({'modules':{'dut':{'netnames':{'n':{'bits':bits}},'cells':{'c':{'type':cell_type,'connections':{'Y':bits}}}}}}))
+                    (cwd/(label+'.json')).write_text(json.dumps({'modules':{'dut':{'ports':{'x':{'direction':'input','bits':[1]},'y':{'direction':'output','bits':[1]}},'netnames':{'n':{'bits':bits}},'cells':{'c':{'type':cell_type,'connections':{'Y':bits}}}}}}))
         return CommandResult(argv,0,0,log_path)
     monkeypatch.setattr(formal,'run_process',fake_run)
     result=dispatch('yosys_equivalence',dict(reference_files=[str(source)],candidate_files=[str(source)],top='dut',input_width=1,output_width=1,normalization=normalization),store=store)
     assert result['ok'] is expected
     assert result['data']['abstraction_defined'] is expected
+
+
+@pytest.mark.parametrize('normalization',['word','aig','macc','bitwise','bitwise_products','bitwise_prefix'])
+@pytest.mark.parametrize('mutation',['valid','extra_output','extra_input','wrong_direction','wrong_width','missing_port'])
+def test_formal_requires_complete_source_interfaces(store,tmp_path,monkeypatch,normalization,mutation):
+    import json
+    from ic_core.tools.debug import formal
+    from ic_core.process import CommandResult
+    source=tmp_path/'dut.sv';source.write_text('module dut(input x,output y); assign y=x; endmodule')
+    monkeypatch.setattr(formal.shutil,'which',lambda name:name)
+    def fake_run(argv,*,cwd,log_path,timeout_s):
+        log_path.write_text('Yosys 0.23' if '-V' in argv else 'SAT proof finished - no model found: SUCCESS!\n')
+        if '-V' not in argv:
+            for label in ('reference','candidate'):
+                ports={'x':{'direction':'input','bits':[2]},'y':{'direction':'output','bits':[2]}}
+                if label=='candidate':
+                    if mutation=='extra_output':ports['z']={'direction':'output','bits':['1']}
+                    elif mutation=='extra_input':ports['hidden']={'direction':'input','bits':[3]}
+                    elif mutation=='wrong_direction':ports['y']['direction']='inout'
+                    elif mutation=='wrong_width':ports['x']['bits']=[2,3]
+                    elif mutation=='missing_port':del ports['y']
+                (cwd/(label+'.json')).write_text(json.dumps({'modules':{'dut':{'ports':ports,'netnames':{},'cells':{}}}}))
+        return CommandResult(argv,0,0,log_path)
+    monkeypatch.setattr(formal,'run_process',fake_run)
+    result=dispatch('yosys_equivalence',dict(reference_files=[str(source)],candidate_files=[str(source)],top='dut',input_width=1,output_width=1,normalization=normalization),store=store)
+    assert result['ok'] is (mutation=='valid')
+    assert result['data']['interface_complete'] is (mutation=='valid')

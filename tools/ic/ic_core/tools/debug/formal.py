@@ -124,12 +124,19 @@ select *
         unchanged=hashes==[fingerprint(files,params.top) for files in designs]
         completed=text.count('SAT proof finished - no model found: SUCCESS!')
         abstraction_defined=True
+        interface_complete=True
         for label in ('reference','candidate'):
             if params.container:
                 copied=run_process(['docker','cp',params.container+':'+remote+'/'+label+'.json',str(stage/(label+'.json'))],cwd=stage,log_path=ctx.run.artifacts/(label+'-netlist-copy.log'),timeout_s=30)
                 abstraction_defined &= copied.exit_code==0 and not copied.timed_out
             try:
                 original=json.loads((stage/(label+'.json')).read_text())
+                ports=original['modules'][params.top].get('ports',{})
+                interface_complete &= (set(ports)=={'x','y'}
+                    and ports['x'].get('direction')=='input'
+                    and ports['y'].get('direction')=='output'
+                    and len(ports['x'].get('bits',[]))==params.input_width
+                    and len(ports['y'].get('bits',[]))==params.output_width)
                 # Replacing an X/Z-producing product with a defined input would
                 # narrow four-state behavior. Reject such source netlists even
                 # when the abstract SAT obligations happened to succeed.
@@ -145,8 +152,9 @@ select *
                     abstraction_defined &= all(isinstance(bit,int) or bit in ('0','1') for bus in buses for bit in bus)
             except (OSError,ValueError,KeyError,TypeError):
                 abstraction_defined=False
-        passed=(result.exit_code==0 and not timed_out and unchanged and abstraction_defined and 'Warning:' not in text and completed==len(signals))
-        return Result(ok=passed,data=dict(proved=passed,reference_sha256=hashes[0],candidate_sha256=hashes[1],engine=version.text().strip(),normalization=params.normalization,proof_obligations=len(signals),completed_obligations=completed,abstraction_defined=abstraction_defined,log=ctx.run.handle('proof.log'),exit_code=result.exit_code,timed_out=timed_out,source_unchanged=unchanged),note='Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.')
+                interface_complete=False
+        passed=(result.exit_code==0 and not timed_out and unchanged and abstraction_defined and interface_complete and 'Warning:' not in text and completed==len(signals))
+        return Result(ok=passed,data=dict(proved=passed,reference_sha256=hashes[0],candidate_sha256=hashes[1],engine=version.text().strip(),normalization=params.normalization,proof_obligations=len(signals),completed_obligations=completed,abstraction_defined=abstraction_defined,interface_complete=interface_complete,log=ctx.run.handle('proof.log'),exit_code=result.exit_code,timed_out=timed_out,source_unchanged=unchanged),note='Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. Both source interfaces must contain exactly input x and output y at the declared widths. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.')
 
 
 CATEGORY.ops.append(Op('yosys_equivalence', FormalIn, Result, 'Prove combinational packed-interface equivalence with Yosys SAT and reject state cells.',long_running=True))

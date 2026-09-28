@@ -49,3 +49,27 @@ python exp/tool-exploration/exp-tool-09-rtlrewriter/controls.py
 
 These results close this specific numerical issue. They do not complete the
 remaining operation review, whole-case benefit or physical-evidence gates.
+
+## Complete SAT interface review (operation 13)
+
+Development run `0ccec1` incorrectly accepted a candidate whose extra output `z`
+differed from the reference: the miter observed only `x` and `y`. That run is
+explicitly rejected in interface-development-failure.json. The backend now
+requires both pre-optimization source netlists to contain exactly input `x` and
+output `y`, at the declared widths. A successful SAT result cannot override this
+check. Extra unused inputs, extra outputs, inout ports and width mismatches fail.
+
+The Docker Yosys 0.23 controls cover all six normalization modes: 48 interface
+cases and 60 arithmetic/undefined-value cases match their expected verdicts.
+The historical interface audit re-elaborated 88 source files from 44 successful
+SAT study proofs, after matching each file set to its recorded source hash;
+all have complete declared interfaces. This is an interface-only audit, not a
+new SAT proof or retrospective change to a historical verdict. Its scope is the
+evidence directory at execution; later studies require another audit.
+
+Reproduce with `exp/tool-exploration/exp-tool-13-rover/interfaces.py`,
+`bitwise.py` and `audit_interfaces.py`, each with
+`--container codex-sandbox-agent-workspace`. See interface-controls.json,
+normalization-interface-controls.json and historical-interface-audit.json in
+`evidence/`. Operation 13's identified interface issue is fixed; review of the
+remaining operations and historical physical coverage is still incomplete.

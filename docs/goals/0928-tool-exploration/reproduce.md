@@ -445,3 +445,16 @@ python exp/tool-exploration/exp-tool-21-booth/study.py --configuration config-pr
 These preserve the original two configurations per family and use the same
 300-second ordered-bit proof budget. Only a complete source-bound proof can
 unlock a subsequent physical run. Pending/failed outcomes must remain recorded.
+
+## Full SAT interface controls
+
+```sh
+python exp/tool-exploration/exp-tool-13-rover/interfaces.py --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-13-rover/bitwise.py --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-13-rover/audit_interfaces.py --container codex-sandbox-agent-workspace
+```
+
+The first two commands exercise 48 interface and 60 source-semantics controls.
+The third re-elaborates successful SAT study sources after verifying their old
+hashes; it checks the complete interface without rerunning SAT or changing old
+verdicts. Non-SAT algebraic proofs are explicitly excluded from that audit.

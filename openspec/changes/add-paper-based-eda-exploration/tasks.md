@@ -175,3 +175,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Prove original CSD32, modulo32 and both dot-product cases.
 - [x] Complete all four original adder comparisons and matrix32 timing evidence.
 - [ ] Complete the newly unlocked physical studies and whole-case acceptance.
+
+- [x] Reject hidden/unobserved ports in both SAT source interfaces; run 48 actual
+  interface controls and 60 normalization controls. Re-elaborate 88 historical
+  source interfaces without altering their old proof records.

@@ -1,0 +1,1922 @@
+{
+  "scope": "Interface-only re-elaboration of source-bound successful SAT study proofs; no new SAT or physical verdict.",
+  "commands": [
+    [
+      "docker",
+      "exec",
+      "codex-sandbox-agent-workspace",
+      "mkdir",
+      "/tmp/ic-interface-audit-e9c1206fbc4b"
+    ],
+    [
+      "docker",
+      "cp",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\output\\interface-audit-e9c1206fbc4b/.",
+      "codex-sandbox-agent-workspace:/tmp/ic-interface-audit-e9c1206fbc4b"
+    ],
+    [
+      "docker",
+      "exec",
+      "-w",
+      "/tmp/ic-interface-audit-e9c1206fbc4b",
+      "codex-sandbox-agent-workspace",
+      "timeout",
+      "180",
+      "yosys",
+      "-s",
+      "audit.ys"
+    ],
+    [
+      "docker",
+      "cp",
+      "codex-sandbox-agent-workspace:/tmp/ic-interface-audit-e9c1206fbc4b/.",
+      "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\exp\\tool-exploration\\exp-tool-13-rover\\output\\interface-audit-e9c1206fbc4b"
+    ]
+  ],
+  "script_sha256": "9621aac93154aa06ee19bb22406452446de276215e66e83fdf6c4ce2f638b900",
+  "excluded_non_sat": [
+    {
+      "run_id": "07651f",
+      "operation": "gf2_equivalence"
+    },
+    {
+      "run_id": "0bb0df",
+      "operation": "gf2_equivalence"
+    },
+    {
+      "run_id": "0f806f",
+      "operation": "gf2_equivalence"
+    },
+    {
+      "run_id": "8a2ed9",
+      "operation": "gf2_equivalence"
+    },
+    {
+      "run_id": "955cca",
+      "operation": "gf2_equivalence"
+    },
+    {
+      "run_id": "99f21c",
+      "operation": "gf2_equivalence"
+    },
+    {
+      "run_id": "d0dfbb",
+      "operation": "gf2_equivalence"
+    },
+    {
+      "run_id": "f96c9a",
+      "operation": "gf2_equivalence"
+    }
+  ],
+  "rows": [
+    {
+      "run_id": "00615b",
+      "role": "reference",
+      "source_sha256": "9c77988d96c846f5ecfd5d927c179b1e4c662c257eb077a3d467a3f9cb41231f",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "5ea80585dba5ddb352962887b2fbe0f43f565470cb4e8b025b8d0a103b55f449",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "00615b",
+      "role": "candidate",
+      "source_sha256": "88eb67a75a74932392c1d35b19c9d08c8d76027adf27e19c492fbea47538318e",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "550c2e3af6d9510401d49deb6300fb0311d676f39556d4af23bcb301ca5fd924",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "030e96",
+      "role": "reference",
+      "source_sha256": "9c77988d96c846f5ecfd5d927c179b1e4c662c257eb077a3d467a3f9cb41231f",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "ad70e73ce59a7751ace3dab1c61e2d86fed2144f7f18cdebc668f2148e2b7bc2",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "030e96",
+      "role": "candidate",
+      "source_sha256": "88eb67a75a74932392c1d35b19c9d08c8d76027adf27e19c492fbea47538318e",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "246d0b011be11ec53f8fd667f697917da2757d4885e8ae81bf198284206f0914",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "031150",
+      "role": "reference",
+      "source_sha256": "f2e97a906a90f48f648321d47c4d210f48c61b1014c477d066e92c8b00b74e78",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 96,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 96
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "0a8443761b19030ccfaaf5b82bd4db1de004055888aa5b50c4fbd8b380a6a515",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "031150",
+      "role": "candidate",
+      "source_sha256": "214b60b7c7587285f8c27e15e028b7150276a20f2abe3dda8750ff8c97178e64",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 96,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 96
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "15df2ec7bcb89ab7918bca75457c1255430f2407be4a034bd46fcb4bbd4bc6a2",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "09351f",
+      "role": "reference",
+      "source_sha256": "9c77988d96c846f5ecfd5d927c179b1e4c662c257eb077a3d467a3f9cb41231f",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "24cd477f9fc993961b0bed9bc6ae79c6e524b432b6bebf8e3f79e68010645d08",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "09351f",
+      "role": "candidate",
+      "source_sha256": "f195a07098b06d397b5dc9cfc101889a67c0929b098cf221502cf7ab18f7e556",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "918dd211ffbc02ce42a5e35908165aaf796fa75a3383d3393dec6065dd61fa61",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "157f0e",
+      "role": "reference",
+      "source_sha256": "396b8f9f84595669c537bd5e066c3b22974af91f88a476d6bb6ecd0ed7015cb8",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 16,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 16
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "e7ebd7744e14c6ec6f88e07b3aa8ed63e8747b02c15f1fd250a24b15cd85b702",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "157f0e",
+      "role": "candidate",
+      "source_sha256": "cdc6e365decd70cb3ee39660759e33f4f8e1c38c9165da09010161b838aaeaf2",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 16,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 16
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "16e5af8dc1c89c87c859e7a3629ff15796be73511dbc566dd9f7a612fdd50b22",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "1602fa",
+      "role": "reference",
+      "source_sha256": "1f8eaf51af93a8038c2177a4aeff34704f0ef185ce0708b2279308ddfe4b14d6",
+      "top": "dut",
+      "input_width": 272,
+      "output_width": 16,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 272
+        },
+        "y": {
+          "direction": "output",
+          "width": 16
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "11c2ac12f6a5aff575c6e4a2527bc1a62e22a0cb4270f36eea7c6a327a923015",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "1602fa",
+      "role": "candidate",
+      "source_sha256": "fb20377348656bf99a41ff13347f8c128ab43042009ae5e47027e30f3d669e39",
+      "top": "dut",
+      "input_width": 272,
+      "output_width": 16,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 272
+        },
+        "y": {
+          "direction": "output",
+          "width": 16
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "66e73ba1a1657e10267169f5380b55e9484060a0b201929d73a11ee6098cdb33",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "243ecc",
+      "role": "reference",
+      "source_sha256": "c156b393c97947444a783c022337dd26bb2f5f5207c2adfa731f2df8ae0a8cf3",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 32,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 32
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "f7cf35fe55a56eb03eff20a65df9ced61abc4af7599fd35463440c3aefe1fee4",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "243ecc",
+      "role": "candidate",
+      "source_sha256": "3252813993939ce2c266dd20da9283c4e3bbabcc50cfb79bde626e35ef043204",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 32,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 32
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "0efbbdadf9e5730ef480eb0bae3755cf71a3a1492c6da7ade4957195b080e136",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "2da66c",
+      "role": "reference",
+      "source_sha256": "8e9153a7aae40faf94e2e4495eaf1d85f815d5a2a682dc02133d429e916b8d36",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 20,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 20
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "4874c2910a171e0f0433fd3993fa327de96844266b116cead4568f1616914ecf",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "2da66c",
+      "role": "candidate",
+      "source_sha256": "a1eba312a5e4ee82755fbed012804b2daf1d673744af542f0e1b4e9e91d58f08",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 20,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 20
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "56ea9f6666258ede0d4e4213a1bbb6e8cacb8ccecf1f2385af85fef4417fb581",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "2f0daa",
+      "role": "reference",
+      "source_sha256": "9c77988d96c846f5ecfd5d927c179b1e4c662c257eb077a3d467a3f9cb41231f",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "0f2c4050cc3ff855a4db4e0b8033d57fff745989b7e4c0ee6f0076665357dcbb",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "2f0daa",
+      "role": "candidate",
+      "source_sha256": "88eb67a75a74932392c1d35b19c9d08c8d76027adf27e19c492fbea47538318e",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "8c1b7415226f0b1a0d3865d8a48227e0bd00f929e386fecaeb65bfd773f4aada",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "30b355",
+      "role": "reference",
+      "source_sha256": "c47bafd1d675591123a98a99f81684b852bbe0ca9db7c65d5e449e4feba5733d",
+      "top": "dut",
+      "input_width": 65,
+      "output_width": 33,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 65
+        },
+        "y": {
+          "direction": "output",
+          "width": 33
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "7d37cf862c9af24a7042c49773250a64ddf22ed860627a1233ac7f86d7784ac4",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "30b355",
+      "role": "candidate",
+      "source_sha256": "00521f6adbd237512d738d35afcb34a3d3e1b3664b92bbb133f0f0cdcfb733ae",
+      "top": "dut",
+      "input_width": 65,
+      "output_width": 33,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 65
+        },
+        "y": {
+          "direction": "output",
+          "width": 33
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "926db85dd7ad15a8de4e68e61a161fdbe577b169a6a13b9e70b2e8cbf73fbfa4",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "4f5cf6",
+      "role": "reference",
+      "source_sha256": "860a44d66e99ff5b69abd159be690aac5849edabb690a2231a91944a009195bb",
+      "top": "dut",
+      "input_width": 129,
+      "output_width": 65,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 129
+        },
+        "y": {
+          "direction": "output",
+          "width": 65
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "515ab22791a2af6983f175f3d5c39779ff605c24067dae08a34602f3b45f9858",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "4f5cf6",
+      "role": "candidate",
+      "source_sha256": "0ae0e213f36804c9200f0d16cf02b970a50abfd6715ea93e663819c2531bd4de",
+      "top": "dut",
+      "input_width": 129,
+      "output_width": 65,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 129
+        },
+        "y": {
+          "direction": "output",
+          "width": 65
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "13d914efe5dffd9fa5ac96f3406fc045b16e28baa7c8f1d1b8b411d9d20530a0",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "59b365",
+      "role": "reference",
+      "source_sha256": "c47bafd1d675591123a98a99f81684b852bbe0ca9db7c65d5e449e4feba5733d",
+      "top": "dut",
+      "input_width": 65,
+      "output_width": 33,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 65
+        },
+        "y": {
+          "direction": "output",
+          "width": 33
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "b340c47bda1285532091e51c9b5e98eb63203e4398617ebba7a3743287d4e27f",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "59b365",
+      "role": "candidate",
+      "source_sha256": "00521f6adbd237512d738d35afcb34a3d3e1b3664b92bbb133f0f0cdcfb733ae",
+      "top": "dut",
+      "input_width": 65,
+      "output_width": 33,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 65
+        },
+        "y": {
+          "direction": "output",
+          "width": 33
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "caa9ef0f33a6b374d89680fcc3807068096ad7c6469078370e6d2c2441117c73",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "5ba5d7",
+      "role": "reference",
+      "source_sha256": "ac91bf78a661a0800e3d103d4ff325bbf48da1a3b379c9ff79bcab403206d6ef",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 4,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 4
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "b1622d3e312524424f66bb34cae5239a99a250687d4f3864e4bfa6fb3c586cb7",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "5ba5d7",
+      "role": "candidate",
+      "source_sha256": "8402d5bcb4a5c8735577f1ef339ace1a0fad3b6d723bf3b8e71bf5c361df6211",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 4,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 4
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "655e76abcb174eaed8dd3bbc1b9949a19d66713cd9db42f2fe452c9d1d04f012",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "61aaed",
+      "role": "reference",
+      "source_sha256": "c7a2f019d81521879fa3503931e3cb47efd041f1f3b4081754b456af6f97ac37",
+      "top": "dut",
+      "input_width": 37,
+      "output_width": 32,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 37
+        },
+        "y": {
+          "direction": "output",
+          "width": 32
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "1067b47781cef8745b52afe2a6032ff86f42e4be10fbc4a3b5a51cb3f6cf75a2",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "61aaed",
+      "role": "candidate",
+      "source_sha256": "6e6eabe8d7df53fbcc7f9599cb458ca7bc8c529e6e79341bb22f427f603380a8",
+      "top": "dut",
+      "input_width": 37,
+      "output_width": 32,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 37
+        },
+        "y": {
+          "direction": "output",
+          "width": 32
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "e60884a7b9b151f58acbb9ac886ec000f8763a1af8c995e7c6ae561335c0ba58",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "666fef",
+      "role": "reference",
+      "source_sha256": "cf5b51bd129758dccd4354e9fa2f6c31fb15779e3fecbf0c0e4e881fd30f63ce",
+      "top": "dut",
+      "input_width": 70,
+      "output_width": 64,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 70
+        },
+        "y": {
+          "direction": "output",
+          "width": 64
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "a7b482f601f1547bd9b8f55d09d9097115ea653cf95057c2d43b472029e0b785",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "666fef",
+      "role": "candidate",
+      "source_sha256": "43d91a7dd487aab4dc2de996f0192c3a90c6e43db1f4ca656b643480ea5cf492",
+      "top": "dut",
+      "input_width": 70,
+      "output_width": 64,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 70
+        },
+        "y": {
+          "direction": "output",
+          "width": 64
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "ebfaa9bb8f513e0e5573ade14cbf3490749c6e060c85f19b8bdfdddf6b0b319c",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "6b9e3f",
+      "role": "reference",
+      "source_sha256": "860a44d66e99ff5b69abd159be690aac5849edabb690a2231a91944a009195bb",
+      "top": "dut",
+      "input_width": 129,
+      "output_width": 65,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 129
+        },
+        "y": {
+          "direction": "output",
+          "width": 65
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "bb1a8ba0ab53c20ba0cf0f2ace0c9627373ddb21c00a7b423dc5bb18609795c7",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "6b9e3f",
+      "role": "candidate",
+      "source_sha256": "0ae0e213f36804c9200f0d16cf02b970a50abfd6715ea93e663819c2531bd4de",
+      "top": "dut",
+      "input_width": 129,
+      "output_width": 65,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 129
+        },
+        "y": {
+          "direction": "output",
+          "width": 65
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "e6b534666f3a51dac56c1d2c780fc9562b727562b305ff1905d39523d77c8b8f",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "73d82a",
+      "role": "reference",
+      "source_sha256": "861d644a06d5c07de526b40d1d09ad48642f247782e50e6ae37a76bb6e2428fb",
+      "top": "dut",
+      "input_width": 528,
+      "output_width": 32,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 528
+        },
+        "y": {
+          "direction": "output",
+          "width": 32
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "bda1d126c605bfa9781bb01d7ca17c655de6ec2fc535eec1e8c3bb296af63477",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "73d82a",
+      "role": "candidate",
+      "source_sha256": "f6995fb44cba3f7aa603dafc1b8ab671ecd60d05c89e70bc43a4a4d75c42ee59",
+      "top": "dut",
+      "input_width": 528,
+      "output_width": 32,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 528
+        },
+        "y": {
+          "direction": "output",
+          "width": 32
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "5c97fa8964d4dfbdfc4b5606cd7cb2e5feff567b61cd25c9bd2e28cd415ef36c",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "79769e",
+      "role": "reference",
+      "source_sha256": "ac91bf78a661a0800e3d103d4ff325bbf48da1a3b379c9ff79bcab403206d6ef",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 4,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 4
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "35d89d07cefed00bfda6361e42ac4f78f576828b28514d3277a4c734f1984117",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "79769e",
+      "role": "candidate",
+      "source_sha256": "8402d5bcb4a5c8735577f1ef339ace1a0fad3b6d723bf3b8e71bf5c361df6211",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 4,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 4
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "0fc4b4243c6cfdf9c1aa8bdb2dd438a053e81e4deb713ec8021b46e59baebcbc",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "79dcd7",
+      "role": "reference",
+      "source_sha256": "9c77988d96c846f5ecfd5d927c179b1e4c662c257eb077a3d467a3f9cb41231f",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "b6bc17077e1087446b57ab71f60f1bba62ea4d6f9b174331dbc69b27b14c0d1d",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "79dcd7",
+      "role": "candidate",
+      "source_sha256": "88eb67a75a74932392c1d35b19c9d08c8d76027adf27e19c492fbea47538318e",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "975d05c0ed76b60af8bebfda53cfb0a1d80a2ae3e958f4ebc2fa4d0f5414186b",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "86ce0e",
+      "role": "reference",
+      "source_sha256": "1ca7e0486c099e92b24291e74bda81c108069c6e026b4cc006cd0310aae153e7",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "c59fcf918b4acd31fda3a2117378106e03d21a69ac338378242021fbaf38ad2d",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "86ce0e",
+      "role": "candidate",
+      "source_sha256": "b61951905e51a5cebc45ed8221b386e15f79365ca4194e80b335b40def6651b1",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "12bcffb4cb31c878f5e572e2f08abed0915beaa664ff66deb32ef73689cf9b91",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "8d2070",
+      "role": "reference",
+      "source_sha256": "1366f4f1c58627836dd1eac8906b182ac88c55ce14b4bd0b88db26a785b2ceca",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 160,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 160
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "8e2b501ebb7c3193a9f7ba34fa565d02fd9361a7f2f3bb10d6d2147a01581098",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "8d2070",
+      "role": "candidate",
+      "source_sha256": "c6020b285e02215644715bb9f538ee81579bccc7d28dc99c29609c15c89802a8",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 160,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 160
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "015adc57c0c57155b13f2eb1590b204b20e124dddcb4f644733d63026044e016",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "8fbd70",
+      "role": "reference",
+      "source_sha256": "715e45728de4204404a6c1c4e932d61cc2eee9b924a08c142d3b717b40d5f5e2",
+      "top": "dut",
+      "input_width": 65,
+      "output_width": 33,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 65
+        },
+        "y": {
+          "direction": "output",
+          "width": 33
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "be1e90c150f4d463d7fb48b8ed6350fdaea5cad3588d40b6e06072c5ef9b51bb",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "8fbd70",
+      "role": "candidate",
+      "source_sha256": "e956cb300b521278467c2fd88a9075212917920bfb63acf9aad20c2135139879",
+      "top": "dut",
+      "input_width": 65,
+      "output_width": 33,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 65
+        },
+        "y": {
+          "direction": "output",
+          "width": 33
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "45536754e1b4a04d241054efc65133c6fe84b951ede263b71ac109ff1059ff88",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "92981b",
+      "role": "reference",
+      "source_sha256": "62f9c1f995c50e8d8a061ef26875bd573ed9c9209394af795d4eb57e1bf1b46a",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "2d9c4797d1bb360d6b7c35857de2e673d9ff5e551b865278211467816fb1d385",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "92981b",
+      "role": "candidate",
+      "source_sha256": "0325bd4561e55ef97432096e0c6836191c8fb39e98843c8f5e400c9c21765b29",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "f485155ec387158b6898dbe16bb6058b2a795fb9b6e1555ee7a73048be1452ab",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "97982c",
+      "role": "reference",
+      "source_sha256": "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 24,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 24
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "4fb738bd3d9f352d0e8bd2b646a1a692c58ebafc799fb8746b1d17286b0ece84",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "97982c",
+      "role": "candidate",
+      "source_sha256": "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 24,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 24
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "caa34ba2dbbd96716748b18d995b28d14115332d745bdb22129cd216fdc3a9df",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "9c8325",
+      "role": "reference",
+      "source_sha256": "caefdc9809ee8678aaacd95ea3f28ca837e88273d19527036d928b677b2d1092",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 36,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 36
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "ffb693e6f131262c7031dcca32543ca049864ff826fea728af6023d589e952e0",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "9c8325",
+      "role": "candidate",
+      "source_sha256": "e852cd328fcd09b0706474bba54f727b97c3bba19556df576de4d0a1b61c5815",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 36,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 36
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "ab4593375569d4a642455f93ab73636b768a58b2b041bd2b0f441feb05c788a2",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "9edde1",
+      "role": "reference",
+      "source_sha256": "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 24,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 24
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "5944ee412bad53a3db0abf6f204c22deab9b0bac263e08c43c8835228509d351",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "9edde1",
+      "role": "candidate",
+      "source_sha256": "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 24,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 24
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "04153c46cdfa1d8ea50a879182bfce19cb1d15614c37da4165547fc4b8065e1e",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "a45787",
+      "role": "reference",
+      "source_sha256": "c156b393c97947444a783c022337dd26bb2f5f5207c2adfa731f2df8ae0a8cf3",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 32,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 32
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "49b885f629e5f47a953d61a6d1779e3a076e6820347681f28db3b2c99272af2f",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "a45787",
+      "role": "candidate",
+      "source_sha256": "97c0c449247b9e2d9947d4a6fa3060e204eae3d54dab159d1fd8cef804fec3ff",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 32,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 32
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "cbdc2324f1ddf470e50f0f2a5235e5d098f26942f2f46df991ee6d307238711b",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "ae8fe8",
+      "role": "reference",
+      "source_sha256": "c9718ac6d8cf0e92c071cddf151c2ef023fb0e4320539e210c14b0de276f7407",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "32deb7426da77aff2e9a8f5d957e550cef4416476c3817d5eb1ae3c84cad529b",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "ae8fe8",
+      "role": "candidate",
+      "source_sha256": "1e7e133bccc3cb415728d607dd2620e507472e433b6578af572be0cb37577bf2",
+      "top": "dut",
+      "input_width": 64,
+      "output_width": 7,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 64
+        },
+        "y": {
+          "direction": "output",
+          "width": 7
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "26cbd901417a32bedb1370634ab8a88939093665eb3b222ff8a1e1a80f4469ae",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "b06a1c",
+      "role": "reference",
+      "source_sha256": "09299fc98cad8898d3ca6de0c5724a4cfdad81847d560d7b1db65e4e79dee7a4",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "7f5f7c5772ab21982ad434b10836d073c2af13be85299dc0a79117d1a4f2a231",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "b06a1c",
+      "role": "candidate",
+      "source_sha256": "7dc04de6fca6211e0fbbe6d834c0541b7d7248a6e0b91fb9f8d9348d26d315f9",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "e916f952d1b479f6814ad25998088d650784d70ff22f89c3db7167e0f74c58b0",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "b4507e",
+      "role": "reference",
+      "source_sha256": "1366f4f1c58627836dd1eac8906b182ac88c55ce14b4bd0b88db26a785b2ceca",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 160,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 160
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "48ec790c7fb93854afabc6fad92443ae17e63642aa3c5d14b69245baf989c966",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "b4507e",
+      "role": "candidate",
+      "source_sha256": "c6020b285e02215644715bb9f538ee81579bccc7d28dc99c29609c15c89802a8",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 160,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 160
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "5a15a560f9df7952bbdc6252c974a9526920c7f5b88d39505982bdf153ec34ca",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "b67170",
+      "role": "reference",
+      "source_sha256": "09299fc98cad8898d3ca6de0c5724a4cfdad81847d560d7b1db65e4e79dee7a4",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "7d218b6dd9ff6735b7ef5c4db926eec75eca9b9e797a23f3144c7747bf939a3a",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "b67170",
+      "role": "candidate",
+      "source_sha256": "7dc04de6fca6211e0fbbe6d834c0541b7d7248a6e0b91fb9f8d9348d26d315f9",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "799d6ab345cf2758894b80aba8b8168d364b6b5dd2345270327ea51f88f1ce58",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "bf28fd",
+      "role": "reference",
+      "source_sha256": "df94a533533b50d7ac85424c9a09658831ffbf4c3e3006075c6eda5a96d24adb",
+      "top": "dut",
+      "input_width": 129,
+      "output_width": 65,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 129
+        },
+        "y": {
+          "direction": "output",
+          "width": 65
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "6cf0780e8621493fa4e2ac0b0de3c8ba509f3e2a4d57fd8c00a752df90fef9f0",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "bf28fd",
+      "role": "candidate",
+      "source_sha256": "28ee6feb5e5864db998bc579ce3fe895a82ead6058b02df17c78dcdd8e4f4374",
+      "top": "dut",
+      "input_width": 129,
+      "output_width": 65,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 129
+        },
+        "y": {
+          "direction": "output",
+          "width": 65
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "043577cacb24665891b0aa00a8cce1baff4c35a93618eaa3b6b11135daf73233",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "c56dbd",
+      "role": "reference",
+      "source_sha256": "ae981442c4a6327f152766197ef9534d9aa1d38ccbde52adfaea2a066e909152",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "eee8b2a9caea657675b15087a0f27eb1ffdb0dc39f486f13a4f6aca0b9a82c91",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "c56dbd",
+      "role": "candidate",
+      "source_sha256": "c67c2ccb95a01f64eef94150c52512135fd83aa6f77df284adffb054e9a135cd",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "c430bae4e26d16b8fbe9f41a98a4d319a58f602aff727b4b44fe2f6a01d9d550",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "c65187",
+      "role": "reference",
+      "source_sha256": "dbaf429572265035d668af75ad2ebafe849d9ee377e38fc9129f8528b86704d8",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 48,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 48
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "fe951b3db3865661771f005a75fb919a7ebc6a7e57a3ee05d3513230d7ab2e50",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "c65187",
+      "role": "candidate",
+      "source_sha256": "764e0fe741fa143eeecade5acf2591edf3e958c36c9e41f693d182e2b3e70b95",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 48,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 48
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "9392bda89fa325fe9e0bdf97d7eaf49d4ae7a5e98116593752bae7f7167a7310",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "cd9763",
+      "role": "reference",
+      "source_sha256": "09299fc98cad8898d3ca6de0c5724a4cfdad81847d560d7b1db65e4e79dee7a4",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "9c882924b7119627083ec779c8236209debb871169f90b1e8cc60b938c4ec7b0",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "cd9763",
+      "role": "candidate",
+      "source_sha256": "9422b7e0bac2f783947c37d7c189c7c0804666041980a8555331a29011b6746e",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "9a3c71cd0bf41bf53269d6b4b97bee147c702e8830ce7de4c660e29fbe14c2e8",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "cea49c",
+      "role": "reference",
+      "source_sha256": "62f9c1f995c50e8d8a061ef26875bd573ed9c9209394af795d4eb57e1bf1b46a",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "24657780f0bb3d004dccd4da8b007f4459276d037e637a2ba3d84198b205e508",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "cea49c",
+      "role": "candidate",
+      "source_sha256": "0325bd4561e55ef97432096e0c6836191c8fb39e98843c8f5e400c9c21765b29",
+      "top": "dut",
+      "input_width": 32,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 32
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "6c3bde4c6d8080b3b4996f944d67afcacc8c502fea4cd3e9196cbb4ec74f2775",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "d8651f",
+      "role": "reference",
+      "source_sha256": "e5a7387839b98f056827c3efa6fb7585bdabea07ca3f46b30d51a03d869b33e2",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 67,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 67
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "86f50ef5ad599b18abde4d931c93351e9a4731f44a63dcccc93e5c010bfb0c54",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "d8651f",
+      "role": "candidate",
+      "source_sha256": "edb8daac0fa30414515be0b74c6c6ca651bc843583b478544d987dcdb403b249",
+      "top": "dut",
+      "input_width": 512,
+      "output_width": 67,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 512
+        },
+        "y": {
+          "direction": "output",
+          "width": 67
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "e6fe8971eea4eed9cf7e932f5eb0ca338db935e6ba050d138fda5cad3f6a6178",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "dc475d",
+      "role": "reference",
+      "source_sha256": "09299fc98cad8898d3ca6de0c5724a4cfdad81847d560d7b1db65e4e79dee7a4",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "43329b4bd635a95442a8ca226abf369b2bdfbb465d87901e8da2b5b1393f45d1",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "dc475d",
+      "role": "candidate",
+      "source_sha256": "7dc04de6fca6211e0fbbe6d834c0541b7d7248a6e0b91fb9f8d9348d26d315f9",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "8cce3b047b1ff7bab7dd2c19d7bc0c96f95e52c554ce05f43f07f88ae9d0d2f0",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "df71bd",
+      "role": "reference",
+      "source_sha256": "09299fc98cad8898d3ca6de0c5724a4cfdad81847d560d7b1db65e4e79dee7a4",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "359720a7c11c051c3e83782902a20c385ca87c1cbb640a0295cb6a471cc22937",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "df71bd",
+      "role": "candidate",
+      "source_sha256": "7dc04de6fca6211e0fbbe6d834c0541b7d7248a6e0b91fb9f8d9348d26d315f9",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "afbc78f6016f0b1ed47ae1aa02ccdd1efc8fccc40a07e379dde3b53e827ac39a",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "dfb166",
+      "role": "reference",
+      "source_sha256": "396b8f9f84595669c537bd5e066c3b22974af91f88a476d6bb6ecd0ed7015cb8",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 16,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 16
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "7b35d90b838f2536529f168ec9b2aad52bf835cb49cf0ffb2d10355bda01b936",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "dfb166",
+      "role": "candidate",
+      "source_sha256": "ab357d65f43d68364545eee6b1a88559feee71f64054fc818e6a1edf172feade",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 16,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 16
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "b01646c58b4320d716204e565258e3febb708cb67eeee1f6b78e4131a8d765ed",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "e0354a",
+      "role": "reference",
+      "source_sha256": "bf8ec151a3081753d6b63efe31a01fbcce7a32c344344e91f1636806e2b7df4c",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "ba563f8ea8339a42d4d5c728444e6fea178ab0bbeddd525b7b978a2953f66291",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "e0354a",
+      "role": "candidate",
+      "source_sha256": "981966b950b448f55502395ebf5677d6e863217331f0ea384843e416fb20bf02",
+      "top": "dut",
+      "input_width": 128,
+      "output_width": 8,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 128
+        },
+        "y": {
+          "direction": "output",
+          "width": 8
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "2d4ba538ab206b3604c377dd6cf211cec3e1273aded2042bf758f182cd73be7f",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "ec4e5f",
+      "role": "reference",
+      "source_sha256": "f2e97a906a90f48f648321d47c4d210f48c61b1014c477d066e92c8b00b74e78",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 96,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 96
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "8c90b3a2c5ff657fa6ebd7ff3dab7bd1bcc725f106fff4d9109120992b30b4f3",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "ec4e5f",
+      "role": "candidate",
+      "source_sha256": "214b60b7c7587285f8c27e15e028b7150276a20f2abe3dda8750ff8c97178e64",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 96,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 96
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "84bd335ed3cdce293815b65ba93b2d7c23d3a396195fc49811736f3d70bb9caf",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "f77cc9",
+      "role": "reference",
+      "source_sha256": "fe9da61b44ea0190c3f0a9fc3e2e80e6c2598fc9b605bfcbcc7bbc65001e1aa9",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 35,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 35
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "94187efb7150d24af4939f0a4fe7d5028f545c91d1a7def73146b39ce05e8654",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "f77cc9",
+      "role": "candidate",
+      "source_sha256": "0a546be8f4713bc022c057247b402d6481241622a5c2ad3e21f15a22c485c159",
+      "top": "dut",
+      "input_width": 256,
+      "output_width": 35,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 256
+        },
+        "y": {
+          "direction": "output",
+          "width": 35
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "bf72abb36a53eec9eac984fc7cd404087bac531d2a87b036778f4b89b519a7d7",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "f8af95",
+      "role": "reference",
+      "source_sha256": "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 24,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 24
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "f5af6014cfdfdcda3f90cb338d06ee58c8b8c1816c08075b689b7b086e27acd4",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    },
+    {
+      "run_id": "f8af95",
+      "role": "candidate",
+      "source_sha256": "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383",
+      "top": "dut",
+      "input_width": 16,
+      "output_width": 24,
+      "ports": {
+        "x": {
+          "direction": "input",
+          "width": 16
+        },
+        "y": {
+          "direction": "output",
+          "width": 24
+        }
+      },
+      "interface_complete": true,
+      "netlist_sha256": "073919fb998b49c8c27f14612470a7b58bf5c1c9ebfc2787c02ef40da08c215f",
+      "engine": "Yosys 0.23 (git sha1 7ce5011c24b)"
+    }
+  ],
+  "passed": true
+}
