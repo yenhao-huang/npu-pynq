@@ -213,5 +213,5 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Re-elaborate 98 historical SAT sources under the current proof contract.
 - [x] Authenticate 182 preserved pre-coverage physical records against raw reports.
 - [x] Verify 57 parent declarations precede 362 successful physical child runs.
-- [x] Pass the complete 581-test Python suite and the required RTL lint/sim target.
+- [x] Pass the complete 582-test Python suite and the required RTL lint/sim target.
 - [ ] Prove and measure FIR16/32 and Booth16/32; whole-case benefit remains undefined.

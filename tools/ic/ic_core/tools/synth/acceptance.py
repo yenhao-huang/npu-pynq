@@ -29,6 +29,13 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def display_path(path,cwd):
+    """Use portable repository-relative paths for files below the audit root."""
+    resolved=Path(path).resolve();root=Path(cwd).resolve()
+    try: return resolved.relative_to(root).as_posix()
+    except ValueError: return str(resolved)
+
+
 def canonical(generator,params):
     _,op=find_op(generator)
     return op.In.model_validate(params).model_dump(exclude={'backend'})
@@ -205,12 +212,12 @@ class Acceptance:
             elif obj.get('op')=='synth_fifo' and 'configurations' in obj:
                 cases=[dict(generator='synth_fifo',baseline=dict(**geometry,architecture='shift'),candidate=dict(**geometry,architecture='circular'),objective=obj['objective']) for geometry in obj['configurations']]
             elif not cases and ('widths' in obj or 'architectures' in obj) and obj.get('op') not in ('timing_constraint_audit','latency_throughput'):
-                unsupported.append(str(path))
+                unsupported.append(display_path(path,ctx.cwd))
             for case in cases:
                 key=identity(case['generator'],case['baseline'],case['candidate'],case['objective'])
                 if key not in declarations:
                     declarations[key]=dict(generator=case['generator'],baseline=canonical(case['generator'],case['baseline']),candidate=canonical(case['generator'],case['candidate']),objective=case['objective'],declarations=[],observations=[])
-                declarations[key]['declarations'].append(str(path))
+                declarations[key]['declarations'].append(display_path(path,ctx.cwd))
         unmatched=[];seen_studies=set()
         paths=sorted(evidence.rglob('*.json'))+[(Path(ctx.cwd)/x).resolve() for x in p.additional_studies]
         for path in paths:
@@ -221,7 +228,7 @@ class Acceptance:
                 seen_studies.add(serial)
                 directory=Path(study['data']['checkpoint_directory'])
                 for row in study['data']['cases']:
-                    observation=dict(file=str(path),run_id=study.get('run_id'),case=row['name'],status=row['status'],qualified=False)
+                    observation=dict(file=display_path(path,ctx.cwd),run_id=study.get('run_id'),case=row['name'],status=row['status'],qualified=False)
                     try:
                         generated=[]
                         for role in ('baseline','candidate'):
@@ -272,12 +279,13 @@ class Acceptance:
                    diverse_measured_families=sum(len(v)>=2 for v in measured.values())>=12,
                    qualifying_families=sum(len(v)>=2 for v in qualifying.values())>=6,
                    all_declared_cases_measured=complete,all_case_objective_benefit=aggregate is not None and aggregate>=1.10)
+        portable_inputs={display_path(path,ctx.cwd):sha for path,sha in inputs.items()}
         data=dict(gates=gates,automated_gates_passed=all(gates.values()),tools=tools,cases=cases,
                   category_coverage=category_coverage,declared_cases=len(cases),cases_with_verified_physical_pairs=len(ratios),
                   qualifying_family_configurations={k:len(v) for k,v in qualifying.items()},
                   measured_family_configurations={k:len(v) for k,v in measured.items()},
                   all_case_geometric_benefit_lower_bound=aggregate,unmatched_observations=unmatched,
-                  unsupported_declarations=unsupported,input_sha256=inputs,
+                  unsupported_declarations=unsupported,input_sha256=portable_inputs,
                   remaining_review=['Substantive distinct operation purposes and direct PPA classification','Meaningful negative tests and actual per-operation experiment coverage','Historical timing coverage and report authenticity','Declaration timing, objective preservation and full historical inventory','Required documents, OpenSpec, PR state and usage stop rule'],
                   completion_claim_supported=False)
         (ctx.run.artifacts/'acceptance.json').write_text(json.dumps(data,indent=2)+'\n')

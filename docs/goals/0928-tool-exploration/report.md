@@ -1021,7 +1021,7 @@ qualifying families at both substantial configurations. FIR16/32 and Booth16/32
 remain unproved, so the all-case objective benefit is undefined and the PR stays
 draft. No failed case, objective or physical regression was removed.
 
-Final review validation passes 581 Python tests with 37 optional native-Yosys
+Final review validation passes 582 Python tests with 37 optional native-Yosys
 skips. Verilator lint passes, and all eight RTL testbenches pass under the same
 Icarus/VVP source lists used by the make targets. The MSYS forced-simulation
 wrapper cannot launch its temporary VVP helper on this Windows checkout; the

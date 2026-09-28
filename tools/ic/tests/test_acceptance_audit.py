@@ -49,6 +49,16 @@ def test_complete_small_data_is_not_whole_goal_completion(tmp_path,store):
     assert out['qualifying_family_configurations']==dict(synth_fifo=1)
 
 
+def test_audit_reports_repository_files_with_portable_paths(tmp_path,store):
+    p,_,_,_,_=fixture(tmp_path,store)
+    out=dispatch('acceptance_audit',p,store=store,cwd=tmp_path)['data']
+    assert 'inventory.json' in out['input_sha256']
+    assert 'experiments/exp-tool-50-test/config.json' in out['input_sha256']
+    assert 'evidence/study.json' in out['input_sha256']
+    assert out['cases'][0]['declarations']==['experiments/exp-tool-50-test/config.json']
+    assert out['cases'][0]['observations'][0]['file']=='evidence/study.json'
+
+
 @pytest.mark.parametrize('mutation',['failed','missing','source','proof','cycle','duplicate','synthetic','objective'])
 def test_unknown_or_invalid_evidence_cannot_supply_ratio(tmp_path,store,mutation):
     p,report,path,folder,designs=fixture(tmp_path,store);case=report['data']['cases'][0]
