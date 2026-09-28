@@ -1,0 +1,637 @@
+{
+  "scope": "Ordering audit of architecture-sweep envelopes and their successful physical children.",
+  "studies": 57,
+  "declared_case_rows": 115,
+  "unique_successful_measurement_runs": 362,
+  "rows": [
+    {
+      "run_id": "0402f6",
+      "started_at": "2026-09-28T04:57:11.616147+08:00",
+      "study_name": "synth_argmax_tree",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "2d16f938f62baf09e3c8c965a0ff0e6e4389c6b98c2ab3a8eb304f36b63dcdc9",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\argmax-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "08c404",
+      "started_at": "2026-09-28T09:33:01.452973+08:00",
+      "study_name": "synth_fir_aig",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "7bc8fb6da07c43e8f6a029761e17dcfd49119de6bcc23a23b3d1882c0941f65c",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\fir-aig-verification.json"
+      ]
+    },
+    {
+      "run_id": "09fb37",
+      "started_at": "2026-09-28T09:19:32.211953+08:00",
+      "study_name": "synth_fir_macc",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "d5bb05c5e357847990b033a4f50244117f02b565e89f9d4d36e88eb45b3729e1",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\fir-macc-verification.json"
+      ]
+    },
+    {
+      "run_id": "0cf7ea",
+      "started_at": "2026-09-28T05:55:12.186580+08:00",
+      "study_name": "synth_fsm",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "de6e447c4f6967460029a59cd68ca498611c22b2da3f60f1999a30c0d0f5dba2",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\phase-verification.json"
+      ]
+    },
+    {
+      "run_id": "0f05ab",
+      "started_at": "2026-09-28T06:36:34.864290+08:00",
+      "study_name": "synth_skid_buffer",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "8c5fbf3a5c24a892d6da5fbedd703441e48f8d2073b1b12babcc2e322d5fc51d",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\skid-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "183558",
+      "started_at": "2026-09-28T09:07:36.929731+08:00",
+      "study_name": "synth_fir_prefix",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "5ee6763edbf7346e3d615ccdac18a152f666158facdcd88b624b77ed514e013c",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\fir-prefix-verification.json"
+      ]
+    },
+    {
+      "run_id": "18c448",
+      "started_at": "2026-09-28T04:52:37.470314+08:00",
+      "study_name": "synth_fir",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "78d3ddadfc4a4fcaee9896821ae71ccc0b9c5e1ce2e0fcb146ff857f973a7215",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\fir-verification.json"
+      ]
+    },
+    {
+      "run_id": "18ccbd",
+      "started_at": "2026-09-28T05:36:02.052248+08:00",
+      "study_name": "synth_serial_multiplier",
+      "declared_cases": 4,
+      "measurement_runs": 24,
+      "envelope_sha256": "13b4502ae753ed1af567e2150efab01727e77d33ab4dbf7d2aab0a0fdddbf771",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\multiplier-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "19db79",
+      "started_at": "2026-09-28T03:50:31.298943+08:00",
+      "study_name": "synth_prefix_adder",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "ed842cb95689423710be170e0344d84058c0e94241cd1a780cab8200766da4ed",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\arithmetic-and-failures.json"
+      ]
+    },
+    {
+      "run_id": "1ca255",
+      "started_at": "2026-09-28T05:09:31.159359+08:00",
+      "study_name": "synth_crc_parallel",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "33014b801d2b8ea024e44108d2571eeb6f43ff68b896177de6e9768421f776f9",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\crc-initial-verification.json"
+      ]
+    },
+    {
+      "run_id": "25c912",
+      "started_at": "2026-09-28T08:59:27.951353+08:00",
+      "study_name": "mersenne_modulo_prefix",
+      "declared_cases": 1,
+      "measurement_runs": 6,
+      "envelope_sha256": "6d3cf2222a0dc387646d799d35a28bd47737515ff958e237d8749482d4806eca",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\modulo-prefix-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "2a0316",
+      "started_at": "2026-09-28T05:13:48.813214+08:00",
+      "study_name": "synth_crc_parallel",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "83d060ad52abaab2215f766d24aeca02d0c264a75f1d8f5e4271ccaea7c9c9ae",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\crc-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "2a7b3c",
+      "started_at": "2026-09-28T05:14:01.625045+08:00",
+      "study_name": "synth_lfsr_jump",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "ec13ba9b71f5fb3dbe0867cad9673d80f2c1d4fe0f73a615771f5ea797a6a8a5",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\lfsr-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "2beca2",
+      "started_at": "2026-09-28T08:56:41.792350+08:00",
+      "study_name": "synth_dot_product_prefix",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "76979e59693383a64c333ee236994e7d45b0cc21fec9de71362add55c3ed73c7",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\dot-prefix-verification.json"
+      ]
+    },
+    {
+      "run_id": "2eaf36",
+      "started_at": "2026-09-28T08:14:35.067048+08:00",
+      "study_name": "adder_macc_retry",
+      "declared_cases": 4,
+      "measurement_runs": 24,
+      "envelope_sha256": "15b97a0f76a7a081b93cbad0e0904832e002969085ec7ffbdd933fbe35d3e380",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\adder-macc-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "3957a1",
+      "started_at": "2026-09-28T03:46:13.492183+08:00",
+      "study_name": "synth_leading_zero",
+      "declared_cases": 2,
+      "measurement_runs": 6,
+      "envelope_sha256": "92c201fd1b2e021f614d53ac5bf1bbcc1d57b8c854e5f27b1f483d4f328fb35f",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\arithmetic-and-failures.json"
+      ]
+    },
+    {
+      "run_id": "493114",
+      "started_at": "2026-09-28T04:57:10.548763+08:00",
+      "study_name": "synth_barrel_shifter",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "fbd7e1e48e4311c51d92fab0759d195231c9409cc6784327f3d9f60339d125a5",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\barrel-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "4b7973",
+      "started_at": "2026-09-28T03:31:39.662676+08:00",
+      "study_name": "synth_priority_encoder",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "f0d9a3905586bfb1dd63be4d52178f62c13563ada04ece4dd20cdd04cd22c7c2",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\priority-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "514661",
+      "started_at": "2026-09-28T08:02:21.590843+08:00",
+      "study_name": "systolic_matrix_tile",
+      "declared_cases": 1,
+      "measurement_runs": 6,
+      "envelope_sha256": "3ed67f6294360322cb86ec9c4293abe02a12dd3d11bcc8fb4c493063b82d9845",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\systolic-dsp-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "515cd1",
+      "started_at": "2026-09-28T09:02:03.002498+08:00",
+      "study_name": "synth_dot_product_prefix",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "a6ed7bb3dad2ba6b20909ca3f4c4a002194779c8343b3d8f548b5cef5dc3a036",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\dot-prefix-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "59e508",
+      "started_at": "2026-09-28T04:26:14.565570+08:00",
+      "study_name": "fifo_distributed_revision",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "be0d24628d56678b2afb946180d879268ad4da8c2559011b8c2f09bfdce1c7e6",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\fifo-distributed-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "5dc996",
+      "started_at": "2026-09-28T03:30:47.750148+08:00",
+      "study_name": "synth_leading_zero",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "308788cb87f1cd6c36592f108884627ed2565bb33a8d083913b725abde7bf075",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\arithmetic-and-failures.json"
+      ]
+    },
+    {
+      "run_id": "6092f9",
+      "started_at": "2026-09-28T08:56:39.367912+08:00",
+      "study_name": "mersenne_modulo_prefix",
+      "declared_cases": 1,
+      "measurement_runs": 0,
+      "envelope_sha256": "8f3a7960670176dd5bea61da75dc4c5b0aa15cbb68b19f9e21c77e031a4448ec",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\modulo-prefix-verification.json"
+      ]
+    },
+    {
+      "run_id": "6455f0",
+      "started_at": "2026-09-28T05:10:59.574486+08:00",
+      "study_name": "synth_lfsr_jump",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "9fa47269da20551755dc89ef186fce211e5a2a0b0c322c7f25b3ab6d7ba2e5f4",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\lfsr-verification.json"
+      ]
+    },
+    {
+      "run_id": "66caf5",
+      "started_at": "2026-09-28T09:32:59.148130+08:00",
+      "study_name": "synth_booth_multiplier_aig",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "73f2f986b11333198662771ade7597ac5345d8d88db13e76ba99c025a2c96af8",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\booth-aig-verification.json"
+      ]
+    },
+    {
+      "run_id": "684174",
+      "started_at": "2026-09-28T09:16:35.591651+08:00",
+      "study_name": "leading_zero_basic_revision_bounded_retry",
+      "declared_cases": 3,
+      "measurement_runs": 18,
+      "envelope_sha256": "f7a4338f397f18f9e9ae27a880a684fe4f4b9def6523302ea07e6b0d47975417",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\leading-zero-retry-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "6d6ef5",
+      "started_at": "2026-09-28T09:07:38.822763+08:00",
+      "study_name": "synth_booth_multiplier_prefix",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "56242794c0a1102f888295b5757d8025ad3fec15878da1ce711c8091aeca0dd6",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\booth-prefix-verification.json"
+      ]
+    },
+    {
+      "run_id": "6e132a",
+      "started_at": "2026-09-28T03:56:42.126297+08:00",
+      "study_name": "synth_mcm",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "82a54f26b90b82edfe8b57a38ed3b795dd54d1820136fbe6424d7b6ac9222b22",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\mcm-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "7830ae",
+      "started_at": "2026-09-28T07:44:37.837101+08:00",
+      "study_name": "synth_csd_bitwise",
+      "declared_cases": 2,
+      "measurement_runs": 6,
+      "envelope_sha256": "7243b5539ed2de8c637f4ca2c1903425dd255d01bf7def46dc6306cd15423ca6",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\csd-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "7c99e5",
+      "started_at": "2026-09-28T06:22:05.607406+08:00",
+      "study_name": "synth_banked_regfile",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "56124c661c7361f7b9a50b1042d181c5c2a4c4acc43fd03affe283c7d096ded0",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\regfile-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "80362d",
+      "started_at": "2026-09-28T09:16:36.863160+08:00",
+      "study_name": "synth_divider_bounded_retry",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "f7d43b2a57a11d1f251870962b5b13b0d21643788653f7f715383f5a8ffd3c85",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\divider16-retry-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "8db0bc",
+      "started_at": "2026-09-28T03:51:20.448020+08:00",
+      "study_name": "synth_csd_multiplier",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "ccc2f10b16daba4327b8cfe00bcfd548e76368a0b94ccfb8dd31a433b0b37efb",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\arithmetic-and-failures.json"
+      ]
+    },
+    {
+      "run_id": "9418c2",
+      "started_at": "2026-09-28T07:13:34.318646+08:00",
+      "study_name": "synth_prefix_adder",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "29101843760aefc10eff8acfcc626a87b6d1e32f22f5f5eda9125728372c2414",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\prefix-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "9a51bb",
+      "started_at": "2026-09-28T06:31:27.108259+08:00",
+      "study_name": "synth_skid_buffer",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "471ab7c586ee3f02ba525354cf66fb22912d1479caf6eb4245aaea140ce3abb4",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\skid-verification.json"
+      ]
+    },
+    {
+      "run_id": "a971e4",
+      "started_at": "2026-09-28T06:57:07.739365+08:00",
+      "study_name": "systolic_matrix_tile",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "566bcc5def0e42ec5e3d869a1d42ca8c0bf46e115ae635c2422820dfca77c1d2",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\systolic-verification.json"
+      ]
+    },
+    {
+      "run_id": "ab7317",
+      "started_at": "2026-09-28T07:43:57.613124+08:00",
+      "study_name": "synth_dot_product_products",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "1fbe8736bc9f7a554c60495ff1120af1ddcf023a56cf4211886398930e77616c",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\dot-product-abstraction-verification.json"
+      ]
+    },
+    {
+      "run_id": "b0dbc4",
+      "started_at": "2026-09-28T08:53:40.220405+08:00",
+      "study_name": "csd_prefix_retry",
+      "declared_cases": 1,
+      "measurement_runs": 6,
+      "envelope_sha256": "11f8f9a58188fdcf23eb3586e44f2b025957efe64a5fe464fa5fae09faf22621",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\csd-prefix-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "b2a38d",
+      "started_at": "2026-09-28T07:44:36.602469+08:00",
+      "study_name": "synth_popcount",
+      "declared_cases": 2,
+      "measurement_runs": 6,
+      "envelope_sha256": "34d8dabbc7dde02713e9dae7523d845d9933ac649614d67322dbb6fde4e92b6d",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\popcount-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "b652b3",
+      "started_at": "2026-09-28T03:55:27.522735+08:00",
+      "study_name": "leading_zero_basic_revision",
+      "declared_cases": 4,
+      "measurement_runs": 17,
+      "envelope_sha256": "dec044f36c9a7daee9690800421c0d56f7a28631820eaf25e1d7794eccc1210b",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\leading-zero-basic-attempts.json"
+      ]
+    },
+    {
+      "run_id": "b9190f",
+      "started_at": "2026-09-28T06:43:58.286364+08:00",
+      "study_name": "fifo_ablation_depth128",
+      "declared_cases": 1,
+      "measurement_runs": 6,
+      "envelope_sha256": "2fe313f09cda0fae0a81c2e974d8e720ee5e11d996f8d0307e8d776151aa2d28",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\fifo-capacity-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "bb9d6b",
+      "started_at": "2026-09-28T06:57:37.517031+08:00",
+      "study_name": "systolic_matrix_tile",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "0c690845e77ee637618329e37bc16c8d231fc963cf85d3a7813caa8a1a7e56db",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\systolic-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "bf626e",
+      "started_at": "2026-09-28T05:36:03.600230+08:00",
+      "study_name": "synth_divider",
+      "declared_cases": 4,
+      "measurement_runs": 12,
+      "envelope_sha256": "0158614aac9fb55b3ac4dcb8693941575e6125a7a879d1fe43ab603be2e281b7",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\divider-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "bf8a99",
+      "started_at": "2026-09-28T07:13:47.929466+08:00",
+      "study_name": "synth_onehot_mux",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "742f1b33446ad0c4f569ec25b126620d5a05641eff959a4667e295238244e676",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\onehot-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "c3969a",
+      "started_at": "2026-09-28T04:54:44.325551+08:00",
+      "study_name": "saturating_addsub",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "705480e25076a6b94e4d4c9f7d0f58c84a81ca8e318be6f819a3143c8cf161c8",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\saturation-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "c3a4fc",
+      "started_at": "2026-09-28T08:11:25.790801+08:00",
+      "study_name": "popcount_macc_retry",
+      "declared_cases": 1,
+      "measurement_runs": 6,
+      "envelope_sha256": "e7dd85d0a0e103eac7ea7f53bbc5d243658014222c9ed83e2995ba73c9f886cc",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\popcount-macc-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "cd9c81",
+      "started_at": "2026-09-28T08:03:06.166821+08:00",
+      "study_name": "mersenne_modulo",
+      "declared_cases": 2,
+      "measurement_runs": 6,
+      "envelope_sha256": "cac1a111703ef148b91ebf451440ed5884d206ca0ba545e64d20dd468a7da253",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\modulo-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "ce1d2c",
+      "started_at": "2026-09-28T05:53:52.808806+08:00",
+      "study_name": "synth_fsm",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "4b6e6109f05e358d87759e07b11a7609f52a251b9b189f25485befa7da868d7b",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\phase-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "d0d9f1",
+      "started_at": "2026-09-28T04:18:32.055001+08:00",
+      "study_name": "fifo_registered_storage",
+      "declared_cases": 2,
+      "measurement_runs": 12,
+      "envelope_sha256": "d138f3aa1408b228a3e3190f7046b40b40ec0210dbf20534f85bd40fcdb32a13",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\fifo-auto-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "de7e5d",
+      "started_at": "2026-09-28T03:40:12.175283+08:00",
+      "study_name": "synth_leading_zero",
+      "declared_cases": 2,
+      "measurement_runs": 3,
+      "envelope_sha256": "b0b670026e196a8e80fc0598bde5c253c4481b142532798a19d79ac316803e94",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\arithmetic-and-failures.json"
+      ]
+    },
+    {
+      "run_id": "e2f022",
+      "started_at": "2026-09-28T04:40:11.327824+08:00",
+      "study_name": "mersenne_modulo",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "27855fc248ace6cc4a03c05b5a65c32b4843776d317d404bc898ed471b5242ec",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\modulo-verification.json"
+      ]
+    },
+    {
+      "run_id": "eb1594",
+      "started_at": "2026-09-28T08:11:50.450674+08:00",
+      "study_name": "csd_macc_retry",
+      "declared_cases": 1,
+      "measurement_runs": 0,
+      "envelope_sha256": "f99e56c2d4889aec06661daf3aa97bd2946f4f3ab89b64d79f7ffcb61e16b66d",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\csd-macc-verification.json"
+      ]
+    },
+    {
+      "run_id": "ee1cbf",
+      "started_at": "2026-09-28T06:21:49.940766+08:00",
+      "study_name": "synth_banked_regfile",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "18cacedf68b48235d92126076b1f677f40d381ccf464ab3bfbfe44409f8ef4a8",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\regfile-verification.json"
+      ]
+    },
+    {
+      "run_id": "f84cee",
+      "started_at": "2026-09-28T08:45:53.616092+08:00",
+      "study_name": "systolic_matrix_tile",
+      "declared_cases": 1,
+      "measurement_runs": 6,
+      "envelope_sha256": "d24d95a1003bb702669770a499d741e7483283312f0e3343f427d6a5a6d7c212",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\systolic-creg-physical-study.json"
+      ]
+    },
+    {
+      "run_id": "fa87aa",
+      "started_at": "2026-09-28T03:53:27.523486+08:00",
+      "study_name": "synth_mcm",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "0ff1baf0f9126c7e9492a3a46264dbf483c82a2ed7be7492cee1fc2de681274e",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\arithmetic-and-failures.json"
+      ]
+    },
+    {
+      "run_id": "fc0266",
+      "started_at": "2026-09-28T05:44:22.860150+08:00",
+      "study_name": "synth_booth_multiplier",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "00d1ddf71ea7a5c6dd27694dca2ff6643913313a87edf189b43074d6eb828379",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\booth-verification.json"
+      ]
+    },
+    {
+      "run_id": "fcc669",
+      "started_at": "2026-09-28T04:52:38.110882+08:00",
+      "study_name": "synth_dot_product",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "5cbc715b5e4634ea80ab5d9fb7cdde0d0761b1943af683fe9096aaf276866177",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\dot-product-verification.json"
+      ]
+    },
+    {
+      "run_id": "fe89db",
+      "started_at": "2026-09-28T07:23:38.076870+08:00",
+      "study_name": "synth_csd_bitwise",
+      "declared_cases": 2,
+      "measurement_runs": 0,
+      "envelope_sha256": "cea63e62386184320795e05dd643e65a8afb0ee84c4a7e4f6615ab1fc2bac630",
+      "evidence_files": [
+        "docs\\goals\\0928-tool-exploration\\evidence\\csd-bitwise-verification.json"
+      ]
+    }
+  ],
+  "passed": true,
+  "note": "Each objective and baseline/candidate payload is present in the parent run input and generation checkpoints before every successful clocked child starts. This does not prove when an idea was conceived or authenticate deleted external history."
+}

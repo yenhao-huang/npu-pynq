@@ -128,7 +128,7 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Reject invalid provenance, missing data and favorable-retry selection.
 - [x] Reach 50 implemented operation names without claiming complete acceptance.
 - [ ] Resolve remaining proof/measurement gaps and all-case aggregate benefit.
-- [ ] Review all operation semantics, experiment/negative-test coverage and provenance.
+- [x] Review all operation semantics, experiment/negative-test coverage and provenance.
 - [ ] Complete final documents, OpenSpec validation where available and PR readiness.
 
 ## Proof completeness and physical coverage follow-up
@@ -202,4 +202,16 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Extend historical SAT interface checks to 98 source interfaces.
 - [x] Detect balanced-adder and compressor-carry mutations at both original widths.
 - [ ] Establish complete proofs and physical evidence for FIR and Booth.
-- [ ] Finish operation11 and16-50 semantic review and full-case acceptance.
+- [x] Finish operation11 and16-50 semantic review.
+- [ ] Establish full-case acceptance.
+
+## Complete operation and provenance review
+
+- [x] Document the purpose, contract and failure-path coverage of all 50 operations.
+- [x] Add substantial positive and mutation controls for operations 11, 16-18 and 23-28.
+- [x] Require complete-interface and total-binary evidence from accepted proofs.
+- [x] Re-elaborate 98 historical SAT sources under the current proof contract.
+- [x] Authenticate 182 preserved pre-coverage physical records against raw reports.
+- [x] Verify 57 parent declarations precede 362 successful physical child runs.
+- [x] Pass the complete 581-test Python suite and the required RTL lint/sim target.
+- [ ] Prove and measure FIR16/32 and Booth16/32; whole-case benefit remains undefined.

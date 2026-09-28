@@ -9,6 +9,9 @@ The operation scans every modular JSON declaration and every study envelope in
 the supplied evidence tree. It retains failures, checks generated/core/fixture
 source identities, binds correctness evidence, validates cycle contracts and
 repeated physical conditions, and counts substantial configurations by family.
+Current proofs must declare complete interfaces and total binary source
+semantics. Older SAT and affine results qualify only through configured
+source-hash-bound re-elaboration or guarded recheck supplements.
 Declared cases without complete verified metrics keep the all-case geometric
 benefit undefined. No failed candidate is assigned a neutral value or removed.
 The worst complete benefit across retries is used; every observation is retained.

@@ -4,6 +4,10 @@ Current expanded status: [acceptance-status.md](acceptance-status.md). Fifty ope
 are implemented, but whole-study acceptance remains incomplete. Earlier sections
 record historical milestones; they are not a current completion claim.
 
+The [microarchitecture guide](microarchitecture-guide.md) explains every
+generated baseline and candidate, including its structural tradeoff and the
+behavior that correctness checks preserve.
+
 
 PR: [#81](https://github.com/yenhao-huang/npu-pynq/pull/81). Issue: [#80](https://github.com/yenhao-huang/npu-pynq/issues/80). Base: dev at
 4a106811d4aaf104be99896606e68c6c8d20165c. Experiment date: 2026-09-28 (Asia/Taipei).
@@ -985,3 +989,39 @@ proofs remain unknown. Whole-case objective benefit is still undefined. There
 are no active physical runs at this checkpoint. The historical SAT interface
 audit now covers 98 source interfaces from 49 successful study proofs, all
 matching their original source hashes. Hosted CI at 0342196 passes.
+
+## Complete operation and provenance review
+
+The operation-level semantic review now covers all 50 operations. Substantial
+positive and arithmetic/network mutation controls were added for operations
+11, 16-18 and 23-28; focused regressions cover the remaining generators and
+analysis operations. The review documents exact data, cycle and measurement
+contracts rather than treating registry presence as evidence of a distinct
+tool. See semantic-review.md and microarchitecture-guide.md.
+
+The review found that architecture_sweep and acceptance_audit did not directly
+require complete-interface and total-binary fields from a successful formal
+result. Both now fail closed. Current affine proofs expose the two guarded
+properties; historical SAT and affine studies require exact source-bound
+supplements. The historical audit re-elaborates 98 SAT source interfaces and
+accepts a `$pmux` only when equality decoders are distinct and exhaust the
+complete binary selector space. Duplicate or missing decoded selections fail.
+
+All 182 preserved pre-coverage Vivado run handles match their original source
+files, run envelopes, Tcl, tool identity, parsed metrics and raw report hashes.
+Fifty-seven parent study envelopes also fix all cases, objectives and full
+architecture payloads before 362 successful physical children begin. Early
+runs still lack clock/register coverage and check_timing reports, and their
+in-memory projects saved no routed checkpoint; they remain explicitly
+coverage-unaudited.
+
+The refreshed acceptance result remains 55/59 complete comparisons and nine
+qualifying families at both substantial configurations. FIR16/32 and Booth16/32
+remain unproved, so the all-case objective benefit is undefined and the PR stays
+draft. No failed case, objective or physical regression was removed.
+
+Final review validation passes 581 Python tests with 37 optional native-Yosys
+skips. Verilator lint passes, and all eight RTL testbenches pass under the same
+Icarus/VVP source lists used by the make targets. The MSYS forced-simulation
+wrapper cannot launch its temporary VVP helper on this Windows checkout; the
+ordinary make target sees the existing simulation stamps as current.

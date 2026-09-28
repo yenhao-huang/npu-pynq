@@ -1,5 +1,14 @@
 # timing_constraint_audit
 
+`audit_historical_records.py` separately authenticates older pre-coverage
+records against their preserved local run envelopes, exact source files, Tcl,
+parsed metrics and raw report digests. It does not infer missing clock/register
+coverage or `check_timing` results. Run:
+
+```powershell
+.venv/Scripts/python.exe exp/tool-exploration/exp-tool-43-rtlrewriter/audit_historical_records.py
+```
+
 Paper connection: RTLRewriter, ICCAD 2024,
 https://arxiv.org/html/2409.11414v1. Controlled physical evaluation motivates
 auditing measurement assumptions. The tool is a local verification extension,

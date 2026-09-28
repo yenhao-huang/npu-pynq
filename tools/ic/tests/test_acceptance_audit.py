@@ -92,6 +92,14 @@ def test_duplicate_tools_rejected(tmp_path,store):
     with pytest.raises(InvalidInput,match='Duplicate operation'): dispatch('acceptance_audit',p,store=store)
 
 
+def test_malformed_paper_reference_fails_inventory_structure(tmp_path,store):
+    p,*_=fixture(tmp_path,store);path=Path(p['inventory']);inventory=json.loads(path.read_text())
+    inventory[0]['paper']='https://example.test/paper,';write(path,inventory)
+    out=dispatch('acceptance_audit',p,store=store)['data']
+    assert not out['gates']['inventory_structure']
+    assert 'malformed primary paper' in out['tools'][0]['errors'][0]
+
+
 def test_combinational_core_and_wrapper_hashes_are_distinct(store):
     from ic_core.tools.synth.acceptance import source_check
     designs=[dispatch('synth_prefix_adder',dict(width=16,architecture=a),store=store)['data'] for a in ('native','kogge_stone')]
@@ -100,11 +108,42 @@ def test_combinational_core_and_wrapper_hashes_are_distinct(store):
     for role,d in zip(('baseline','candidate'),designs):
         r=record(role,role);r.update(source_sha256=d['source_sha256'],stage='routed_clocked_ooc',tool='vivado')
         records.append(r)
-    checks=dict(reference_sha256=hashes[0],candidate_sha256=hashes[1])
+    checks=dict(reference_sha256=hashes[0],candidate_sha256=hashes[1],interface_complete=True,abstraction_defined=True)
     row=dict(simulation=dict(ok=True,data=dict(passed=True,**checks)),formal=dict(ok=True,data=dict(proved=True,**checks)),records=[records])
     assert source_check(row,designs)==[d['source_sha256'] for d in designs]
     row['formal']['data']['proved']=False
     with pytest.raises(InvalidInput,match='correctness'): source_check(row,designs)
+
+
+@pytest.mark.parametrize('field',['interface_complete','abstraction_defined'])
+def test_combinational_proof_requires_complete_defined_interface(store,field):
+    from ic_core.tools.synth.acceptance import source_check
+    designs=[dispatch('synth_prefix_adder',dict(width=16,architecture=a),store=store)['data'] for a in ('native','kogge_stone')]
+    hashes=[fingerprint([Path(d['core_path'])],'dut') for d in designs]
+    records=[]
+    for role,d in zip(('baseline','candidate'),designs):
+        r=record(role,role);r.update(source_sha256=d['source_sha256'],stage='routed_clocked_ooc',tool='vivado');records.append(r)
+    proof=dict(proved=True,reference_sha256=hashes[0],candidate_sha256=hashes[1],interface_complete=True,abstraction_defined=True)
+    proof[field]=False
+    row=dict(simulation=dict(ok=True,data=dict(passed=True,reference_sha256=hashes[0],candidate_sha256=hashes[1])),formal=dict(ok=True,run_id='proof',data=proof),records=[records])
+    with pytest.raises(InvalidInput,match='complete-interface'): source_check(row,designs)
+
+
+def test_historical_interface_supplement_is_source_bound(store,tmp_path):
+    from ic_core.tools.synth.acceptance import correctness_supplements,source_check
+    designs=[dispatch('synth_prefix_adder',dict(width=16,architecture=a),store=store)['data'] for a in ('native','kogge_stone')]
+    hashes=[fingerprint([Path(d['core_path'])],'dut') for d in designs]
+    records=[]
+    for role,d in zip(('baseline','candidate'),designs):
+        r=record(role,role);r.update(source_sha256=d['source_sha256'],stage='routed_clocked_ooc',tool='vivado');records.append(r)
+    checks=dict(reference_sha256=hashes[0],candidate_sha256=hashes[1])
+    row=dict(simulation=dict(ok=True,data=dict(passed=True,**checks)),formal=dict(ok=True,run_id='old-proof',data=dict(proved=True,**checks)),records=[records])
+    audit=write(tmp_path/'interfaces.json',dict(scope='Interface and total-binary source-netlist re-elaboration test fixture',rows=[dict(role=role,source_sha256=sha,interface_complete=True,abstraction_defined=True) for role,sha in zip(('reference','candidate'),hashes)],passed=True))
+    supplements=correctness_supplements([str(audit)],tmp_path,{})
+    assert source_check(row,designs,supplements)==[d['source_sha256'] for d in designs]
+    document=json.loads(audit.read_text());document['rows'][0]['abstraction_defined']=False;write(audit,document)
+    with pytest.raises(InvalidInput,match='failed source audit'):
+        source_check(row,designs,correctness_supplements([str(audit)],tmp_path,{}))
 
 
 def test_registry_method_with_unindented_embedded_rtl(tmp_path,store):

@@ -434,7 +434,7 @@
     "operation": "latency_throughput",
     "purpose": "Verify arithmetic latency and sustained initiation interval against independent transaction semantics.",
     "direct_ppa": true,
-    "paper": "https://arxiv.org/html/2409.11414v1,",
+    "paper": "https://arxiv.org/html/2409.11414v1",
     "tests": [
       "tools/ic/tests/test_iterative_exploration.py"
     ]

@@ -6,6 +6,7 @@ import pytest
 from ic_core import dispatch
 from ic_core.errors import InvalidInput
 from ic_core.tools.debug.affine import affine_rows,evaluate
+from ic_core.tools.exploration_common import fingerprint
 
 
 def module():
@@ -76,7 +77,6 @@ def test_source_guards_precede_affine_simplification(store,tmp_path,monkeypatch,
     import hashlib
     import json
     from ic_core.tools.debug import affine
-    from ic_core.tools.exploration_common import fingerprint
     files=[]
     for role in ('reference','candidate'):
         path=tmp_path/(role+'.sv')
@@ -108,3 +108,19 @@ def test_source_guards_precede_affine_simplification(store,tmp_path,monkeypatch,
     assert not result['ok'] and not result['data']['proved']
     assert result['data']['source_guards']==guards
     assert calls==(['yosys_equivalence'] if failed_role==0 else ['yosys_equivalence','netlist_profile','yosys_equivalence'])
+
+
+def test_total_binary_pmux_requires_complete_exclusive_decode():
+    from ic_core.tools.debug.formal import total_binary_module
+    cells={}
+    selectors=[]
+    for value in range(4):
+        bit=20+value;selectors.append(bit)
+        cells[f'eq{value}']=dict(type='$eq',connections=dict(A=[2,3],B=[str(value&1),str(value>>1)],Y=[bit]))
+    cells['mux']=dict(type='$pmux',connections=dict(A=['x'],B=[4,5,6,7],S=selectors,Y=[8]))
+    module=dict(cells=cells,netnames={'all':{'bits':[2,3,*selectors,8]}})
+    assert total_binary_module(module)
+    cells['eq3']['connections']['B']=['0','0']
+    assert not total_binary_module(module)
+    cells['eq3']['connections']['B']=['1','1'];cells.pop('eq2')
+    assert not total_binary_module(module)

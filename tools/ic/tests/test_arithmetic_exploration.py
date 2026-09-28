@@ -29,7 +29,9 @@ endmodule
     binary=tmp_path/'check.vvp'
     build=subprocess.run(['iverilog','-g2012','-s','tb','-o',str(binary),data['core_path'],str(tb)],capture_output=True,text=True,timeout=30)
     assert build.returncode==0,build.stderr
-    result=subprocess.run(['vvp',str(binary)],cwd=tmp_path,capture_output=True,text=True,timeout=30)
+    # Large unrolled CRC controls can exceed 30 seconds in Windows Icarus even
+    # though their transcript is progressing normally.
+    result=subprocess.run(['vvp',str(binary)],cwd=tmp_path,capture_output=True,text=True,timeout=60)
     assert result.returncode==0,result.stdout+result.stderr
     rows=[line.split()[1] for line in result.stdout.splitlines() if line.startswith('VALUE ')]
     assert len(rows)==len(values)

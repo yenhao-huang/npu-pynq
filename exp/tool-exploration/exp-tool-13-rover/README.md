@@ -41,7 +41,9 @@ different addition structures; it is generally unsuitable for distributivity.
 
 The original elaborated netlist must contain only total binary word operations
 from the explicit allowlist and no X/Z constants. Division, variable part-select
-shiftx, ambiguous pmux, symbolic sources and unknown cells are rejected. This
+shiftx, ambiguous pmux, symbolic sources and unknown cells are rejected. A pmux
+is accepted only when its selectors are distinct equality decodes of one binary
+bus and exhaust every value; this makes exactly one data input active. This
 prevents defined auxiliary inputs from hiding an undefined original product.
 The installed Yosys 0.23 `help sat`, `help cutpoint`, `help expose` and
 `help rename` define the primitive commands. `rename -witness` makes cutpoint
@@ -92,14 +94,16 @@ check. Extra unused inputs, extra outputs, inout ports and width mismatches fail
 
 The Docker Yosys 0.23 controls cover all six normalization modes: 48 interface
 cases and 60 arithmetic/undefined-value cases match their expected verdicts.
-The historical interface audit re-elaborated 88 source files from 44 successful
-SAT study proofs, after matching each file set to its recorded source hash;
-all have complete declared interfaces. This is an interface-only audit, not a
-new SAT proof or retrospective change to a historical verdict. Its scope is the
-evidence directory at execution; later studies require another audit.
+The historical source audit re-elaborated 98 source files from 49 successful
+SAT study proofs, after matching each file set to its recorded source hash. All
+have complete declared interfaces and pass the total-binary source-netlist
+check. This is not a new cross-design SAT proof or retrospective change to a
+historical verdict. Its scope is the evidence directory at execution; later
+studies require another audit.
 
 Reproduce with `exp/tool-exploration/exp-tool-13-rover/interfaces.py`,
 `bitwise.py` and `audit_interfaces.py`, each with
 `--container codex-sandbox-agent-workspace`. See interface-controls.json,
-normalization-interface-controls.json and historical-interface-audit.json under `docs/goals/0928-tool-exploration/evidence/`. Operation 13's identified interface issue is fixed; review of the
-remaining operations and historical physical coverage is still incomplete.
+normalization-interface-controls.json and historical-interface-audit.json under
+`docs/goals/0928-tool-exploration/evidence/`. Operation 13's identified source
+contract issues are fixed; historical physical coverage remains incomplete.

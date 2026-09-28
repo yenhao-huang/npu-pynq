@@ -24,6 +24,43 @@ TOTAL_BINARY_CELLS={
 }
 
 
+def total_binary_module(module):
+    """Reject source-netlist operations or constants with partial binary semantics."""
+    drivers={}
+    for candidate in module['cells'].values():
+        outputs=candidate['connections'].get('Y',[])
+        if len(outputs)==1 and isinstance(outputs[0],int): drivers.setdefault(outputs[0],[]).append(candidate)
+
+    def exhaustive_decode_pmux(cell):
+        """Accept a pmux only when one decoded selector is true for every binary input."""
+        common=None;constants=set()
+        for bit in cell['connections'].get('S',[]):
+            sources=drivers.get(bit,[])
+            if len(sources)!=1 or sources[0]['type']!='$eq': return False
+            eq=sources[0];a=eq['connections'].get('A',[]);b=eq['connections'].get('B',[])
+            if all(isinstance(x,int) for x in a) and all(x in ('0','1') for x in b): data,value=a,b
+            elif all(isinstance(x,int) for x in b) and all(x in ('0','1') for x in a): data,value=b,a
+            else: return False
+            if common is None: common=tuple(data)
+            if tuple(data)!=common or len(value)!=len(common): return False
+            constants.add(tuple(value))
+        return bool(common) and len(constants)==2**len(common)==len(cell['connections'].get('S',[]))
+
+    exhaustive_pmuxes=set()
+    for name,cell in module['cells'].items():
+        constant_divisor=cell['connections'].get('B',[])
+        safe_division=(cell['type'] in ('$div','$mod','$divfloor','$modfloor')
+            and all(bit in ('0','1') for bit in constant_divisor)
+            and '1' in constant_divisor)
+        safe_pmux=cell['type']=='$pmux' and exhaustive_decode_pmux(cell)
+        if cell['type'] not in TOTAL_BINARY_CELLS and not safe_division and not safe_pmux: return False
+        if safe_pmux: exhaustive_pmuxes.add(name)
+    buses=[wire['bits'] for wire in module['netnames'].values()]
+    buses += [bits for name,cell in module['cells'].items() for port,bits in cell['connections'].items()
+              if not (name in exhaustive_pmuxes and port=='A')]
+    return all(isinstance(bit,int) or bit in ('0','1') for bus in buses for bit in bus)
+
+
 class FormalIn(ExplorationInput):
     backend: str | None = Field(default='equivalence_yosys', description='Operation-specific execution backend.')
     reference_files: list[str] = Field(min_length=1, description='Reference self-contained SystemVerilog sources.')
@@ -141,15 +178,7 @@ select *
                 # narrow four-state behavior. Reject such source netlists even
                 # when the abstract SAT obligations happened to succeed.
                 for module in original['modules'].values():
-                    for cell in module['cells'].values():
-                        constant_divisor=cell['connections'].get('B',[])
-                        safe_division=(cell['type'] in ('$div','$mod','$divfloor','$modfloor')
-                            and all(bit in ('0','1') for bit in constant_divisor)
-                            and '1' in constant_divisor)
-                        abstraction_defined &= cell['type'] in TOTAL_BINARY_CELLS or safe_division
-                    buses=[wire['bits'] for wire in module['netnames'].values()]
-                    buses += [bits for cell in module['cells'].values() for bits in cell['connections'].values()]
-                    abstraction_defined &= all(isinstance(bit,int) or bit in ('0','1') for bus in buses for bit in bus)
+                    abstraction_defined &= total_binary_module(module)
             except (OSError,ValueError,KeyError,TypeError):
                 abstraction_defined=False
                 interface_complete=False

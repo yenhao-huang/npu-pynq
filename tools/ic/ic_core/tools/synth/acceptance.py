@@ -5,6 +5,7 @@ import inspect
 import json
 import math
 from pathlib import Path
+from urllib.parse import urlsplit
 from pydantic import Field
 from ...errors import InvalidInput
 from ...registry import Op, backend, find_op
@@ -21,6 +22,7 @@ class AcceptanceIn(ExplorationInput):
     evidence_root: str = Field(description='Root containing JSON study evidence, recursively inspected without selecting only successes.')
     inventory: str = Field(description='JSON inventory of operation IDs, names, PPA purposes and test files; labels require separate semantic review.')
     additional_studies: list[str] = Field(default_factory=list,description='Additional completed study files, e.g. newly exported physical results.')
+    correctness_supplements: list[str] = Field(default_factory=list,description='Source-bound interface audits or guarded affine rechecks used only for historical proofs that predate inline completeness fields.')
 
 
 def digest(path):
@@ -46,7 +48,7 @@ def studies(value):
         for child in value: yield from studies(child)
 
 
-def source_check(row,designs):
+def source_check(row,designs,supplements=None):
     """Bind correctness and measured wrappers to exact surviving source bytes."""
     physical=[];core=[]
     for design in designs:
@@ -73,6 +75,17 @@ def source_check(row,designs):
             flag='passed' if name=='simulation' else 'proved'
             if not check.get('ok') or not check.get('data',{}).get(flag) or [check.get('data',{}).get(k) for k in ('reference_sha256','candidate_sha256')]!=core:
                 raise InvalidInput('Combinational correctness missing or mismatched')
+        proof=row['formal'];data=proof['data'];complete=(data.get('interface_complete') is True and data.get('abstraction_defined') is True)
+        supplements=supplements or {'interfaces':set(),'affine':set()}
+        if not complete:
+            if data.get('method')=='exact_affine_gf2':
+                complete=tuple(core) in supplements['affine']
+            else:
+                complete=all(
+                    (role,sha) in supplements['interfaces']
+                    for role,sha in zip(('reference','candidate'),core))
+        if not complete:
+            raise InvalidInput('Formal proof lacks complete-interface and total-semantics evidence')
         cross=row.get('sat_crosscheck')
         if cross and not cross.get('ok') and not cross.get('data',{}).get('timed_out'):
             raise InvalidInput('SAT cross-check failed without a timeout')
@@ -87,6 +100,35 @@ def source_check(row,designs):
         if any(r['stage']!='routed_clocked_ooc' or r['tool']!='vivado' for r in pair):
             raise InvalidInput('Synthetic or nonphysical records cannot qualify')
     return physical
+
+
+def correctness_supplements(paths,cwd,inputs):
+    """Load narrowly recognized, source-bound historical proof supplements."""
+    out={'interfaces':set(),'affine':set()}
+    for name in paths:
+        path=(Path(cwd)/name).resolve()
+        if not path.is_file(): raise InvalidInput('Correctness supplement does not exist: '+name)
+        obj=json.loads(path.read_text());inputs[str(path)]=digest(path)
+        if (isinstance(obj,dict) and obj.get('passed') is True
+                and str(obj.get('scope','')).startswith('Interface and total-binary source-netlist re-elaboration')
+                and isinstance(obj.get('rows'),list)):
+            if not obj['rows'] or any(row.get('interface_complete') is not True or row.get('abstraction_defined') is not True for row in obj['rows']):
+                raise InvalidInput('Correctness supplement contains a failed source audit: '+name)
+            for row in obj['rows']:
+                out['interfaces'].add((row.get('role'),row.get('source_sha256')))
+            continue
+        if isinstance(obj,list):
+            for row in obj:
+                result=row.get('result',{});data=result.get('data',{});pair=tuple(row.get('source_sha256',[]))
+                guards=data.get('source_guards',[])
+                guards_ok=(len(guards)==2 and all(g.get('ok') and g.get('data',{}).get('proved')
+                    and g.get('data',{}).get('interface_complete') and g.get('data',{}).get('abstraction_defined') for g in guards))
+                if (len(pair)==2 and result.get('ok') and data.get('proved') and guards_ok
+                        and tuple(data.get(k) for k in ('reference_sha256','candidate_sha256'))==pair):
+                    out['affine'].add(pair)
+            continue
+        raise InvalidInput('Unrecognized correctness supplement format: '+name)
+    return out
 
 
 def timing_checks(row,designs,ctx):
@@ -113,6 +155,7 @@ class Acceptance:
         if not root.is_dir() or not evidence.is_dir() or not invpath.is_file():
             raise InvalidInput('Experiment/evidence roots and inventory must exist')
         inputs={str(invpath):digest(invpath)}
+        supplements=correctness_supplements(p.correctness_supplements,ctx.cwd,inputs)
         inventory=json.loads(invpath.read_text())
         tools=[];seen_names=set();seen_ids=set();bodies=set()
         for entry in inventory:
@@ -140,7 +183,8 @@ class Acceptance:
                 readme=folders[0]/'README.md'
                 if not readme.is_file(): errors.append('Missing experiment README')
                 else: inputs[str(readme)]=digest(readme)
-            if not entry.get('paper','').startswith('https://'): errors.append('Missing primary paper reference')
+            paper=entry.get('paper','');parsed=urlsplit(paper)
+            if parsed.scheme!='https' or not parsed.netloc or paper[-1:] in ',.;': errors.append('Missing or malformed primary paper reference')
             if not entry.get('purpose'): errors.append('Missing independent engineering purpose')
             tests=entry.get('tests',[])
             if not tests: errors.append('Missing test references')
@@ -191,7 +235,7 @@ class Acceptance:
                         target=declarations[key];target['observations'].append(observation)
                         if row['status']!='measured': continue
                         designs=[g['result']['data'] for g in generated]
-                        source_check(row,designs)
+                        source_check(row,designs,supplements)
                         observation['timing_coverage']=timing_checks(row,designs,ctx)
                         params=RepeatsIn(pairs=[ClockPair(baseline=a,candidate=b) for a,b in row['records']],objective=row['objective'])
                         summary=PhysicalAnalysis().paired_repeat_summary(params,ctx).data

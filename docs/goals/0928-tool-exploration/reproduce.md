@@ -454,6 +454,20 @@ python exp/tool-exploration/exp-tool-13-rover/bitwise.py --container codex-sandb
 python exp/tool-exploration/exp-tool-13-rover/audit_interfaces.py --container codex-sandbox-agent-workspace
 ```
 
+Authenticate every preserved pre-coverage Vivado record without claiming the
+coverage reports that the old flow did not emit:
+
+```powershell
+python exp/tool-exploration/exp-tool-43-rtlrewriter/audit_historical_records.py
+```
+
+Verify that each study envelope fixed the case, objective and both architecture
+payloads before any successful physical child began:
+
+```powershell
+python exp/tool-exploration/exp-tool-49-rtlrewriter/audit_predeclaration.py
+```
+
 The first two commands exercise 48 interface and 60 source-semantics controls.
 The third re-elaborates successful SAT study sources after verifying their old
 hashes; it checks the complete interface without rerunning SAT or changing old
@@ -527,3 +541,35 @@ complete source-bound correctness records. Both sizes measure modest gains below
 exporting this evidence to check the old proof interfaces; the current export
 covers 98 source interfaces. A changed backend fingerprint may start a new
 checkpoint, so preserve the completed original evidence before rerunning.
+
+## Prefix and constant-arithmetic mutations
+
+```sh
+python exp/tool-exploration/exp-tool-16-prefixllm/controls.py
+```
+
+This executes twelve 16/32-bit controls across prefix addition, CSD constant
+multiplication and shared MCM. Six correct candidates pass; six operator
+mutations fail with concrete vector mismatches. The output is summarized in
+`evidence/arithmetic-graph-mutation-controls.json`.
+
+## Count, selection and shift mutations
+
+```sh
+python exp/tool-exploration/exp-tool-23-rover/controls.py
+```
+
+This runs 24 checks over operations 23-28 at their declared sizes. Twelve
+correct tree candidates pass and twelve mutations fail with concrete vector
+mismatches. Results are in `evidence/network-mutation-controls.json`.
+
+## Clocked physical measurement control
+
+```sh
+python exp/tool-exploration/exp-tool-11-aspen/controls.py
+```
+
+This audits a completed substantial routed record, then invokes Vivado on a
+source missing its declared clock. The first must pass source/report/constraint
+binding and the second must fail without producing a measurement. See
+`evidence/clocked-ppa-controls.json`.

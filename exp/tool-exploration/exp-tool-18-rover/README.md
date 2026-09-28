@@ -19,3 +19,7 @@ explicit; CSD is canonical signed-digit expansion; MCM uses memoized factors
 of the form 2^k +/- 1. No globally optimal adder graph is claimed. Native FPGA
 carry chains or multiplier inference may outperform these alternatives; all
 regressions and inconclusive proofs must remain visible.
+
+The shared `exp-tool-16-prefixllm/controls.py` suite verifies both original MCM
+sizes and rejects an add/subtract mutation in the factored graph. It supplements
+the packing oracle and source-bound SAT gate without claiming optimality.

@@ -1,9 +1,9 @@
 # Current expanded acceptance status
 
-Snapshot: 2ab6a9. Whole-study acceptance remains incomplete.
+Snapshot: review checkpoint (uncommitted). Whole-study acceptance remains incomplete.
 
-- Implemented operation inventory: 50; semantic/exercise review remains.
-- Declared comparisons: 59; complete physical comparisons: 55.
+- Implemented operation inventory: 50; operation-level semantic/exercise review complete.
+- Declared comparisons: 59; complete source-bound physical comparisons: 55.
 - Qualifying families at both substantial configurations: 9.
 - All-case objective geometric benefit: undefined (incomplete evidence).
 
@@ -15,6 +15,9 @@ Both dot-product sizes now have complete physical pairs and timing audits, but
 throughput gains stay below the qualifying threshold. FIR/Booth remain unproved after bounded
 normalization attempts. Complete-interface controls reject hidden-port proofs.
 Historical missing-coverage records and failed retries remain in the inventory.
+The stricter proof-contract audit accepts all 98 historical SAT source
+interfaces. Barrel-shifter `$pmux` cells pass only because their decoded select
+comparisons are mutually exclusive and exhaustive; malformed decodes reject.
 
 ## Missing complete comparisons
 
@@ -27,9 +30,9 @@ Historical missing-coverage records and failed retries remain in the inventory.
 
 ## Remaining independent review
 
-- Distinct substantive operation purposes and direct PPA classification.
-- Meaningful negative tests and actual per-operation experiment coverage.
-- Historical timing coverage, report authenticity and declaration history.
+- Historical timing coverage. Raw report authenticity passes for all 182
+  preserved pre-coverage runs; 57 parent studies also prove that their cases,
+  objectives and architecture payloads predate 362 successful physical runs.
 - Complete documents, OpenSpec validation and PR readiness.
 
 See [acceptance-audit.json](evidence/acceptance-audit.json) and the controlling

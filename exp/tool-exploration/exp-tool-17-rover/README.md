@@ -42,3 +42,7 @@ Study b0dbc4 completes all three CSD32 pairs with 86.78% LUT reduction and
 153.30% throughput gain, with six passing timing audits. CSD now qualifies at
 both declared widths. See `evidence/csd-prefix-physical-study.json` in the goal
 report; its failed implementation attempt remains visible.
+
+The shared `exp-tool-16-prefixllm/controls.py` suite also checks both original
+CSD sizes against arithmetic-sign mutations. Its results add failure-path
+coverage, not another PPA comparison.

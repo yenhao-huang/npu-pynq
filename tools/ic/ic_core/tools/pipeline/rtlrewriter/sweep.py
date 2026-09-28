@@ -176,6 +176,10 @@ class Sweep:
                 for check_result in (check,proof):
                     if [check_result['data'].get(k) for k in ('reference_sha256','candidate_sha256')]!=core_hashes:
                         raise InvalidInput('Correctness evidence source mismatch')
+                if (proof['data'].get('proved') is not True
+                        or proof['data'].get('interface_complete') is not True
+                        or proof['data'].get('abstraction_defined') is not True):
+                    raise InvalidInput('Formal proof lacks complete-interface and total-semantics evidence')
                 if p.verify_only:
                     row['status']='verified' if proof['ok'] else 'simulation_only'; cases.append(row); continue
                 failed=False

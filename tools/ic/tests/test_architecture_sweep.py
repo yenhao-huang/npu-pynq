@@ -18,7 +18,7 @@ def mock_execution(monkeypatch,proof=True,bad_measurement=False):
     def invoke(op,p,**kwargs):
         calls.append(op)
         if op=='yosys_equivalence':
-            return dict(ok=proof,run_id='synthetic-proof',data=dict(reference_sha256=fingerprint([Path(f) for f in p['reference_files']],p['top']),candidate_sha256=fingerprint([Path(f) for f in p['candidate_files']],p['top'])))
+            return dict(ok=proof,run_id='synthetic-proof',data=dict(proved=proof,interface_complete=proof,abstraction_defined=proof,reference_sha256=fingerprint([Path(f) for f in p['reference_files']],p['top']),candidate_sha256=fingerprint([Path(f) for f in p['candidate_files']],p['top'])))
         if op=='clocked_ppa':
             sha='bad' if bad_measurement else fingerprint([Path(f) for f in p['files']],p['top'])
             return dict(ok=True,run_id='synthetic-measurement',data={'record':{'source_sha256':sha,'stage':'synthetic_fixture'}})
@@ -144,7 +144,8 @@ def test_affine_sweep_requires_proof_and_retains_sat_result(store,tmp_path,monke
     real=sweep.dispatch
     def invoke(op,p,**kwargs):
         if op in ('gf2_equivalence','yosys_equivalence'):
-            return dict(ok=op=='gf2_equivalence',run_id='synthetic-'+op,data=dict(timed_out=sat_timeout if op=='yosys_equivalence' else False,reference_sha256=fingerprint([Path(f) for f in p['reference_files']],p['top']),candidate_sha256=fingerprint([Path(f) for f in p['candidate_files']],p['top'])))
+            successful=op=='gf2_equivalence'
+            return dict(ok=successful,run_id='synthetic-'+op,data=dict(proved=successful,interface_complete=successful,abstraction_defined=successful,timed_out=sat_timeout if op=='yosys_equivalence' else False,reference_sha256=fingerprint([Path(f) for f in p['reference_files']],p['top']),candidate_sha256=fingerprint([Path(f) for f in p['candidate_files']],p['top'])))
         return real(op,p,**kwargs)
     monkeypatch.setattr(sweep,'dispatch',invoke)
     p=dict(study_name='affine',proof_engine='affine',verify_only=True,cases=[dict(name='crc',generator='synth_crc_parallel',baseline=dict(data_width=8,architecture='unrolled'),candidate=dict(data_width=8,architecture='shared'),objective='area')])
@@ -157,6 +158,19 @@ def test_affine_sweep_requires_proof_and_retains_sat_result(store,tmp_path,monke
 def test_affine_sweep_rejects_nonlinear_generator(store,tmp_path):
     with pytest.raises(InvalidInput,match='limited to CRC'):
         dispatch('architecture_sweep',dict(payload(),proof_engine='affine'),store=store,cwd=tmp_path)
+
+
+@pytest.mark.parametrize('field',['interface_complete','abstraction_defined'])
+def test_sweep_rejects_incomplete_formal_contract(store,tmp_path,monkeypatch,field):
+    mock_execution(monkeypatch)
+    real=sweep.dispatch
+    def invoke(op,p,**kwargs):
+        result=real(op,p,**kwargs)
+        if op=='yosys_equivalence': result['data'][field]=False
+        return result
+    monkeypatch.setattr(sweep,'dispatch',invoke)
+    with pytest.raises(InvalidInput,match='complete-interface'):
+        dispatch('architecture_sweep',payload(),store=store,cwd=tmp_path)
 
 
 @pytest.mark.parametrize('generator', ['synth_serial_multiplier','synth_divider'])

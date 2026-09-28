@@ -1,5 +1,9 @@
 {
   "experiment_root": "exp/tool-exploration",
   "evidence_root": "docs/goals/0928-tool-exploration/evidence",
-  "inventory": "exp/tool-exploration/exp-tool-50-rtlrewriter/inventory.json"
+  "inventory": "exp/tool-exploration/exp-tool-50-rtlrewriter/inventory.json",
+  "correctness_supplements": [
+    "docs/goals/0928-tool-exploration/evidence/historical-interface-audit.json",
+    "docs/goals/0928-tool-exploration/evidence/affine-source-rechecks.json"
+  ]
 }

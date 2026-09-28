@@ -19,3 +19,9 @@ explicit; CSD is canonical signed-digit expansion; MCM uses memoized factors
 of the form 2^k +/- 1. No globally optimal adder graph is claimed. Native FPGA
 carry chains or multiplier inference may outperform these alternatives; all
 regressions and inconclusive proofs must remain visible.
+
+Run `controls.py` for the shared operation 16-18 mutation suite. It exercises
+the original 16/32-bit prefix, CSD and MCM configurations. Correct candidates
+pass; prefix generate-combine, CSD sign and MCM add/subtract mutations must
+produce concrete vector mismatches. This is directed/seeded simulation, not a
+formal proof or a new physical measurement.

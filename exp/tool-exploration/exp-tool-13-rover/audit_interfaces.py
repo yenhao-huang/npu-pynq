@@ -11,6 +11,7 @@ from pathlib import Path
 import subprocess
 import uuid
 from ic_core.tools.exploration_common import fingerprint
+from ic_core.tools.debug.formal import total_binary_module
 from ic_core.tools.synth.acceptance import studies
 
 here = Path(__file__).resolve().parent
@@ -73,12 +74,14 @@ for row in rows:
     row['interface_complete'] = row['ports'] == {
         'x': dict(direction='input', width=row['input_width']),
         'y': dict(direction='output', width=row['output_width'])}
+    row['abstraction_defined'] = all(total_binary_module(module)
+                                      for module in data['modules'].values())
     row['netlist_sha256'] = hashlib.sha256(netlist.read_bytes()).hexdigest()
     row['engine'] = data['creator']
-result = dict(scope='Interface-only re-elaboration of source-bound successful SAT study proofs; no new SAT or physical verdict.',
+result = dict(scope='Interface and total-binary source-netlist re-elaboration of source-bound successful SAT study proofs; no new cross-design SAT or physical verdict.',
               commands=commands, script_sha256=hashlib.sha256((stage / 'audit.ys').read_bytes()).hexdigest(),
               excluded_non_sat=excluded, rows=rows,
-              passed=bool(rows) and all(r['interface_complete'] for r in rows))
+              passed=bool(rows) and all(r['interface_complete'] and r['abstraction_defined'] for r in rows))
 (here / 'output' / 'historical-interface-audit.json').write_text(json.dumps(result, indent=2) + '\n')
 print(len(rows), 'source interfaces', 'passed:', result['passed'], flush=True)
 assert result['passed']
