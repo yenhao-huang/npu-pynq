@@ -9,7 +9,7 @@ from ..exploration_common import ExplorationInput, Identifier, fingerprint, sour
 from . import CATEGORY
 from .exploration import Result
 from .physical_analysis import ClockRecord
-from .clocked import DSP48E1_ACTIVE_REGS,DSP48E1_PROPERTIES
+from .clocked import DSP48E1_ACTIVE_REGS,DSP48E1_PROPERTIES,DSP48E1_C_EVIDENCE
 
 CHECKS=('no_clock','constant_clock','multiple_clock','loops','latch_loops','unconstrained_internal_endpoints')
 
@@ -40,7 +40,7 @@ def fields(text):
 
 
 def inactive_dsp_cells(coverage,total,clocked):
-    """Recognize only fully bypassed DSP48E1 storage (UG479 Table 2-3).
+    """Recognize bypassed DSP48E1 storage (UG479 Tables 2-3 and 2-7/8/9).
 
     all_registers includes unused ADREG/DREG defaults when the D path is
     disabled. This is not a general exemption for DSPs or unclocked registers.
@@ -57,14 +57,26 @@ def inactive_dsp_cells(coverage,total,clocked):
         prefix=f'unclocked.{i}.'
         keys=['name','REF_NAME']
         if coverage.get(prefix+'REF_NAME')=='DSP48E1':keys+=list(DSP48E1_PROPERTIES[1:])
+        # Old reports lack this evidence and remain rejected for CREG=1.
+        if any(prefix+k in coverage for k in DSP48E1_C_EVIDENCE):keys+=list(DSP48E1_C_EVIDENCE)
         expected.update(prefix+k for k in keys)
         row={k:coverage.get(prefix+k) for k in keys}
         if not row['name'] or row['name'] in names:raise InvalidInput('Missing or duplicate unclocked cell identity')
         names.add(row['name'])
+        bypassed=(row.get('USE_MULT')=='NONE'
+            and all(row.get(prop)=='0' for prop in DSP48E1_ACTIVE_REGS))
+        # Exact multiply configurations: X/Y select M, Z selects zero or shifted
+        # PCIN. No C-based pattern/mask or pattern-triggered reset is allowed.
+        unused_c=(row.get('USE_MULT')=='MULTIPLY' and row.get('CREG')=='1'
+            and all(row.get(prop)=='0' for prop in DSP48E1_ACTIVE_REGS if prop!='CREG')
+            and row.get('static_OPMODE') in ('0000101','1010101')
+            and row.get('static_ALUMODE')=='0000' and row.get('static_CARRYINSEL')=='000'
+            and row.get('static_CEC')=='0' and row.get('static_CLK')=='0'
+            and row.get('USE_PATTERN_DETECT')=='NO_PATDET' and row.get('SEL_PATTERN')=='PATTERN'
+            and row.get('SEL_MASK')=='MASK' and row.get('AUTORESET_PATDET')=='NO_RESET')
         if (row['REF_NAME']=='DSP48E1' and row.get('USE_DPORT') in ('0','FALSE')
-            and row.get('USE_MULT')=='NONE' and row.get('ADREG') in ('0','1')
-            and row.get('DREG') in ('0','1')
-            and all(row.get(prop)=='0' for prop in DSP48E1_ACTIVE_REGS)):
+            and row.get('ADREG') in ('0','1') and row.get('DREG') in ('0','1')
+            and (bypassed or unused_c)):
             rows.append(row)
     if actual!=expected:raise InvalidInput('Missing or unexpected unclocked cell property evidence')
     return rows

@@ -15,6 +15,35 @@ from .exploration import Result
 DSP48E1_ACTIVE_REGS=('AREG','ACASCREG','BREG','BCASCREG','CREG','MREG','PREG',
     'INMODEREG','OPMODEREG','ALUMODEREG','CARRYINREG','CARRYINSELREG')
 DSP48E1_PROPERTIES=('REF_NAME','USE_DPORT','USE_MULT','ADREG','DREG')+DSP48E1_ACTIVE_REGS
+DSP48E1_C_PROPERTIES=('USE_PATTERN_DETECT','SEL_PATTERN','SEL_MASK','AUTORESET_PATDET')
+DSP48E1_C_PINS=('OPMODE','ALUMODE','CARRYINSEL','CEC','CLK')
+DSP48E1_C_EVIDENCE=DSP48E1_C_PROPERTIES+tuple('static_'+p for p in DSP48E1_C_PINS)
+# Only direct, unique primitive constant drivers establish a static control.
+DSP48E1_STATIC_TCL=r'''
+proc ic_static_bus {cell bus width} {
+  set value ""
+  for {set i [expr {$width-1}]} {$i>=0} {incr i -1} {
+    set target [expr {$width==1 ? $bus : [format {%s[%d]} $bus $i]}]
+    set selected {}
+    foreach pin [get_pins -quiet -of_objects $cell] {
+      if {[get_property REF_PIN_NAME $pin] eq $target} {lappend selected $pin}
+    }
+    set bit X
+    if {[llength $selected]==1} {
+      set nets [get_nets -quiet -segments -of_objects $selected]
+      set drivers [get_pins -quiet -leaf -of_objects $nets -filter {DIRECTION == OUT}]
+      set ports [get_ports -quiet -of_objects $nets -filter {DIRECTION == IN}]
+      if {[llength $drivers]==1 && [llength $ports]==0} {
+        set kind [get_property REF_NAME [get_cells -of_objects $drivers]]
+        if {$kind eq "GND"} {set bit 0}
+        if {$kind eq "VCC"} {set bit 1}
+      }
+    }
+    append value $bit
+  }
+  return $value
+}
+'''
 
 
 class ClockedIn(ExplorationInput):
@@ -97,6 +126,7 @@ puts $audit "latch_count=[llength [all_registers -level_sensitive]]"
 puts $audit "setup_path_count=[llength $paths]"
 puts $audit "io_delays_constrained=0"
 set clocked_cells [all_registers -clock ic_clock]
+{DSP48E1_STATIC_TCL}
 set unclocked_index 0
 foreach cell [all_registers] {{
   if {{[lsearch -exact $clocked_cells $cell]>=0}} {{continue}}
@@ -105,6 +135,14 @@ foreach cell [all_registers] {{
   if {{[get_property REF_NAME $cell] eq "DSP48E1"}} {{
     foreach prop {{{' '.join(DSP48E1_PROPERTIES[1:])}}} {{
       puts $audit "unclocked.$unclocked_index.$prop=[get_property $prop $cell]"
+    }}
+    if {{[get_property CREG $cell]==1 && [get_property USE_MULT $cell] eq "MULTIPLY"}} {{
+      foreach prop {{{' '.join(DSP48E1_C_PROPERTIES)}}} {{
+        puts $audit "unclocked.$unclocked_index.$prop=[get_property $prop $cell]"
+      }}
+      foreach {{bus width}} {{OPMODE 7 ALUMODE 4 CARRYINSEL 3 CEC 1 CLK 1}} {{
+        puts $audit "unclocked.$unclocked_index.static_$bus=[ic_static_bus $cell $bus $width]"
+      }}
     }}
   }}
   incr unclocked_index

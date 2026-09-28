@@ -39,3 +39,9 @@ passes. Control 70daa5/3ebf43 also has 145/144 but activates PREG on an unclocke
 domain; it fails no_clock, unconstrained endpoints and the active-cell count.
 No PPA gain or protocol acceptance is derived from these diagnostic fixtures.
 Original reports without per-cell details retain their previous strict result.
+
+The DSP control suite now tests unused CREG through two static OPMODE settings
+and active unclocked CREG. Run `dsp.py --case unused_c` or the full `dsp.py` suite.
+Direct constant-driver evidence and complete per-cell properties are mandatory;
+unknown controls and any reported unconstrained endpoints remain rejected.
+See `docs/goals/0928-tool-exploration/evidence/dsp-creg-controls.json`.

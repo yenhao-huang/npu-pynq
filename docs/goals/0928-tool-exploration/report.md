@@ -831,3 +831,21 @@ integration gap without changing the 59 declarations or claiming another family.
 See [complete integration evidence](evidence/wide-workflow.json). The runner
 returns nonzero when any requested positive operation fails and keeps per-tool
 summaries separate from the complete summary. Hosted CI at 7510a8c passed.
+
+## Static C-register path audit
+
+The exact matrix32 candidate diagnostic identified four multiplication DSPs
+whose C registers are unused. The audit now permits only static OPMODE 0000101
+or 1010101, zero ALUMODE/CARRYINSEL/CEC/CLK, disabled C-based pattern/mask/reset
+selection, disabled D path, and zero other register attributes. Static controls
+require a unique direct GND/VCC driver. Missing, unknown or partial evidence
+cannot enable this exception. The mux interpretation follows
+[AMD UG479 Tables 2-7/8/9](https://docs.amd.com/api/khub/documents/gu4oRPFEh_Pm2uaAlfY6Kg/content).
+
+All five real routed controls match their expected verdicts: bypassed storage,
+unused C with zero/shifted cascade selection, active unclocked P, and active
+unclocked C. A development fixture with data-connected unused C pins produced
+48 unconstrained endpoints and was correctly rejected; these endpoints remain
+disqualifying. A separate Synth 20-411 implementation failure is preserved.
+See [controls](evidence/dsp-creg-controls.json). Old physical reports are unchanged.
+The new matrix retry must independently pass every pair's source-bound audit.

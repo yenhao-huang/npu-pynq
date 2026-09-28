@@ -404,3 +404,18 @@ exit denotes a failed positive dependency. The first full run performs exhaustiv
 16-bit simulation and two combinational physical measurements. No new registered
 acceptance comparison is introduced. Match source hashes to the CSD16 formal
 proof in `evidence/csd-physical-study.json` before linking study results.
+
+## DSP C-register controls
+
+```sh
+python exp/tool-exploration/exp-tool-43-rtlrewriter/dsp.py
+python exp/tool-exploration/exp-tool-43-rtlrewriter/dsp.py --case unused_c_shift
+python exp/tool-exploration/exp-tool-43-rtlrewriter/dsp.py --case active_c_unclocked
+```
+
+The full command checks five routed controls. Individual reruns retain separate
+summaries. Unused C positives tie the C input off; the active C negative connects
+data and an unconstrained clock. Preserve implementation failures and rejected
+development fixtures. A correct inactive-cell count cannot override any nonzero
+check_timing violation. Historical reports without static mux evidence remain
+rejected for unclocked CREG=1.

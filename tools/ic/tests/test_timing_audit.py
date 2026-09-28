@@ -114,3 +114,41 @@ def test_incomplete_dsp_property_evidence_rejected(store,tmp_path,monkeypatch,mu
         text+='\n'.join(line.replace('unclocked.0.','unclocked.1.') for line in text.splitlines() if line.startswith('unclocked.0.'))+'\n'
     f.write_text(text)
     with pytest.raises(InvalidInput):dispatch('timing_constraint_audit',p,store=store)
+
+
+def unused_c_fixture(store,tmp_path,monkeypatch):
+    p,f=dsp_fixture(store,tmp_path,monkeypatch)
+    props=dict(USE_PATTERN_DETECT='NO_PATDET',SEL_PATTERN='PATTERN',SEL_MASK='MASK',
+        AUTORESET_PATDET='NO_RESET',static_OPMODE='0000101',static_ALUMODE='0000',
+        static_CARRYINSEL='000',static_CEC='0',static_CLK='0')
+    f.write_text(f.read_text().replace('USE_MULT=NONE','USE_MULT=MULTIPLY').replace('unclocked.0.CREG=0','unclocked.0.CREG=1')
+        +''.join(f'unclocked.0.{k}={v}\n' for k,v in props.items()))
+    return p,f
+
+
+@pytest.mark.parametrize('opmode',['0000101','1010101'])
+def test_statically_unused_c_register_is_excluded(store,tmp_path,monkeypatch,opmode):
+    p,f=unused_c_fixture(store,tmp_path,monkeypatch)
+    f.write_text(f.read_text().replace('static_OPMODE=0000101','static_OPMODE='+opmode))
+    assert dispatch('timing_constraint_audit',p,store=store)['ok']
+
+
+@pytest.mark.parametrize('prop,value',[
+    ('static_OPMODE','0110101'), # Z selects registered C.
+    ('static_OPMODE','0001100'), # Y selects registered C.
+    ('static_OPMODE','X000101'),('static_OPMODE','0100101'), # Unknown or P feedback.
+    ('static_ALUMODE','0001'),('static_CARRYINSEL','100'),
+    ('static_CEC','1'),('static_CLK','X'),('SEL_PATTERN','C'),('SEL_MASK','C'),
+    ('USE_PATTERN_DETECT','PATDET'),('AUTORESET_PATDET','RESET_MATCH'),
+    ('PREG','1'),('MREG','1'),('OPMODEREG','1'),('USE_DPORT','1')])
+def test_c_register_exception_rejects_active_or_unknown_paths(store,tmp_path,monkeypatch,prop,value):
+    p,f=unused_c_fixture(store,tmp_path,monkeypatch)
+    f.write_text('\n'.join(f'unclocked.0.{prop}={value}' if line.startswith(f'unclocked.0.{prop}=') else line
+        for line in f.read_text().splitlines()))
+    assert not dispatch('timing_constraint_audit',p,store=store)['ok']
+
+
+def test_partial_c_register_evidence_rejected(store,tmp_path,monkeypatch):
+    p,f=unused_c_fixture(store,tmp_path,monkeypatch)
+    f.write_text(f.read_text().replace('unclocked.0.static_OPMODE=0000101\n',''))
+    with pytest.raises(InvalidInput):dispatch('timing_constraint_audit',p,store=store)

@@ -172,3 +172,9 @@ Use `wide_workflow.py --tool all` to exercise tools 01-10 on the larger CSD16
 study. Inspect explicit negative controls and bind core hashes to its formal
 proof. Keep the workflow's combinational PPA records outside registered physical
 acceptance. A cached or schema-valid output alone does not establish success.
+
+When auditing an unclocked DSP C register, require complete static mux and
+pattern-control evidence from the same routed run. Permit only the implemented
+bounded configurations. An unused output path does not waive unconstrained
+input endpoints or any other check_timing violation. Keep older missing-evidence
+reports rejected and preserve failed development controls.

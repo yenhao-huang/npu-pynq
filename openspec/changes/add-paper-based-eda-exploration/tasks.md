@@ -160,3 +160,10 @@ actual generic/xc7 evidence at 16x64 and 32x128 storage sizes. The final 50-tool
 - [x] Record an explicit negative control for each original operation.
 - [x] Bind the core hashes to the separate registered study's formal proof.
 - [x] Preserve combinational scope and the original 59-case denominator.
+
+## Bounded DSP C-register audit
+
+- [x] Capture direct static controls and reject unknown or C-selected mux paths.
+- [x] Verify unused C and active unclocked C through real routed controls.
+- [x] Preserve all unconstrained-endpoint checks and rejected development data.
+- [ ] Complete the new matrix32 physical retry and all six associated audits.
