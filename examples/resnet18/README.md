@@ -296,8 +296,9 @@ you need. The scripts never overwrite prior evidence silently.
 Steps 1 through 9 are the development path. The published path is continuous
 deployment, and it runs the same code:
 
-1. A push to `main` selects the version its `changelog/vMAJOR.MINOR.PATCH.md`
-   declares.
+1. A `vMAJOR.MINOR.PATCH` prerelease is published on a `main` commit. CD checks
+   that it is a prerelease, that its commit is contained in `main`, and that its
+   tag is the version `changelog/vMAJOR.MINOR.PATCH.md` declares.
 2. Host checks and the Vivado build run, and this example is packaged into
    `npu-resnet18-<tag>.zip` with a checksum file.
 3. `.github/cd/resnet18_deploy_and_accept.ps1` copies exactly that archive to
@@ -309,8 +310,9 @@ deployment, and it runs the same code:
    physical overlay, compares every capture against the host record, and writes
    `image-acceptance.json` naming the release tag, the source commit, the
    overlay digests, the input image, the top-5, and the verdict.
-5. Only after all of that does the workflow tag the commit and publish the
-   Release with the packages, checksums, and evidence attached.
+5. Only after all of that does the workflow attach the packages, checksums and
+   evidence to the prerelease and clear its prerelease flag. A failed run leaves
+   the candidate as a prerelease.
 
 See [docs/rules/ci-cd.md](../../docs/rules/ci-cd.md) for the gates, the
 approval boundaries, and how a failed run is recovered.

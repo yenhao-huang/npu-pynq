@@ -104,6 +104,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository-root", type=Path, default=REPOSITORY_ROOT)
     parser.add_argument(
+        "--format",
+        choices=("json", "tag"),
+        default="json",
+        help="print the whole resolution, or only the declared release tag",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         help="append key=value lines here, for example $GITHUB_OUTPUT",
@@ -114,7 +120,10 @@ def main() -> int:
     except ReleaseVersionError as error:
         print(f"release version resolution failed: {error}", file=sys.stderr)
         return 1
-    print(json.dumps(resolution, indent=2, sort_keys=True))
+    if arguments.format == "tag":
+        print(resolution["release_tag"])
+    else:
+        print(json.dumps(resolution, indent=2, sort_keys=True))
     if arguments.output is not None:
         with arguments.output.open("a", encoding="utf-8") as stream:
             for key in ("release_tag", "release_commit", "changelog_path"):

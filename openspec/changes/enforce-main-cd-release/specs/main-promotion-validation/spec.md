@@ -29,20 +29,21 @@ commit reaches `main` without them.
 - **THEN** the promotion cannot merge
 
 ### Requirement: Approval boundaries are explicit
-Merging into `main`, deploying to the physical board, and publishing a Release
-SHALL each be separately approved. Board deployment SHALL use a protected
-environment, and publication SHALL use an environment whose reviewers own the
-release decision. Code review approval SHALL NOT imply either.
+Merging into `main`, publishing the candidate prerelease, deploying to the
+physical board, and promoting the candidate to a stable Release SHALL each be
+separately approved. Board deployment SHALL use a protected environment, and
+promotion SHALL use an environment whose reviewers own the release decision.
+Code review approval SHALL NOT imply any of them.
 
-#### Scenario: Validation passes but nobody approves publication
-- **WHEN** every gate passes and the publication environment is not approved
-- **THEN** no tag is created and the run waits without publishing
+#### Scenario: Validation passes but nobody approves promotion
+- **WHEN** every gate passes and the promotion environment is not approved
+- **THEN** the candidate stays a prerelease and the run waits
 
 ### Requirement: The pre-merge gate protects the deployment path itself
 The pre-merge gate SHALL fail when the continuous deployment workflow no longer
-runs on every push to `main` or when its publication job no longer depends on
-every validation job.
+runs on a published release, when its promotion job no longer depends on every
+validation job, or when any other job gains repository write permission.
 
 #### Scenario: A change weakens the deployment gate
-- **WHEN** a pull request removes a validation dependency from the publishing job
+- **WHEN** a pull request removes a validation dependency from the promoting job
 - **THEN** the pre-merge gate fails before that change can reach `main`

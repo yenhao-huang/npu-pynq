@@ -1,13 +1,20 @@
 name: cd
 
-# Continuous deployment validates every approved update to `main` and then
-# publishes the GitHub Release itself. The Release is the output of a passing
-# validation run, never its trigger, so nothing reaches a Release tag that the
-# board has not already accepted.
+# Continuous deployment is triggered by publishing a prerelease and finishes by
+# promoting that same prerelease to a stable Release. Publication comes first,
+# validation follows, and the stable Release exists only once the board has
+# accepted the packages attached to it.
+#
+# Converting a prerelease to a stable Release raises `released`, not
+# `published`, so the promotion at the end of this workflow cannot retrigger it.
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing prerelease tag to validate and promote
+        required: true
 
 permissions:
   contents: read
@@ -17,40 +24,93 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  select-version:
+  validate-release:
     runs-on: ubuntu-latest
     outputs:
-      release_tag: ${{ steps.version.outputs.release_tag }}
-      release_commit: ${{ steps.version.outputs.release_commit }}
-      changelog_path: ${{ steps.version.outputs.changelog_path }}
-      should_release: ${{ steps.version.outputs.should_release }}
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      release_commit: ${{ steps.release.outputs.release_commit }}
+      should_validate: ${{ steps.release.outputs.should_validate }}
     steps:
-      - name: Check out the validated main commit
+      - name: Check out the repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Resolve the release version this commit declares
-        id: version
+      - name: Install Python gate dependencies
+        run: python3 -m pip install --upgrade --break-system-packages pyyaml
+
+      - name: Validate the prerelease and its source
+        id: release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          EVENT_PRERELEASE: ${{ github.event.release.prerelease }}
+          EVENT_DRAFT: ${{ github.event.release.draft }}
+          INPUT_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
+          tag="${EVENT_TAG:-$INPUT_TAG}"
+          if [ -z "$tag" ]; then
+            echo "no release tag to validate" >&2
+            exit 1
+          fi
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must match vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+
+          # A stable Release must be produced by this workflow, never published
+          # by hand, or it would carry no validation evidence.
+          prerelease="$(gh release view "$tag" --json isPrerelease --jq .isPrerelease)"
+          draft="$(gh release view "$tag" --json isDraft --jq .isDraft)"
+          if [ "$draft" = "true" ]; then
+            echo "draft releases are not validated; publish it as a prerelease" >&2
+            exit 1
+          fi
+          if [ "$prerelease" != "true" ]; then
+            echo "$tag is already a stable Release." >&2
+            echo "Publish the candidate as a prerelease and let this workflow promote it." >&2
+            exit 1
+          fi
+
           git fetch --tags --force origin
-          python3 .github/cd/resolve_release_version.py --output "$GITHUB_OUTPUT"
+          git fetch --no-tags origin main
+          release_commit="$(git rev-parse "${tag}^{commit}")"
+          if ! git merge-base --is-ancestor "$release_commit" origin/main; then
+            echo "release commit is not contained in origin/main" >&2
+            exit 1
+          fi
+
+          # The tag must be the version main declares, so the package, the
+          # changelog and the Release cannot drift apart.
+          git checkout -q "$release_commit"
+          declared="$(python3 .github/cd/resolve_release_version.py --format tag)"
+          if [ "$declared" != "$tag" ]; then
+            echo "main declares $declared but this prerelease is $tag" >&2
+            exit 1
+          fi
+
+          echo "release_tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
+          echo "should_validate=true" >> "$GITHUB_OUTPUT"
 
   host-checks:
-    needs: select-version
-    if: needs.select-version.outputs.should_release == 'true'
+    needs: validate-release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.select-version.outputs.release_commit }}
+          ref: ${{ needs.validate-release.outputs.release_commit }}
 
       - name: Install open-source EDA tools
         run: |
           sudo apt-get update
           sudo apt-get install -y verilator iverilog
+
+      - name: Install Python test dependencies
+        run: |
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
 
       - name: Lint RTL
         run: make -C src/test lint
@@ -58,26 +118,22 @@ jobs:
       - name: Run simulations
         run: make -C src/test sim
 
-      - name: Install Python test dependencies
-        run: |
-          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
-
       - name: Run host model and example suites
         run: make -C src/test model PYTHON=python3
 
   build-overlay:
-    needs: [select-version, host-checks]
+    needs: [validate-release, host-checks]
     runs-on: [self-hosted, vivado]
     timeout-minutes: 180
     env:
       RESNET18_MODEL_DIR: examples/resnet18/model
       RESNET18_ACCEPTANCE_DIR: examples/resnet18/acceptance
     steps:
-      - name: Check out the validated main commit
+      - name: Check out the validated release tag
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.select-version.outputs.release_commit }}
+          ref: ${{ needs.validate-release.outputs.release_tag }}
 
       - name: Build routed overlay and bitstream
         shell: pwsh
@@ -108,8 +164,8 @@ jobs:
       - name: Assemble standalone matrix example
         shell: pwsh
         run: |
-          $tag = '${{ needs.select-version.outputs.release_tag }}'
-          $commit = '${{ needs.select-version.outputs.release_commit }}'
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
+          $commit = '${{ needs.validate-release.outputs.release_commit }}'
           $package = "mount/matrix-multiplication/$tag"
           python examples/matrix-multiplication/package_example.py `
             --repository-root . `
@@ -129,8 +185,8 @@ jobs:
       - name: Assemble standalone ResNet-18 release package
         shell: pwsh
         run: |
-          $tag = '${{ needs.select-version.outputs.release_tag }}'
-          $commit = '${{ needs.select-version.outputs.release_commit }}'
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
+          $commit = '${{ needs.validate-release.outputs.release_commit }}'
           New-Item -ItemType Directory -Force 'build/cd' | Out-Null
           python examples/resnet18/package_example.py `
             --repository-root . `
@@ -148,7 +204,7 @@ jobs:
       - name: Record deterministic checksums
         shell: pwsh
         run: |
-          $tag = '${{ needs.select-version.outputs.release_tag }}'
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
           $files = @(
             'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit',
             'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.hwh',
@@ -166,7 +222,7 @@ jobs:
       - name: Retain overlay and build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: npu-build-${{ needs.select-version.outputs.release_tag }}
+          name: npu-build-${{ needs.validate-release.outputs.release_tag }}
           if-no-files-found: error
           path: |
             build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit
@@ -177,15 +233,15 @@ jobs:
       - name: Retain standalone deployment packages
         uses: actions/upload-artifact@v4
         with:
-          name: npu-packages-${{ needs.select-version.outputs.release_tag }}
+          name: npu-packages-${{ needs.validate-release.outputs.release_tag }}
           if-no-files-found: error
           path: |
-            build/cd/npu-matrix-${{ needs.select-version.outputs.release_tag }}.tar.gz
-            build/cd/npu-resnet18-${{ needs.select-version.outputs.release_tag }}.zip
+            build/cd/npu-matrix-${{ needs.validate-release.outputs.release_tag }}.tar.gz
+            build/cd/npu-resnet18-${{ needs.validate-release.outputs.release_tag }}.zip
             build/cd/SHA256SUMS
 
   board-validation:
-    needs: [select-version, build-overlay]
+    needs: [validate-release, build-overlay]
     runs-on: [self-hosted, pynq-z1]
     timeout-minutes: 240
     environment: pynq-z1-production
@@ -193,15 +249,15 @@ jobs:
       - name: Check out deployment wrappers
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.select-version.outputs.release_commit }}
+          ref: ${{ needs.validate-release.outputs.release_tag }}
 
       - name: Download standalone deployment packages
         uses: actions/download-artifact@v4
         with:
-          name: npu-packages-${{ needs.select-version.outputs.release_tag }}
+          name: npu-packages-${{ needs.validate-release.outputs.release_tag }}
           path: build/cd-download
 
-      - name: Verify published checksums before deployment
+      - name: Verify checksums before deployment
         shell: pwsh
         run: |
           Push-Location 'build/cd-download'
@@ -223,7 +279,7 @@ jobs:
       - name: Extract standalone matrix package
         shell: pwsh
         run: |
-          $tag = '${{ needs.select-version.outputs.release_tag }}'
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
           New-Item -ItemType Directory -Force 'build/cd-package' | Out-Null
           tar -xzf "build/cd-download/npu-matrix-$tag.tar.gz" -C 'build/cd-package'
           if ($LASTEXITCODE -ne 0) {
@@ -242,7 +298,7 @@ jobs:
           $remoteRoot = if ($env:PYNQ_REMOTE_ROOT) { $env:PYNQ_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_matrix' }
           & examples/matrix-multiplication/deploy_release.ps1 `
             -PackagePath 'build/cd-package' `
-            -ReleaseTag '${{ needs.select-version.outputs.release_tag }}' `
+            -ReleaseTag '${{ needs.validate-release.outputs.release_tag }}' `
             -DeploymentId '${{ github.run_id }}-${{ github.run_attempt }}' `
             -EvidencePath 'build/board/board-evidence.json' `
             -BoardHost $hostName `
@@ -256,7 +312,7 @@ jobs:
           PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
           PYNQ_RESNET18_REMOTE_ROOT: ${{ vars.PYNQ_RESNET18_REMOTE_ROOT }}
         run: |
-          $tag = '${{ needs.select-version.outputs.release_tag }}'
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
           $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { '192.168.2.99' }
           $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
           $remoteRoot = if ($env:PYNQ_RESNET18_REMOTE_ROOT) { $env:PYNQ_RESNET18_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_resnet18' }
@@ -280,7 +336,7 @@ jobs:
           $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
           $remoteRoot = if ($env:PYNQ_RESNET18_REMOTE_ROOT) { $env:PYNQ_RESNET18_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_resnet18' }
           & .github/cd/resnet18_accept_image.ps1 `
-            -ReleaseTag '${{ needs.select-version.outputs.release_tag }}' `
+            -ReleaseTag '${{ needs.validate-release.outputs.release_tag }}' `
             -DeploymentId '${{ github.run_id }}-${{ github.run_attempt }}' `
             -EvidencePath 'build/board/resnet18-image-acceptance.json' `
             -BoardHost $hostName `
@@ -290,93 +346,63 @@ jobs:
       - name: Retain board evidence
         uses: actions/upload-artifact@v4
         with:
-          name: npu-board-${{ needs.select-version.outputs.release_tag }}
+          name: npu-board-${{ needs.validate-release.outputs.release_tag }}
           if-no-files-found: error
           path: |
             build/board/board-evidence.json
             build/board/resnet18-board-evidence.json
             build/board/resnet18-image-acceptance.json
 
-  publish-release:
-    needs: [select-version, host-checks, build-overlay, board-validation]
+  promote-release:
+    needs: [validate-release, host-checks, build-overlay, board-validation]
     runs-on: ubuntu-latest
     environment: pynq-z1-release
     permissions:
       contents: write
     steps:
-      - name: Check out the validated main commit
+      - name: Check out the validated release tag
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          ref: ${{ needs.select-version.outputs.release_commit }}
+          ref: ${{ needs.validate-release.outputs.release_commit }}
 
       - name: Download validated packages
         uses: actions/download-artifact@v4
         with:
-          name: npu-packages-${{ needs.select-version.outputs.release_tag }}
+          name: npu-packages-${{ needs.validate-release.outputs.release_tag }}
           path: build/release
 
       - name: Download overlay artifacts
         uses: actions/download-artifact@v4
         with:
-          name: npu-build-${{ needs.select-version.outputs.release_tag }}
+          name: npu-build-${{ needs.validate-release.outputs.release_tag }}
           path: build/release
 
       - name: Download board acceptance evidence
         uses: actions/download-artifact@v4
         with:
-          name: npu-board-${{ needs.select-version.outputs.release_tag }}
+          name: npu-board-${{ needs.validate-release.outputs.release_tag }}
           path: build/release
 
-      - name: Verify checksums and release preconditions
+      - name: Verify checksums and evidence before promotion
         shell: bash
         env:
-          TAG: ${{ needs.select-version.outputs.release_tag }}
-          COMMIT: ${{ needs.select-version.outputs.release_commit }}
+          TAG: ${{ needs.validate-release.outputs.release_tag }}
         run: |
           set -euo pipefail
-          git fetch --tags --force origin
-          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            echo "release tag ${TAG} already exists; refusing to republish" >&2
-            exit 1
-          fi
-          git fetch --no-tags origin main
-          if ! git merge-base --is-ancestor "$COMMIT" origin/main; then
-            echo "validated commit is no longer contained in origin/main" >&2
-            exit 1
-          fi
           cd build/release
           sha256sum --check --strict SHA256SUMS
           test -s "npu-resnet18-${TAG}.zip"
           test -s resnet18-board-evidence.json
           test -s resnet18-image-acceptance.json
 
-      - name: Tag the validated commit
-        shell: bash
-        env:
-          TAG: ${{ needs.select-version.outputs.release_tag }}
-          COMMIT: ${{ needs.select-version.outputs.release_commit }}
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git tag -a "$TAG" "$COMMIT" -m "$TAG"
-          git push origin "refs/tags/$TAG"
-
-      - name: Publish the GitHub Release with its evidence
+      - name: Attach the validated assets to the prerelease
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.select-version.outputs.release_tag }}
-          COMMIT: ${{ needs.select-version.outputs.release_commit }}
-          CHANGELOG: ${{ needs.select-version.outputs.changelog_path }}
+          TAG: ${{ needs.validate-release.outputs.release_tag }}
         run: |
           set -euo pipefail
-          gh release create "$TAG" \
-            --target "$COMMIT" \
-            --title "$TAG" \
-            --notes-file "$CHANGELOG" \
-            --verify-tag \
+          gh release upload "$TAG" \
             build/release/npu-resnet18-"$TAG".zip \
             build/release/npu-matrix-"$TAG".tar.gz \
             build/release/npu_matrix.bit \
@@ -386,4 +412,15 @@ jobs:
             build/release/board-evidence.json \
             build/release/resnet18-board-evidence.json \
             build/release/resnet18-image-acceptance.json \
-            build/release/SHA256SUMS
+            build/release/SHA256SUMS \
+            --clobber
+
+      - name: Promote the prerelease to a stable Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.validate-release.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release edit "$TAG" --prerelease=false --latest
+          echo "promoted $TAG to a stable Release"
