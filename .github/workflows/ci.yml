@@ -66,7 +66,7 @@ jobs:
           fi
           echo "promotion declares ${release_tag} (${changelog_path})"
 
-      - name: Verify continuous deployment still gates main
+      - name: Verify continuous deployment still gates the stable Release
         shell: bash
         run: |
           set -euo pipefail
@@ -76,10 +76,15 @@ jobs:
 
           workflow = yaml.safe_load(open(".github/workflows/cd.yml", encoding="utf-8"))
           triggers = workflow[True] if True in workflow else workflow["on"]
-          if triggers.get("push", {}).get("branches") != ["main"]:
-              sys.exit("cd.yml must run on every push to main")
-          publish = workflow["jobs"]["publish-release"]
-          required = {"select-version", "host-checks", "build-overlay", "board-validation"}
-          if not required.issubset(set(publish["needs"])):
-              sys.exit("publish-release must depend on every validation job")
+          if triggers.get("release", {}).get("types") != ["published"]:
+              sys.exit("cd.yml must run when a release is published")
+          promote = workflow["jobs"]["promote-release"]
+          required = {"validate-release", "host-checks", "build-overlay", "board-validation"}
+          if not required.issubset(set(promote["needs"])):
+              sys.exit("promote-release must depend on every validation job")
+          for name, job in workflow["jobs"].items():
+              if name == "promote-release":
+                  continue
+              if job.get("permissions", {}).get("contents") == "write":
+                  sys.exit(f"{name} must not hold contents: write")
           PY

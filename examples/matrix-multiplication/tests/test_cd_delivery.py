@@ -332,31 +332,38 @@ class DeploymentWrapperTests(unittest.TestCase):
 
 
 class ReleaseWorkflowContractTests(unittest.TestCase):
-    """Continuous deployment validates main, then publishes the Release itself."""
+    """A prerelease starts CD; only a passing run makes it a stable Release."""
 
     def setUp(self) -> None:
         self.workflow_path = REPOSITORY_ROOT / ".github" / "workflows" / "cd.yml"
         self.assertTrue(self.workflow_path.is_file(), "cd.yml is required")
         self.workflow = self.workflow_path.read_text(encoding="utf-8")
 
-    def test_validated_main_commit_is_the_only_cd_trigger(self) -> None:
+    def test_published_prerelease_is_the_cd_trigger(self) -> None:
         for marker in (
-            "push:",
-            "branches: [main]",
-            "resolve_release_version.py",
-            "needs.select-version.outputs.release_commit",
+            "release:",
+            "types: [published]",
+            "isPrerelease",
+            "origin/main",
             "concurrency:",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.workflow)
-        # A published Release must never start production CD again; that cycle
-        # is what this workflow replaces.
-        self.assertNotIn("types: [published]", self.workflow)
-        self.assertNotIn("github.event.release", self.workflow)
         self.assertFalse(
             (REPOSITORY_ROOT / ".github" / "workflows" / "build.yml").exists(),
             "tag-push build workflow must be retired",
         )
+
+    def test_a_hand_published_stable_release_is_refused(self) -> None:
+        # A stable Release must be the output of this workflow. Validating one
+        # that was published by hand would attach evidence to a Release that was
+        # already public and unvalidated.
+        self.assertIn("is already a stable Release.", self.workflow)
+        self.assertIn("draft releases are not validated", self.workflow)
+
+    def test_the_prerelease_tag_must_match_what_main_declares(self) -> None:
+        self.assertIn("resolve_release_version.py --format tag", self.workflow)
+        self.assertIn("but this prerelease is", self.workflow)
 
     def test_privileged_work_stays_on_trusted_runners(self) -> None:
         for marker in (
@@ -368,36 +375,36 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.workflow)
-        self.assertNotIn("vivado -mode batch", self.workflow.split("build-overlay:")[0])
 
-    def test_release_publication_requires_every_validation_gate(self) -> None:
+    def test_promotion_requires_every_validation_gate(self) -> None:
         import yaml
 
         workflow = yaml.safe_load(self.workflow)
         triggers = workflow[True] if True in workflow else workflow["on"]
-        self.assertEqual(triggers["push"]["branches"], ["main"])
+        self.assertEqual(triggers["release"]["types"], ["published"])
         jobs = workflow["jobs"]
-        publish = jobs["publish-release"]
+        promote = jobs["promote-release"]
         self.assertEqual(
-            set(publish["needs"]),
-            {"select-version", "host-checks", "build-overlay", "board-validation"},
+            set(promote["needs"]),
+            {"validate-release", "host-checks", "build-overlay", "board-validation"},
         )
-        self.assertEqual(publish["permissions"]["contents"], "write")
-        self.assertEqual(publish["environment"], "pynq-z1-release")
+        self.assertEqual(promote["permissions"]["contents"], "write")
+        self.assertEqual(promote["environment"], "pynq-z1-release")
         self.assertEqual(jobs["board-validation"]["environment"], "pynq-z1-production")
-        # Nothing but the publishing job may write to the repository.
         for name, job in jobs.items():
-            if name == "publish-release":
+            if name == "promote-release":
                 continue
             with self.subTest(job=name):
                 self.assertNotEqual(
                     job.get("permissions", {}).get("contents"), "write"
                 )
 
-    def test_release_carries_packages_evidence_and_checksums(self) -> None:
+    def test_promotion_attaches_evidence_then_clears_prerelease(self) -> None:
+        upload = self.workflow.index("gh release upload")
+        promote = self.workflow.index("gh release edit")
+        self.assertLess(upload, promote, "assets must be attached before promotion")
+        self.assertIn("--prerelease=false", self.workflow)
         for marker in (
-            "gh release create",
-            "--verify-tag",
             "npu-resnet18-",
             "npu-matrix-",
             "SHA256SUMS",
@@ -405,7 +412,6 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             "resnet18-board-evidence.json",
             "resnet18-image-acceptance.json",
             "board-evidence.json",
-            "refusing to republish",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.workflow)
