@@ -13,7 +13,8 @@ npu_repo_in_pynq/
 |   `-- vMAJOR.MINOR.PATCH.md
 |-- .github/
 |   |-- cd/
-|   |   `-- *.ps1              automated deployment and acceptance scripts
+|   |   |-- *.ps1             automated deployment and acceptance scripts
+|   |   `-- *.py              release version selection for the workflows
 |   `-- workflows/
 |       |-- cd.yml
 |       `-- ci.yml
@@ -53,8 +54,10 @@ npu_repo_in_pynq/
 |       |-- README.md
 |       |-- *.ipynb
 |       |-- *-source.json        pinned download metadata
+|       |-- QUICKSTART.md          three-step board quick start
 |       |-- package_example.py
 |       |-- run_on_board.py
+|       |-- accept_image_on_board.py
 |       |-- deploy_release.ps1
 |       |-- model/
 |       |   `-- .gitkeep
