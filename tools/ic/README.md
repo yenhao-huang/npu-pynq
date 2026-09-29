@@ -62,6 +62,7 @@ For other agents, such as Codex or pi, see [docs/manual/installation.md](docs/ma
 | `value_range` | Inspect a signal's transitions over a range | `wave`, `signal`, `from_cycle`, `to_cycle` |
 | `show_wave` | Prepare a GTKWave view for a person | `wave`, `signals`, `center_cycle`, `launch` |
 | `synth` | Estimate utilization with Yosys or run full synthesis with Vivado | `files`, `top`, `mode` |
+| `ppa` | Power, area and fmax against a standard-cell library with OpenROAD | `files`, `top`, `liberty`, `mode` |
 
 A typical workflow is `lint` → `sim` → `first_mismatch` → `value_at`.
 Use the `wave` handle returned by your simulation for subsequent queries.
@@ -159,7 +160,7 @@ pi install npm:@jony2156/ai-eda-tools@0.1.0 --local
 pi
 ```
 
-pi reads the package's `pi.extensions` declaration and registers the eight
+pi reads the package's `pi.extensions` declaration and registers the nine
 tools. The extension prepares the runtime on first use if needed. Inside pi,
 run `/ic` to inspect backends. A skill is optional workflow guidance.
 Move any previous `.pi/extensions/ic-design-tools.ts` wrapper aside before
@@ -168,6 +169,8 @@ using package discovery to avoid registering the tools twice.
 `--local` saves the registry package declaration in this project's settings.
 See the
 [pi acceptance guide](../../docs/goals/ic-design-tools/acceptance/pi-agent.md) for all eight checks.
+`ppa` needs OpenROAD and a standard-cell library, neither of which ships with
+the package; it reports itself unavailable until they are installed.
 
 ## Verification demo
 

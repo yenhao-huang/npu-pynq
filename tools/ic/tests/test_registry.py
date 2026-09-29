@@ -10,7 +10,7 @@ from ic_core.registry import CATEGORIES, all_op_names, find_op, iter_ops, load_a
 
 def test_every_category_registers_backends():
     load_all()
-    assert set(CATEGORIES) == {"lint", "sim", "debug", "view", "synth"}
+    assert set(CATEGORIES) == {"lint", "sim", "debug", "view", "synth", "ppa"}
     for category in CATEGORIES.values():
         assert category.backends, f"{category.name} has no backend"
         assert category.default_backend in category.backends
@@ -52,3 +52,16 @@ def test_unknown_op_is_rejected():
 
     with pytest.raises(UnknownOp):
         find_op("no_such_tool")
+
+
+def test_an_optional_category_does_not_condemn_the_toolchain():
+    """`ic doctor` reports ok when the lint/sim loop works. OpenROAD and a
+    standard-cell PDK are an extra, so their absence is listed as unavailable
+    without being counted as blocking."""
+    from ic_cli.main import cmd_doctor
+
+    load_all()
+    assert CATEGORIES["ppa"].optional
+    report = cmd_doctor()
+    assert [r for r in report["backends"] if r["category"] == "ppa"]
+    assert not any("ppa" in entry for entry in report["blocking"])
