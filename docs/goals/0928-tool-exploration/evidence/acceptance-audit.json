@@ -9501,9 +9501,9 @@
       "tools/ic/ic_core/tools/pipeline/rtlrewriter/sweep.py": "0fddf3b8d226882e36eb90deac96224b02272535b860e5470f8885f62dd61c12",
       "exp/tool-exploration/exp-tool-49-rtlrewriter/README.md": "d3bfdd2b5ea3707387afc95b5bf74e73662ec21f3090a62dab55dc8834287e3c",
       "tools/ic/tests/test_architecture_sweep.py": "695ec7bd8ef2b8b77c233986780143040507f1b81eb4bb56fcc117e940e284ad",
-      "tools/ic/ic_core/tools/synth/acceptance.py": "215ba00afa8540abbc83944ed486b2fdded1eec1470e69c7b43cebee7bf4bc9b",
+      "tools/ic/ic_core/tools/synth/acceptance.py": "11c86ceeb98ba33f843c7cd6d984b8cb5240fc59d9cbea8c4e9231b4138fff6e",
       "exp/tool-exploration/exp-tool-50-rtlrewriter/README.md": "329286ce1b9b1932691d37842ad40ce871f4b1dcd1bfa3f6ff2801581596497a",
-      "tools/ic/tests/test_acceptance_audit.py": "894eb6d901e689ef216c2ac9b8496376e585e3cdd1015ecf5e181104b0b3c3cd",
+      "tools/ic/tests/test_acceptance_audit.py": "58a57ba958b395601c07190b1f49465f449e5f5938dc35bdaffe0d26a77185e4",
       "exp/tool-exploration/exp-tool-01-rtlrewriter/config.json": "379635fb50823b4528bfaad9a17eb7d4bba8b7b3f0716f760bf276ff9dfc182b",
       "exp/tool-exploration/exp-tool-02-rtlrewriter/config.json": "9c82215933c45a3b53dd72b454928b91c2602547a980f6b870a70b9373404b02",
       "exp/tool-exploration/exp-tool-03-rtlrewriter/config.json": "3540a4374523663d5c1cee169d805237ec3a8fc69ebcce6baa4c3ffaa35274e5",
@@ -9584,7 +9584,6 @@
       "docs/goals/0928-tool-exploration/evidence/09.json": "cb4074007e8d900051ee5aa517e56b1d0a875d638543af8ee9f3e44e6d216603",
       "docs/goals/0928-tool-exploration/evidence/10.json": "2270c0f806b58a77600ea58ff077ae7b1297d4bda82e144834634b34fa229bc0",
       "docs/goals/0928-tool-exploration/evidence/abc-arithmetic-diagnostics.json": "eb51314c9bb6697a502b0f81141e9e1ea937895175b17aaf52c02851bad9d8e3",
-      "docs/goals/0928-tool-exploration/evidence/acceptance-audit.json": "8fe156294cce0e4df295e2b7eb5193e3606410ce0eabc948534fc684e9c7d3c0",
       "docs/goals/0928-tool-exploration/evidence/adder-macc-physical-study.json": "15b97a0f76a7a081b93cbad0e0904832e002969085ec7ffbdd933fbe35d3e380",
       ".ic/studies/adder_macc_retry/a6d058e40a5d3570ad93c461a146e72df5e8f1e5adcfd6d6b1b73d2b02066296/w16_balanced-baseline-generate.json": "8475160ed034157b421e30a7b7eab4b9ab13d01e277c9c8522e6c0d4423b31ef",
       ".ic/studies/adder_macc_retry/a6d058e40a5d3570ad93c461a146e72df5e8f1e5adcfd6d6b1b73d2b02066296/w16_balanced-candidate-generate.json": "e02f05b259e01114840ff8de34e6d46cbdce9efc86243804bc9c6d688e3aa70f",
@@ -9987,5 +9986,5 @@
     "completion_claim_supported": false
   },
   "note": "This is a bounded mechanical acceptance audit, not a completion certificate. Missing, failed or unmatched cases keep the full aggregate undefined; no neutral ratio is imputed. Every complete retry is retained and the worst benefit is used. Structural inventory does not prove semantic distinctness or test quality. Remaining review items require independent evidence before whole-goal completion.",
-  "run_id": "de7a3c"
+  "run_id": "a16ee8"
 }

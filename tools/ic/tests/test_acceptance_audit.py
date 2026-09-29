@@ -59,6 +59,16 @@ def test_audit_reports_repository_files_with_portable_paths(tmp_path,store):
     assert out['cases'][0]['observations'][0]['file']=='evidence/study.json'
 
 
+def test_prior_acceptance_output_is_not_its_own_input(tmp_path,store):
+    p,_,path,_,_=fixture(tmp_path,store)
+    previous=dict(ok=False,data=dict(gates={},declared_cases=1,
+        input_sha256={'old':'digest'},completion_claim_supported=False))
+    write(path.parent/'acceptance-audit.json',previous)
+    out=dispatch('acceptance_audit',p,store=store,cwd=tmp_path)['data']
+    assert 'evidence/acceptance-audit.json' not in out['input_sha256']
+    assert out['declared_cases']==1 and out['cases_with_verified_physical_pairs']==1
+
+
 @pytest.mark.parametrize('mutation',['failed','missing','source','proof','cycle','duplicate','synthetic','objective'])
 def test_unknown_or_invalid_evidence_cannot_supply_ratio(tmp_path,store,mutation):
     p,report,path,folder,designs=fixture(tmp_path,store);case=report['data']['cases'][0]

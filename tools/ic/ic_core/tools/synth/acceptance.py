@@ -221,7 +221,15 @@ class Acceptance:
         unmatched=[];seen_studies=set()
         paths=sorted(evidence.rglob('*.json'))+[(Path(ctx.cwd)/x).resolve() for x in p.additional_studies]
         for path in paths:
-            obj=json.loads(path.read_text());inputs[str(path)]=digest(path)
+            obj=json.loads(path.read_text())
+            snapshot=obj.get('data',{}) if isinstance(obj,dict) else {}
+            # A prior acceptance report is an output of this audit, not study
+            # evidence. Including it would create an unverifiable self-hash
+            # whenever the canonical report is replaced by the new result.
+            signature={'gates','declared_cases','input_sha256','completion_claim_supported'}
+            if isinstance(snapshot,dict) and signature<=snapshot.keys():
+                continue
+            inputs[str(path)]=digest(path)
             for study in studies(obj):
                 serial=json.dumps(study,sort_keys=True)
                 if serial in seen_studies: continue

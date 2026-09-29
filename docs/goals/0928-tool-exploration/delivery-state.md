@@ -18,7 +18,7 @@ Scope: implement and validate goal.md; publish one PR to dev; no merge requested
 | Search and claim issue | completed | No matching prior issue; #80 assigned to repository owner and agent a claim verified |
 | Read contribution rules | completed | AGENTS.md and docs/rules reviewed |
 | Inspect branch and diff | completed | Entire change reviewed against dev; no production RTL or unrelated user changes included |
-| Validate and commit | completed | 582 Python tests pass with 37 optional skips; lint passes; all eight RTL simulations pass |
+| Validate and commit | completed | 583 Python tests pass with 37 optional skips; lint passes; all eight RTL simulations pass |
 | Draft PR | completed | Description has the current 55/59 result, nine qualifying families, evidence scope and limitations |
 | Push, create and verify | completed | https://github.com/yenhao-huang/npu-pynq/pull/81; open draft, base dev, head npu/issue80-a |
 | Handoff | completed | PR attached; goal, report, reproduction guide, skill state and evidence are committed |
@@ -549,9 +549,9 @@ parent study envelopes fix their objectives and full architecture payloads befor
 362 successful physical children start. The old in-memory runs still lack the
 newer timing-coverage reports and saved routed checkpoints.
 
-Acceptance run de7a3c reports 55/59 complete comparisons, nine qualifying
+Acceptance run a16ee8 reports 55/59 complete comparisons, nine qualifying
 families at both substantial configurations and an undefined all-case geometric
-benefit. The complete Python suite passes 582 tests with 37 optional native-Yosys
+benefit. The complete Python suite passes 583 tests with 37 optional native-Yosys
 skips. The required make lint/sim target passes; all eight simulations were also
 forced directly through Icarus/VVP. Hosted CI passed commits e811a31 and 3ac2ecb;
 current head status is tracked on PR #81, which remains draft. No merge or reset

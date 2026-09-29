@@ -92,15 +92,21 @@ New-Item -ItemType Directory -Force .ic | Out-Null
 .venv/Scripts/python.exe -m pytest tools/ic/tests -q --basetemp=.ic/pytest-full-new-run
 ```
 
-On this Windows host, run the repository gate with MSYS2 paths:
+The authoritative Python list is the explicit `pytest` file list in
+`.github/workflows/ci.yml`. The discovery-wide second command also collects
+host-only simulator-wrapper tests; on Windows these require native executable
+wrappers that are not supplied by the MSYS2 shell installation.
+
+From the checkout root on this Windows host, run the repository gate with MSYS2
+paths:
 
 ```powershell
-C:/msys64/usr/bin/bash.exe -c 'export PATH=/ucrt64/bin:/usr/bin:$PATH; cd /c/Users/User/Desktop/agent_workspace/npu/worktrees/npu-issue80-a && make -C src/test lint sim'
+C:/msys64/usr/bin/bash.exe -c 'export PATH=/ucrt64/bin:/usr/bin:$PATH; make -C src/test lint sim'
 ```
 
-Adjust only the worktree path for another checkout. Use unique pytest base-temp
-folders to avoid cross-account temporary-directory permissions. See report.md
-for actual results and baseline-reproduced Windows limitations.
+Use unique pytest base-temp folders to avoid cross-account temporary-directory
+permissions. See report.md for actual results and baseline-reproduced Windows
+limitations.
 
 ## Workflow reuse and usage stop
 

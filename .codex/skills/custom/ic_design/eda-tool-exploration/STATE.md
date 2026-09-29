@@ -534,9 +534,9 @@ architecture payload before 362 successful physical child runs start. Historical
 clock/register coverage remains unavailable because those in-memory runs saved
 neither the newer reports nor routed checkpoints.
 
-Acceptance run de7a3c reports 55/59 complete comparisons and nine qualifying
+Acceptance run a16ee8 reports 55/59 complete comparisons and nine qualifying
 families at both substantial configurations. FIR16/32 and Booth16/32 remain
-unproved, so the all-case geometric benefit is undefined. Validation passes 582
+unproved, so the all-case geometric benefit is undefined. Validation passes 583
 Python tests with 37 optional native-Yosys skips; the required make lint/sim target
 passes, with all eight RTL testbenches also forced directly through Icarus/VVP.
 Commit e811a31 is pushed to draft PR #81 and hosted CI passes.

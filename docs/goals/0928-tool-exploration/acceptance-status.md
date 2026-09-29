@@ -1,6 +1,6 @@
 # Current expanded acceptance status
 
-Snapshot: complete-review checkpoint. Whole-study acceptance remains incomplete.
+Snapshot: a16ee8. Whole-study acceptance remains incomplete.
 
 - Implemented operation inventory: 50; operation-level semantic/exercise review complete.
 - Declared comparisons: 59; complete source-bound physical comparisons: 55.
