@@ -24,6 +24,17 @@ def needs(executable: str):
     )
 
 
+def needs_env(variable: str):
+    """For the standard-cell flow, which cannot be exercised without a PDK.
+
+    `IC_PDK_LIBERTY` is how a machine says it has one, so the test that needs
+    one skips exactly where the tool itself would have nothing to map onto.
+    """
+    return pytest.mark.skipif(
+        not os.environ.get(variable), reason=f"{variable} not set"
+    )
+
+
 @pytest.fixture()
 def counter_wave(store, tmp_path):
     """Simulate the buggy-counter fixture once and hand back its wave handle."""

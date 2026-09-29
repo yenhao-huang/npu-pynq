@@ -2,8 +2,8 @@
 
 The npm package is `@jony2156/ai-eda-tools`; its CLI command remains `ic-tools`.
 
-Expose eight tools to your agent: `lint`, `sim`, `signals`, `first_mismatch`,
-`value_at`, `value_range`, `show_wave` and `synth`.
+Expose nine tools to your agent: `lint`, `sim`, `signals`, `first_mismatch`,
+`value_at`, `value_range`, `show_wave`, `synth` and `ppa`.
 
 - [MCP-based installation](#mcp-based-installation): Claude Code and Codex.
 - [Others installation](#others-installation): pi.
@@ -17,6 +17,19 @@ Install Node.js 20.11+ and your chosen agent first, and configure its model
 provider. Run the Bash commands below from the repository root, in the same
 Linux/macOS environment as the agent. Windows users must use WSL.
 See [platform requirements](#platforms-and-requirements).
+
+For the fastest startup, install OpenROAD before installing the npm package and
+confirm it is on PATH:
+
+```bash
+openroad -version
+```
+
+Use an official prebuilt package or follow the
+[OpenROAD installation guide](https://openroad.readthedocs.io/en/latest/user/Build.html).
+Alternatively install and start Docker. When native OpenROAD is absent, npm
+automatically pulls a pinned official `openroad/orfs` image. Setup intentionally
+does not invoke a system package manager or `sudo`.
 
 If you already have a runtime, select its [existing cache](#reuse-an-existing-environment)
 before installing. No Python venv activation is required.
@@ -127,7 +140,11 @@ The older directory name can remain; it does not change the command name.
 
 ### First setup and recovery
 
-The current implementation downloads a pinned
+The current implementation first checks native OpenROAD. When it is absent,
+setup verifies Docker and pulls
+`openroad/orfs:26Q1-534-g510137693`, pinned by its Linux/amd64 manifest digest.
+ARM hosts therefore need Docker's amd64 emulation support. Setup then downloads
+a pinned
 [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build) archive
 (approximately 480–710 MiB) and hash-locked Python wheels. It still uses this
 managed bundle. npm installs Node dependencies, then `postinstall` prepares
@@ -151,6 +168,8 @@ backends. To use the standalone commands, install the global npm package above.
   locally; size and SHA256 are checked. First setup still needs Python wheels
   from the network. Completed caches work offline.
 - `IC_ROOT` selects the project artifact store independently of the runtime cache.
+- `IC_OPENROAD_MODE=auto` prefers native OpenROAD and falls back to Docker.
+  Set it to `host` or `docker` to require one provider explicitly.
 
 ### Uninstall
 
@@ -174,6 +193,10 @@ agent. Runtime caches and project `.ic/` evidence remain on disk.
 - Node.js >=20.11. Pinned manifests cover Linux x64/arm64 and macOS x64/arm64;
   see acceptance records for platforms actually tested.
 - Native Windows is unsupported; run Node/npm and the agent inside WSL.
+- OpenROAD is required either on PATH or through a running Docker daemon. The
+  Docker fallback pulls a pinned official image and bind-mounts only the
+  project, run, and referenced PDK directories. A standard-cell PDK is supplied
+  separately when invoking `ppa`; npm does not install technology files.
 - Linux simulation requires a C++ compiler, Make, and zlib/LZ4 development files
   (`build-essential`, `zlib1g-dev`, `liblz4-dev` on Debian). npm does not install them.
 - macOS needs an upstream-supported OS version and may need Xcode command-line

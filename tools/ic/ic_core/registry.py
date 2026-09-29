@@ -56,6 +56,11 @@ class Category:
     summary: str
     ops: list[Op]
     default_backend: str
+    #: A category whose default backend is an extra, not part of the baseline
+    #: RTL loop. `ic doctor` reports it as unavailable without calling the
+    #: toolchain broken -- the same standing Vivado has, which only escapes
+    #: because it is not the `synth` default.
+    optional: bool = False
     backends: dict[str, "Backend"] = field(default_factory=dict)
 
     def op(self, name: str) -> Op:

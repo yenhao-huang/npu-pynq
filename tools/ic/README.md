@@ -62,6 +62,7 @@ For other agents, such as Codex or pi, see [docs/manual/installation.md](docs/ma
 | `value_range` | Inspect a signal's transitions over a range | `wave`, `signal`, `from_cycle`, `to_cycle` |
 | `show_wave` | Prepare a GTKWave view for a person | `wave`, `signals`, `center_cycle`, `launch` |
 | `synth` | Estimate utilization with Yosys or run full synthesis with Vivado | `files`, `top`, `mode` |
+| `ppa` | Power, area and fmax against a standard-cell library with OpenROAD | `files`, `top`, `liberty`, `mode` |
 
 A typical workflow is `lint` → `sim` → `first_mismatch` → `value_at`.
 Use the `wave` handle returned by your simulation for subsequent queries.
@@ -75,10 +76,14 @@ and `init pi`; it does not accept `ic-tools lint`.
 
 ### Runtime dependencies
 
-npm's `postinstall` runs setup, downloading a pinned, checksum-verified OSS
-CAD Suite and installing hash-locked Python dependencies. The first setup
-downloads about 480–710 MiB plus Python packages; later runs reuse the cache.
-No Python venv activation is required.
+npm's `postinstall` first looks for a working `openroad` executable on `PATH`.
+If none is present and Docker is running, setup pulls the official
+`openroad/orfs:26Q1-534-g510137693` Linux/amd64 image pinned by manifest digest
+and installs a managed wrapper. It then downloads a pinned, checksum-verified
+OSS CAD Suite and hash-locked Python
+dependencies. The first setup downloads about 480–710 MiB plus Python packages
+and, when needed, the Docker image; later runs reuse both caches. No Python venv
+activation is required.
 
 - Linux/WSL: provide a C++ compiler, Make, tar, zlib and LZ4 development files
   for simulation builds. On Debian/Ubuntu these include `build-essential`,
@@ -86,6 +91,10 @@ No Python venv activation is required.
 - macOS: provide a compatible native build toolchain; GUI viewing requires
   a desktop session.
 - Native Windows is unsupported; run Node, npm and the agent inside WSL.
+- OpenROAD is required, either as a host executable or through Docker. Native
+  OpenROAD is preferred. Otherwise Docker must be installed and its daemon
+  running; npm pulls the pinned official image without invoking a system
+  package manager or `sudo`.
 - Vivado is separately installed and licensed.
 
 If install scripts were skipped, run `ic-tools setup` before starting the agent.
@@ -159,7 +168,7 @@ pi install npm:@jony2156/ai-eda-tools@0.1.0 --local
 pi
 ```
 
-pi reads the package's `pi.extensions` declaration and registers the eight
+pi reads the package's `pi.extensions` declaration and registers the nine
 tools. The extension prepares the runtime on first use if needed. Inside pi,
 run `/ic` to inspect backends. A skill is optional workflow guidance.
 Move any previous `.pi/extensions/ic-design-tools.ts` wrapper aside before
@@ -168,6 +177,9 @@ using package discovery to avoid registering the tools twice.
 `--local` saves the registry package declaration in this project's settings.
 See the
 [pi acceptance guide](../../docs/goals/ic-design-tools/acceptance/pi-agent.md) for all eight checks.
+`ppa` also needs a standard-cell library or PDK. Setup provides OpenROAD from
+the host or Docker; the technology files remain user-supplied and are mounted
+read-write only through their containing directories for each Docker run.
 
 ## Verification demo
 

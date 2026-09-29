@@ -10,7 +10,7 @@ from ic_core.registry import CATEGORIES, all_op_names, find_op, iter_ops, load_a
 
 def test_every_category_registers_backends():
     load_all()
-    assert set(CATEGORIES) == {"lint", "sim", "debug", "view", "synth"}
+    assert set(CATEGORIES) == {"lint", "sim", "debug", "view", "synth", "ppa"}
     for category in CATEGORIES.values():
         assert category.backends, f"{category.name} has no backend"
         assert category.default_backend in category.backends
@@ -52,3 +52,17 @@ def test_unknown_op_is_rejected():
 
     with pytest.raises(UnknownOp):
         find_op("no_such_tool")
+
+
+def test_missing_openroad_is_a_blocking_doctor_failure(monkeypatch):
+    """The npm package promises PPA, so OpenROAD is a baseline dependency."""
+    from ic_cli.main import cmd_doctor
+
+    load_all()
+    ppa = CATEGORIES["ppa"]
+    monkeypatch.setattr(ppa.backends["openroad"], "available", lambda: False)
+    assert not ppa.optional
+    report = cmd_doctor()
+    assert [r for r in report["backends"] if r["category"] == "ppa"]
+    assert any("ppa" in entry for entry in report["blocking"])
+    assert not report["ok"]

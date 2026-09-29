@@ -30,7 +30,7 @@ const { session } = await createAgentSession({
 });
 const tools = session.agent.state.tools;
 assert.deepEqual(tools.map(t => t.name).sort(),
-  ['first_mismatch', 'lint', 'show_wave', 'signals', 'sim', 'synth', 'value_at', 'value_range']);
+  ['first_mismatch', 'lint', 'ppa', 'show_wave', 'signals', 'sim', 'synth', 'value_at', 'value_range']);
 const transcript = [];
 async function call(name, params) {
   const result = await tools.find(t => t.name === name).execute(
@@ -65,5 +65,5 @@ assert.equal(view.launched, false);
 assert.ok(view.savefile);
 assert.equal((await call('synth', { files: [path.join(fixture, 'counter.sv')], top: 'counter_ref', mode: 'estimate' })).ok, true);
 await writeFile(path.join(project, 'evidence.json'), JSON.stringify(transcript, null, 2));
-console.log(`PASS: installed pi extension registered and executed all eight tools; evidence ${project}`);
+console.log(`PASS: installed pi extension registered and executed all nine tools; evidence ${project}`);
 process.exit(0);
