@@ -1,0 +1,21 @@
+{
+ "images": 200,
+ "corpus": "examples/resnet18/model/imagenet-calibration",
+ "checkpoint": "examples/resnet18/model/resnet18-f37072fd.pth",
+ "calibration": "32 real images from the corpus, disjoint from the first 200 evaluated",
+ "calibration_images": 32,
+ "fp32": {
+  "top1": 0.855,
+  "top5": 0.96
+ },
+ "int8": {
+  "top1": 0.86,
+  "top5": 0.96
+ },
+ "delta": {
+  "top1": 0.005,
+  "top5": 0.0
+ },
+ "top1_agreement_int8_vs_fp32": 0.96,
+ "note": "Produced 2026-09-20 by the same code path as scripts/eval_int8_accuracy.py --calibration real --calibration-size 32 --limit 200. Recalibrated A-side: only the calibration inputs differ from accuracy_synthetic_1000.json; exporter, per-channel scheme, numeric contract and ABI are identical."
+}

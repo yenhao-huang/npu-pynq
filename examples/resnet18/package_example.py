@@ -6,11 +6,25 @@ import argparse
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
+import re
+import sys
 import tempfile
 import zipfile
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+MODULE_DIR = Path(__file__).resolve().parent
+# In a deployed standalone package this file sits at the package root; in the
+# repository it sits under examples/resnet18/.
+REPOSITORY_ROOT = (
+    MODULE_DIR
+    if (MODULE_DIR / "package.manifest.json").is_file()
+    else MODULE_DIR.parents[1]
+)
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from src.runtime.verify_overlay import verify_artifacts
+
 MODEL_FILENAMES = (
     "acceptance.json",
     "resnet18.conversion.json",
@@ -177,7 +191,38 @@ def _record(name: str, data: bytes) -> dict[str, object]:
     }
 
 
-def build_archive(
+def _write_archive(output: Path, entries: list[tuple[str, bytes]]) -> None:
+    """Write one deterministic ZIP atomically, or leave no output behind."""
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "wb",
+        dir=output.parent,
+        prefix=f".{output.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as stream:
+        temporary = Path(stream.name)
+    try:
+        with zipfile.ZipFile(temporary, "w") as archive:
+            for name, data in sorted(entries):
+                pure = PurePosixPath(name)
+                if pure.is_absolute() or ".." in pure.parts:
+                    raise ResNet18PackageError(f"unsafe archive path: {name}")
+                info = zipfile.ZipInfo(name, FIXED_DATE)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.create_system = 3
+                info.external_attr = 0o100644 << 16
+                archive.writestr(info, data)
+        if output.exists():
+            raise ResNet18PackageError("output archive appeared during packaging")
+        temporary.replace(output)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def build_model_archive(
     *,
     model_dir: Path,
     source_metadata_path: Path,
@@ -205,38 +250,325 @@ def build_archive(
         + "\n"
     ).encode("utf-8")
     entries.append(("package.manifest.json", manifest_data))
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        "wb",
-        dir=output.parent,
-        prefix=f".{output.name}.",
-        suffix=".tmp",
-        delete=False,
-    ) as stream:
-        temporary = Path(stream.name)
-    try:
-        with zipfile.ZipFile(temporary, "w") as archive:
-            for name, data in sorted(entries):
-                pure = PurePosixPath(name)
-                if pure.is_absolute() or ".." in pure.parts:
-                    raise ResNet18PackageError(f"unsafe archive path: {name}")
-                info = zipfile.ZipInfo(name, FIXED_DATE)
-                info.compress_type = zipfile.ZIP_DEFLATED
-                info.create_system = 3
-                info.external_attr = 0o100644 << 16
-                archive.writestr(info, data)
-        if output.exists():
-            raise ResNet18PackageError("output archive appeared during packaging")
-        temporary.replace(output)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
+    _write_archive(output, entries)
     return manifest
+
+
+# --- Standalone release delivery -------------------------------------------
+
+DELIVERY_MAGIC = "NPU_RESNET18_RELEASE_PACKAGE"
+RELEASE_TAG_PATTERN = re.compile(
+    r"(?:v[0-9]+\.[0-9]+\.[0-9]+|local-[0-9a-fA-F]{8,64})"
+)
+COMMIT_PATTERN = re.compile(r"[0-9a-fA-F]{40,64}")
+
+DELIVERY_SOURCE_FILES = {
+    "examples/resnet18/resnet18.ipynb": "resnet18.ipynb",
+    "examples/resnet18/README.md": "README.md",
+    "examples/resnet18/QUICKSTART.md": "QUICKSTART.md",
+    "examples/resnet18/run_on_board.py": "run_on_board.py",
+    "examples/resnet18/accept_image_on_board.py": "accept_image_on_board.py",
+    "examples/resnet18/package_example.py": "package_example.py",
+    "examples/resnet18/demo-source.json": "demo-source.json",
+    "examples/resnet18/gallery-source.json": "gallery-source.json",
+    "examples/resnet18/model-source.json": "model-source.json",
+    "src/export/__init__.py": "src/export/__init__.py",
+    "src/export/imagenet.py": "src/export/imagenet.py",
+    "src/export/planner.py": "src/export/planner.py",
+    "src/export/resnet.py": "src/export/resnet.py",
+    "src/model/__init__.py": "src/model/__init__.py",
+    "src/model/numeric.py": "src/model/numeric.py",
+    "src/model/operators.py": "src/model/operators.py",
+    "src/model/package.py": "src/model/package.py",
+    "src/model/resnet.py": "src/model/resnet.py",
+    "src/model/resnet18.py": "src/model/resnet18.py",
+    "src/runtime/__init__.py": "src/runtime/__init__.py",
+    "src/runtime/acceptance.py": "src/runtime/acceptance.py",
+    "src/runtime/lowering.py": "src/runtime/lowering.py",
+    "src/runtime/model.py": "src/runtime/model.py",
+    "src/runtime/npu.py": "src/runtime/npu.py",
+    "src/runtime/verify_overlay.py": "src/runtime/verify_overlay.py",
+}
+DELIVERY_ARTIFACT_FILES = (
+    "npu_matrix.bit",
+    "npu_matrix.hwh",
+    "npu_matrix.manifest.json",
+)
+DELIVERY_REPORT_FILES = (
+    "build_evidence.txt",
+    "drc_routed.rpt",
+    "route_status.rpt",
+    "timing_summary_routed.rpt",
+    "utilization_impl.rpt",
+    "utilization_synth.rpt",
+)
+DELIVERY_EVIDENCE_KEYS = (
+    "bit",
+    "drc_errors",
+    "hwh",
+    "part",
+    "setup_failing_paths",
+    "source_commit",
+    "vivado",
+    "wns",
+)
+
+
+def _validated_release_tag(value: str) -> str:
+    tag = str(value).strip()
+    if RELEASE_TAG_PATTERN.fullmatch(tag) is None:
+        raise ResNet18PackageError(
+            "release tag must match vMAJOR.MINOR.PATCH or local-<commit>"
+        )
+    return tag
+
+
+def _validated_commit(value: str) -> str:
+    commit = str(value).strip().lower()
+    if COMMIT_PATTERN.fullmatch(commit) is None:
+        raise ResNet18PackageError("source commit must be a full hexadecimal object id")
+    return commit
+
+
+def parse_build_evidence(path: Path) -> dict[str, str]:
+    """Return the key/value build evidence Vivado recorded for this overlay."""
+
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise ResNet18PackageError(f"build evidence is unreadable: {error}") from error
+    values: dict[str, str] = {}
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        key, separator, value = line.partition("=")
+        if not separator:
+            raise ResNet18PackageError(f"build evidence line is malformed: {line!r}")
+        key = key.strip()
+        if key in values:
+            raise ResNet18PackageError(f"duplicate build evidence key {key!r}")
+        values[key] = value.strip()
+    missing = [key for key in DELIVERY_EVIDENCE_KEYS if key not in values]
+    if missing:
+        raise ResNet18PackageError(
+            f"build evidence is incomplete: missing {missing[0]}"
+        )
+    return values
+
+
+def evaluate_vivado_gates(evidence: dict[str, str], source_commit: str) -> dict:
+    """Fail closed unless timing, DRC, and provenance gates all passed."""
+
+    try:
+        wns = float(evidence["wns"])
+        setup_failing_paths = int(evidence["setup_failing_paths"])
+        drc_errors = int(evidence["drc_errors"])
+    except ValueError as error:
+        raise ResNet18PackageError(
+            f"vivado gates are not numeric: {error}"
+        ) from error
+    if evidence["source_commit"].strip().lower() != source_commit:
+        raise ResNet18PackageError(
+            "vivado gates reject this build: evidence names another source commit"
+        )
+    if drc_errors != 0:
+        raise ResNet18PackageError(
+            f"vivado gates reject this build: {drc_errors} DRC errors"
+        )
+    if setup_failing_paths != 0:
+        raise ResNet18PackageError(
+            f"vivado gates reject this build: {setup_failing_paths} failing setup paths"
+        )
+    if wns <= 0.0:
+        raise ResNet18PackageError(
+            f"vivado gates reject this build: worst negative slack is {wns}"
+        )
+    return {
+        "drc_errors": drc_errors,
+        "part": evidence["part"],
+        "setup_failing_paths": setup_failing_paths,
+        "vivado": evidence["vivado"],
+        "wns": wns,
+    }
+
+
+def _delivery_entries(
+    *,
+    repository_root: Path,
+    artifact_dir: Path,
+    report_dir: Path,
+    descriptor_path: Path,
+    model_dir: Path | None,
+    source_metadata_path: Path | None,
+) -> tuple[list[tuple[str, bytes]], list[dict[str, object]]]:
+    sources: list[tuple[str, Path]] = [
+        (destination, repository_root / source)
+        for source, destination in DELIVERY_SOURCE_FILES.items()
+    ]
+    sources.extend(
+        (f"artifacts/{name}", artifact_dir / name) for name in DELIVERY_ARTIFACT_FILES
+    )
+    sources.extend(
+        (f"reports/{name}", report_dir / name) for name in DELIVERY_REPORT_FILES
+    )
+
+    bundle = _json(descriptor_path)
+    assets = bundle.get("assets")
+    if not isinstance(assets, dict):
+        raise ResNet18PackageError("acceptance descriptor has no asset record")
+    sources.append(("acceptance/acceptance.json", descriptor_path))
+    descriptor_root = descriptor_path.parent
+    for name in sorted(assets):
+        record = assets[name]
+        if not isinstance(record, dict) or not isinstance(record.get("filename"), str):
+            raise ResNet18PackageError(f"acceptance asset {name!r} is malformed")
+        filename = record["filename"]
+        if PurePosixPath(filename).is_absolute() or ".." in PurePosixPath(filename).parts:
+            raise ResNet18PackageError(f"acceptance asset {name!r} escapes the bundle")
+        sources.append((f"acceptance/{filename}", descriptor_root / filename))
+
+    if model_dir is not None and source_metadata_path is not None:
+        validate_workspace(model_dir, source_metadata_path)
+        checkpoint = str(_json(source_metadata_path).get("filename"))
+        for path in sorted(model_dir.resolve().iterdir()):
+            if not path.is_file() or path.name == checkpoint:
+                continue
+            sources.append((f"model/{path.name}", path))
+
+    missing = [
+        destination for destination, source in sources if not source.is_file()
+    ]
+    if missing:
+        raise ResNet18PackageError(
+            f"required package inputs are missing: {missing[0]}"
+        )
+    seen: set[str] = set()
+    entries: list[tuple[str, bytes]] = []
+    for destination, source in sources:
+        if destination in seen:
+            raise ResNet18PackageError(f"duplicate package entry: {destination}")
+        seen.add(destination)
+        entries.append((destination, source.read_bytes()))
+    entries.sort(key=lambda item: item[0])
+    report_records = [
+        _record(destination.split("/", 1)[1], data)
+        for destination, data in entries
+        if destination.startswith("reports/")
+    ]
+    return entries, sorted(report_records, key=lambda record: str(record["path"]))
+
+
+def build_delivery_archive(
+    *,
+    repository_root: Path,
+    artifact_dir: Path,
+    report_dir: Path,
+    descriptor_path: Path,
+    output_archive: Path,
+    release_tag: str,
+    source_commit: str,
+    model_dir: Path | None = None,
+    source_metadata_path: Path | None = None,
+) -> dict[str, object]:
+    """Publish one reproducible standalone board package, or publish nothing."""
+
+    repository_root = repository_root.resolve()
+    artifact_dir = artifact_dir.resolve()
+    report_dir = report_dir.resolve()
+    descriptor_path = descriptor_path.resolve()
+    output = output_archive.resolve()
+    if output.suffix.lower() != ".zip":
+        raise ResNet18PackageError("output archive must use .zip")
+    if output.exists():
+        raise ResNet18PackageError("output archive already exists")
+    tag = _validated_release_tag(release_tag)
+    commit = _validated_commit(source_commit)
+
+    overlay = verify_artifacts(artifact_dir)
+    if str(overlay.get("source_commit", "")).lower() != commit:
+        raise ResNet18PackageError(
+            "overlay manifest source commit differs from the release commit"
+        )
+    gates = evaluate_vivado_gates(
+        parse_build_evidence(report_dir / "build_evidence.txt"), commit
+    )
+
+    entries, report_records = _delivery_entries(
+        repository_root=repository_root,
+        artifact_dir=artifact_dir,
+        report_dir=report_dir,
+        descriptor_path=descriptor_path,
+        model_dir=model_dir,
+        source_metadata_path=source_metadata_path,
+    )
+    reports_manifest = (
+        json.dumps(
+            {"files": report_records},
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+    entries.append(("reports/reports.manifest.json", reports_manifest))
+    entries.sort(key=lambda item: item[0])
+
+    manifest: dict[str, object] = {
+        "evidence_type": "real-model-host",
+        "files": [_record(name, data) for name, data in entries],
+        "format": {"major": 1, "minor": 0},
+        "magic": DELIVERY_MAGIC,
+        "model_workspace": any(
+            name.startswith("model/") for name, _data in entries
+        ),
+        "overlay": {
+            "bit_sha256": overlay["bit"]["sha256"],
+            "hwh_sha256": overlay["hwh"]["sha256"],
+            "source_commit": commit,
+            "target_part": overlay["target_part"],
+        },
+        "release_tag": tag,
+        "source_commit": commit,
+        "vivado_gates": gates,
+    }
+    manifest_data = (
+        json.dumps(manifest, allow_nan=False, sort_keys=True, separators=(",", ":"))
+        + "\n"
+    ).encode("utf-8")
+    entries.append(("package.manifest.json", manifest_data))
+    entries.sort(key=lambda item: item[0])
+    for name, _data in entries:
+        if str(repository_root) in name:
+            raise ResNet18PackageError(f"package entry leaks a host path: {name}")
+    _write_archive(output, entries)
+    return manifest
+
+
+def build_archive(**arguments: object) -> dict[str, object]:
+    """Build the standalone board package, or the model-only archive."""
+
+    delivery_keys = {
+        "repository_root",
+        "artifact_dir",
+        "report_dir",
+        "descriptor_path",
+        "release_tag",
+        "source_commit",
+    }
+    if delivery_keys & set(arguments):
+        missing = sorted(delivery_keys - set(arguments))
+        if missing:
+            raise ResNet18PackageError(
+                f"standalone package requires {missing[0]}"
+            )
+        return build_delivery_archive(**arguments)  # type: ignore[arg-type]
+    return build_model_archive(**arguments)  # type: ignore[arg-type]
 
 
 def main() -> int:
     example_root = REPOSITORY_ROOT / "examples" / "resnet18"
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-dir", type=Path, default=example_root / "model")
     parser.add_argument(
         "--source-metadata",
@@ -249,12 +581,60 @@ def main() -> int:
         default=REPOSITORY_ROOT / "mount" / "resnet18" / "resnet18-model.zip",
     )
     parser.add_argument("--check-only", action="store_true")
+    parser.add_argument(
+        "--repository-root",
+        type=Path,
+        help="build the standalone board package from this checkout",
+    )
+    parser.add_argument("--artifact-dir", type=Path)
+    parser.add_argument("--report-dir", type=Path)
+    parser.add_argument("--descriptor", type=Path)
+    parser.add_argument("--release-tag")
+    parser.add_argument("--source-commit")
+    parser.add_argument(
+        "--without-model-workspace",
+        action="store_true",
+        help="omit the ignored model workspace from the standalone package",
+    )
     arguments = parser.parse_args()
+
     if arguments.check_only:
         validate_workspace(arguments.model_dir, arguments.source_metadata)
         print("PASS [real-model-host]: model workspace is package-ready")
         return 0
-    build_archive(
+
+    if arguments.repository_root is not None:
+        missing = [
+            name
+            for name in ("artifact_dir", "report_dir", "descriptor")
+            if getattr(arguments, name) is None
+        ]
+        if missing:
+            parser.error(f"--{missing[0].replace('_', '-')} is required")
+        artifact_dir = arguments.artifact_dir.resolve()
+        overlay = verify_artifacts(artifact_dir)
+        source_commit = arguments.source_commit or str(overlay["source_commit"])
+        release_tag = arguments.release_tag or f"local-{source_commit[:8]}"
+        build_delivery_archive(
+            repository_root=arguments.repository_root,
+            artifact_dir=artifact_dir,
+            report_dir=arguments.report_dir,
+            descriptor_path=arguments.descriptor,
+            output_archive=arguments.output_archive,
+            release_tag=release_tag,
+            source_commit=source_commit,
+            model_dir=None if arguments.without_model_workspace else arguments.model_dir,
+            source_metadata_path=(
+                None if arguments.without_model_workspace else arguments.source_metadata
+            ),
+        )
+        print(
+            "PASS [real-model-host]: standalone release package at "
+            f"{arguments.output_archive.resolve()}"
+        )
+        return 0
+
+    build_model_archive(
         model_dir=arguments.model_dir,
         source_metadata_path=arguments.source_metadata,
         output_archive=arguments.output_archive,

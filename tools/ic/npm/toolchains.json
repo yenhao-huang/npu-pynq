@@ -1,0 +1,10 @@
+{
+  "release": "2026-09-23",
+  "source": "https://github.com/YosysHQ/oss-cad-suite-build",
+  "platforms": {
+    "linux-x64": { "sha256": "29b8b8cce17120508f8accae838d56c702c290a583559295966c059756694302", "size": 742080145 },
+    "linux-arm64": { "sha256": "6b3b8bafaf4a5e635610d3bce91992ada1736808e9cb058bb1c4fc65809bb8f1", "size": 679496478 },
+    "darwin-x64": { "sha256": "4376e8f174469b945b072b91df0dbb2037d56a1b04e73305e4508d015cef9e1d", "size": 503472402 },
+    "darwin-arm64": { "sha256": "71fe371f2d9cf91df2967765e19b7bbfd898b35dbad134b9238d6329051ffa7a", "size": 521250283 }
+  }
+}

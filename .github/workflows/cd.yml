@@ -1,8 +1,20 @@
 name: cd
 
+# Continuous deployment is triggered by publishing a prerelease and finishes by
+# promoting that same prerelease to a stable Release. Publication comes first,
+# validation follows, and the stable Release exists only once the board has
+# accepted the packages attached to it.
+#
+# Converting a prerelease to a stable Release raises `released`, not
+# `published`, so the promotion at the end of this workflow cannot retrigger it.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing prerelease tag to validate and promote
+        required: true
 
 permissions:
   contents: read
@@ -13,44 +25,109 @@ concurrency:
 
 jobs:
   validate-release:
-    if: github.event.release.draft == false && github.event.release.prerelease == false
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.release.outputs.release_tag }}
       release_commit: ${{ steps.release.outputs.release_commit }}
+      should_validate: ${{ steps.release.outputs.should_validate }}
     steps:
-      - name: Check out the release tag
+      - name: Check out the repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.release.tag_name }}
 
-      - name: Validate stable release source
+      - name: Install Python gate dependencies
+        run: python3 -m pip install --upgrade --break-system-packages pyyaml
+
+      - name: Validate the prerelease and its source
         id: release
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          EVENT_PRERELEASE: ${{ github.event.release.prerelease }}
+          EVENT_DRAFT: ${{ github.event.release.draft }}
+          INPUT_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          tag="${EVENT_TAG:-$INPUT_TAG}"
+          if [ -z "$tag" ]; then
+            echo "no release tag to validate" >&2
+            exit 1
+          fi
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "release tag must match vMAJOR.MINOR.PATCH" >&2
             exit 1
           fi
+
+          # A stable Release must be produced by this workflow, never published
+          # by hand, or it would carry no validation evidence.
+          prerelease="$(gh release view "$tag" --json isPrerelease --jq .isPrerelease)"
+          draft="$(gh release view "$tag" --json isDraft --jq .isDraft)"
+          if [ "$draft" = "true" ]; then
+            echo "draft releases are not validated; publish it as a prerelease" >&2
+            exit 1
+          fi
+          if [ "$prerelease" != "true" ]; then
+            echo "$tag is already a stable Release." >&2
+            echo "Publish the candidate as a prerelease and let this workflow promote it." >&2
+            exit 1
+          fi
+
+          git fetch --tags --force origin
           git fetch --no-tags origin main
-          release_commit="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          release_commit="$(git rev-parse "${tag}^{commit}")"
           if ! git merge-base --is-ancestor "$release_commit" origin/main; then
             echo "release commit is not contained in origin/main" >&2
             exit 1
           fi
-          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+          # The tag must be the version main declares, so the package, the
+          # changelog and the Release cannot drift apart.
+          git checkout -q "$release_commit"
+          declared="$(python3 .github/cd/resolve_release_version.py --format tag)"
+          if [ "$declared" != "$tag" ]; then
+            echo "main declares $declared but this prerelease is $tag" >&2
+            exit 1
+          fi
+
+          echo "release_tag=$tag" >> "$GITHUB_OUTPUT"
           echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
+          echo "should_validate=true" >> "$GITHUB_OUTPUT"
+
+  host-checks:
+    needs: validate-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-release.outputs.release_commit }}
+
+      - name: Install open-source EDA tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y verilator iverilog
+
+      - name: Install Python test dependencies
+        run: |
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
+
+      - name: Lint RTL
+        run: make -C src/test lint
+
+      - name: Run simulations
+        run: make -C src/test sim
+
+      - name: Run host model and example suites
+        run: make -C src/test model PYTHON=python3
 
   build-overlay:
-    needs: validate-release
+    needs: [validate-release, host-checks]
     runs-on: [self-hosted, vivado]
     timeout-minutes: 180
-    permissions:
-      contents: write
+    env:
+      RESNET18_MODEL_DIR: examples/resnet18/model
+      RESNET18_ACCEPTANCE_DIR: examples/resnet18/acceptance
     steps:
       - name: Check out the validated release tag
         uses: actions/checkout@v4
@@ -105,10 +182,47 @@ jobs:
             throw "package archive failed with exit code $LASTEXITCODE"
           }
 
+      - name: Assemble standalone ResNet-18 release package
+        shell: pwsh
+        run: |
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
+          $commit = '${{ needs.validate-release.outputs.release_commit }}'
+          New-Item -ItemType Directory -Force 'build/cd' | Out-Null
+          python examples/resnet18/package_example.py `
+            --repository-root . `
+            --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
+            --report-dir build/vivado/npu_matrix_8x8/reports `
+            --descriptor "$env:RESNET18_ACCEPTANCE_DIR/acceptance.json" `
+            --model-dir $env:RESNET18_MODEL_DIR `
+            --output-archive "build/cd/npu-resnet18-$tag.zip" `
+            --release-tag $tag `
+            --source-commit $commit
+          if ($LASTEXITCODE -ne 0) {
+            throw "ResNet-18 package assembly failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Record deterministic checksums
+        shell: pwsh
+        run: |
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
+          $files = @(
+            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit',
+            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.hwh',
+            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json',
+            'build/vivado/npu_matrix_8x8/reports/build_evidence.txt',
+            "build/cd/npu-matrix-$tag.tar.gz",
+            "build/cd/npu-resnet18-$tag.zip"
+          )
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([IO.Path]::GetFileName($file))"
+          }
+          [IO.File]::WriteAllLines('build/cd/SHA256SUMS', $lines)
+
       - name: Retain overlay and build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: npu-matrix-build-${{ needs.validate-release.outputs.release_tag }}
+          name: npu-build-${{ needs.validate-release.outputs.release_tag }}
           if-no-files-found: error
           path: |
             build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit
@@ -116,61 +230,63 @@ jobs:
             build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json
             build/vivado/npu_matrix_8x8/reports/build_evidence.txt
 
-      - name: Retain standalone deployment package
+      - name: Retain standalone deployment packages
         uses: actions/upload-artifact@v4
         with:
-          name: npu-matrix-package-${{ needs.validate-release.outputs.release_tag }}
+          name: npu-packages-${{ needs.validate-release.outputs.release_tag }}
           if-no-files-found: error
-          path: build/cd/npu-matrix-${{ needs.validate-release.outputs.release_tag }}.tar.gz
-
-      - name: Publish deterministic Release assets
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = '${{ needs.validate-release.outputs.release_tag }}'
-          gh release upload $tag `
-            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit' `
-            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.hwh' `
-            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json' `
-            'build/vivado/npu_matrix_8x8/reports/build_evidence.txt' `
-            "build/cd/npu-matrix-$tag.tar.gz" `
-            --clobber
-          if ($LASTEXITCODE -ne 0) {
-            throw "gh release upload failed with exit code $LASTEXITCODE"
-          }
+          path: |
+            build/cd/npu-matrix-${{ needs.validate-release.outputs.release_tag }}.tar.gz
+            build/cd/npu-resnet18-${{ needs.validate-release.outputs.release_tag }}.zip
+            build/cd/SHA256SUMS
 
   board-validation:
     needs: [validate-release, build-overlay]
     runs-on: [self-hosted, pynq-z1]
-    timeout-minutes: 30
+    timeout-minutes: 240
     environment: pynq-z1-production
-    permissions:
-      contents: write
     steps:
-      - name: Check out deployment wrapper
+      - name: Check out deployment wrappers
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.validate-release.outputs.release_tag }}
 
-      - name: Download standalone deployment package
+      - name: Download standalone deployment packages
         uses: actions/download-artifact@v4
         with:
-          name: npu-matrix-package-${{ needs.validate-release.outputs.release_tag }}
+          name: npu-packages-${{ needs.validate-release.outputs.release_tag }}
           path: build/cd-download
 
-      - name: Extract standalone deployment package
+      - name: Verify checksums before deployment
+        shell: pwsh
+        run: |
+          Push-Location 'build/cd-download'
+          try {
+            foreach ($line in Get-Content 'SHA256SUMS') {
+              $parts = $line -split '\s+', 2
+              $name = $parts[1].Trim()
+              if (-not (Test-Path -LiteralPath $name -PathType Leaf)) { continue }
+              $actual = (Get-FileHash -LiteralPath $name -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actual -ne $parts[0].Trim().ToLowerInvariant()) {
+                throw "checksum mismatch for $name"
+              }
+            }
+          }
+          finally {
+            Pop-Location
+          }
+
+      - name: Extract standalone matrix package
         shell: pwsh
         run: |
           $tag = '${{ needs.validate-release.outputs.release_tag }}'
           New-Item -ItemType Directory -Force 'build/cd-package' | Out-Null
-          tar -xzf "build/cd-download/npu-matrix-$tag.tar.gz" `
-            -C 'build/cd-package'
+          tar -xzf "build/cd-download/npu-matrix-$tag.tar.gz" -C 'build/cd-package'
           if ($LASTEXITCODE -ne 0) {
             throw "package extraction failed with exit code $LASTEXITCODE"
           }
 
-      - name: Deploy and execute Phase 1C example
+      - name: Deploy and execute the matrix example
         shell: pwsh
         env:
           PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
@@ -189,21 +305,122 @@ jobs:
             -BoardUser $userName `
             -RemoteRoot $remoteRoot
 
+      - name: Deploy and accept the ResNet-18 release package
+        shell: pwsh
+        env:
+          PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
+          PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
+          PYNQ_RESNET18_REMOTE_ROOT: ${{ vars.PYNQ_RESNET18_REMOTE_ROOT }}
+        run: |
+          $tag = '${{ needs.validate-release.outputs.release_tag }}'
+          $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { '192.168.2.99' }
+          $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
+          $remoteRoot = if ($env:PYNQ_RESNET18_REMOTE_ROOT) { $env:PYNQ_RESNET18_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_resnet18' }
+          & .github/cd/resnet18_deploy_and_accept.ps1 `
+            -PackageArchive "build/cd-download/npu-resnet18-$tag.zip" `
+            -ReleaseTag $tag `
+            -DeploymentId '${{ github.run_id }}-${{ github.run_attempt }}' `
+            -EvidencePath 'build/board/resnet18-board-evidence.json' `
+            -BoardHost $hostName `
+            -BoardUser $userName `
+            -RemoteRoot $remoteRoot
+
+      - name: Run the real-image inference acceptance on the board
+        shell: pwsh
+        env:
+          PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
+          PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
+          PYNQ_RESNET18_REMOTE_ROOT: ${{ vars.PYNQ_RESNET18_REMOTE_ROOT }}
+        run: |
+          $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { '192.168.2.99' }
+          $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
+          $remoteRoot = if ($env:PYNQ_RESNET18_REMOTE_ROOT) { $env:PYNQ_RESNET18_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_resnet18' }
+          & .github/cd/resnet18_accept_image.ps1 `
+            -ReleaseTag '${{ needs.validate-release.outputs.release_tag }}' `
+            -DeploymentId '${{ github.run_id }}-${{ github.run_attempt }}' `
+            -EvidencePath 'build/board/resnet18-image-acceptance.json' `
+            -BoardHost $hostName `
+            -BoardUser $userName `
+            -RemoteRoot $remoteRoot
+
       - name: Retain board evidence
         uses: actions/upload-artifact@v4
         with:
-          name: npu-matrix-board-${{ needs.validate-release.outputs.release_tag }}
+          name: npu-board-${{ needs.validate-release.outputs.release_tag }}
           if-no-files-found: error
-          path: build/board/board-evidence.json
+          path: |
+            build/board/board-evidence.json
+            build/board/resnet18-board-evidence.json
+            build/board/resnet18-image-acceptance.json
 
-      - name: Publish board evidence to Release
-        shell: pwsh
+  promote-release:
+    needs: [validate-release, host-checks, build-overlay, board-validation]
+    runs-on: ubuntu-latest
+    environment: pynq-z1-release
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the validated release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-release.outputs.release_commit }}
+
+      - name: Download validated packages
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-packages-${{ needs.validate-release.outputs.release_tag }}
+          path: build/release
+
+      - name: Download overlay artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-build-${{ needs.validate-release.outputs.release_tag }}
+          path: build/release
+
+      - name: Download board acceptance evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-board-${{ needs.validate-release.outputs.release_tag }}
+          path: build/release
+
+      - name: Verify checksums and evidence before promotion
+        shell: bash
+        env:
+          TAG: ${{ needs.validate-release.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          cd build/release
+          sha256sum --check --strict SHA256SUMS
+          test -s "npu-resnet18-${TAG}.zip"
+          test -s resnet18-board-evidence.json
+          test -s resnet18-image-acceptance.json
+
+      - name: Attach the validated assets to the prerelease
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.validate-release.outputs.release_tag }}
         run: |
-          gh release upload '${{ needs.validate-release.outputs.release_tag }}' `
-            'build/board/board-evidence.json' `
+          set -euo pipefail
+          gh release upload "$TAG" \
+            build/release/npu-resnet18-"$TAG".zip \
+            build/release/npu-matrix-"$TAG".tar.gz \
+            build/release/npu_matrix.bit \
+            build/release/npu_matrix.hwh \
+            build/release/npu_matrix.manifest.json \
+            build/release/build_evidence.txt \
+            build/release/board-evidence.json \
+            build/release/resnet18-board-evidence.json \
+            build/release/resnet18-image-acceptance.json \
+            build/release/SHA256SUMS \
             --clobber
-          if ($LASTEXITCODE -ne 0) {
-            throw "board evidence upload failed with exit code $LASTEXITCODE"
-          }
+
+      - name: Promote the prerelease to a stable Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.validate-release.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release edit "$TAG" --prerelease=false --latest
+          echo "promoted $TAG to a stable Release"

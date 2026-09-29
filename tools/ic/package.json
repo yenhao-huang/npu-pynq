@@ -1,0 +1,23 @@
+{
+  "name": "@jony2156/ai-eda-tools",
+  "version": "0.1.0",
+  "description": "IC design MCP server with automatic open-source toolchain setup",
+  "type": "module",
+  "license": "Apache-2.0",
+  "keywords": ["pi-package", "rtl", "verilator", "yosys"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yenhao-huang/npu-pynq.git",
+    "directory": "tools/ic"
+  },
+  "pi": { "extensions": ["./integrations/pi/managed.ts"] },
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "engines": { "node": ">=20.11" },
+  "bin": { "ic-tools": "npm/cli.mjs" },
+  "files": ["npm/", "integrations/pi/*.ts", "ic_core/**/*.py", "ic_cli/**/*.py", "ic_mcp/**/*.py", "ic_daemon/**/*.py", "README.md", "docs/manual/", "LICENSE"],
+  "scripts": {
+    "postinstall": "node npm/cli.mjs setup",
+    "test": "node --test npm/tests/*.test.mjs"
+  },
+  "dependencies": { "tar": "7.5.22" }
+}

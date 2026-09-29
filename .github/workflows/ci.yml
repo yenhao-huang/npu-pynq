@@ -23,6 +23,13 @@ jobs:
       - name: Run simulations
         run: make -C src/test sim
 
+      - name: Install Python test dependencies
+        run: |
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
+
+      - name: Run host model and example suites
+        run: make -C src/test model PYTHON=python3
+
       - name: Upload waveforms on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -30,3 +37,54 @@ jobs:
           name: waves
           path: src/test/waves/
           if-no-files-found: ignore
+
+  # Enforced pre-merge gate for `main`. A promotion that does not declare the
+  # version it will release cannot reach `main`, so continuous deployment never
+  # has to guess which release a validated commit publishes.
+  release-readiness:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Python gate dependencies
+        run: python3 -m pip install --upgrade --break-system-packages pyyaml
+
+      - name: Resolve the release version this promotion declares
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          python3 .github/cd/resolve_release_version.py --output resolution.env
+          . ./resolution.env
+          if [ "${should_release}" != "true" ]; then
+            echo "this promotion declares no new release version" >&2
+            echo "add changelog/vMAJOR.MINOR.PATCH.md for the version to publish" >&2
+            exit 1
+          fi
+          echo "promotion declares ${release_tag} (${changelog_path})"
+
+      - name: Verify continuous deployment still gates the stable Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import sys
+          import yaml
+
+          workflow = yaml.safe_load(open(".github/workflows/cd.yml", encoding="utf-8"))
+          triggers = workflow[True] if True in workflow else workflow["on"]
+          if triggers.get("release", {}).get("types") != ["published"]:
+              sys.exit("cd.yml must run when a release is published")
+          promote = workflow["jobs"]["promote-release"]
+          required = {"validate-release", "host-checks", "build-overlay", "board-validation"}
+          if not required.issubset(set(promote["needs"])):
+              sys.exit("promote-release must depend on every validation job")
+          for name, job in workflow["jobs"].items():
+              if name == "promote-release":
+                  continue
+              if job.get("permissions", {}).get("contents") == "write":
+                  sys.exit(f"{name} must not hold contents: write")
+          PY
