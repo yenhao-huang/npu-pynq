@@ -1,0 +1,5 @@
+{
+  "operation": "ppa_measure",
+  "constraint_ns": 10,
+  "timeout_s": 300
+}

@@ -1,0 +1,51 @@
+{
+  "tool_id": "02",
+  "operation": "width_advice",
+  "paper": "rtlrewriter",
+  "hypothesis": "A 16-bit result holding the sum of two 4-bit unsigned values needs only 5 bits.",
+  "input_sha256": "893c686afcf633f62d20bccfd6db7904ef5b0a9106c454ac33fafc36eac42b9c",
+  "environment": {
+    "python": "3.12.10",
+    "pydantic": "2.13.5",
+    "iverilog": {
+      "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+      "version": [
+        "Icarus Verilog version 13.0 (stable) (v13_0)"
+      ]
+    },
+    "vivado": {
+      "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+      "version": [
+        "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+        "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+      ]
+    }
+  },
+  "utc": "2026-09-27T18:36:34.301081+00:00",
+  "command": "python exp/tool-exploration/run.py --tool 02 --output C:/Users/User/Desktop/agent_workspace/npu/worktrees/npu-issue80-a/exp/tool-exploration/output",
+  "config": {
+    "operation": "width_advice",
+    "payload": {
+      "a_min": 0,
+      "a_max": 15,
+      "b_min": 0,
+      "b_max": 15,
+      "operation": "add",
+      "declared_width": 16
+    }
+  },
+  "result": {
+    "ok": true,
+    "data": {
+      "min": 0,
+      "max": 30,
+      "signed": false,
+      "required_width": 5,
+      "potential_bit_reduction": 11,
+      "overflow_possible": false
+    },
+    "note": "Exact interval bound for independent mathematical integers. User ranges must be established; preserve RTL signedness, overflow, and truncation. Width reduction is not a measured PPA gain.",
+    "run_id": "8d7229"
+  },
+  "decision": "Inspect measured trade-offs and retain only correctness-checked candidates; no NPU or power claim."
+}

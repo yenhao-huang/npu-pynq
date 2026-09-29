@@ -281,3 +281,19 @@ Do not add a top-level `skills/`, `scripts/`, `sim/`, `sw/`, `configs/`,
 Do not add `vivado_projects/`, `results/`, a bitstream, or any Vivado project
 directory. Regenerate them from `src/hw/vivado_tcl/`; bitstreams attach to a
 GitHub Release.
+
+## Paper-informed exploration experiments
+
+`exp/tool-exploration/` contains the issue #80 paper-inspired experiment sources,
+shared runner and small source fixtures. Each tool has a modular directory named
+`exp-tool-<tool-id>-<paper-abbreviation>/` containing its input configuration and
+README. Generated outputs live in ignored `output/` folders or `.ic/`; concise
+JSON summaries under `docs/goals/0928-tool-exploration/evidence/` are versioned
+acceptance evidence. They must state source hashes, tool versions, commands,
+measurement scope and limitations, and must not contain raw logs or waveforms.
+The acceptance report and reproduction guide live beside that evidence.
+
+The `tools/ic/ic_core/tools/pipeline/<paper-abbreviation>/` package contains
+paper-specific compositions. Existing lint/debug/synth folders own reusable
+operations. The exploration skill is under
+`.codex/skills/custom/ic_design/eda-tool-exploration/`.

@@ -1,0 +1,362 @@
+[
+  {
+    "case": "prefix16",
+    "operation": "synth_prefix_adder",
+    "label": "positive",
+    "expected": true,
+    "baseline_sha256": "9aeeb3834628448ba6071607a02769b770a5fbce7fd249edd1e4a67a6cdfbb3a",
+    "candidate_sha256": "95996bdb6d69fe4842e1a0d5ba915d067c5fb4a7f5e8b3fd68f53ee9a313682d",
+    "mutation": null,
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 4199,
+        "seed": 928,
+        "stimuli_sha256": "6d8440d216eaede616a478fb04eeed47472ba439e5b104291b51b9071b7ef8cf",
+        "reference_sha256": "5cd7b10f796337d6736b979de350513b86a293208694f82cab886060379cb65f",
+        "candidate_sha256": "f1715ab311dcd09cbd8458cbace44fce099842d2c5c6953ebba8614fe3d93785",
+        "logs": [
+          "824b07/reference_vectors.log",
+          "824b07/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "824b07"
+    }
+  },
+  {
+    "case": "prefix16",
+    "operation": "synth_prefix_adder",
+    "label": "mutation",
+    "expected": false,
+    "baseline_sha256": "9aeeb3834628448ba6071607a02769b770a5fbce7fd249edd1e4a67a6cdfbb3a",
+    "candidate_sha256": "95996bdb6d69fe4842e1a0d5ba915d067c5fb4a7f5e8b3fd68f53ee9a313682d",
+    "mutation": {
+      "target": " | (",
+      "replacement": " & ("
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 4199,
+        "seed": 928,
+        "stimuli_sha256": "6d8440d216eaede616a478fb04eeed47472ba439e5b104291b51b9071b7ef8cf",
+        "reference_sha256": "5cd7b10f796337d6736b979de350513b86a293208694f82cab886060379cb65f",
+        "candidate_sha256": "5269fc28d45e99850289b5d194db537606e028e099f8be4dc2571cb1b06f8274",
+        "logs": [
+          "09b34b/reference_vectors.log",
+          "09b34b/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "1ffffffff",
+        "reference_value": "1ffff",
+        "candidate_value": "1fffb"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "09b34b"
+    }
+  },
+  {
+    "case": "prefix32",
+    "operation": "synth_prefix_adder",
+    "label": "positive",
+    "expected": true,
+    "baseline_sha256": "ad21298baa68afaf3d0e250cba3a5fd202421369920c953bfbd6b10bce2777ce",
+    "candidate_sha256": "f27842f122b7754342a66fa6058a0cc8f12703c693067f4466622a3424c9f208",
+    "mutation": null,
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 4295,
+        "seed": 928,
+        "stimuli_sha256": "9d4fd8cb41a7cdf48f178a472d980106595b97309a60926697c8d0320674e354",
+        "reference_sha256": "c47bafd1d675591123a98a99f81684b852bbe0ca9db7c65d5e449e4feba5733d",
+        "candidate_sha256": "7b940622055ac36244e53dbacdae4c802f107d0228c68bbac458bb5b6f1963c4",
+        "logs": [
+          "34fd4e/reference_vectors.log",
+          "34fd4e/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "34fd4e"
+    }
+  },
+  {
+    "case": "prefix32",
+    "operation": "synth_prefix_adder",
+    "label": "mutation",
+    "expected": false,
+    "baseline_sha256": "ad21298baa68afaf3d0e250cba3a5fd202421369920c953bfbd6b10bce2777ce",
+    "candidate_sha256": "f27842f122b7754342a66fa6058a0cc8f12703c693067f4466622a3424c9f208",
+    "mutation": {
+      "target": " | (",
+      "replacement": " & ("
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 4295,
+        "seed": 928,
+        "stimuli_sha256": "9d4fd8cb41a7cdf48f178a472d980106595b97309a60926697c8d0320674e354",
+        "reference_sha256": "c47bafd1d675591123a98a99f81684b852bbe0ca9db7c65d5e449e4feba5733d",
+        "candidate_sha256": "6eb7a1d5ad0069a07255363ddbb094f5d7d293ca23bdf6c34593dc2a4b728e8a",
+        "logs": [
+          "114476/reference_vectors.log",
+          "114476/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "1ffffffffffffffff",
+        "reference_value": "1ffffffff",
+        "candidate_value": "1fffffffb"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "114476"
+    }
+  },
+  {
+    "case": "csd16",
+    "operation": "synth_csd_multiplier",
+    "label": "positive",
+    "expected": true,
+    "baseline_sha256": "310dc21943c565969700193464d5d22513484ca6b68f896840400bd34e76552b",
+    "candidate_sha256": "0e6fd85da409a1a26e9b6e5d796394a65f667b1ec4384649652903ff6307c411",
+    "mutation": null,
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 4148,
+        "seed": 928,
+        "stimuli_sha256": "556fc4d2a344a5f456052c79ded0208ec60fdce0a99edd737aa5035f3ac12416",
+        "reference_sha256": "ee04a99dd338bbab3af28c6aad389f46e4f52361255a71192b47c87f322fae93",
+        "candidate_sha256": "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383",
+        "logs": [
+          "b688e3/reference_vectors.log",
+          "b688e3/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "b688e3"
+    }
+  },
+  {
+    "case": "csd16",
+    "operation": "synth_csd_multiplier",
+    "label": "mutation",
+    "expected": false,
+    "baseline_sha256": "310dc21943c565969700193464d5d22513484ca6b68f896840400bd34e76552b",
+    "candidate_sha256": "0e6fd85da409a1a26e9b6e5d796394a65f667b1ec4384649652903ff6307c411",
+    "mutation": {
+      "target": " - ",
+      "replacement": " + "
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 4148,
+        "seed": 928,
+        "stimuli_sha256": "556fc4d2a344a5f456052c79ded0208ec60fdce0a99edd737aa5035f3ac12416",
+        "reference_sha256": "ee04a99dd338bbab3af28c6aad389f46e4f52361255a71192b47c87f322fae93",
+        "candidate_sha256": "9dedf922df8de988846e669cc989792edab856e79f8185c46c4269d927180957",
+        "logs": [
+          "b496ba/reference_vectors.log",
+          "b496ba/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "ffff",
+        "reference_value": "feff01",
+        "candidate_value": "00feff"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "b496ba"
+    }
+  },
+  {
+    "case": "csd32",
+    "operation": "synth_csd_multiplier",
+    "label": "positive",
+    "expected": true,
+    "baseline_sha256": "69d16e5a0d1da1d0d00f47ce0ef9b965623233748ed7d412e3663abbfb547393",
+    "candidate_sha256": "6f4ffdd1d8c739e1d1a304bd54654661d34cb8f45c5dec0669b10e9f0fb33763",
+    "mutation": null,
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 4196,
+        "seed": 928,
+        "stimuli_sha256": "6ab1a4194f5cec97da905ccb204e71f50f4897a51d930b307ad421271e1e7cd5",
+        "reference_sha256": "80bd353011edd05681e00291cb830a3a98601fd67f20948e74834d51820e9baa",
+        "candidate_sha256": "764e0fe741fa143eeecade5acf2591edf3e958c36c9e41f693d182e2b3e70b95",
+        "logs": [
+          "c0f58d/reference_vectors.log",
+          "c0f58d/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "c0f58d"
+    }
+  },
+  {
+    "case": "csd32",
+    "operation": "synth_csd_multiplier",
+    "label": "mutation",
+    "expected": false,
+    "baseline_sha256": "69d16e5a0d1da1d0d00f47ce0ef9b965623233748ed7d412e3663abbfb547393",
+    "candidate_sha256": "6f4ffdd1d8c739e1d1a304bd54654661d34cb8f45c5dec0669b10e9f0fb33763",
+    "mutation": {
+      "target": " - ",
+      "replacement": " + "
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 4196,
+        "seed": 928,
+        "stimuli_sha256": "6ab1a4194f5cec97da905ccb204e71f50f4897a51d930b307ad421271e1e7cd5",
+        "reference_sha256": "80bd353011edd05681e00291cb830a3a98601fd67f20948e74834d51820e9baa",
+        "candidate_sha256": "f6aecfca0930a651640083fd600de7745286c1ef9bd6df05abc9f97737860c89",
+        "logs": [
+          "2ef3e9/reference_vectors.log",
+          "2ef3e9/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "ffffffff",
+        "reference_value": "fffeffff0001",
+        "candidate_value": "0000fffeffff"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "2ef3e9"
+    }
+  },
+  {
+    "case": "mcm16",
+    "operation": "synth_mcm",
+    "label": "positive",
+    "expected": true,
+    "baseline_sha256": "f6b5383c29ab86fa254fc520acda4297c5d27a4717930b5f99b582abc9e61db3",
+    "candidate_sha256": "e11e779f03c9ae4a3a1a68d33868da83a4808aff0a2106f5cf07897d1e835dad",
+    "mutation": null,
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 4148,
+        "seed": 928,
+        "stimuli_sha256": "556fc4d2a344a5f456052c79ded0208ec60fdce0a99edd737aa5035f3ac12416",
+        "reference_sha256": "f2e97a906a90f48f648321d47c4d210f48c61b1014c477d066e92c8b00b74e78",
+        "candidate_sha256": "214b60b7c7587285f8c27e15e028b7150276a20f2abe3dda8750ff8c97178e64",
+        "logs": [
+          "50003e/reference_vectors.log",
+          "50003e/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "50003e"
+    }
+  },
+  {
+    "case": "mcm16",
+    "operation": "synth_mcm",
+    "label": "mutation",
+    "expected": false,
+    "baseline_sha256": "f6b5383c29ab86fa254fc520acda4297c5d27a4717930b5f99b582abc9e61db3",
+    "candidate_sha256": "e11e779f03c9ae4a3a1a68d33868da83a4808aff0a2106f5cf07897d1e835dad",
+    "mutation": {
+      "target": " + ",
+      "replacement": " - "
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 4148,
+        "seed": 928,
+        "stimuli_sha256": "556fc4d2a344a5f456052c79ded0208ec60fdce0a99edd737aa5035f3ac12416",
+        "reference_sha256": "f2e97a906a90f48f648321d47c4d210f48c61b1014c477d066e92c8b00b74e78",
+        "candidate_sha256": "01dcfb5999d26ce16b9a770f41db9c1e41bc869982524c6fbc8a1558173d40c2",
+        "logs": [
+          "e6c84d/reference_vectors.log",
+          "e6c84d/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "ffff",
+        "reference_value": "feff0154ffab32ffcd2cffd3",
+        "candidate_value": "feff0154ffab10ffef0efff1"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "e6c84d"
+    }
+  },
+  {
+    "case": "mcm32",
+    "operation": "synth_mcm",
+    "label": "positive",
+    "expected": true,
+    "baseline_sha256": "4d14c5b71874e0235931f45efb8b9fdd9de68b83a8283fb90fb2609030c87611",
+    "candidate_sha256": "33d7452fc90e7439a9c436ec844d38ed22d5efac9ea4369d624d50acd4638a89",
+    "mutation": null,
+    "result": {
+      "ok": true,
+      "data": {
+        "passed": true,
+        "vectors": 4196,
+        "seed": 928,
+        "stimuli_sha256": "6ab1a4194f5cec97da905ccb204e71f50f4897a51d930b307ad421271e1e7cd5",
+        "reference_sha256": "1366f4f1c58627836dd1eac8906b182ac88c55ce14b4bd0b88db26a785b2ceca",
+        "candidate_sha256": "c6020b285e02215644715bb9f538ee81579bccc7d28dc99c29609c15c89802a8",
+        "logs": [
+          "be8415/reference_vectors.log",
+          "be8415/candidate_vectors.log"
+        ],
+        "first_mismatch": null
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "be8415"
+    }
+  },
+  {
+    "case": "mcm32",
+    "operation": "synth_mcm",
+    "label": "mutation",
+    "expected": false,
+    "baseline_sha256": "4d14c5b71874e0235931f45efb8b9fdd9de68b83a8283fb90fb2609030c87611",
+    "candidate_sha256": "33d7452fc90e7439a9c436ec844d38ed22d5efac9ea4369d624d50acd4638a89",
+    "mutation": {
+      "target": " + ",
+      "replacement": " - "
+    },
+    "result": {
+      "ok": false,
+      "data": {
+        "passed": false,
+        "vectors": 4196,
+        "seed": 928,
+        "stimuli_sha256": "6ab1a4194f5cec97da905ccb204e71f50f4897a51d930b307ad421271e1e7cd5",
+        "reference_sha256": "1366f4f1c58627836dd1eac8906b182ac88c55ce14b4bd0b88db26a785b2ceca",
+        "candidate_sha256": "894725ef8b5ccdf05552fb20ca44b9542fd49f934df1230747cbcb69d13fbdf2",
+        "logs": [
+          "ee5585/reference_vectors.log",
+          "ee5585/candidate_vectors.log"
+        ],
+        "first_mismatch": 1,
+        "input_hex": "ffffffff",
+        "reference_value": "feffffff0154ffffffab32ffffffcd2cffffffd3",
+        "candidate_value": "feffffff0154ffffffab10ffffffef0efffffff1"
+      },
+      "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+      "run_id": "ee5585"
+    }
+  }
+]

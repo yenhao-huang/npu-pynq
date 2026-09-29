@@ -1,0 +1,41 @@
+{
+  "study_name": "saturating_addsub",
+  "cases": [
+    {
+      "name": "w32_signed",
+      "generator": "synth_saturating_alu",
+      "baseline": {
+        "width": 32,
+        "signed": true,
+        "architecture": "dual"
+      },
+      "candidate": {
+        "width": 32,
+        "signed": true,
+        "architecture": "shared"
+      },
+      "objective": "area"
+    },
+    {
+      "name": "w64_signed",
+      "generator": "synth_saturating_alu",
+      "baseline": {
+        "width": 64,
+        "signed": true,
+        "architecture": "dual"
+      },
+      "candidate": {
+        "width": 64,
+        "signed": true,
+        "architecture": "shared"
+      },
+      "objective": "area"
+    }
+  ],
+  "repeats": 3,
+  "measurement_attempts": 2,
+  "period_ns": 5,
+  "optimization_mode": "Basic",
+  "formal_timeout_s": 120,
+  "require_proof": true
+}

@@ -1,0 +1,152 @@
+{
+  "tool_id": "10",
+  "operation": "rtl_evaluate",
+  "paper": "rtlrewriter",
+  "hypothesis": "Verification precedes measurement and rejects an intentionally incorrect rewrite.",
+  "input_sha256": "893c686afcf633f62d20bccfd6db7904ef5b0a9106c454ac33fafc36eac42b9c",
+  "environment": {
+    "python": "3.12.10",
+    "pydantic": "2.13.5",
+    "iverilog": {
+      "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+      "version": [
+        "Icarus Verilog version 13.0 (stable) (v13_0)"
+      ]
+    },
+    "vivado": {
+      "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+      "version": [
+        "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+        "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+      ]
+    }
+  },
+  "utc": "2026-09-27T18:40:27.190903+00:00",
+  "command": "python exp/tool-exploration/run.py --tool 10 --output C:/Users/User/Desktop/agent_workspace/npu/worktrees/npu-issue80-a/exp/tool-exploration/output",
+  "config": {
+    "operation": "rtl_evaluate",
+    "constraint_ns": 10,
+    "timeout_s": 300
+  },
+  "result": {
+    "ok": true,
+    "positive": {
+      "ok": true,
+      "data": {
+        "check": {
+          "ok": true,
+          "data": {
+            "passed": true,
+            "vectors": 8192,
+            "first_mismatch": null,
+            "reference_sha256": "3925a8d15bea827475672d09ce3ae5fad0a894fcac9f400356048587c40c7e38",
+            "candidate_sha256": "d28a6e28d1b78f840b8e5d93c2d965cbbf672563a7b6d3a04a04b373fe9b5e4e",
+            "logs": [
+              "b43e56/reference_vectors.log",
+              "b43e56/candidate_vectors.log"
+            ]
+          },
+          "note": "Exhaustive binary input simulation under the declared combinational contract. Not a sequential/formal equivalence proof; no X-input coverage.",
+          "run_id": "b43e56"
+        },
+        "records": [
+          {
+            "name": "baseline",
+            "source_sha256": "3925a8d15bea827475672d09ce3ae5fad0a894fcac9f400356048587c40c7e38",
+            "tool": "vivado",
+            "version": "2026.1",
+            "part": "xc7z020clg400-1",
+            "constraint_ns": 10.0,
+            "stage": "routed_combinational",
+            "units": {
+              "luts": "count",
+              "ffs": "count",
+              "delay_ns": "ns"
+            },
+            "metrics": {
+              "luts": 8.0,
+              "ffs": 0.0,
+              "delay_ns": 8.133
+            },
+            "evidence": "749cab/ppa.txt"
+          },
+          {
+            "name": "candidate",
+            "source_sha256": "d28a6e28d1b78f840b8e5d93c2d965cbbf672563a7b6d3a04a04b373fe9b5e4e",
+            "tool": "vivado",
+            "version": "2026.1",
+            "part": "xc7z020clg400-1",
+            "constraint_ns": 10.0,
+            "stage": "routed_combinational",
+            "units": {
+              "luts": "count",
+              "ffs": "count",
+              "delay_ns": "ns"
+            },
+            "metrics": {
+              "luts": 8.0,
+              "ffs": 0.0,
+              "delay_ns": 8.05
+            },
+            "evidence": "3c3c9b/ppa.txt"
+          }
+        ],
+        "comparison": {
+          "ok": true,
+          "data": {
+            "improvement_pct": {
+              "luts": 0.0,
+              "ffs": null,
+              "delay_ns": 1.0205336284273752
+            },
+            "delta": {
+              "luts": 0.0,
+              "ffs": 0.0,
+              "delay_ns": -0.08299999999999841
+            }
+          },
+          "note": "Positive improvement means reduction. A zero baseline has no defined percentage.",
+          "run_id": "abed11"
+        },
+        "children": [
+          "b43e56",
+          "749cab",
+          "3c3c9b",
+          "abed11"
+        ]
+      },
+      "note": "Correctness-gated measured comparison. Full RTLRewriter search, LLM generation, and formal proof are not implemented.",
+      "run_id": "e15592"
+    },
+    "negative_control": {
+      "ok": false,
+      "data": {
+        "stage": "correctness",
+        "check": {
+          "ok": false,
+          "data": {
+            "passed": false,
+            "vectors": 8192,
+            "first_mismatch": 2,
+            "reference_sha256": "3925a8d15bea827475672d09ce3ae5fad0a894fcac9f400356048587c40c7e38",
+            "candidate_sha256": "4e3d08d9d91c60885910f730a06dd35bfa16be714825cfd3f8dd41113d4c0532",
+            "logs": [
+              "3c83b9/reference_vectors.log",
+              "3c83b9/candidate_vectors.log"
+            ],
+            "reference_value": "1",
+            "candidate_value": "f"
+          },
+          "note": "Exhaustive binary input simulation under the declared combinational contract. Not a sequential/formal equivalence proof; no X-input coverage.",
+          "run_id": "3c83b9"
+        },
+        "children": [
+          "3c83b9"
+        ]
+      },
+      "note": "PPA runs skipped because the combinational check failed.",
+      "run_id": "d7fb57"
+    }
+  },
+  "decision": "Inspect measured trade-offs and retain only correctness-checked candidates; no NPU or power claim."
+}

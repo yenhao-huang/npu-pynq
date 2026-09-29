@@ -60,3 +60,7 @@ Thumbs.db
 # npm launcher dependencies and generated package archives
 tools/ic/node_modules/
 tools/ic/*.tgz
+
+# Local development environments and modular experiment output
+.venv/
+exp/tool-exploration/**/output/

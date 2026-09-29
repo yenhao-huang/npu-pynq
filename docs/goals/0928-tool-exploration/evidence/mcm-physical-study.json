@@ -1,0 +1,563 @@
+{
+  "ok": true,
+  "data": {
+    "checkpoint_key": "6f62a750687d31a063e6f846a91e45410c44b43ddda0a47288aa7a2ce7fe52a3",
+    "checkpoint_directory": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_mcm\\6f62a750687d31a063e6f846a91e45410c44b43ddda0a47288aa7a2ce7fe52a3",
+    "environment": {
+      "python": "3.12.10",
+      "pydantic": "2.13.5",
+      "iverilog": {
+        "command": [
+          "iverilog",
+          "-V"
+        ],
+        "version": [
+          "Icarus Verilog version 13.0 (stable) (v13_0)"
+        ]
+      },
+      "yosys": {
+        "command": [
+          "docker",
+          "exec",
+          "codex-sandbox-agent-workspace",
+          "yosys",
+          "-V"
+        ],
+        "version": [
+          "Yosys 0.23 (git sha1 7ce5011c24b)"
+        ]
+      },
+      "vivado": {
+        "command": [
+          "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "-version"
+        ],
+        "version": [
+          "vivado v2026.1 (64-bit)",
+          "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+          "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+        ]
+      }
+    },
+    "cases": [
+      {
+        "name": "w16",
+        "objective": "area",
+        "generator": "synth_mcm",
+        "records": [
+          [
+            {
+              "name": "w16-baseline",
+              "source_sha256": "f6b5383c29ab86fa254fc520acda4297c5d27a4717930b5f99b582abc9e61db3",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 213.0,
+                "lut_logic": 213.0,
+                "lut_memory": 0.0,
+                "ffs": 107.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": -0.869,
+                "critical_period_ns": 5.869,
+                "estimated_fmax_mhz": 170.38677798602828,
+                "throughput_mtransactions_s": 170.38677798602828
+              },
+              "evidence": {
+                "metrics": "e17f22/clocked.txt",
+                "utilization": "e17f22/utilization.txt",
+                "timing": "e17f22/timing.txt",
+                "log": "e17f22/clocked.log"
+              }
+            },
+            {
+              "name": "w16-candidate",
+              "source_sha256": "e11e779f03c9ae4a3a1a68d33868da83a4808aff0a2106f5cf07897d1e835dad",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 106.0,
+                "lut_logic": 106.0,
+                "lut_memory": 0.0,
+                "ffs": 108.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": 0.668,
+                "critical_period_ns": 4.332,
+                "estimated_fmax_mhz": 230.84025854108958,
+                "throughput_mtransactions_s": 230.84025854108958
+              },
+              "evidence": {
+                "metrics": "505d2c/clocked.txt",
+                "utilization": "505d2c/utilization.txt",
+                "timing": "505d2c/timing.txt",
+                "log": "505d2c/clocked.log"
+              }
+            }
+          ],
+          [
+            {
+              "name": "w16-baseline",
+              "source_sha256": "f6b5383c29ab86fa254fc520acda4297c5d27a4717930b5f99b582abc9e61db3",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 213.0,
+                "lut_logic": 213.0,
+                "lut_memory": 0.0,
+                "ffs": 107.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": -0.869,
+                "critical_period_ns": 5.869,
+                "estimated_fmax_mhz": 170.38677798602828,
+                "throughput_mtransactions_s": 170.38677798602828
+              },
+              "evidence": {
+                "metrics": "d7f456/clocked.txt",
+                "utilization": "d7f456/utilization.txt",
+                "timing": "d7f456/timing.txt",
+                "log": "d7f456/clocked.log"
+              }
+            },
+            {
+              "name": "w16-candidate",
+              "source_sha256": "e11e779f03c9ae4a3a1a68d33868da83a4808aff0a2106f5cf07897d1e835dad",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 106.0,
+                "lut_logic": 106.0,
+                "lut_memory": 0.0,
+                "ffs": 108.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": 0.668,
+                "critical_period_ns": 4.332,
+                "estimated_fmax_mhz": 230.84025854108958,
+                "throughput_mtransactions_s": 230.84025854108958
+              },
+              "evidence": {
+                "metrics": "613a59/clocked.txt",
+                "utilization": "613a59/utilization.txt",
+                "timing": "613a59/timing.txt",
+                "log": "613a59/clocked.log"
+              }
+            }
+          ],
+          [
+            {
+              "name": "w16-baseline",
+              "source_sha256": "f6b5383c29ab86fa254fc520acda4297c5d27a4717930b5f99b582abc9e61db3",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 213.0,
+                "lut_logic": 213.0,
+                "lut_memory": 0.0,
+                "ffs": 107.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": -0.869,
+                "critical_period_ns": 5.869,
+                "estimated_fmax_mhz": 170.38677798602828,
+                "throughput_mtransactions_s": 170.38677798602828
+              },
+              "evidence": {
+                "metrics": "7b5ca1/clocked.txt",
+                "utilization": "7b5ca1/utilization.txt",
+                "timing": "7b5ca1/timing.txt",
+                "log": "7b5ca1/clocked.log"
+              }
+            },
+            {
+              "name": "w16-candidate",
+              "source_sha256": "e11e779f03c9ae4a3a1a68d33868da83a4808aff0a2106f5cf07897d1e835dad",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 106.0,
+                "lut_logic": 106.0,
+                "lut_memory": 0.0,
+                "ffs": 108.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": 0.668,
+                "critical_period_ns": 4.332,
+                "estimated_fmax_mhz": 230.84025854108958,
+                "throughput_mtransactions_s": 230.84025854108958
+              },
+              "evidence": {
+                "metrics": "a6b5aa/clocked.txt",
+                "utilization": "a6b5aa/utilization.txt",
+                "timing": "a6b5aa/timing.txt",
+                "log": "a6b5aa/clocked.log"
+              }
+            }
+          ]
+        ],
+        "accepted": false,
+        "simulation": {
+          "ok": true,
+          "data": {
+            "passed": true,
+            "vectors": 8244,
+            "seed": 928,
+            "stimuli_sha256": "ec988d328f8a2f5cbe0e200de2334302a0ffc7a94caf47f77d821a4395f5a213",
+            "reference_sha256": "f2e97a906a90f48f648321d47c4d210f48c61b1014c477d066e92c8b00b74e78",
+            "candidate_sha256": "214b60b7c7587285f8c27e15e028b7150276a20f2abe3dda8750ff8c97178e64",
+            "logs": [
+              "f02be0/reference_vectors.log",
+              "f02be0/candidate_vectors.log"
+            ],
+            "first_mismatch": null
+          },
+          "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+          "run_id": "f02be0"
+        },
+        "formal": {
+          "ok": true,
+          "data": {
+            "proved": true,
+            "reference_sha256": "f2e97a906a90f48f648321d47c4d210f48c61b1014c477d066e92c8b00b74e78",
+            "candidate_sha256": "214b60b7c7587285f8c27e15e028b7150276a20f2abe3dda8750ff8c97178e64",
+            "engine": "$ docker exec -w /tmp/ic-formal-031150 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "normalization": "word",
+            "log": "031150/proof.log",
+            "exit_code": 0,
+            "timed_out": false,
+            "source_unchanged": true
+          },
+          "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+          "run_id": "031150"
+        },
+        "status": "measured"
+      },
+      {
+        "name": "w32",
+        "objective": "area",
+        "generator": "synth_mcm",
+        "records": [
+          [
+            {
+              "name": "w32-baseline",
+              "source_sha256": "4d14c5b71874e0235931f45efb8b9fdd9de68b83a8283fb90fb2609030c87611",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 423.0,
+                "lut_logic": 423.0,
+                "lut_memory": 0.0,
+                "ffs": 187.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": -1.203,
+                "critical_period_ns": 6.203,
+                "estimated_fmax_mhz": 161.21231662098984,
+                "throughput_mtransactions_s": 161.21231662098984
+              },
+              "evidence": {
+                "metrics": "e474cf/clocked.txt",
+                "utilization": "e474cf/utilization.txt",
+                "timing": "e474cf/timing.txt",
+                "log": "e474cf/clocked.log"
+              }
+            },
+            {
+              "name": "w32-candidate",
+              "source_sha256": "33d7452fc90e7439a9c436ec844d38ed22d5efac9ea4369d624d50acd4638a89",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 202.0,
+                "lut_logic": 202.0,
+                "lut_memory": 0.0,
+                "ffs": 188.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": 0.361,
+                "critical_period_ns": 4.639,
+                "estimated_fmax_mhz": 215.5636990730761,
+                "throughput_mtransactions_s": 215.5636990730761
+              },
+              "evidence": {
+                "metrics": "ce85db/clocked.txt",
+                "utilization": "ce85db/utilization.txt",
+                "timing": "ce85db/timing.txt",
+                "log": "ce85db/clocked.log"
+              }
+            }
+          ],
+          [
+            {
+              "name": "w32-baseline",
+              "source_sha256": "4d14c5b71874e0235931f45efb8b9fdd9de68b83a8283fb90fb2609030c87611",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 423.0,
+                "lut_logic": 423.0,
+                "lut_memory": 0.0,
+                "ffs": 187.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": -1.203,
+                "critical_period_ns": 6.203,
+                "estimated_fmax_mhz": 161.21231662098984,
+                "throughput_mtransactions_s": 161.21231662098984
+              },
+              "evidence": {
+                "metrics": "f3d562/clocked.txt",
+                "utilization": "f3d562/utilization.txt",
+                "timing": "f3d562/timing.txt",
+                "log": "f3d562/clocked.log"
+              }
+            },
+            {
+              "name": "w32-candidate",
+              "source_sha256": "33d7452fc90e7439a9c436ec844d38ed22d5efac9ea4369d624d50acd4638a89",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 202.0,
+                "lut_logic": 202.0,
+                "lut_memory": 0.0,
+                "ffs": 188.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": 0.361,
+                "critical_period_ns": 4.639,
+                "estimated_fmax_mhz": 215.5636990730761,
+                "throughput_mtransactions_s": 215.5636990730761
+              },
+              "evidence": {
+                "metrics": "96c7f9/clocked.txt",
+                "utilization": "96c7f9/utilization.txt",
+                "timing": "96c7f9/timing.txt",
+                "log": "96c7f9/clocked.log"
+              }
+            }
+          ],
+          [
+            {
+              "name": "w32-baseline",
+              "source_sha256": "4d14c5b71874e0235931f45efb8b9fdd9de68b83a8283fb90fb2609030c87611",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 423.0,
+                "lut_logic": 423.0,
+                "lut_memory": 0.0,
+                "ffs": 187.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": -1.203,
+                "critical_period_ns": 6.203,
+                "estimated_fmax_mhz": 161.21231662098984,
+                "throughput_mtransactions_s": 161.21231662098984
+              },
+              "evidence": {
+                "metrics": "0b16ae/clocked.txt",
+                "utilization": "0b16ae/utilization.txt",
+                "timing": "0b16ae/timing.txt",
+                "log": "0b16ae/clocked.log"
+              }
+            },
+            {
+              "name": "w32-candidate",
+              "source_sha256": "33d7452fc90e7439a9c436ec844d38ed22d5efac9ea4369d624d50acd4638a89",
+              "tool": "vivado",
+              "version": "2026.1",
+              "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+              "part": "xc7z020clg400-1",
+              "stage": "routed_clocked_ooc",
+              "period_ns": 5.0,
+              "directive": "Default",
+              "implementation_threads": 1,
+              "optimization_mode": "Default",
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "metrics": {
+                "luts": 202.0,
+                "lut_logic": 202.0,
+                "lut_memory": 0.0,
+                "ffs": 188.0,
+                "brams": 0.0,
+                "dsps": 0.0,
+                "slack_ns": 0.361,
+                "critical_period_ns": 4.639,
+                "estimated_fmax_mhz": 215.5636990730761,
+                "throughput_mtransactions_s": 215.5636990730761
+              },
+              "evidence": {
+                "metrics": "dd844f/clocked.txt",
+                "utilization": "dd844f/utilization.txt",
+                "timing": "dd844f/timing.txt",
+                "log": "dd844f/clocked.log"
+              }
+            }
+          ]
+        ],
+        "accepted": false,
+        "simulation": {
+          "ok": true,
+          "data": {
+            "passed": true,
+            "vectors": 8292,
+            "seed": 928,
+            "stimuli_sha256": "6b7a8871e6f797d1a7d0e426029475a51a4e17e02dc7babb98ac890df2d8ac66",
+            "reference_sha256": "1366f4f1c58627836dd1eac8906b182ac88c55ce14b4bd0b88db26a785b2ceca",
+            "candidate_sha256": "c6020b285e02215644715bb9f538ee81579bccc7d28dc99c29609c15c89802a8",
+            "logs": [
+              "dcd4a5/reference_vectors.log",
+              "dcd4a5/candidate_vectors.log"
+            ],
+            "first_mismatch": null
+          },
+          "note": "Directed and seeded binary simulation under caller-declared complete combinational interface; not formal or exhaustive equivalence.",
+          "run_id": "dcd4a5"
+        },
+        "formal": {
+          "ok": true,
+          "data": {
+            "proved": true,
+            "reference_sha256": "1366f4f1c58627836dd1eac8906b182ac88c55ce14b4bd0b88db26a785b2ceca",
+            "candidate_sha256": "c6020b285e02215644715bb9f538ee81579bccc7d28dc99c29609c15c89802a8",
+            "engine": "$ docker exec -w /tmp/ic-formal-b4507e codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+            "normalization": "word",
+            "log": "b4507e/proof.log",
+            "exit_code": 0,
+            "timed_out": false,
+            "source_unchanged": true
+          },
+          "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+          "run_id": "b4507e"
+        },
+        "status": "measured"
+      }
+    ],
+    "children": [
+      "1acb88",
+      "678112",
+      "f02be0",
+      "031150",
+      "e17f22",
+      "505d2c",
+      "d7f456",
+      "613a59",
+      "7b5ca1",
+      "a6b5aa",
+      "1b90a2",
+      "74c01a",
+      "dcd4a5",
+      "b4507e",
+      "e474cf",
+      "ce85db",
+      "f3d562",
+      "96c7f9",
+      "0b16ae",
+      "dd844f"
+    ]
+  },
+  "note": "All predeclared cases retained. Measurements are not automatic acceptance; assess paired gains, resources and full diversity gates separately.",
+  "run_id": "6e132a"
+}

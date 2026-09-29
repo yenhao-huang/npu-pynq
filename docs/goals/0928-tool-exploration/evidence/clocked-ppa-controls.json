@@ -1,0 +1,63 @@
+{
+  "scope": "Operation 11 control using one 16-bit, eight-lane dot-product routed record plus an actual missing-clock rejection.",
+  "positive_audit": {
+    "ok": true,
+    "data": {
+      "passed": true,
+      "source_sha256": "979beeecd8447ec077be6c7fe91a2104a784ab1853393d1e102d781bfb39c880",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 291,
+        "clocked_register_count": 291,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [],
+      "inactive_dsp48e1_cells": [],
+      "evidence": {
+        "metrics": "792cb5/clocked.txt",
+        "utilization": "792cb5/utilization.txt",
+        "timing": "792cb5/timing.txt",
+        "log": "792cb5/clocked.log",
+        "coverage": "792cb5/coverage.txt",
+        "constraint_checks": "792cb5/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "0528385803a677cc78467098031580454446891d19236acba6335fc767506a26",
+        "timing": "8d2f2bc2cbf81bc089d6a5c54f36a03f07ec8dffab2bcefe9bc2e318eb5b1c46",
+        "coverage": "31ac9d58e6e8184353ad32e014a5d31c445e9d3db56fc30b8c637e1bd21f0e78",
+        "constraint_checks": "85c42eef5ace5d23edce5bb20e99bd278934ab87fbac95a8ae2c5949c7ef84ec"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -10.583,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "0a7cf7"
+  },
+  "negative_missing_clock": {
+    "ok": false,
+    "data": {
+      "log": "14046f/clocked.log",
+      "exit_code": 1,
+      "timed_out": false
+    },
+    "note": "Implementation failed or timed out; no clocked PPA result.",
+    "run_id": "14046f"
+  }
+}

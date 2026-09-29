@@ -1,0 +1,43 @@
+{
+  "tool_id": "07",
+  "operation": "ppa_pareto",
+  "paper": "aspen",
+  "hypothesis": "Retain every measured nondominated trade-off.",
+  "input_sha256": "893c686afcf633f62d20bccfd6db7904ef5b0a9106c454ac33fafc36eac42b9c",
+  "environment": {
+    "python": "3.12.10",
+    "pydantic": "2.13.5",
+    "iverilog": {
+      "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+      "version": [
+        "Icarus Verilog version 13.0 (stable) (v13_0)"
+      ]
+    },
+    "vivado": {
+      "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+      "version": [
+        "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+        "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+      ]
+    }
+  },
+  "utc": "2026-09-27T18:38:31.000524+00:00",
+  "command": "python exp/tool-exploration/run.py --tool 07 --output C:/Users/User/Desktop/agent_workspace/npu/worktrees/npu-issue80-a/exp/tool-exploration/output",
+  "config": {
+    "operation": "ppa_pareto"
+  },
+  "result": {
+    "ok": true,
+    "data": {
+      "frontier": [
+        "candidate"
+      ],
+      "dominated": [
+        "baseline"
+      ]
+    },
+    "note": "All objectives are minimized; equal points are retained. No scalar score replaces the frontier.",
+    "run_id": "081461"
+  },
+  "decision": "Inspect measured trade-offs and retain only correctness-checked candidates; no NPU or power claim."
+}

@@ -1,0 +1,602 @@
+[
+  {
+    "ok": true,
+    "data": {
+      "passed": true,
+      "source_sha256": "aa08fc51cf56671c5fda4e21a4f5861ee748d23552e7fd6160f80b7d739654ea",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 146,
+        "clocked_register_count": 146,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [],
+      "evidence": {
+        "metrics": "b5c90b/clocked.txt",
+        "utilization": "b5c90b/utilization.txt",
+        "timing": "b5c90b/timing.txt",
+        "log": "b5c90b/clocked.log",
+        "coverage": "b5c90b/coverage.txt",
+        "constraint_checks": "b5c90b/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "e24ad3a0fe105213b6f032f7f063452f1fb66900501cace05d51e82e5e688fc1",
+        "timing": "c50a2574be34b7315fe2d5565b864f29ae2d15f1a818fe374dde2860fb0bd053",
+        "coverage": "0e89f117f0bb40fa7d2723d30d7d87d952d0fce7d6293b417cc01fb3319f3beb",
+        "constraint_checks": "bce7a720e59a144ba3ecbb60b7605a78dc20762d2c50132de755a6e3957921b2"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -0.692,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "97dacf"
+  },
+  {
+    "ok": true,
+    "data": {
+      "passed": true,
+      "source_sha256": "aa08fc51cf56671c5fda4e21a4f5861ee748d23552e7fd6160f80b7d739654ea",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 146,
+        "clocked_register_count": 146,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [],
+      "evidence": {
+        "metrics": "848877/clocked.txt",
+        "utilization": "848877/utilization.txt",
+        "timing": "848877/timing.txt",
+        "log": "848877/clocked.log",
+        "coverage": "848877/coverage.txt",
+        "constraint_checks": "848877/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "e24ad3a0fe105213b6f032f7f063452f1fb66900501cace05d51e82e5e688fc1",
+        "timing": "4d6db23a3d81a24589311c6bb517c4818d8d4f808676d5a6ada69a7fffae2613",
+        "coverage": "0e89f117f0bb40fa7d2723d30d7d87d952d0fce7d6293b417cc01fb3319f3beb",
+        "constraint_checks": "08b8b99ccfe8e61614f5ea5f9adb1af0a7c52dab66a1dd9da312019111fd5c12"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -0.692,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "28f12e"
+  },
+  {
+    "ok": true,
+    "data": {
+      "passed": true,
+      "source_sha256": "aa08fc51cf56671c5fda4e21a4f5861ee748d23552e7fd6160f80b7d739654ea",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 146,
+        "clocked_register_count": 146,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [],
+      "evidence": {
+        "metrics": "1003fb/clocked.txt",
+        "utilization": "1003fb/utilization.txt",
+        "timing": "1003fb/timing.txt",
+        "log": "1003fb/clocked.log",
+        "coverage": "1003fb/coverage.txt",
+        "constraint_checks": "1003fb/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "e24ad3a0fe105213b6f032f7f063452f1fb66900501cace05d51e82e5e688fc1",
+        "timing": "02c641ea4e7497515740da3ed4880fb43b8aa478e0768d21726c3b917f12f343",
+        "coverage": "0e89f117f0bb40fa7d2723d30d7d87d952d0fce7d6293b417cc01fb3319f3beb",
+        "constraint_checks": "3babffc29f6f5d88cd47ebf74857d03d03140214c35007ffc578163fad358dbd"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -0.692,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "4c91ca"
+  },
+  {
+    "ok": true,
+    "data": {
+      "passed": true,
+      "source_sha256": "3b9a876ab186803b4930bcad43b5cc7c4a127a2b5e6424f08bf173c9d014791f",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 631,
+        "clocked_register_count": 631,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [],
+      "evidence": {
+        "metrics": "abba1c/clocked.txt",
+        "utilization": "abba1c/utilization.txt",
+        "timing": "abba1c/timing.txt",
+        "log": "abba1c/clocked.log",
+        "coverage": "abba1c/coverage.txt",
+        "constraint_checks": "abba1c/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "28953322430735713ae1e97b27fdd781a16f9037d05bb8d3876d9594d920b6cd",
+        "timing": "e6885f5805693f569243e4a051e62cbd573b84e211b9b2b9d0fa4b04005ab3bf",
+        "coverage": "d91ba59b85d32e1109b410163a7d1bd3e703b9c068ac39ac56ed31397eacaf8d",
+        "constraint_checks": "14bb2b7ad04695f1fbf17a08cb3ec1b62e5ab6462bc438be7341c151fa32abe6"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -2.35,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "e82814"
+  },
+  {
+    "ok": true,
+    "data": {
+      "passed": true,
+      "source_sha256": "3b9a876ab186803b4930bcad43b5cc7c4a127a2b5e6424f08bf173c9d014791f",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 631,
+        "clocked_register_count": 631,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [],
+      "evidence": {
+        "metrics": "9945ad/clocked.txt",
+        "utilization": "9945ad/utilization.txt",
+        "timing": "9945ad/timing.txt",
+        "log": "9945ad/clocked.log",
+        "coverage": "9945ad/coverage.txt",
+        "constraint_checks": "9945ad/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "28953322430735713ae1e97b27fdd781a16f9037d05bb8d3876d9594d920b6cd",
+        "timing": "75ed19196a55ecbfccecdc2270b15b87d425c33096d2255ec1ede4c200d61336",
+        "coverage": "d91ba59b85d32e1109b410163a7d1bd3e703b9c068ac39ac56ed31397eacaf8d",
+        "constraint_checks": "3a1f0f217a1c113e6939c7dcc85477f251a70e35bbb16137a12addd041a1f130"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -2.35,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "246558"
+  },
+  {
+    "ok": true,
+    "data": {
+      "passed": true,
+      "source_sha256": "3b9a876ab186803b4930bcad43b5cc7c4a127a2b5e6424f08bf173c9d014791f",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 631,
+        "clocked_register_count": 631,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [],
+      "evidence": {
+        "metrics": "cf4eec/clocked.txt",
+        "utilization": "cf4eec/utilization.txt",
+        "timing": "cf4eec/timing.txt",
+        "log": "cf4eec/clocked.log",
+        "coverage": "cf4eec/coverage.txt",
+        "constraint_checks": "cf4eec/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "28953322430735713ae1e97b27fdd781a16f9037d05bb8d3876d9594d920b6cd",
+        "timing": "2a1a011e56cac7a2b1a83c2ee6fced6d9e2473e70c60d944be48e01406f965ca",
+        "coverage": "d91ba59b85d32e1109b410163a7d1bd3e703b9c068ac39ac56ed31397eacaf8d",
+        "constraint_checks": "3ae0ec0d51b05192280896b17e33c808ac93aaea1c21191fcfda2c2197f45224"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -2.35,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "f4aa28"
+  },
+  {
+    "ok": false,
+    "data": {
+      "passed": false,
+      "source_sha256": "77a8aaf5038dc9e8598c79e0624a2ed0e9ff07274296d11502f41f43792c4abd",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 566,
+        "clocked_register_count": 558,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [
+        "Some sequential cells are outside the measured clock"
+      ],
+      "evidence": {
+        "metrics": "8f4e9f/clocked.txt",
+        "utilization": "8f4e9f/utilization.txt",
+        "timing": "8f4e9f/timing.txt",
+        "log": "8f4e9f/clocked.log",
+        "coverage": "8f4e9f/coverage.txt",
+        "constraint_checks": "8f4e9f/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "18ba614bdfe20dd81dacbea1b40449e77f8db9e8ea70e84a17e56a220667ff95",
+        "timing": "78165c51a2fb5ef0ad0cd71d8bfcf0b5f3cce10a4f468b549b4f6ea62ac5c47e",
+        "coverage": "3fd8e2a0f79e7cd7e5f62605231d9473b2417b6c71ada0cc1a8ca0bb4e9f3f14",
+        "constraint_checks": "1ba7a83678fe707927619e6efe83f20fac328bd4e79794fe5943a28d5733ea5d"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -8.629,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "56cd55"
+  },
+  {
+    "ok": false,
+    "data": {
+      "passed": false,
+      "source_sha256": "77a8aaf5038dc9e8598c79e0624a2ed0e9ff07274296d11502f41f43792c4abd",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 566,
+        "clocked_register_count": 558,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [
+        "Some sequential cells are outside the measured clock"
+      ],
+      "evidence": {
+        "metrics": "5eec6c/clocked.txt",
+        "utilization": "5eec6c/utilization.txt",
+        "timing": "5eec6c/timing.txt",
+        "log": "5eec6c/clocked.log",
+        "coverage": "5eec6c/coverage.txt",
+        "constraint_checks": "5eec6c/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "18ba614bdfe20dd81dacbea1b40449e77f8db9e8ea70e84a17e56a220667ff95",
+        "timing": "87e5d8a412b8b069ca8a3ac51fae314c48985a425da5a6fa29ee5d64b5091e69",
+        "coverage": "3fd8e2a0f79e7cd7e5f62605231d9473b2417b6c71ada0cc1a8ca0bb4e9f3f14",
+        "constraint_checks": "fd6c271c4950ac1ac5f266a4c140398ac5a03d50bf9ba96cf4767a1a784bbde9"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -8.629,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "fd6503"
+  },
+  {
+    "ok": false,
+    "data": {
+      "passed": false,
+      "source_sha256": "77a8aaf5038dc9e8598c79e0624a2ed0e9ff07274296d11502f41f43792c4abd",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 566,
+        "clocked_register_count": 558,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [
+        "Some sequential cells are outside the measured clock"
+      ],
+      "evidence": {
+        "metrics": "0690ca/clocked.txt",
+        "utilization": "0690ca/utilization.txt",
+        "timing": "0690ca/timing.txt",
+        "log": "0690ca/clocked.log",
+        "coverage": "0690ca/coverage.txt",
+        "constraint_checks": "0690ca/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "18ba614bdfe20dd81dacbea1b40449e77f8db9e8ea70e84a17e56a220667ff95",
+        "timing": "84b7012f86ff2e90eee290284db1d669914bd036d3253234803399ab5209e696",
+        "coverage": "3fd8e2a0f79e7cd7e5f62605231d9473b2417b6c71ada0cc1a8ca0bb4e9f3f14",
+        "constraint_checks": "6f224f76b89d7da0f60efec92e0ff8ce1be316f10a8edf87628c0b51b54b4c7f"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -8.629,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "8b76a4"
+  },
+  {
+    "ok": false,
+    "data": {
+      "passed": false,
+      "source_sha256": "48415f69a661582f511f9b47432c46a467bb6e1cc57aa43a3637e6f7a450039d",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 1334,
+        "clocked_register_count": 1322,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [
+        "Some sequential cells are outside the measured clock"
+      ],
+      "evidence": {
+        "metrics": "234567/clocked.txt",
+        "utilization": "234567/utilization.txt",
+        "timing": "234567/timing.txt",
+        "log": "234567/clocked.log",
+        "coverage": "234567/coverage.txt",
+        "constraint_checks": "234567/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "1b35e31523d64258474fe0047d50f87b9df58220f6058dabf8818ad4ffdf5a8a",
+        "timing": "05de94fcb595c52577fcfff75b86635532064eabd17bb9ecb2f02e38ca89a40b",
+        "coverage": "baae97c9358e380f06df3bcb65bcdd16107f2d3c1e100c500a7818caedc72d76",
+        "constraint_checks": "e129b50a2a00934e99777970f153b7d74ec85c85affb5eebfc886d95b0e8a831"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -10.952,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "b8a79a"
+  },
+  {
+    "ok": false,
+    "data": {
+      "passed": false,
+      "source_sha256": "48415f69a661582f511f9b47432c46a467bb6e1cc57aa43a3637e6f7a450039d",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 1334,
+        "clocked_register_count": 1322,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [
+        "Some sequential cells are outside the measured clock"
+      ],
+      "evidence": {
+        "metrics": "373c6a/clocked.txt",
+        "utilization": "373c6a/utilization.txt",
+        "timing": "373c6a/timing.txt",
+        "log": "373c6a/clocked.log",
+        "coverage": "373c6a/coverage.txt",
+        "constraint_checks": "373c6a/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "1b35e31523d64258474fe0047d50f87b9df58220f6058dabf8818ad4ffdf5a8a",
+        "timing": "6b026220ea8f49608ac48212af9ab32d30d7f79d2a0b3cebf102400316cae1a2",
+        "coverage": "baae97c9358e380f06df3bcb65bcdd16107f2d3c1e100c500a7818caedc72d76",
+        "constraint_checks": "27b785afbeb487eafade047669c0cf11e7489dec0fc10aa460be5210ca12a075"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -10.952,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "f5cf9b"
+  },
+  {
+    "ok": false,
+    "data": {
+      "passed": false,
+      "source_sha256": "48415f69a661582f511f9b47432c46a467bb6e1cc57aa43a3637e6f7a450039d",
+      "scope": "single_clock_register_to_register_ooc",
+      "coverage": {
+        "clock_count": 1,
+        "register_count": 1334,
+        "clocked_register_count": 1322,
+        "latch_count": 0,
+        "setup_path_count": 1
+      },
+      "violations": {
+        "no_clock": 0,
+        "constant_clock": 0,
+        "multiple_clock": 0,
+        "loops": 0,
+        "latch_loops": 0,
+        "unconstrained_internal_endpoints": 0
+      },
+      "reasons": [
+        "Some sequential cells are outside the measured clock"
+      ],
+      "evidence": {
+        "metrics": "b107fd/clocked.txt",
+        "utilization": "b107fd/utilization.txt",
+        "timing": "b107fd/timing.txt",
+        "log": "b107fd/clocked.log",
+        "coverage": "b107fd/coverage.txt",
+        "constraint_checks": "b107fd/constraint-checks.txt"
+      },
+      "report_sha256": {
+        "metrics": "1b35e31523d64258474fe0047d50f87b9df58220f6058dabf8818ad4ffdf5a8a",
+        "timing": "511e9360476ce12aa7ab7529d7a84c87541fe4cc7ba51de94e5a7461b6336acb",
+        "coverage": "baae97c9358e380f06df3bcb65bcdd16107f2d3c1e100c500a7818caedc72d76",
+        "constraint_checks": "18f1b3135a58b7a959e90cff9f53ed9c3a65069fbacb23fc76c8e38ac1187b3f"
+      },
+      "period_ns": 5.0,
+      "setup_slack_ns": -10.952,
+      "requested_setup_met": false,
+      "excluded": [
+        "top-level input/output delays",
+        "hold-time closure",
+        "board constraints",
+        "protocol correctness"
+      ]
+    },
+    "note": "Audits one routed single-clock register-to-register setup scope. Zero coverage violations is not board timing closure; a negative setup slack remains a failed requested period. Original PPA records are not modified. Historical records without coverage reports remain unaudited.",
+    "run_id": "a54af1"
+  }
+]

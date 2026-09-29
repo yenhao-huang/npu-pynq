@@ -29,6 +29,7 @@ import json
 import os
 import shutil
 import sqlite3
+import time
 import uuid
 from contextlib import closing, contextmanager
 from datetime import datetime, timezone
@@ -65,6 +66,20 @@ def sha256_of(path: Path) -> str:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).astimezone()
+
+
+def _publish_directory(source: Path, target: Path) -> None:
+    """Bound retries for Windows sharing/access races, preserving atomic rename."""
+    for attempt in range(7):
+        try:
+            os.replace(source,target)
+            return
+        except PermissionError as error:
+            # Do not hide permanent failures or touch either tree on failure.
+            # Other platforms/errors retain immediate failure behavior.
+            if getattr(error,'winerror',None) not in (5,32) or attempt==6:
+                raise
+            time.sleep(.02*(2**attempt))
 
 
 class Run:
@@ -137,7 +152,7 @@ class Run:
         # interrupted, and GC can remove it without ever mistaking a partial
         # result for a real one.
         self.final_dir.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(self.dir, self.final_dir)
+        _publish_directory(self.dir, self.final_dir)
         self.dir = self.final_dir
         self.store._index(self.meta, self.final_dir, top)
         return self.final_dir

@@ -1,0 +1,185 @@
+"""Clocked out-of-context implementation with explicit throughput assumptions."""
+import math
+import re
+import shutil
+from typing import Literal
+from pydantic import Field
+from ...errors import InvalidInput
+from ...process import run as run_process
+from ...registry import Op, backend
+from ..exploration_common import ExplorationInput, Identifier, fingerprint, sources, tcl_path
+from . import CATEGORY, DEFAULT_PART
+from .exploration import Result
+
+
+DSP48E1_ACTIVE_REGS=('AREG','ACASCREG','BREG','BCASCREG','CREG','MREG','PREG',
+    'INMODEREG','OPMODEREG','ALUMODEREG','CARRYINREG','CARRYINSELREG')
+DSP48E1_PROPERTIES=('REF_NAME','USE_DPORT','USE_MULT','ADREG','DREG')+DSP48E1_ACTIVE_REGS
+DSP48E1_C_PROPERTIES=('USE_PATTERN_DETECT','SEL_PATTERN','SEL_MASK','AUTORESET_PATDET')
+DSP48E1_C_PINS=('OPMODE','ALUMODE','CARRYINSEL','CEC','CLK')
+DSP48E1_C_EVIDENCE=DSP48E1_C_PROPERTIES+tuple('static_'+p for p in DSP48E1_C_PINS)
+# Only direct, unique primitive constant drivers establish a static control.
+DSP48E1_STATIC_TCL=r'''
+proc ic_static_bus {cell bus width} {
+  set value ""
+  for {set i [expr {$width-1}]} {$i>=0} {incr i -1} {
+    set target [expr {$width==1 ? $bus : [format {%s[%d]} $bus $i]}]
+    set selected {}
+    foreach pin [get_pins -quiet -of_objects $cell] {
+      if {[get_property REF_PIN_NAME $pin] eq $target} {lappend selected $pin}
+    }
+    set bit X
+    if {[llength $selected]==1} {
+      set nets [get_nets -quiet -segments -of_objects $selected]
+      set drivers [get_pins -quiet -leaf -of_objects $nets -filter {DIRECTION == OUT}]
+      set ports [get_ports -quiet -of_objects $nets -filter {DIRECTION == IN}]
+      if {[llength $drivers]==1 && [llength $ports]==0} {
+        set kind [get_property REF_NAME [get_cells -of_objects $drivers]]
+        if {$kind eq "GND"} {set bit 0}
+        if {$kind eq "VCC"} {set bit 1}
+      }
+    }
+    append value $bit
+  }
+  return $value
+}
+'''
+
+
+class ClockedIn(ExplorationInput):
+    backend: str | None = Field(default='clocked_vivado', description='Operation-specific execution backend.')
+    files: list[str] = Field(min_length=1, description='Self-contained synthesizable SystemVerilog sources.')
+    top: Identifier = Field(description='Top module identifier, identical in separately compiled variants.')
+    clock_port: Identifier = Field(default='clk', description='Single clock input port.')
+    name: str = Field(min_length=1, description='Measurement candidate identifier.')
+    device: str = Field(default=DEFAULT_PART, pattern=r'^[A-Za-z0-9_-]+$', description='Target FPGA part.')
+    period_ns: float = Field(default=10, gt=0, allow_inf_nan=False, description='Requested clock period in nanoseconds.')
+    latency_cycles: int = Field(ge=1, description='Caller-verified transaction latency; timing analysis does not verify protocol.')
+    latency_kind: Literal['fixed','minimum'] = Field(default='fixed',description='Whether latency_cycles is fixed or only the minimum under empty/no-stall conditions.')
+    initiation_interval: int = Field(ge=1, description='Caller-verified sustained cycles per transaction.')
+    directive: Literal['Default', 'Explore'] = Field(default='Default', description='Matched placement and routing directive.')
+    optimization_mode: Literal['Default','Basic'] = Field(default='Default',description='Full optimization or explicit constant-propagation/sweep subset; matched per comparison.')
+    implementation_threads: int = Field(default=1,ge=1,le=8,description='Vivado implementation worker limit; part of the matched flow.')
+    timeout_s: float = Field(default=900, gt=0, le=3600, allow_inf_nan=False, description='Maximum process runtime in seconds.')
+
+
+def utilization(text):
+    aliases = {'Slice LUTs':'luts', 'CLB LUTs':'luts', 'Slice Registers':'ffs',
+               'CLB Registers':'ffs', 'Block RAM Tile':'brams', 'DSPs':'dsps',
+               'LUT as Memory':'lut_memory', 'LUT as Logic':'lut_logic'}
+    values = {}
+    for line in text.splitlines():
+        parts = [p.strip() for p in line.split('|')]
+        if len(parts)<3:
+            continue
+        label = parts[1].rstrip('*').strip()
+        if label in aliases and re.fullmatch(r'[0-9,]+(?:\.[0-9]+)?', parts[2]):
+            values[aliases[label]] = float(parts[2].replace(',', ''))
+    if not {'luts','ffs','brams','dsps'} <= values.keys():
+        raise ValueError('utilization report lacks required resource classes')
+    return values
+
+
+@backend('synth', 'clocked_vivado', requires='vivado', version_cmd=['vivado', '-version'])
+class ClockedMeasure:
+    def clocked_ppa(self, params, ctx):
+        files = sources(params.files, ctx.cwd)
+        if any('`include' in p.read_text(encoding='utf-8') for p in files):
+            raise InvalidInput('inline include dependencies for complete source identity')
+        source_hash = fingerprint(files, params.top)
+        metrics = ctx.run.artifacts/'clocked.txt'
+        util = ctx.run.artifacts/'utilization.txt'
+        timing = ctx.run.artifacts/'timing.txt'
+        coverage = ctx.run.artifacts/'coverage.txt'
+        checks = ctx.run.artifacts/'constraint-checks.txt'
+        script = ctx.run.work/'clocked.tcl'
+        reads = '\n'.join('read_verilog -sv '+tcl_path(p) for p in files)
+        optimization='opt_design' if params.optimization_mode=='Default' else 'opt_design -propconst -sweep'
+        script.write_text(f'''set_param general.maxThreads {params.implementation_threads}
+create_project -in_memory -part {params.device}
+{reads}
+synth_design -mode out_of_context -top {params.top} -part {params.device} -flatten_hierarchy rebuilt
+if {{[llength [get_ports {params.clock_port}]] != 1}} {{error "Clock port missing"}}
+create_clock -name ic_clock -period {params.period_ns} [get_ports {params.clock_port}]
+if {{[catch {{{optimization}}} message options]}} {{
+  puts stderr "IC_OPT_ERROR: $message"
+  puts stderr [dict get $options -errorinfo]
+  error $message
+}}
+place_design -directive {params.directive}
+route_design -directive {params.directive}
+set paths [get_timing_paths -delay_type max -from [all_registers -clock ic_clock] -to [all_registers -clock ic_clock] -max_paths 1]
+if {{[llength $paths] != 1}} {{error "No register-to-register setup timing path"}}
+set path [lindex $paths 0]
+report_utilization -file {tcl_path(util)}
+report_timing -of_objects $paths -file {tcl_path(timing)}
+check_timing -override_defaults {{no_clock constant_clock multiple_clock loops latch_loops unconstrained_internal_endpoints}} -file {tcl_path(checks)}
+set audit [open {tcl_path(coverage)} w]
+puts $audit "source_sha256={source_hash}"
+puts $audit "top={params.top}"
+puts $audit "scope=single_clock_register_to_register_ooc"
+puts $audit "clock_count=[llength [get_clocks]]"
+puts $audit "clock_period_ns=[get_property PERIOD [get_clocks ic_clock]]"
+puts $audit "register_count=[llength [all_registers]]"
+puts $audit "clocked_register_count=[llength [all_registers -clock ic_clock]]"
+puts $audit "latch_count=[llength [all_registers -level_sensitive]]"
+puts $audit "setup_path_count=[llength $paths]"
+puts $audit "io_delays_constrained=0"
+set clocked_cells [all_registers -clock ic_clock]
+{DSP48E1_STATIC_TCL}
+set unclocked_index 0
+foreach cell [all_registers] {{
+  if {{[lsearch -exact $clocked_cells $cell]>=0}} {{continue}}
+  puts $audit "unclocked.$unclocked_index.name=$cell"
+  puts $audit "unclocked.$unclocked_index.REF_NAME=[get_property REF_NAME $cell]"
+  if {{[get_property REF_NAME $cell] eq "DSP48E1"}} {{
+    foreach prop {{{' '.join(DSP48E1_PROPERTIES[1:])}}} {{
+      puts $audit "unclocked.$unclocked_index.$prop=[get_property $prop $cell]"
+    }}
+    if {{[get_property CREG $cell]==1 && [get_property USE_MULT $cell] eq "MULTIPLY"}} {{
+      foreach prop {{{' '.join(DSP48E1_C_PROPERTIES)}}} {{
+        puts $audit "unclocked.$unclocked_index.$prop=[get_property $prop $cell]"
+      }}
+      foreach {{bus width}} {{OPMODE 7 ALUMODE 4 CARRYINSEL 3 CEC 1 CLK 1}} {{
+        puts $audit "unclocked.$unclocked_index.static_$bus=[ic_static_bus $cell $bus $width]"
+      }}
+    }}
+  }}
+  incr unclocked_index
+}}
+puts $audit "unclocked_cell_count=$unclocked_index"
+close $audit
+set out [open {tcl_path(metrics)} w]
+puts $out "slack_ns=[get_property SLACK $path]"
+puts $out "requirement_ns=[get_property REQUIREMENT $path]"
+puts $out "datapath_ns=[get_property DATAPATH_DELAY $path]"
+puts $out "version=[version -short]"
+puts $out "build=[string map {{\\n | \\r {{}}}} [version]]"
+close $out
+''', encoding='utf-8')
+        result = run_process([shutil.which('vivado') or 'vivado', '-mode','batch','-nojournal','-notrace','-log',str(ctx.run.work/'vivado.log'),'-source',str(script)], cwd=ctx.run.work, log_path=ctx.run.artifacts/'clocked.log', timeout_s=params.timeout_s)
+        log = ctx.run.handle('clocked.log')
+        if result.exit_code or result.timed_out or not all(path.exists() for path in (metrics,util,timing,coverage,checks)):
+            return Result(ok=False, data=dict(log=log, exit_code=result.exit_code, timed_out=result.timed_out), note='Implementation failed or timed out; no clocked PPA result.')
+        if source_hash != fingerprint(files, params.top):
+            return Result(ok=False, data={'log':log}, note='Sources changed; measurement discarded.')
+        try:
+            raw = dict(line.split('=',1) for line in metrics.read_text().splitlines() if '=' in line)
+            slack, requirement = float(raw['slack_ns']), float(raw['requirement_ns'])
+            critical_period = params.period_ns-slack
+            if not math.isfinite(critical_period) or critical_period<=0 or not math.isclose(requirement,params.period_ns,abs_tol=.01):
+                raise ValueError('unsupported timing requirement or invalid critical period')
+            resources = utilization(util.read_text())
+        except (ValueError, KeyError) as error:
+            return Result(ok=False, data={'log':log}, note=f'Unusable measurement: {error}')
+        fmax = 1000/critical_period
+        record = dict(name=params.name, source_sha256=source_hash, tool='vivado', version=raw['version'], build=raw['build'],
+                      part=params.device, stage='routed_clocked_ooc', period_ns=params.period_ns, directive=params.directive, implementation_threads=params.implementation_threads, optimization_mode=params.optimization_mode,
+                      latency_cycles=params.latency_cycles, latency_kind=params.latency_kind, initiation_interval=params.initiation_interval,
+                      metrics=dict(resources, slack_ns=slack, critical_period_ns=critical_period,
+                                   estimated_fmax_mhz=fmax, throughput_mtransactions_s=fmax/params.initiation_interval),
+                      evidence={'metrics':ctx.run.handle(metrics.name),'utilization':ctx.run.handle(util.name),'timing':ctx.run.handle(timing.name),'log':log,'coverage':ctx.run.handle(coverage.name),'constraint_checks':ctx.run.handle(checks.name)})
+        return Result(data={'record':record}, note='Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.')
+
+
+CATEGORY.ops.append(Op('clocked_ppa', ClockedIn, Result, 'Measure routed clocked FPGA resources and normalize estimated throughput by initiation interval.', long_running=True))

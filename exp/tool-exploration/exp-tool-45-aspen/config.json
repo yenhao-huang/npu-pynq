@@ -1,0 +1,6 @@
+{
+  "op": "resource_tradeoff",
+  "source_family": "synth_priority_encoder",
+  "objective": "throughput",
+  "minimum_repeats": 3
+}

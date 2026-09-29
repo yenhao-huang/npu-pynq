@@ -69,3 +69,5 @@ CATEGORY = register_category(
 )
 
 from . import iverilog, verilator  # noqa: E402,F401
+
+from . import exploration  # noqa: E402,F401

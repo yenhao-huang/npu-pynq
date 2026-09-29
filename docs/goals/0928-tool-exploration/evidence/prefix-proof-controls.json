@@ -1,0 +1,242 @@
+[
+  {
+    "mode": "bitwise_prefix",
+    "label": "positive",
+    "expected": true,
+    "result": {
+      "ok": true,
+      "data": {
+        "proved": true,
+        "reference_sha256": "b0077f53724a1ed713acaf650cf77136ead1ba294aa7b1282203aca3cd8bfce1",
+        "candidate_sha256": "ae4418d684e4e73540b6f4110f2a4c0de295742a17ca4e9e5b7ee43e68fa6387",
+        "engine": "$ docker exec -w /tmp/ic-formal-5e107a codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 16,
+        "abstraction_defined": true,
+        "log": "5e107a/proof.log",
+        "exit_code": 0,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "5e107a"
+    }
+  },
+  {
+    "mode": "bitwise_prefix",
+    "label": "high_bit_mutation",
+    "expected": false,
+    "result": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "b0077f53724a1ed713acaf650cf77136ead1ba294aa7b1282203aca3cd8bfce1",
+        "candidate_sha256": "6a6dea1c9afe7af3091905c572612820c3e299255038afef2635916e1fdc28fd",
+        "engine": "$ docker exec -w /tmp/ic-formal-70a1ef codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 15,
+        "abstraction_defined": true,
+        "log": "70a1ef/proof.log",
+        "exit_code": 1,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "70a1ef"
+    }
+  },
+  {
+    "mode": "bitwise_prefix",
+    "label": "low_bit_mutation",
+    "expected": false,
+    "result": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "b0077f53724a1ed713acaf650cf77136ead1ba294aa7b1282203aca3cd8bfce1",
+        "candidate_sha256": "7fe2defa26c67b355429cf069aed5d034585abec772bb85ec4870d9e3ef78020",
+        "engine": "$ docker exec -w /tmp/ic-formal-233483 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 0,
+        "abstraction_defined": true,
+        "log": "233483/proof.log",
+        "exit_code": 1,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "233483"
+    }
+  },
+  {
+    "mode": "bitwise_prefix",
+    "label": "product_mutation",
+    "expected": false,
+    "result": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "b0077f53724a1ed713acaf650cf77136ead1ba294aa7b1282203aca3cd8bfce1",
+        "candidate_sha256": "a2cf5ed586f15a361c336c19b16059e55e7abe4d6bb9964e46066ad16eafb669",
+        "engine": "$ docker exec -w /tmp/ic-formal-059bfd codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 0,
+        "abstraction_defined": true,
+        "log": "059bfd/proof.log",
+        "exit_code": 1,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "059bfd"
+    }
+  },
+  {
+    "mode": "bitwise_prefix",
+    "label": "undefined_product",
+    "expected": false,
+    "result": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "07eb05dd4534b572af82ec00ee23bc452bfce45b9c81c1edbf07f82daa2dab1b",
+        "candidate_sha256": "07eb05dd4534b572af82ec00ee23bc452bfce45b9c81c1edbf07f82daa2dab1b",
+        "engine": "$ docker exec -w /tmp/ic-formal-cd4f5a codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 0,
+        "abstraction_defined": false,
+        "log": "cd4f5a/proof.log",
+        "exit_code": 1,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "cd4f5a"
+    }
+  },
+  {
+    "mode": "bitwise_prefix",
+    "label": "partial_function",
+    "expected": false,
+    "result": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "895f924e618d83c0cd65b62e27ddd2c4c161026469c9c3edfb5049e1a0caabae",
+        "candidate_sha256": "895f924e618d83c0cd65b62e27ddd2c4c161026469c9c3edfb5049e1a0caabae",
+        "engine": "$ docker exec -w /tmp/ic-formal-35a297 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 0,
+        "abstraction_defined": false,
+        "log": "35a297/proof.log",
+        "exit_code": 1,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "35a297"
+    }
+  },
+  {
+    "mode": "bitwise_prefix",
+    "label": "constant_divisor",
+    "expected": true,
+    "result": {
+      "ok": true,
+      "data": {
+        "proved": true,
+        "reference_sha256": "e7a827fc10cd29dec8319819d33b2fe468a668fe63186d0d72524788a649dc38",
+        "candidate_sha256": "e7a827fc10cd29dec8319819d33b2fe468a668fe63186d0d72524788a649dc38",
+        "engine": "$ docker exec -w /tmp/ic-formal-018415 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 16,
+        "abstraction_defined": true,
+        "log": "018415/proof.log",
+        "exit_code": 0,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "018415"
+    }
+  },
+  {
+    "mode": "bitwise_prefix",
+    "label": "self_division",
+    "expected": false,
+    "result": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "e1734d0c74d2d424c162e5a03101e3428d57fcd007359ce0290f3aa4d206de6c",
+        "candidate_sha256": "e1734d0c74d2d424c162e5a03101e3428d57fcd007359ce0290f3aa4d206de6c",
+        "engine": "$ docker exec -w /tmp/ic-formal-ccf810 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 0,
+        "abstraction_defined": false,
+        "log": "ccf810/proof.log",
+        "exit_code": 1,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "ccf810"
+    }
+  },
+  {
+    "mode": "bitwise_prefix",
+    "label": "masked_unknown",
+    "expected": false,
+    "result": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "db66f27b9b43eda986c329502679c5f79a44f63a5debe0e9c0347c8be27a7110",
+        "candidate_sha256": "db66f27b9b43eda986c329502679c5f79a44f63a5debe0e9c0347c8be27a7110",
+        "engine": "$ docker exec -w /tmp/ic-formal-cf4c49 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 0,
+        "abstraction_defined": false,
+        "log": "cf4c49/proof.log",
+        "exit_code": 1,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "cf4c49"
+    }
+  },
+  {
+    "mode": "bitwise_prefix",
+    "label": "out_of_range_select",
+    "expected": false,
+    "result": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "22977422ba79b349a6f831b8eba28173af7cef3c6e358bb4015a46f9a6cdbc65",
+        "candidate_sha256": "22977422ba79b349a6f831b8eba28173af7cef3c6e358bb4015a46f9a6cdbc65",
+        "engine": "$ docker exec -w /tmp/ic-formal-14c2e2 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "normalization": "bitwise_prefix",
+        "proof_obligations": 16,
+        "completed_obligations": 0,
+        "abstraction_defined": false,
+        "log": "14c2e2/proof.log",
+        "exit_code": 1,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence. bitwise_products merges identical cells and replaces multiplication outputs with arbitrary defined auxiliary inputs; success proves the stronger overapproximated circuit for every such value, but an abstract counterexample need not be a concrete RTL counterexample. Every mode separately checks both source netlists for total binary semantics before miter optimization can discard logic. X/Z constants, symbolic sources, partial operations and unknown cells are rejected; constant nonzero division is supported.",
+      "run_id": "14c2e2"
+    }
+  }
+]

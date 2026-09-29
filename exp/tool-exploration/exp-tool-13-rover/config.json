@@ -1,0 +1,18 @@
+{
+  "op": "yosys_equivalence",
+  "timeout_s": 120,
+  "configurations": [
+    {
+      "width": 16,
+      "lanes": 4
+    },
+    {
+      "width": 16,
+      "lanes": 16
+    },
+    {
+      "width": 32,
+      "lanes": 16
+    }
+  ]
+}

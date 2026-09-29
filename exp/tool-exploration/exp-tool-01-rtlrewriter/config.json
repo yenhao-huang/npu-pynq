@@ -1,0 +1,9 @@
+{
+  "operation": "optimization_rules",
+  "payload": {
+    "topics": [
+      "area",
+      "arithmetic"
+    ]
+  }
+}

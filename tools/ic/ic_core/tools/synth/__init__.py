@@ -107,3 +107,23 @@ CATEGORY = register_category(
 )
 
 from . import vivado, yosys  # noqa: E402,F401
+
+from . import exploration, measure  # noqa: E402,F401
+from . import clocked  # noqa: E402,F401
+from . import reduction  # noqa: E402,F401
+from . import networks  # noqa: E402,F401
+from . import fifo  # noqa: E402,F401
+from . import physical_analysis  # noqa: E402,F401
+from . import arithmetic  # noqa: E402,F401
+from . import netlist  # noqa: E402,F401
+from . import datapaths  # noqa: E402,F401
+from . import linear  # noqa: E402,F401
+from . import iterative  # noqa: E402,F401
+from . import booth  # noqa: E402,F401
+from . import fsm  # noqa: E402,F401
+from . import timing_audit  # noqa: E402,F401
+from . import regfile  # noqa: E402,F401
+from . import skid  # noqa: E402,F401
+from . import ablation  # noqa: E402,F401
+from . import systolic  # noqa: E402,F401
+from . import acceptance  # noqa: E402,F401

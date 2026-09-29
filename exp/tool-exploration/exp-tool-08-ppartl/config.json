@@ -1,0 +1,10 @@
+{
+  "operation": "ppa_reward",
+  "weights": {
+    "luts": 0.5,
+    "delay_ns": 0.5
+  },
+  "limits": {
+    "delay_ns": 10
+  }
+}

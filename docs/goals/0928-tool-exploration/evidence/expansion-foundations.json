@@ -1,0 +1,171 @@
+{
+  "status": "in_progress_not_accepted",
+  "scope": "First repeat only; expanded acceptance remains unmet",
+  "commands": [
+    ".venv/Scripts/python.exe exp/tool-exploration/exp-tool-14-rover/study.py",
+    ".venv/Scripts/python.exe exp/tool-exploration/exp-tool-13-rover/check.py --container codex-sandbox-agent-workspace"
+  ],
+  "physical_first_repeat": [
+    {
+      "ok": true,
+      "data": {
+        "record": {
+          "name": "w16-n16-balanced",
+          "source_sha256": "14ce288abced3deef229338ef6e232b7e6c4642f681dd30895c329a1e544f94e",
+          "tool": "vivado",
+          "version": "2026.1",
+          "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+          "part": "xc7z020clg400-1",
+          "stage": "routed_clocked_ooc",
+          "period_ns": 5.0,
+          "directive": "Default",
+          "latency_cycles": 1,
+          "initiation_interval": 1,
+          "metrics": {
+            "luts": 141.0,
+            "lut_logic": 141.0,
+            "lut_memory": 0.0,
+            "ffs": 272.0,
+            "brams": 0.0,
+            "dsps": 0.0,
+            "slack_ns": -3.483,
+            "critical_period_ns": 8.483,
+            "estimated_fmax_mhz": 117.88282447247435,
+            "throughput_mtransactions_s": 117.88282447247435
+          },
+          "evidence": {
+            "metrics": "796040/clocked.txt",
+            "utilization": "796040/utilization.txt",
+            "timing": "796040/timing.txt",
+            "log": "796040/clocked.log"
+          }
+        }
+      },
+      "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+      "run_id": "796040"
+    },
+    {
+      "ok": true,
+      "data": {
+        "record": {
+          "name": "w16-n16-compressor",
+          "source_sha256": "f1fec32afc38bc7bd8a596f46f25555c0f3d37846f5c4d702c733637b9d4e93c",
+          "tool": "vivado",
+          "version": "2026.1",
+          "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+          "part": "xc7z020clg400-1",
+          "stage": "routed_clocked_ooc",
+          "period_ns": 5.0,
+          "directive": "Default",
+          "latency_cycles": 1,
+          "initiation_interval": 1,
+          "metrics": {
+            "luts": 372.0,
+            "lut_logic": 372.0,
+            "lut_memory": 0.0,
+            "ffs": 272.0,
+            "brams": 0.0,
+            "dsps": 0.0,
+            "slack_ns": -1.007,
+            "critical_period_ns": 6.007,
+            "estimated_fmax_mhz": 166.472448809722,
+            "throughput_mtransactions_s": 166.472448809722
+          },
+          "evidence": {
+            "metrics": "2168c2/clocked.txt",
+            "utilization": "2168c2/utilization.txt",
+            "timing": "2168c2/timing.txt",
+            "log": "2168c2/clocked.log"
+          }
+        }
+      },
+      "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+      "run_id": "2168c2"
+    },
+    {
+      "ok": true,
+      "data": {
+        "record": {
+          "name": "w16-n16-serial",
+          "source_sha256": "43f40c96de77e4ee78b471f7d4868d8d82810f587cbcb030b984c0c001cce67c",
+          "tool": "vivado",
+          "version": "2026.1",
+          "build": "Vivado v2026.1 (64-bit)|SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026|IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026|Tool Version Limit: 2026.06|Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.|Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.|SharedData Build 6501428 on Mon Jun 08 17:34:18 MDT 2026|",
+          "part": "xc7z020clg400-1",
+          "stage": "routed_clocked_ooc",
+          "period_ns": 5.0,
+          "directive": "Default",
+          "latency_cycles": 1,
+          "initiation_interval": 1,
+          "metrics": {
+            "luts": 141.0,
+            "lut_logic": 141.0,
+            "lut_memory": 0.0,
+            "ffs": 272.0,
+            "brams": 0.0,
+            "dsps": 0.0,
+            "slack_ns": -3.685,
+            "critical_period_ns": 8.685,
+            "estimated_fmax_mhz": 115.14104778353483,
+            "throughput_mtransactions_s": 115.14104778353483
+          },
+          "evidence": {
+            "metrics": "4e2e65/clocked.txt",
+            "utilization": "4e2e65/utilization.txt",
+            "timing": "4e2e65/timing.txt",
+            "log": "4e2e65/clocked.log"
+          }
+        }
+      },
+      "note": "Routed single-clock register-to-register timing estimate; latency and initiation interval are caller-verified. Excludes top-level I/O timing and board validation; no power claim.",
+      "run_id": "4e2e65"
+    }
+  ],
+  "formal_controls": {
+    "negative": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "cd8bda6ba63317729b4f65c869919daf590e7a3c1af86903e471744acaf6323a",
+        "candidate_sha256": "61565879dc1a421c5b67ef4d9040174f9c0e81f2564a03a69a2e06f9566be1c7",
+        "engine": "$ docker exec -w /tmp/ic-formal-184f55 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "log": "184f55/proof.log",
+        "exit_code": 1,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+      "run_id": "184f55"
+    },
+    "positive": {
+      "ok": true,
+      "data": {
+        "proved": true,
+        "reference_sha256": "cd8bda6ba63317729b4f65c869919daf590e7a3c1af86903e471744acaf6323a",
+        "candidate_sha256": "fef849f451da0effaad8909688dbee21a0789552938a1a4be22ff9f0321a315b",
+        "engine": "$ docker exec -w /tmp/ic-formal-2e01a5 codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "log": "2e01a5/proof.log",
+        "exit_code": 0,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+      "run_id": "2e01a5"
+    },
+    "wrong_width": {
+      "ok": false,
+      "data": {
+        "proved": false,
+        "reference_sha256": "cd8bda6ba63317729b4f65c869919daf590e7a3c1af86903e471744acaf6323a",
+        "candidate_sha256": "fef849f451da0effaad8909688dbee21a0789552938a1a4be22ff9f0321a315b",
+        "engine": "$ docker exec -w /tmp/ic-formal-757e5c codex-sandbox-agent-workspace yosys -V\nYosys 0.23 (git sha1 7ce5011c24b)",
+        "log": "757e5c/proof.log",
+        "exit_code": 0,
+        "timed_out": false,
+        "source_unchanged": true
+      },
+      "note": "Combinational Yosys SAT proof for defined binary inputs and the complete packed x/y interface. State cells are rejected; failure or timeout is not equivalence.",
+      "run_id": "757e5c"
+    }
+  }
+}

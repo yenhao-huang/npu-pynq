@@ -32,3 +32,8 @@ git ls-files -i -c --exclude-standard
 
 Any output means a tracked file now matches an ignore rule; `.gitignore` does
 not untrack it automatically. Review every result without deleting source.
+
+A second scoped exception is the compact JSON acceptance evidence for paper-based
+EDA experiments in `docs/goals/0928-tool-exploration/evidence/`. These summaries
+preserve input hashes, command/tool provenance, decisions and measurement scope.
+Raw Vivado output, simulator transcripts and run stores remain ignored.

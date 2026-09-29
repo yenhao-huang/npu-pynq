@@ -1,0 +1,1 @@
+{"op":"synth_fifo","objective":"area","configurations":[{"width":16,"depth":64},{"width":32,"depth":128}],"architectures":["shift","circular"],"repeats":3,"physical_status":"pending registered timing fixture"}

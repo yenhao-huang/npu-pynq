@@ -1,0 +1,27 @@
+{
+  "study_name": "fifo_ablation_depth128",
+  "cases": [
+    {
+      "name": "w16_d128",
+      "generator": "synth_fifo",
+      "baseline": {
+        "width": 16,
+        "depth": 128,
+        "architecture": "circular",
+        "memory_style": "auto"
+      },
+      "candidate": {
+        "width": 16,
+        "depth": 128,
+        "architecture": "circular",
+        "memory_style": "distributed"
+      },
+      "objective": "area"
+    }
+  ],
+  "repeats": 3,
+  "measurement_attempts": 2,
+  "period_ns": 5,
+  "optimization_mode": "Basic",
+  "require_proof": true
+}

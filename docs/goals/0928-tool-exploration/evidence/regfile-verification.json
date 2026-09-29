@@ -1,0 +1,316 @@
+{
+  "ok": true,
+  "data": {
+    "checkpoint_key": "585101970c6ee0eea21fc2630b6d36a5990ba730413484e80e80315041c0851d",
+    "checkpoint_directory": "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\studies\\synth_banked_regfile\\585101970c6ee0eea21fc2630b6d36a5990ba730413484e80e80315041c0851d",
+    "environment": {
+      "python": "3.12.10",
+      "pydantic": "2.13.5",
+      "iverilog": {
+        "command": [
+          "iverilog",
+          "-V"
+        ],
+        "version": [
+          "Icarus Verilog version 13.0 (stable) (v13_0)"
+        ]
+      },
+      "yosys": {
+        "command": [
+          "docker",
+          "exec",
+          "codex-sandbox-agent-workspace",
+          "yosys",
+          "-V"
+        ],
+        "version": [
+          "Yosys 0.23 (git sha1 7ce5011c24b)"
+        ]
+      }
+    },
+    "cases": [
+      {
+        "name": "w16_d64_b2",
+        "objective": "area",
+        "generator": "synth_banked_regfile",
+        "protocol_contract": "banked_regfile",
+        "transaction_unit": "command_batch",
+        "records": [],
+        "attempts": [],
+        "checks": [
+          {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "source_sha256": "4f998fa0dbf8302a27780b4657669f830d39810f7969c63ed1b3eebe25b8f146",
+              "source_unchanged": true,
+              "coverage": {
+                "write": 5464,
+                "read0": 6749,
+                "read1": 3655,
+                "conflict": 2370,
+                "read_write_collision": 157,
+                "read1_only": 1258,
+                "idle": 177,
+                "reset_nonzero": 9,
+                "written_addresses": 64,
+                "read_addresses": 64
+              },
+              "first_mismatch": null,
+              "cycles": 8516,
+              "observation_delay_cycles": 0,
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "transaction_unit": "command_batch",
+              "stimulus_sha256": "2bbb93095c97c86ca4a19474840a1edf777415d97645ef03fca0c489a1e4365a",
+              "log": "2def20/regfile.log"
+            },
+            "note": "Independent logical-memory model checks read-before-write, bank conflict priority, rejected-read zeros, reset clearing and registered output cycles. II counts command batches, not completed reads. Bounded simulation is not unbounded formal proof.",
+            "run_id": "2def20"
+          },
+          {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "source_sha256": "5960dd1f0c2f60b8992f1f90e745c5c813cb21233f38225cd48beb3786e2dff8",
+              "source_unchanged": true,
+              "coverage": {
+                "write": 5464,
+                "read0": 6749,
+                "read1": 3655,
+                "conflict": 2370,
+                "read_write_collision": 157,
+                "read1_only": 1258,
+                "idle": 177,
+                "reset_nonzero": 9,
+                "written_addresses": 64,
+                "read_addresses": 64
+              },
+              "first_mismatch": null,
+              "cycles": 8518,
+              "observation_delay_cycles": 2,
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "transaction_unit": "command_batch",
+              "stimulus_sha256": "cbe22b4cd5bbff760dd3362e877ce0b3ce76f8086a1e7afbbf39227136c167a1",
+              "log": "7ad38a/regfile.log"
+            },
+            "note": "Independent logical-memory model checks read-before-write, bank conflict priority, rejected-read zeros, reset clearing and registered output cycles. II counts command batches, not completed reads. Bounded simulation is not unbounded formal proof.",
+            "run_id": "7ad38a"
+          },
+          {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "source_sha256": "14ea0f5448f7e48abbaf13d9a426b013bcb2fcaf35ed1172ce8b316618ac0cc4",
+              "source_unchanged": true,
+              "coverage": {
+                "write": 5464,
+                "read0": 6749,
+                "read1": 3655,
+                "conflict": 2370,
+                "read_write_collision": 157,
+                "read1_only": 1258,
+                "idle": 177,
+                "reset_nonzero": 9,
+                "written_addresses": 64,
+                "read_addresses": 64
+              },
+              "first_mismatch": null,
+              "cycles": 8516,
+              "observation_delay_cycles": 0,
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "transaction_unit": "command_batch",
+              "stimulus_sha256": "2bbb93095c97c86ca4a19474840a1edf777415d97645ef03fca0c489a1e4365a",
+              "log": "7df04f/regfile.log"
+            },
+            "note": "Independent logical-memory model checks read-before-write, bank conflict priority, rejected-read zeros, reset clearing and registered output cycles. II counts command batches, not completed reads. Bounded simulation is not unbounded formal proof.",
+            "run_id": "7df04f"
+          },
+          {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "source_sha256": "670b21db1425fa24c6c6c74cb4bb488ea9a668c8287bc5c37d1bfb83a9197d4d",
+              "source_unchanged": true,
+              "coverage": {
+                "write": 5464,
+                "read0": 6749,
+                "read1": 3655,
+                "conflict": 2370,
+                "read_write_collision": 157,
+                "read1_only": 1258,
+                "idle": 177,
+                "reset_nonzero": 9,
+                "written_addresses": 64,
+                "read_addresses": 64
+              },
+              "first_mismatch": null,
+              "cycles": 8518,
+              "observation_delay_cycles": 2,
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "transaction_unit": "command_batch",
+              "stimulus_sha256": "cbe22b4cd5bbff760dd3362e877ce0b3ce76f8086a1e7afbbf39227136c167a1",
+              "log": "2fe660/regfile.log"
+            },
+            "note": "Independent logical-memory model checks read-before-write, bank conflict priority, rejected-read zeros, reset clearing and registered output cycles. II counts command batches, not completed reads. Bounded simulation is not unbounded formal proof.",
+            "run_id": "2fe660"
+          }
+        ],
+        "accepted": false,
+        "status": "verified"
+      },
+      {
+        "name": "w32_d128_b4",
+        "objective": "area",
+        "generator": "synth_banked_regfile",
+        "protocol_contract": "banked_regfile",
+        "transaction_unit": "command_batch",
+        "records": [],
+        "attempts": [],
+        "checks": [
+          {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "source_sha256": "f995be8c3cfa9b1076d4ed6f153cdfa3d53c59618800c7bd5479fcb5889ba0f9",
+              "source_unchanged": true,
+              "coverage": {
+                "write": 5513,
+                "read0": 6997,
+                "read1": 5068,
+                "conflict": 1276,
+                "read_write_collision": 181,
+                "read1_only": 1330,
+                "idle": 178,
+                "reset_nonzero": 9,
+                "written_addresses": 128,
+                "read_addresses": 128
+              },
+              "first_mismatch": null,
+              "cycles": 8836,
+              "observation_delay_cycles": 0,
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "transaction_unit": "command_batch",
+              "stimulus_sha256": "f5ce7958b93114df756c547c721603a79d18aba7974154a98b56596d5da6788e",
+              "log": "3d09ea/regfile.log"
+            },
+            "note": "Independent logical-memory model checks read-before-write, bank conflict priority, rejected-read zeros, reset clearing and registered output cycles. II counts command batches, not completed reads. Bounded simulation is not unbounded formal proof.",
+            "run_id": "3d09ea"
+          },
+          {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "source_sha256": "11003744df9eb2d1d38058a88c71d406f581252d2ad736d48230de3849d2ca84",
+              "source_unchanged": true,
+              "coverage": {
+                "write": 5513,
+                "read0": 6997,
+                "read1": 5068,
+                "conflict": 1276,
+                "read_write_collision": 181,
+                "read1_only": 1330,
+                "idle": 178,
+                "reset_nonzero": 9,
+                "written_addresses": 128,
+                "read_addresses": 128
+              },
+              "first_mismatch": null,
+              "cycles": 8838,
+              "observation_delay_cycles": 2,
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "transaction_unit": "command_batch",
+              "stimulus_sha256": "36740b1e5c9b381b98029b96e50b95094828cc87f302e6c303a328df79bfb274",
+              "log": "f39e01/regfile.log"
+            },
+            "note": "Independent logical-memory model checks read-before-write, bank conflict priority, rejected-read zeros, reset clearing and registered output cycles. II counts command batches, not completed reads. Bounded simulation is not unbounded formal proof.",
+            "run_id": "f39e01"
+          },
+          {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "source_sha256": "199053c33693751a35c39686506f28f052626bb02df55e8e8fd4732f138d34f9",
+              "source_unchanged": true,
+              "coverage": {
+                "write": 5513,
+                "read0": 6997,
+                "read1": 5068,
+                "conflict": 1276,
+                "read_write_collision": 181,
+                "read1_only": 1330,
+                "idle": 178,
+                "reset_nonzero": 9,
+                "written_addresses": 128,
+                "read_addresses": 128
+              },
+              "first_mismatch": null,
+              "cycles": 8836,
+              "observation_delay_cycles": 0,
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "transaction_unit": "command_batch",
+              "stimulus_sha256": "f5ce7958b93114df756c547c721603a79d18aba7974154a98b56596d5da6788e",
+              "log": "183e75/regfile.log"
+            },
+            "note": "Independent logical-memory model checks read-before-write, bank conflict priority, rejected-read zeros, reset clearing and registered output cycles. II counts command batches, not completed reads. Bounded simulation is not unbounded formal proof.",
+            "run_id": "183e75"
+          },
+          {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "source_sha256": "f607c43f7102bdb2cec33d1dd87b028783d2f27a3efbd712695881c220773667",
+              "source_unchanged": true,
+              "coverage": {
+                "write": 5513,
+                "read0": 6997,
+                "read1": 5068,
+                "conflict": 1276,
+                "read_write_collision": 181,
+                "read1_only": 1330,
+                "idle": 178,
+                "reset_nonzero": 9,
+                "written_addresses": 128,
+                "read_addresses": 128
+              },
+              "first_mismatch": null,
+              "cycles": 8838,
+              "observation_delay_cycles": 2,
+              "latency_cycles": 1,
+              "initiation_interval": 1,
+              "transaction_unit": "command_batch",
+              "stimulus_sha256": "36740b1e5c9b381b98029b96e50b95094828cc87f302e6c303a328df79bfb274",
+              "log": "af2fb4/regfile.log"
+            },
+            "note": "Independent logical-memory model checks read-before-write, bank conflict priority, rejected-read zeros, reset clearing and registered output cycles. II counts command batches, not completed reads. Bounded simulation is not unbounded formal proof.",
+            "run_id": "af2fb4"
+          }
+        ],
+        "accepted": false,
+        "status": "verified"
+      }
+    ],
+    "children": [
+      "b98e68",
+      "2def20",
+      "7ad38a",
+      "41e8bf",
+      "7df04f",
+      "2fe660",
+      "701793",
+      "3d09ea",
+      "f39e01",
+      "403b92",
+      "183e75",
+      "af2fb4"
+    ]
+  },
+  "note": "All predeclared cases retained. Measurements are not automatic acceptance; assess paired gains, resources and full diversity gates separately.",
+  "run_id": "ee1cbf"
+}

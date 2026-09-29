@@ -1,0 +1,502 @@
+[
+  {
+    "id": 1,
+    "operation": "optimization_rules",
+    "purpose": "Retrieve attributed PPA rewrite rules with correctness preconditions.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 2,
+    "operation": "width_advice",
+    "purpose": "Bound arithmetic ranges to find potential result-width reduction.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 3,
+    "operation": "comb_check",
+    "purpose": "Exhaustively test up to 16 binary input bits for combinational rewrite mismatches.",
+    "direct_ppa": false,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 4,
+    "operation": "ppa_measure",
+    "purpose": "Measure routed combinational FPGA area and delay using local Vivado.",
+    "direct_ppa": true,
+    "paper": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 5,
+    "operation": "ppa_provenance",
+    "purpose": "Check that two PPA measurements use comparable conditions.",
+    "direct_ppa": true,
+    "paper": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 6,
+    "operation": "ppa_compare",
+    "purpose": "Compute resource, delay and available power improvements with unit checks.",
+    "direct_ppa": true,
+    "paper": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 7,
+    "operation": "ppa_pareto",
+    "purpose": "Retain nondominated PPA candidates for multiple minimization objectives.",
+    "direct_ppa": true,
+    "paper": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 8,
+    "operation": "ppa_reward",
+    "purpose": "Score correctness-gated PPA improvements with configurable constraints.",
+    "direct_ppa": true,
+    "paper": "https://ece.k-state.edu/research/hardware-security/papers/DAC2025_RLPFA_Processing.pdf",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 9,
+    "operation": "ppa_select",
+    "purpose": "Select a rewrite action under a cost budget using cost-normalized UCB.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 10,
+    "operation": "rtl_evaluate",
+    "purpose": "Check a combinational rewrite, measure both designs, and compare compatible PPA.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_exploration.py"
+    ]
+  },
+  {
+    "id": 11,
+    "operation": "clocked_ppa",
+    "purpose": "Measure routed clocked FPGA resources and normalize estimated throughput by initiation interval.",
+    "direct_ppa": true,
+    "paper": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf",
+    "tests": [
+      "tools/ic/tests/test_wide_exploration.py"
+    ]
+  },
+  {
+    "id": 12,
+    "operation": "vector_equivalence",
+    "purpose": "Check wide combinational rewrites with directed carry/walking patterns and reproducible random stimuli.",
+    "direct_ppa": false,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_wide_exploration.py"
+    ]
+  },
+  {
+    "id": 13,
+    "operation": "yosys_equivalence",
+    "purpose": "Prove combinational packed-interface equivalence with Yosys SAT and reject state cells.",
+    "direct_ppa": false,
+    "paper": "https://arxiv.org/html/2406.12421v1",
+    "tests": [
+      "tools/ic/tests/test_wide_exploration.py"
+    ]
+  },
+  {
+    "id": 14,
+    "operation": "synth_adder_tree",
+    "purpose": "Generate parameterized modular reduction RTL with serial, balanced, or carry-save architecture.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2406.12421v1",
+    "tests": [
+      "tools/ic/tests/test_wide_exploration.py"
+    ]
+  },
+  {
+    "id": 15,
+    "operation": "gf2_equivalence",
+    "purpose": "Prove complete affine binary interfaces using source-bound netlist coefficient propagation.",
+    "direct_ppa": false,
+    "paper": "https://www.jstage.jst.go.jp/article/elex/11/22/11_11.20140934/_pdf",
+    "tests": [
+      "tools/ic/tests/test_affine_equivalence.py"
+    ]
+  },
+  {
+    "id": 16,
+    "operation": "synth_prefix_adder",
+    "purpose": "Generate native, Kogge-Stone or Sklansky unsigned addition networks.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2412.02594v1",
+    "tests": [
+      "tools/ic/tests/test_arithmetic_exploration.py"
+    ]
+  },
+  {
+    "id": 17,
+    "operation": "synth_csd_multiplier",
+    "purpose": "Generate exact native, binary or canonical signed-digit constant multiplication.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2406.12421v1",
+    "tests": [
+      "tools/ic/tests/test_arithmetic_exploration.py"
+    ]
+  },
+  {
+    "id": 18,
+    "operation": "synth_mcm",
+    "purpose": "Generate independently expanded or shared factored multiple-constant products.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2406.12421v1",
+    "tests": [
+      "tools/ic/tests/test_arithmetic_exploration.py"
+    ]
+  },
+  {
+    "id": 19,
+    "operation": "synth_fir",
+    "purpose": "Generate signed FIR-window datapaths with verified coefficient symmetry and full-precision preaddition.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/1806.08095v1",
+    "tests": [
+      "tools/ic/tests/test_datapath_exploration.py"
+    ]
+  },
+  {
+    "id": 20,
+    "operation": "synth_dot_product",
+    "purpose": "Generate full-precision signed vector products with balanced or carry-save accumulation.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/1806.08095v1",
+    "tests": [
+      "tools/ic/tests/test_datapath_exploration.py"
+    ]
+  },
+  {
+    "id": 21,
+    "operation": "synth_booth_multiplier",
+    "purpose": "Generate signed full-product Booth partial-product architectures with exact extrema semantics.",
+    "direct_ppa": true,
+    "paper": "https://doi.org/10.1093/qjmam/4.2.236",
+    "tests": [
+      "tools/ic/tests/test_booth_exploration.py"
+    ]
+  },
+  {
+    "id": 22,
+    "operation": "synth_serial_multiplier",
+    "purpose": "Generate full-product ready/valid multipliers with parallel or iterative resource sharing.",
+    "direct_ppa": true,
+    "paper": "https://bura.brunel.ac.uk/bitstream/2438/2756/3/Paper%202438-2756.PDF",
+    "tests": [
+      "tools/ic/tests/test_iterative_exploration.py"
+    ]
+  },
+  {
+    "id": 23,
+    "operation": "synth_popcount",
+    "purpose": "Generate exact serial or width-aware tree population counts.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2406.12421v1",
+    "tests": [
+      "tools/ic/tests/test_network_exploration.py"
+    ]
+  },
+  {
+    "id": 24,
+    "operation": "synth_priority_encoder",
+    "purpose": "Generate highest-priority valid/index selection networks.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/abs/2205.07000",
+    "tests": [
+      "tools/ic/tests/test_network_exploration.py"
+    ]
+  },
+  {
+    "id": 25,
+    "operation": "synth_leading_zero",
+    "purpose": "Generate exact hierarchical leading-zero counters.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/abs/2205.07000",
+    "tests": [
+      "tools/ic/tests/test_network_exploration.py"
+    ]
+  },
+  {
+    "id": 26,
+    "operation": "synth_barrel_shifter",
+    "purpose": "Generate decoded or logarithmic staged logical-shift networks.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_network_exploration.py"
+    ]
+  },
+  {
+    "id": 27,
+    "operation": "synth_onehot_mux",
+    "purpose": "Generate total-semantics masked lane-selection networks.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_network_exploration.py"
+    ]
+  },
+  {
+    "id": 28,
+    "operation": "synth_argmax_tree",
+    "purpose": "Generate stable unsigned argmax comparison tournaments.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_network_exploration.py"
+    ]
+  },
+  {
+    "id": 29,
+    "operation": "synth_crc_parallel",
+    "purpose": "Generate MSB-first parallel CRC transforms with explicit state/data packing and XOR sharing.",
+    "direct_ppa": true,
+    "paper": "https://www.jstage.jst.go.jp/article/elex/11/22/11_11.20140934/_pdf",
+    "tests": [
+      "tools/ic/tests/test_linear_exploration.py"
+    ]
+  },
+  {
+    "id": 30,
+    "operation": "synth_lfsr_jump",
+    "purpose": "Generate exact LFSR jump networks using GF(2) matrix exponentiation and shared XORs.",
+    "direct_ppa": true,
+    "paper": "https://www.gerad.ca/en/papers/G-2006-62",
+    "tests": [
+      "tools/ic/tests/test_linear_exploration.py"
+    ]
+  },
+  {
+    "id": 31,
+    "operation": "synth_divider",
+    "purpose": "Generate exact quotient/remainder dividers with parallel or one/two-bit restoring iterations.",
+    "direct_ppa": true,
+    "paper": "https://www.arithmetic-circuits.org/FixedPointDivision/FixedPointDivision.html",
+    "tests": [
+      "tools/ic/tests/test_iterative_exploration.py"
+    ]
+  },
+  {
+    "id": 32,
+    "operation": "synth_constant_modulo",
+    "purpose": "Generate canonical Mersenne residue reducers with bounded fold networks.",
+    "direct_ppa": true,
+    "paper": "https://doi.org/10.1109/ASPDAC.2018.8297388",
+    "tests": [
+      "tools/ic/tests/test_arithmetic_exploration.py"
+    ]
+  },
+  {
+    "id": 33,
+    "operation": "synth_saturating_alu",
+    "purpose": "Generate signed or unsigned saturating add/subtract with explicit overflow and shared arithmetic.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2406.12421v1",
+    "tests": [
+      "tools/ic/tests/test_datapath_exploration.py"
+    ]
+  },
+  {
+    "id": 34,
+    "operation": "synth_fifo",
+    "purpose": "Generate shift or circular FIFO storage with full-throughput simultaneous push/pop.",
+    "direct_ppa": true,
+    "paper": "https://www.jstage.jst.go.jp/article/ipsjtsldm/12/0/12_13/_article",
+    "tests": [
+      "tools/ic/tests/test_fifo_exploration.py"
+    ]
+  },
+  {
+    "id": 35,
+    "operation": "synth_banked_regfile",
+    "purpose": "Generate conflict-aware two-read/one-write storage with register or banked LUTRAM implementations.",
+    "direct_ppa": true,
+    "paper": "https://fpgacpu.ca/publications/FPGA2010-LaForest-Paper.pdf",
+    "tests": [
+      "tools/ic/tests/test_regfile_exploration.py"
+    ]
+  },
+  {
+    "id": 36,
+    "operation": "synth_fsm",
+    "purpose": "Generate equivalent cyclic phase controllers with binary or one-hot state storage.",
+    "direct_ppa": true,
+    "paper": "https://doi.org/10.1007/3-540-45716-X_36",
+    "tests": [
+      "tools/ic/tests/test_fsm_exploration.py"
+    ]
+  },
+  {
+    "id": 37,
+    "operation": "synth_skid_buffer",
+    "purpose": "Generate elastic and skid-buffer pipelines to explore backpressure timing and storage tradeoffs.",
+    "direct_ppa": true,
+    "paper": "https://www.cs.columbia.edu/~luca/research/lipTransactions.pdf",
+    "tests": [
+      "tools/ic/tests/test_skid_exploration.py"
+    ]
+  },
+  {
+    "id": 38,
+    "operation": "synth_systolic_tile",
+    "purpose": "Generate signed 2D matrix wavefronts and parallel matrix baselines with explicit batch cycle contracts.",
+    "direct_ppa": true,
+    "paper": "https://www.eecs.harvard.edu/~htk/publication/1982-kung-why-systolic-architecture.pdf",
+    "tests": [
+      "tools/ic/tests/test_systolic_exploration.py"
+    ]
+  },
+  {
+    "id": 39,
+    "operation": "netlist_profile",
+    "purpose": "Synthesize a source-bound generic or xc7 netlist and attribute operator/resource structure.",
+    "direct_ppa": true,
+    "paper": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf",
+    "tests": [
+      "tools/ic/tests/test_netlist_analysis.py"
+    ]
+  },
+  {
+    "id": 40,
+    "operation": "critical_cone",
+    "purpose": "Extract endpoint fan-in, state boundaries and longest structural logic paths for targeted rewriting.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_netlist_analysis.py"
+    ]
+  },
+  {
+    "id": 41,
+    "operation": "fanout_analysis",
+    "purpose": "Locate high-load nets with driver and sink-pin attribution in a verified netlist.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_netlist_analysis.py"
+    ]
+  },
+  {
+    "id": 42,
+    "operation": "memory_inference",
+    "purpose": "Distinguish logical memories, RAM primitives, shift registers and flip-flop storage estimates.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_netlist_analysis.py"
+    ]
+  },
+  {
+    "id": 43,
+    "operation": "timing_constraint_audit",
+    "purpose": "Audit clock coverage and source/report consistency for routed setup measurements.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_timing_audit.py"
+    ]
+  },
+  {
+    "id": 44,
+    "operation": "latency_throughput",
+    "purpose": "Verify arithmetic latency and sustained initiation interval against independent transaction semantics.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_iterative_exploration.py"
+    ]
+  },
+  {
+    "id": 45,
+    "operation": "resource_tradeoff",
+    "purpose": "Check clocked FPGA multi-resource tradeoffs and normalize throughput by II.",
+    "direct_ppa": true,
+    "paper": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf",
+    "tests": [
+      "tools/ic/tests/test_physical_analysis.py"
+    ]
+  },
+  {
+    "id": 46,
+    "operation": "paired_repeat_summary",
+    "purpose": "Validate distinct source-matched paired runs and conservatively summarize reproducible PPA gains.",
+    "direct_ppa": true,
+    "paper": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf",
+    "tests": [
+      "tools/ic/tests/test_physical_analysis.py"
+    ]
+  },
+  {
+    "id": 47,
+    "operation": "candidate_ablation",
+    "purpose": "Decompose complete physical factorial studies into conditional, main and interaction effects.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_candidate_ablation.py"
+    ]
+  },
+  {
+    "id": 48,
+    "operation": "sequential_scoreboard",
+    "purpose": "Verify FIFO, stream, phase and banked-memory contracts with independent cycle models.",
+    "direct_ppa": false,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_fifo_exploration.py"
+    ]
+  },
+  {
+    "id": 49,
+    "operation": "architecture_sweep",
+    "purpose": "Run source-bound architecture comparisons with formal/simulation gates and environment-aware checkpoints.",
+    "direct_ppa": true,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_architecture_sweep.py"
+    ]
+  },
+  {
+    "id": 50,
+    "operation": "acceptance_audit",
+    "purpose": "Audit complete declarations, source-bound correctness, physical repeats, diversity and all-case PPA gates.",
+    "direct_ppa": false,
+    "paper": "https://arxiv.org/html/2409.11414v1",
+    "tests": [
+      "tools/ic/tests/test_acceptance_audit.py"
+    ]
+  }
+]

@@ -1,0 +1,1 @@
+{"operation":"gf2_equivalence","positive":"CRC32 unrolled vs shared, 64 data bits","negative":"candidate polynomial 0x1EDC6F41","nonlinear":"y=x[0]&x[1]","witness_replay":"Icarus"}

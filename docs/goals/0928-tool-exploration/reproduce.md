@@ -1,0 +1,582 @@
+# Reproducing the exploration
+
+Run from the issue worktree's repository root. Python 3.12 was used; package
+compatibility is declared in tools/ic/pyproject.toml. Create a local environment:
+
+```powershell
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -e "tools/ic[all]" pytest pyyaml
+```
+
+For a pinned runtime baseline use tools/ic/npm/requirements.lock; tests also need
+pytest and skill validation needs PyYAML. Keep the actual package versions with
+your results. Do not install globally.
+
+## Tool prerequisites
+
+- Icarus Verilog 13.0 (`iverilog` and `vvp`) for exhaustive combinational testing.
+- Local licensed Vivado 2026.1 for the recorded PPA experiment, targeting
+  xc7z020clg400-1. Other versions require fresh measurements of both designs.
+- GNU Make and Verilator for the repository gate; this Windows host uses MSYS2.
+- No board, model weights, LLM API, downloaded datasets or external service.
+
+`python -m ic_cli.main doctor` reports available backends. Missing Yosys,
+fst2vcd or GTKWave does not prevent these new operations; the existing category
+defaults may still make doctor return nonzero. Do not interpret that as every
+operation being unavailable. Vivado must run under the account that owns its
+working configuration; a restricted sandbox account may fail to load features.
+
+## Run all ten experiments
+
+```powershell
+.venv/Scripts/python.exe exp/tool-exploration/run.py --tool all --resume
+```
+
+Run one tool with `--tool 01` through `--tool 10`. The matching config is in
+`exp/tool-exploration/exp-tool-<id>-<paper>/config.json`. Results default to the
+ignored `exp/tool-exploration/output/<id>.json`. Use a new `--output` directory
+for an independent run. `--resume` checks the code/config/fixture and tool-version fingerprint;
+without it a fresh measurement is performed. Changed tool versions invalidate the
+cache. For other environment changes, choose a new output directory.
+
+Tools 05-08 depend on tool 04 and will measure both designs if matching completed
+measurements are unavailable. In one invocation completed dependencies are reused.
+Tool 10 runs its own correctness and measurement sequence, plus a negative control.
+A failed process or invalid measurement exits nonzero without writing a completed
+experiment. Inspect its `.ic/` run record to diagnose, then rerun that tool.
+
+## Expected behavior
+
+The reference computes `sel ? (a+b) : (a+c)` and the candidate computes
+`a + (sel ? b : c)` with four-bit inputs and modular output. Tool 03 checks all
+8192 input combinations. The negative control subtracts and must fail. Tool 10
+must stop that negative control at correctness before launching Vivado.
+
+Tool 04 routes both designs under a common 10 ns input/output datapath constraint.
+It records LUTs, FFs and worst input-to-output datapath delay. Power is absent.
+Routed delay can vary with the tool version and implementation heuristics; judge
+your run by its measured records, not by an assumed universal percentage.
+Tool 06 reports improvement as `100 * (baseline - candidate) / baseline`;
+a zero baseline returns a null percentage. Tool 07 retains ties and trade-offs.
+Tool 08 refuses ineligible rewards; tool 09 cannot select an unaffordable action.
+
+## Access the tools directly
+
+```powershell
+.venv/Scripts/python.exe -m ic_cli.main tools --compact
+.venv/Scripts/python.exe -m ic_cli.main optimization_rules --topics area arithmetic
+.venv/Scripts/python.exe -m ic_cli.main width_advice --a-min 0 --a-max 15 --b-min 0 --b-max 15 --operation add --declared-width 16
+```
+
+Complex CLI fields accept JSON objects (for baseline/candidate/weights/limits)
+or one JSON object per list item (for ports, records, candidates). The experiment
+runner uses the same dispatch/schema path as CLI, MCP and daemon. MCP and HTTP
+clients send native JSON objects. Operation-specific backend defaults are in the
+input schema; leave backend unset unless you intentionally choose an implementation.
+
+Read detailed transcripts through handles, for example:
+
+```powershell
+.venv/Scripts/python.exe -m ic_cli.main run RUN_ID
+.venv/Scripts/python.exe -m ic_cli.main artifact RUN_ID/measure.log --tail 30
+```
+
+Do not read waveforms or simulator logs directly. Evidence JSON contains compact
+results and handles; raw artifacts remain machine-local in `.ic/`.
+
+## Validation
+
+```powershell
+New-Item -ItemType Directory -Force .ic | Out-Null
+.venv/Scripts/python.exe -m pytest tools/ic/tests/test_exploration.py tools/ic/tests/test_registry.py tools/ic/tests/test_cli_catalogue.py -q --basetemp=.ic/pytest-new-run
+.venv/Scripts/python.exe -m pytest tools/ic/tests -q --basetemp=.ic/pytest-full-new-run
+```
+
+The authoritative Python list is the explicit `pytest` file list in
+`.github/workflows/ci.yml`. The discovery-wide second command also collects
+host-only simulator-wrapper tests; on Windows these require native executable
+wrappers that are not supplied by the MSYS2 shell installation.
+
+From the checkout root on this Windows host, run the repository gate with MSYS2
+paths:
+
+```powershell
+C:/msys64/usr/bin/bash.exe -c 'export PATH=/ucrt64/bin:/usr/bin:$PATH; make -C src/test lint sim'
+```
+
+Use unique pytest base-temp folders to avoid cross-account temporary-directory
+permissions. See report.md for actual results and baseline-reproduced Windows
+limitations.
+
+## Workflow reuse and usage stop
+
+Invoke `.codex/skills/custom/ic_design/eda-tool-exploration/SKILL.md` for another
+survey. It asks for tool count/topic priorities and experiment paths only when
+those are missing and questions are allowed. Check remaining Codex usage before
+expensive batches, save state and stop below 30%. This rule concerns the agent
+workflow; the standalone Python experiment runner has no account-usage API.
+
+## Expanded network and FIFO studies
+
+From the issue #80 checkout:
+
+```powershell
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool all --container codex-sandbox-agent-workspace --verify-only
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 24 --container codex-sandbox-agent-workspace
+.venv/Scripts/python.exe exp/tool-exploration/exp-tool-34-scalar/study.py
+```
+
+The container is an existing local Yosys provider, not created by these commands.
+Omit --container when Yosys is installed locally. network_study uses per-tool
+config.json declarations and stores each parent result under its own ignored
+output directory. architecture_sweep checkpoints all predeclared cases beneath
+.ic/studies using the complete input, core-source hash and measured tool versions.
+An OS lock rejects duplicate writers to a study key. No raw logs are committed.
+
+A positive SAT status is required before physical measurement by default. A
+failed proof, missing source artifact or altered generated wrapper does not
+become a cached success. verify-only changes the study identity deliberately.
+The current physical example is priority encoder only; other families still
+need matched physical runs. FIFO studies currently exercise protocol correctness;
+whole-FIFO timing awaits a registered fixture. The old reduction runner predates
+this stronger resume contract and must not be treated as equivalent provenance.
+
+## Arithmetic and pair-analysis reproduction
+
+```powershell
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 16 --container codex-sandbox-agent-workspace --verify-only
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 17 --container codex-sandbox-agent-workspace --verify-only
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 18 --container codex-sandbox-agent-workspace
+.venv/Scripts/python.exe exp/tool-exploration/physical_analysis_study.py
+.venv/Scripts/python.exe exp/tool-exploration/network_study.py --tool 25 --configuration config-binary-search.json --container codex-sandbox-agent-workspace
+```
+
+The last command uses the explicitly declared Basic optimization profile and
+retains both original-tree and new binary-search candidates. Default and Basic
+records are incompatible; implementation-thread limits are also compared.
+Historical records without these metadata fields can be compared only to the
+same historical profile, not silently merged with new records.
+
+The preserved priority evidence contains the complete source-bound correctness
+and physical parent result. physical_analysis_study rechecks its resource and
+repeat gates without launching Vivado. It does not declare global acceptance.
+
+Formal normalization defaults to word-level Yosys SAT. The optional aig mode
+uses techmap/ABC before SAT and is recorded in the result. It did not resolve
+the difficult 32-bit CSD case. Docker runs use an internal total time guard,
+including ABC preprocessing; exit 124 is recorded as a timeout, never proof.
+
+## Netlist and registered FIFO studies
+
+```powershell
+.venv/Scripts/python.exe exp/tool-exploration/netlist_study.py --container codex-sandbox-agent-workspace
+.venv/Scripts/python.exe exp/tool-exploration/exp-tool-34-scalar/physical_study.py
+.venv/Scripts/python.exe exp/tool-exploration/exp-tool-34-scalar/physical_study.py --distributed-revision
+```
+
+The two physical commands are separate predeclared candidate sets. Preserve both
+results; distributed storage does not replace or erase auto-inference data.
+The generic/xc7 netlists are estimates, and the RAM policy must be rechecked in
+actual Vivado utilization. Core and timing-fixture scoreboards both gate each
+physical case. The fixture delays observations by two cycles and is explicitly
+not a ready/valid adapter for external integration. Minimum latency and fixed
+latency are distinct measurement contracts.
+
+architecture_sweep now records each bounded implementation attempt, including
+failed attempts before a successful retry. Default maximum is two; this is not
+permission to rerun indefinitely or discard failed results. Existing live studies
+retain the implementation loaded at their start; do not launch duplicates merely
+because newer source gives a new checkpoint key.
+
+### Canonical Mersenne residues
+
+Run `exp/tool-exploration/exp-tool-32-mersenne/study.py --verify-only` with local
+Yosys, or add `--container codex-sandbox-agent-workspace` on this host. Omitting
+`--verify-only` allows matched three-pair Vivado studies only after correctness
+passes. Configuration lives beside the runner. Native and folded variants share
+registered boundaries. Any SAT timeout remains inconclusive. The arithmetic test
+module includes independent integer oracles and a noncanonical-zero mutation.
+
+### FIR, dot product and saturating arithmetic
+
+Use the study.py entry points under exp-tool-19-fpl, exp-tool-20-fpl and
+exp-tool-33-rover. `--verify-only` performs 8192 seeded vectors plus boundary
+patterns and source-bound SAT. `--container codex-sandbox-agent-workspace` uses
+the existing host container; omit it with local Yosys. Omit `--verify-only` for
+physical runs gated on proof. All configs predeclare sizes, mapping policy,
+objective, period, flow, repeats and maximum attempts. Keep FIR sample-history
+outside this kernel's performance claims; it is not a complete streaming filter.
+
+`python -m pytest tools/ic/tests/test_datapath_exploration.py` independently checks
+signed/unsigned extrema, complete sums, coefficient symmetry and negative controls.
+Distributed FIFO results are in fifo-distributed-physical-study.json and the two
+paired summaries. Auto and distributed configurations are distinct retained cases.
+
+### GF(2), CRC and LFSR
+
+Operation 15's exp-tool-15-gf2/study.py runs real positive/negative affine proof
+controls, replays a counterexample in Icarus and rejects a nonlinear AND. The
+checker derives coefficient expressions from source-bound generic Yosys netlists,
+not the generator's returned matrix. Exact affine proof is identified separately
+from attempted SAT proof. Unsupported structures are rejected conservatively.
+
+Run study.py under exp-tool-29-crc or exp-tool-30-jump with `--verify-only` and
+`--container codex-sandbox-agent-workspace`; omit verify-only for physical studies.
+The affine mode also attempts SAT and retains its outcome. A non-timeout SAT
+failure blocks acceptance. CRC retains its initial 60-second simulation failure;
+its revised bound is 300 seconds with all 8192 random and directed inputs intact.
+
+The sweep's proof engine and vector timeout participate in its checkpoint key.
+Earlier results remain at their original paths; do not rewrite failure records.
+
+## Multicycle arithmetic and completed network/linear evidence
+
+Run the cycle-only experiment:
+
+```sh
+python exp/tool-exploration/exp-tool-44-rtlrewriter/run.py
+```
+
+It checks both the core and registered observations for every combination of
+16/32-bit multiply/divide and parallel/serial/two-bit architectures (24 checks).
+Reproduce physical studies with the study.py files under exp-tool-22-digit and
+exp-tool-31-division; `--verify-only --container codex-sandbox-agent-workspace`
+checks the protocol without Vivado. Omit `--verify-only` for the predeclared
+three-pair studies. See each config.json for unchanged objectives and variants.
+The timing fixture is a delayed observation environment, not an external
+ready/valid adapter. Minimum no-stall latency includes its two observation cycles;
+throughput uses the core's separately verified initiation interval.
+
+Evidence arithmetic-cycle-checks.json records all 24 real cycle checks.
+argmax-physical-study.json and argmax-w16/w32-paired.json record the fourth
+qualifying family. crc-physical-study.json, lfsr-physical-study.json and their
+case0/case1 paired summaries preserve completed below-threshold results.
+
+## Booth multiplier
+
+Run `python exp/tool-exploration/exp-tool-21-booth/study.py --verify-only
+--container codex-sandbox-agent-workspace` for the predeclared 16/32-bit
+SAT/vector checks (enter on one shell line). The separate controls.py runs
+8-bit positive and broken-sign formal controls; these do not replace the large
+benchmark. Omit --verify-only only for correctness-gated physical measurement.
+The integer-oracle tests are tools/ic/tests/test_booth_exploration.py.
+
+## Cyclic phase FSM
+
+Run the study.py under exp/tool-exploration/exp-tool-36-encoding with
+`--verify-only --container codex-sandbox-agent-workspace` for 64/128-state core
+and registered-observation checking. Omit --verify-only for three paired
+physical repeats. The fixed config declares area before measurement. The
+sequential_scoreboard call uses contract=phase, width=1, depth=states and the
+generated top. Initial state is unspecified until a synchronous reset edge.
+Evidence phase-verification.json records all eight source-bound checks.
+
+## Routed timing-constraint audit
+
+Run `python exp/tool-exploration/exp-tool-43-rtlrewriter/run.py` on the licensed
+Vivado host. It routes 16/32-bit adders and an intentionally unclocked-domain
+negative fixture, then audits each source-bound record. Expected results are
+true/true/false for the audits; all three physical measurements can succeed.
+See timing-audit-experiment.json for actual records and report digests.
+
+New clocked_ppa runs emit coverage.txt and constraint-checks.txt. Call
+timing_constraint_audit with the record, exact measured files and top. Missing
+historical reports produce an explicit unaudited error. Passing constraint
+coverage does not imply positive slack, hold closure or constrained board I/O.
+
+Phase n64/n128 paired summaries contain zero_lut_candidate=true. Their exact
+area-benefit scalar is null because the ratio is unbounded; the separate
+objective_geometric_benefit_lower_bound is finite and conservative. Do not
+replace measured zero LUTs with one or omit the FF increases.
+
+## Banked register file
+
+Run the study.py under exp/tool-exploration/exp-tool-35-multiport with
+`--verify-only --container codex-sandbox-agent-workspace` to reproduce the
+16x64/two-bank and 32x128/four-bank logical-memory checks. Omit --verify-only
+for three paired physical implementations. Configuration and objective are
+fixed in config.json. Evidence regfile-verification.json records all eight
+core/fixture checks. The checker uses contract=regfile and explicit width,
+depth and banks. Read0 wins same-bank conflicts, including identical addresses.
+Physical throughput counts command batches; inspect accepted-read and conflict
+coverage before drawing any application read-bandwidth conclusion.
+
+
+## Elastic and skid pipelines
+
+Run `python exp/tool-exploration/exp-tool-37-lid/study.py --verify-only
+--container codex-sandbox-agent-workspace` (one command) for both substantial
+configurations. Omit --verify-only to run the three paired physical repeats.
+The fixed config declares throughput before measurement. Evidence
+skid-verification.json records all eight source-bound core/fixture checks.
+Use sequential_scoreboard with contract=stream, depth=stages, explicit width
+and stream_architecture. Check calibrated no-stall II and minimum latency,
+capacity differences and resource costs. The fixture delays observations by two
+cycles; it does not provide a valid external backpressure interface.
+
+
+## Candidate ablation
+
+Run `python exp/tool-exploration/exp-tool-47-rtlrewriter/analyze.py` to reproduce
+the two existing FIFO storage contrasts. It checks generation-checkpoint inputs,
+current source hashes, core/fixture correctness and all three physical repeats.
+The output is output/storage-ablation.json; the committed counterpart is
+ evidence/fifo-storage-ablation.json. Source artifacts must still be available.
+Run that directory's study.py with --container codex-sandbox-agent-workspace to
+measure the predeclared additional width16/depth128 case. Pass its completed
+study JSON to analyze.py with --supplement to calculate the storage-by-capacity
+interaction. Never label a capacity increase itself as an optimization.
+
+Register-file study 7c99e5 and all twelve timing audits are preserved in
+regfile-physical-study.json and regfile-timing-audits.json. Each size's paired
+summary preserves the small throughput reduction alongside the LUT savings.
+
+
+## Signed systolic matrix tile
+
+Run exp/tool-exploration/exp-tool-38-kung/study.py with --verify-only and
+--container codex-sandbox-agent-workspace to reproduce the two 2x2 matrix cases
+at 16/32-bit element widths. Omit --verify-only for all three physical pairs.
+Evidence systolic-verification.json records eight core/fixture checks. Use
+latency_throughput with operation=matrix, explicit size/width and generated
+latency/II. Inputs are row-major A then B; outputs are row-major exact signed C.
+The benchmark counts matrix batches and includes setup/drain costs.
+
+Completed skid-physical-study.json and fifo-capacity-physical-study.json retain
+all resource regressions. Their corresponding timing-audits.json files record
+12 and six passing coverage checks. Reproduce the full factorial analysis with:
+`python exp/tool-exploration/exp-tool-47-rtlrewriter/analyze.py --supplement
+exp/tool-exploration/exp-tool-47-rtlrewriter/output/study-b9190f.json` as one
+command, replacing the supplemental filename when rerunning that study.
+The committed result is evidence/fifo-factorial-ablation.json.
+
+
+## Whole-study acceptance audit
+
+Run `python exp/tool-exploration/exp-tool-50-rtlrewriter/run.py` from the configured
+Python environment. It scans every modular JSON declaration and every nested
+study envelope under the committed evidence root. Use repeated --study PATH
+arguments to include freshly exported studies before committing their summaries.
+Existing source artifacts and generation checkpoints must remain available.
+Missing artifacts fail evidence binding rather than silently rebuilding designs.
+
+The inventory is exp-tool-50-rtlrewriter/inventory.json. Its classifications and
+test references are review inputs, not proof of semantic distinctness or actual
+test execution. The separate semantic review records the exercised contracts and
+failure paths. Current snapshot acceptance-audit.json has 59 cases and 55 complete
+verified physical comparisons; an undefined all-case ratio is the expected result
+until the four FIR/Booth proof and measurement gaps are resolved.
+
+## Complete bit proofs and strict timing integration
+
+Run `python exp/tool-exploration/exp-tool-13-rover/bitwise.py --container
+codex-sandbox-agent-workspace` as one command for ten real SAT controls.
+Then use `network_study.py --tool 17 --configuration config-bitwise.json` or
+`exp-tool-20-fpl/study.py --configuration config-products.json`, adding the same
+container option. `--verify-only` suppresses physical runs. Retry configurations
+preserve all original case parameters and objectives; they do not add new wins.
+
+The acceptance audit now dispatches timing_constraint_audit for every physical
+record carrying coverage evidence. Failed coverage prevents a complete ratio.
+Records predating coverage reports retain an explicit historical-unaudited count;
+their coverage remains unavailable. The independent authenticity audit binds all
+182 preserved records to raw reports without inventing missing coverage. The
+bounded matrix32 DSP retry now passes its static register-use and timing audits;
+the earlier rejected record remains preserved. Do not overwrite its reports.
+
+## Arithmetic-normalized retries and DSP controls
+
+Run exp-tool-13-rover/bitwise.py with --container codex-sandbox-agent-workspace
+for all 45 real source-safety/proof-mode controls. Run exp-tool-43-rtlrewriter/dsp.py
+for real bypassed and active unclocked DSP cases. Both use normal registry calls.
+network_study.py accepts --configuration config-macc.json for tools17/23;
+exp-tool-14-rover/sweep.py runs all original adder-tree cases with mandatory SAT.
+exp-tool-38-kung/study.py --case w32_n2 preserves the original matrix declaration.
+All retry outputs are separate; retain old failures and source-bound artifacts.
+Current committed physical completeness is 55/59, not whole-goal acceptance.
+
+## Larger integration of tools 01-10
+
+```sh
+python exp/tool-exploration/wide_workflow.py --tool all
+python exp/tool-exploration/wide_workflow.py --tool 09
+```
+
+Use the configured Icarus and licensed Vivado environment. Each operation stores
+its own positive/negative evidence; cached dependencies require matching source,
+configuration, runner, backend and runtime fingerprints. Review each positive
+`ok` and the negative outcome; negative `ok=true` can correctly mean a structured
+refusal (for example, no eligible reward or no selected candidate). A nonzero
+exit denotes a failed positive dependency. The first full run performs exhaustive
+16-bit simulation and two combinational physical measurements. No new registered
+acceptance comparison is introduced. Match source hashes to the CSD16 formal
+proof in `evidence/csd-physical-study.json` before linking study results.
+
+## DSP C-register controls
+
+```sh
+python exp/tool-exploration/exp-tool-43-rtlrewriter/dsp.py
+python exp/tool-exploration/exp-tool-43-rtlrewriter/dsp.py --case unused_c_shift
+python exp/tool-exploration/exp-tool-43-rtlrewriter/dsp.py --case active_c_unclocked
+```
+
+The full command checks five routed controls. Individual reruns retain separate
+summaries. Unused C positives tie the C input off; the active C negative connects
+data and an unconstrained clock. Preserve implementation failures and rejected
+development fixtures. A correct inactive-cell count cannot override any nonzero
+check_timing violation. Historical reports without static mux evidence remain
+rejected for unclocked CREG=1.
+
+## Ordered bit proofs
+
+```sh
+python exp/tool-exploration/exp-tool-13-rover/bitwise.py --container codex-sandbox-agent-workspace --normalization bitwise_prefix
+python exp/tool-exploration/network_study.py --tool 17 --configuration config-prefix.json --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-32-mersenne/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-20-fpl/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace
+```
+
+Add `--verify-only` to each study command to run its correctness gates without
+physical measurements. Every prefix equality depends only on earlier proved
+bits; partial success, timeout, nonzero exit or undefined source semantics cannot
+pass. Individual normalization controls have separate output summaries. The
+default controls command covers all six modes. Retain the older failed retries.
+
+## Remaining signed arithmetic verification
+
+```sh
+python exp/tool-exploration/exp-tool-19-fpl/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace --verify-only
+python exp/tool-exploration/exp-tool-21-booth/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace --verify-only
+```
+
+These preserve the original two configurations per family and use the same
+300-second ordered-bit proof budget. Only a complete source-bound proof can
+unlock a subsequent physical run. Pending/failed outcomes must remain recorded.
+
+## Full SAT interface controls
+
+```sh
+python exp/tool-exploration/exp-tool-13-rover/interfaces.py --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-13-rover/bitwise.py --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-13-rover/audit_interfaces.py --container codex-sandbox-agent-workspace
+```
+
+Authenticate every preserved pre-coverage Vivado record without claiming the
+coverage reports that the old flow did not emit:
+
+```powershell
+python exp/tool-exploration/exp-tool-43-rtlrewriter/audit_historical_records.py
+```
+
+Verify that each study envelope fixed the case, objective and both architecture
+payloads before any successful physical child began:
+
+```powershell
+python exp/tool-exploration/exp-tool-49-rtlrewriter/audit_predeclaration.py
+```
+
+The first two commands exercise 48 interface and 60 source-semantics controls.
+The third re-elaborates successful SAT study sources after verifying their old
+hashes; it checks the complete interface without rerunning SAT or changing old
+verdicts. Non-SAT algebraic proofs are explicitly excluded from that audit.
+
+## Retained arithmetic failures and completed physical retries
+
+```sh
+python exp/tool-exploration/network_study.py --tool 25 --configuration config-retry.json --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-31-division/study.py --configuration config-retry.json --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-19-fpl/study.py --configuration config-macc.json --verify-only --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-19-fpl/study.py --configuration config-aig.json --verify-only --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-21-booth/study.py --configuration config-aig.json --verify-only --container codex-sandbox-agent-workspace
+```
+
+The physical retries preserve original cases/objectives and Basic flow, with
+three pairs and at most three attempts per measurement. Keep failed attempts
+in the study envelopes. Both FIR normalization retries and Booth AIG remain
+unknown after their 300-second budgets. Prefix and ABC failures are also retained;
+no timeout is converted to proof. Re-run audit_interfaces.py after adding new
+study evidence: its latest audit covers 94 sources from 47 successful SAT runs.
+
+## Affine source guard reproduction
+
+Development run 14c87d incorrectly accepted `x[x] ^ x[x]` on an 8-bit input:
+out-of-range indexing was simplified out before coefficient propagation. This
+result is rejected, not accepted equivalence evidence. The affine checker now
+composes `yosys_equivalence` self-checks for each source with its coefficient
+algorithm. Each self-check requires complete interfaces, total binary source
+semantics and matching source hashes before netlist optimization. A self-check
+never replaces the cross-design affine proof. Runtime limits apply to each child
+proof or synthesis process; a failed or unknown guard returns no affine proof.
+
+Eight actual source controls match their expected verdicts, including cancelled
+out-of-range indexing in either source separately. Valid constant division by
+one passes. The original CRC64 pair still proves, a different polynomial fails,
+and its concrete counterexample replays in Icarus. Nonlinear AND still rejects.
+All four distinct historical CRC/LFSR source pairs (eight recorded study proofs)
+prove again with the new guards, after validating original hashes. Old studies
+and physical measurements remain unchanged; these are additional proof records.
+
+```sh
+python exp/tool-exploration/exp-tool-15-gf2/source_controls.py --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-15-gf2/recheck_studies.py --container codex-sandbox-agent-workspace
+python exp/tool-exploration/exp-tool-15-gf2/study.py
+```
+
+See `affine-source-controls.json`, `affine-source-rechecks.json`,
+`affine-guarded-controls.json` and `affine-source-development-failure.json` under
+`docs/goals/0928-tool-exploration/evidence/`. No new operation is counted.
+
+## Arithmetic mutation controls
+
+Run `python exp/tool-exploration/exp-tool-14-rover/controls.py`. At both original
+16/32-bit,16-lane sizes, the correct balanced/compressor cores pass directed and
+seeded vector checks. Replacing the first addition with subtraction or shifting
+the first compressor carry by two instead of one yields concrete mismatches.
+All eight expected verdicts match. These controls check failure detection; they
+are not additional physical measurements or formal proofs. See the goal evidence
+file reduction-mutation-controls.json.
+
+## Completed dot-product retry
+
+```sh
+python exp/tool-exploration/exp-tool-20-fpl/study.py --configuration config-prefix.json --container codex-sandbox-agent-workspace
+```
+
+Study 515cd1 contains three pairs at each original width, all attempts and the
+complete source-bound correctness records. Both sizes measure modest gains below
+15%; all 12 timing audits pass. Run exp-tool-13-rover/audit_interfaces.py after
+exporting this evidence to check the old proof interfaces; the current export
+covers 98 source interfaces. A changed backend fingerprint may start a new
+checkpoint, so preserve the completed original evidence before rerunning.
+
+## Prefix and constant-arithmetic mutations
+
+```sh
+python exp/tool-exploration/exp-tool-16-prefixllm/controls.py
+```
+
+This executes twelve 16/32-bit controls across prefix addition, CSD constant
+multiplication and shared MCM. Six correct candidates pass; six operator
+mutations fail with concrete vector mismatches. The output is summarized in
+`evidence/arithmetic-graph-mutation-controls.json`.
+
+## Count, selection and shift mutations
+
+```sh
+python exp/tool-exploration/exp-tool-23-rover/controls.py
+```
+
+This runs 24 checks over operations 23-28 at their declared sizes. Twelve
+correct tree candidates pass and twelve mutations fail with concrete vector
+mismatches. Results are in `evidence/network-mutation-controls.json`.
+
+## Clocked physical measurement control
+
+```sh
+python exp/tool-exploration/exp-tool-11-aspen/controls.py
+```
+
+This audits a completed substantial routed record, then invokes Vivado on a
+source missing its declared clock. The first must pass source/report/constraint
+binding and the second must fail without producing a measurement. See
+`evidence/clocked-ppa-controls.json`.

@@ -1,0 +1,859 @@
+{
+  "command": "python exp/tool-exploration/wide_workflow.py --tool all",
+  "source_binding": {
+    "study": "csd-physical-study.json",
+    "case": "w16",
+    "formal_run": "f8af95",
+    "source_sha256": [
+      "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+      "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+    ],
+    "note": "Identical combinational cores; the registered study includes its separate timing fixture."
+  },
+  "scope": "Integration evidence only. No new physical comparison or PPA qualifying family.",
+  "tools": [
+    {
+      "tool_id": "01",
+      "operation": "optimization_rules",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "data": {
+          "rules": [
+            {
+              "id": "factor-product",
+              "topics": [
+                "area",
+                "arithmetic"
+              ],
+              "rewrite": "a*b + a*c -> a*(b+c)",
+              "preconditions": [
+                "Preserve all intermediate truncation semantics",
+                "Prove modular equivalence",
+                "Re-measure DSP and timing trade-offs"
+              ],
+              "paper": "ASPEN",
+              "url": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf"
+            },
+            {
+              "id": "constant-multiply",
+              "topics": [
+                "area",
+                "arithmetic"
+              ],
+              "rewrite": "x*constant -> shift/add candidate",
+              "preconditions": [
+                "Explicit signed extension and result width",
+                "Compare against native DSP inference",
+                "Avoid assuming fewer RTL operators means less area"
+              ],
+              "paper": "ASPEN",
+              "url": "https://www.csl.cornell.edu/~zhiruz/pdfs/aspen-mlcad2025.pdf"
+            }
+          ]
+        },
+        "note": "Curated retrieval inspired by RTLRewriter/SymRTLO/Mascot/ASPEN. Advice only; no automatic rewrite or correctness claim.",
+        "run_id": "cb712d"
+      },
+      "negative": {
+        "ok": true,
+        "data": {
+          "rules": []
+        },
+        "note": "Curated retrieval inspired by RTLRewriter/SymRTLO/Mascot/ASPEN. Advice only; no automatic rewrite or correctness claim.",
+        "run_id": "35fe62"
+      },
+      "elapsed_s": 0.06300000000192085,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    },
+    {
+      "tool_id": "02",
+      "operation": "width_advice",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "data": {
+          "min": 0,
+          "max": 16711425,
+          "signed": false,
+          "required_width": 24,
+          "potential_bit_reduction": 8,
+          "overflow_possible": false
+        },
+        "note": "Exact interval bound for independent mathematical integers. User ranges must be established; preserve RTL signedness, overflow, and truncation. Width reduction is not a measured PPA gain.",
+        "run_id": "642b88"
+      },
+      "negative": {
+        "ok": true,
+        "data": {
+          "min": 0,
+          "max": 16711425,
+          "signed": false,
+          "required_width": 24,
+          "potential_bit_reduction": 0,
+          "overflow_possible": true
+        },
+        "note": "Exact interval bound for independent mathematical integers. User ranges must be established; preserve RTL signedness, overflow, and truncation. Width reduction is not a measured PPA gain.",
+        "run_id": "21fccb"
+      },
+      "elapsed_s": 0.06199999999807915,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    },
+    {
+      "tool_id": "03",
+      "operation": "comb_check",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "data": {
+          "passed": true,
+          "vectors": 65536,
+          "first_mismatch": null,
+          "reference_sha256": "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+          "candidate_sha256": "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383",
+          "logs": [
+            "c1e070/reference_vectors.log",
+            "c1e070/candidate_vectors.log"
+          ]
+        },
+        "note": "Exhaustive binary input simulation under the declared combinational contract. Not a sequential/formal equivalence proof; no X-input coverage.",
+        "run_id": "c1e070"
+      },
+      "negative": {
+        "ok": false,
+        "data": {
+          "passed": false,
+          "vectors": 65536,
+          "first_mismatch": 0,
+          "reference_sha256": "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+          "candidate_sha256": "745cc350cbda72e0cdf697cbdd2df1bdb6ce9362fa4da641b23797b63be7ad1f",
+          "logs": [
+            "a84990/reference_vectors.log",
+            "a84990/candidate_vectors.log"
+          ],
+          "reference_value": "000000",
+          "candidate_value": "800000"
+        },
+        "note": "Exhaustive binary input simulation under the declared combinational contract. Not a sequential/formal equivalence proof; no X-input coverage.",
+        "run_id": "a84990"
+      },
+      "elapsed_s": 2.8280000000013388,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    },
+    {
+      "tool_id": "10",
+      "operation": "rtl_evaluate",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "data": {
+          "check": {
+            "ok": true,
+            "data": {
+              "passed": true,
+              "vectors": 65536,
+              "first_mismatch": null,
+              "reference_sha256": "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+              "candidate_sha256": "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383",
+              "logs": [
+                "4e7668/reference_vectors.log",
+                "4e7668/candidate_vectors.log"
+              ]
+            },
+            "note": "Exhaustive binary input simulation under the declared combinational contract. Not a sequential/formal equivalence proof; no X-input coverage.",
+            "run_id": "4e7668"
+          },
+          "records": [
+            {
+              "name": "baseline",
+              "source_sha256": "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+              "tool": "vivado",
+              "version": "2026.1",
+              "part": "xc7z020clg400-1",
+              "constraint_ns": 10.0,
+              "stage": "routed_combinational",
+              "units": {
+                "luts": "count",
+                "ffs": "count",
+                "delay_ns": "ns"
+              },
+              "metrics": {
+                "luts": 106.0,
+                "ffs": 0.0,
+                "delay_ns": 13.924
+              },
+              "evidence": "fa966d/ppa.txt"
+            },
+            {
+              "name": "candidate",
+              "source_sha256": "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383",
+              "tool": "vivado",
+              "version": "2026.1",
+              "part": "xc7z020clg400-1",
+              "constraint_ns": 10.0,
+              "stage": "routed_combinational",
+              "units": {
+                "luts": "count",
+                "ffs": "count",
+                "delay_ns": "ns"
+              },
+              "metrics": {
+                "luts": 24.0,
+                "ffs": 0.0,
+                "delay_ns": 11.247
+              },
+              "evidence": "26b806/ppa.txt"
+            }
+          ],
+          "comparison": {
+            "ok": true,
+            "data": {
+              "improvement_pct": {
+                "luts": 77.35849056603774,
+                "ffs": null,
+                "delay_ns": 19.225797184717035
+              },
+              "delta": {
+                "luts": -82.0,
+                "ffs": 0.0,
+                "delay_ns": -2.6769999999999996
+              }
+            },
+            "note": "Positive improvement means reduction. A zero baseline has no defined percentage.",
+            "run_id": "c3bf43"
+          },
+          "children": [
+            "4e7668",
+            "fa966d",
+            "26b806",
+            "c3bf43"
+          ]
+        },
+        "note": "Correctness-gated measured comparison. Full RTLRewriter search, LLM generation, and formal proof are not implemented.",
+        "run_id": "23e593"
+      },
+      "negative": {
+        "ok": false,
+        "data": {
+          "stage": "correctness",
+          "check": {
+            "ok": false,
+            "data": {
+              "passed": false,
+              "vectors": 65536,
+              "first_mismatch": 0,
+              "reference_sha256": "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+              "candidate_sha256": "745cc350cbda72e0cdf697cbdd2df1bdb6ce9362fa4da641b23797b63be7ad1f",
+              "logs": [
+                "c2b16b/reference_vectors.log",
+                "c2b16b/candidate_vectors.log"
+              ],
+              "reference_value": "000000",
+              "candidate_value": "800000"
+            },
+            "note": "Exhaustive binary input simulation under the declared combinational contract. Not a sequential/formal equivalence proof; no X-input coverage.",
+            "run_id": "c2b16b"
+          },
+          "children": [
+            "c2b16b"
+          ]
+        },
+        "note": "PPA runs skipped because the combinational check failed.",
+        "run_id": "7b4354"
+      },
+      "elapsed_s": 149.82800000000134,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    },
+    {
+      "tool_id": "04",
+      "operation": "ppa_measure",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "parent": "23e593",
+        "records": [
+          {
+            "name": "baseline",
+            "source_sha256": "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+            "tool": "vivado",
+            "version": "2026.1",
+            "part": "xc7z020clg400-1",
+            "constraint_ns": 10.0,
+            "stage": "routed_combinational",
+            "units": {
+              "luts": "count",
+              "ffs": "count",
+              "delay_ns": "ns"
+            },
+            "metrics": {
+              "luts": 106.0,
+              "ffs": 0.0,
+              "delay_ns": 13.924
+            },
+            "evidence": "fa966d/ppa.txt"
+          },
+          {
+            "name": "candidate",
+            "source_sha256": "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383",
+            "tool": "vivado",
+            "version": "2026.1",
+            "part": "xc7z020clg400-1",
+            "constraint_ns": 10.0,
+            "stage": "routed_combinational",
+            "units": {
+              "luts": "count",
+              "ffs": "count",
+              "delay_ns": "ns"
+            },
+            "metrics": {
+              "luts": 24.0,
+              "ffs": 0.0,
+              "delay_ns": 11.247
+            },
+            "evidence": "26b806/ppa.txt"
+          }
+        ],
+        "children": [
+          "4e7668",
+          "fa966d",
+          "26b806",
+          "c3bf43"
+        ]
+      },
+      "negative": {
+        "rejected": true,
+        "error_type": "InvalidInput",
+        "reason": "sequential or timed RTL is outside the combinational checker contract"
+      },
+      "elapsed_s": 149.86000000000058,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    },
+    {
+      "tool_id": "05",
+      "operation": "ppa_provenance",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "data": {
+          "compatible": true,
+          "differences": []
+        },
+        "note": "Checks declared context; does not authenticate external reports or prove equivalence.",
+        "run_id": "725a62"
+      },
+      "negative": {
+        "ok": false,
+        "data": {
+          "compatible": false,
+          "differences": [
+            "part"
+          ]
+        },
+        "note": "Checks declared context; does not authenticate external reports or prove equivalence.",
+        "run_id": "2de7ec"
+      },
+      "elapsed_s": 0.06300000000192085,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    },
+    {
+      "tool_id": "06",
+      "operation": "ppa_compare",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "data": {
+          "improvement_pct": {
+            "luts": 77.35849056603774,
+            "ffs": null,
+            "delay_ns": 19.225797184717035
+          },
+          "delta": {
+            "luts": -82.0,
+            "ffs": 0.0,
+            "delay_ns": -2.6769999999999996
+          }
+        },
+        "note": "Positive improvement means reduction. A zero baseline has no defined percentage.",
+        "run_id": "e40820"
+      },
+      "negative": {
+        "rejected": true,
+        "error_type": "InvalidInput",
+        "reason": "invalid input for 'ppa_compare'"
+      },
+      "elapsed_s": 0.01599999999598367,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    },
+    {
+      "tool_id": "07",
+      "operation": "ppa_pareto",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "data": {
+          "frontier": [
+            "candidate"
+          ],
+          "dominated": [
+            "baseline"
+          ]
+        },
+        "note": "All objectives are minimized; equal points are retained. No scalar score replaces the frontier.",
+        "run_id": "672376"
+      },
+      "negative": {
+        "rejected": true,
+        "error_type": "InvalidInput",
+        "reason": "invalid input for 'ppa_pareto'"
+      },
+      "elapsed_s": 0.031000000002677552,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    },
+    {
+      "tool_id": "08",
+      "operation": "ppa_reward",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "data": {
+          "eligible": true,
+          "reward": 0.48292143875377386,
+          "violated_limits": []
+        },
+        "note": "PPA-RTL-inspired weighted improvement; correctness and hard limits gate eligibility. Not its training loss.",
+        "run_id": "e76b79"
+      },
+      "negative": {
+        "ok": true,
+        "data": {
+          "eligible": false,
+          "reward": null,
+          "violated_limits": []
+        },
+        "note": "PPA-RTL-inspired weighted improvement; correctness and hard limits gate eligibility. Not its training loss.",
+        "run_id": "86c3d4"
+      },
+      "elapsed_s": 0.06199999999807915,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    },
+    {
+      "tool_id": "09",
+      "operation": "ppa_select",
+      "input_sha256": "2cdf84366420fae6b69c1bb37878372406401525c7486e01c3f566254b5b3734",
+      "source_sha256": [
+        "aeec51fc7514ed77c1bf4011944b21378993219e6141a2f71e8feca0852d285b",
+        "ee1c68640a21d8c154d70355b6050e8c2ff63c4525ec415665a5a37236284383"
+      ],
+      "config": {
+        "purpose": "Exercise tools 01-10 in the already declared 16-bit constant-multiplication study",
+        "generator": "synth_csd_multiplier",
+        "baseline": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "binary"
+        },
+        "candidate": {
+          "width": 16,
+          "constant": 255,
+          "architecture": "csd"
+        },
+        "objective": "area",
+        "constraint_ns": 10,
+        "measure_timeout_s": 600,
+        "scope": "Diagnostic combinational measurements for tool integration; only the separate registered three-pair study qualifies PPA acceptance"
+      },
+      "environment": {
+        "python": "3.12.10",
+        "pydantic": "2.13.5",
+        "iverilog": {
+          "executable": "C:\\msys64\\ucrt64\\bin\\iverilog.EXE",
+          "version": [
+            "Icarus Verilog version 13.0 (stable) (v13_0)"
+          ]
+        },
+        "vivado": {
+          "executable": "C:\\AMDDesignTools\\2026.1\\Vivado\\bin\\vivado.BAT",
+          "version": [
+            "SW Build 6511674 on Tue Jun 16 11:02:23 MDT 2026",
+            "IP Build 6504888 on Tue Jun 09 09:05:25 MDT 2026"
+          ]
+        }
+      },
+      "positive": {
+        "ok": true,
+        "data": {
+          "selected": "repeat-csd-evaluation",
+          "scores": {
+            "repeat-csd-evaluation": 0.011081583290634819
+          },
+          "unvisited": []
+        },
+        "note": "Cost-normalized UCB adaptation inspired by RTLRewriter; estimates do not reserve or enforce execution time.",
+        "run_id": "8a0f19"
+      },
+      "negative": {
+        "ok": true,
+        "data": {
+          "selected": null,
+          "scores": {},
+          "unvisited": []
+        },
+        "note": "Cost-normalized UCB adaptation inspired by RTLRewriter; estimates do not reserve or enforce execution time.",
+        "run_id": "a34ab2"
+      },
+      "elapsed_s": 0.062000000005355105,
+      "scope": "Tool integration on existing CSD16. Combinational timing is not used for registered physical acceptance. Negative records are explicitly mutated controls."
+    }
+  ]
+}

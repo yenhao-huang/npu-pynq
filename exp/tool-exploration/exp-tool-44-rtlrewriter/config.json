@@ -1,0 +1,13 @@
+{
+  "widths": [
+    16,
+    32
+  ],
+  "architectures": [
+    "parallel",
+    "serial",
+    "radix4"
+  ],
+  "random_cycles": 8192,
+  "op": "latency_throughput"
+}

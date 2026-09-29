@@ -1,0 +1,34 @@
+{
+  "abc_version": "UC Berkeley, ABC 1.01 (compiled Feb 7 2023 01:39:45)",
+  "primary_source": "https://github.com/berkeley-abc/abc/blob/master/src/proof/acec/acecCore.c",
+  "diagnostics": [
+    {
+      "case": "booth16",
+      "reference_sha256": "7a4a00ed809b35087f7738e55c3a8b4cc5704d9b6395b4724ee774d3d3859542",
+      "candidate_sha256": "d9a08bec29a7ec7c89946b7c0b48fdea5931ffd7854a0f5356cc2166cda0bc88",
+      "source_proof_run": "798ab9",
+      "build_script": "read_verilog -sv reference.sv\nprep -top dut -flatten\ntechmap\nopt\naigmap\nwrite_aiger -symbols reference.aig\ndesign -reset\nread_verilog -sv candidate.sv\nprep -top dut -flatten\ntechmap\nopt\naigmap\nwrite_aiger -symbols candidate.aig\ndesign -reset\n",
+      "command": "docker exec -w /tmp/ic-abc-arithmetic-booth16 codex-sandbox-agent-workspace timeout --kill-after=5s 120 yosys-abc -c &acec -b -T 90 reference.aig candidate.aig",
+      "exit_code": 124,
+      "accepted": false,
+      "status": "outer_timeout",
+      "symbol_name_warning": true,
+      "log_sha256": "707c115bdf23da0921b9fb58d758293c2fadf676fc5840273bbf04c37034ebcf",
+      "note": "Diagnostic only; no source/interface certificate or new formal backend was accepted."
+    },
+    {
+      "case": "fir16",
+      "reference_sha256": "663f0f43f22871c5c136f4316f95512afa427ea18a90366352df1b8958c90ce6",
+      "candidate_sha256": "7294832d96d62c5284ef3d20b87db38f1c94bd74a7c0a9a1e83c961bede4abeb",
+      "source_proof_run": "43aa82",
+      "build_script": "read_verilog -sv reference.sv\nprep -top dut -flatten\ntechmap\nopt\naigmap\nwrite_aiger -symbols reference.aig\ndesign -reset\nread_verilog -sv candidate.sv\nprep -top dut -flatten\ntechmap\nopt\naigmap\nwrite_aiger -symbols candidate.aig\ndesign -reset\n",
+      "command": "docker exec -w /tmp/ic-abc-arithmetic-fir16 codex-sandbox-agent-workspace timeout --kill-after=5s 120 yosys-abc -c &acec -T 90 reference.aig candidate.aig",
+      "exit_code": 124,
+      "accepted": false,
+      "status": "outer_timeout",
+      "symbol_name_warning": true,
+      "log_sha256": "f694fe76a584df62143f1b6056511135881ad70479aac61ef13df270749422f8",
+      "note": "Diagnostic only; no source/interface certificate or new formal backend was accepted."
+    }
+  ]
+}

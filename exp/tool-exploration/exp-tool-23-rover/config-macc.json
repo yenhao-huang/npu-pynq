@@ -1,0 +1,22 @@
+{
+  "study_name": "popcount_macc_retry",
+  "cases": [
+    {
+      "name": "w128",
+      "generator": "synth_popcount",
+      "baseline": {
+        "width": 128,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 128,
+        "architecture": "tree"
+      },
+      "objective": "throughput"
+    }
+  ],
+  "period_ns": 5,
+  "repeats": 3,
+  "require_proof": true,
+  "formal_normalization": "macc"
+}

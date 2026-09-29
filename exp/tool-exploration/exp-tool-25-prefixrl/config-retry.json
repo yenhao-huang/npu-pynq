@@ -1,0 +1,49 @@
+{
+  "study_name": "leading_zero_basic_revision_bounded_retry",
+  "cases": [
+    {
+      "name": "w64",
+      "generator": "synth_leading_zero",
+      "baseline": {
+        "width": 64,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 64,
+        "architecture": "tree"
+      },
+      "objective": "throughput"
+    },
+    {
+      "name": "w64_binary_search",
+      "generator": "synth_leading_zero",
+      "baseline": {
+        "width": 64,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 64,
+        "architecture": "binary_search"
+      },
+      "objective": "throughput"
+    },
+    {
+      "name": "w128_binary_search",
+      "generator": "synth_leading_zero",
+      "baseline": {
+        "width": 128,
+        "architecture": "linear"
+      },
+      "candidate": {
+        "width": 128,
+        "architecture": "binary_search"
+      },
+      "objective": "throughput"
+    }
+  ],
+  "period_ns": 5,
+  "repeats": 3,
+  "require_proof": true,
+  "optimization_mode": "Basic",
+  "measurement_attempts": 3
+}

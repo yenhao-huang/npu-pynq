@@ -1,0 +1,115 @@
+{
+  "ok": true,
+  "data": {
+    "repeats": 3,
+    "objective": "area",
+    "comparisons": [
+      {
+        "lut_reduction_pct": 96.5195246179966,
+        "throughput_gain_pct": 50.19168386906516,
+        "throughput_ratio": 1.5019168386906516,
+        "resource_delta": {
+          "luts": -1137.0,
+          "ffs": -1012.0,
+          "dsps": 0.0,
+          "brams": 0.0
+        },
+        "resource_growth_pct": {
+          "luts": -96.5195246179966,
+          "ffs": -94.7565543071161,
+          "dsps": 0,
+          "brams": 0
+        },
+        "latency_cycles": {
+          "baseline": 3,
+          "candidate": 3,
+          "kind": "minimum"
+        },
+        "initiation_interval": {
+          "baseline": 1,
+          "candidate": 1
+        },
+        "area_gate": true,
+        "throughput_gate": true,
+        "reasons": []
+      },
+      {
+        "lut_reduction_pct": 96.5195246179966,
+        "throughput_gain_pct": 50.19168386906516,
+        "throughput_ratio": 1.5019168386906516,
+        "resource_delta": {
+          "luts": -1137.0,
+          "ffs": -1012.0,
+          "dsps": 0.0,
+          "brams": 0.0
+        },
+        "resource_growth_pct": {
+          "luts": -96.5195246179966,
+          "ffs": -94.7565543071161,
+          "dsps": 0,
+          "brams": 0
+        },
+        "latency_cycles": {
+          "baseline": 3,
+          "candidate": 3,
+          "kind": "minimum"
+        },
+        "initiation_interval": {
+          "baseline": 1,
+          "candidate": 1
+        },
+        "area_gate": true,
+        "throughput_gate": true,
+        "reasons": []
+      },
+      {
+        "lut_reduction_pct": 96.5195246179966,
+        "throughput_gain_pct": 50.19168386906516,
+        "throughput_ratio": 1.5019168386906516,
+        "resource_delta": {
+          "luts": -1137.0,
+          "ffs": -1012.0,
+          "dsps": 0.0,
+          "brams": 0.0
+        },
+        "resource_growth_pct": {
+          "luts": -96.5195246179966,
+          "ffs": -94.7565543071161,
+          "dsps": 0,
+          "brams": 0
+        },
+        "latency_cycles": {
+          "baseline": 3,
+          "candidate": 3,
+          "kind": "minimum"
+        },
+        "initiation_interval": {
+          "baseline": 1,
+          "candidate": 1
+        },
+        "area_gate": true,
+        "throughput_gate": true,
+        "reasons": []
+      }
+    ],
+    "summary": {
+      "lut_reduction_pct": {
+        "min": 96.5195246179966,
+        "max": 96.5195246179966,
+        "mean": 96.5195246179966
+      },
+      "throughput_gain_pct": {
+        "min": 50.19168386906516,
+        "max": 50.19168386906516,
+        "mean": 50.19168386906516
+      }
+    },
+    "objective_geometric_benefit": 28.731707317073162,
+    "area_gate": true,
+    "throughput_gate": true,
+    "scope": "routed_clocked_ooc",
+    "independent_statistical_samples": false
+  },
+  "note": "At least three complete pairs are required. Every repeat must meet the PPA gate; min/max report reproducibility, not statistical confidence. This does not establish whole-family or whole-project acceptance.",
+  "run_id": "48f3ec"
+}

@@ -1,0 +1,1106 @@
+[
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053558-2c79b7-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "ca86a4364415c6b38ce631862b637bee0d2f0a80870fcafee115fead1921a99c",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053558-2c79b7-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053558-2c79b7-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "4f6d81981f6d3df6efee76d8ee8d74153d4ed8a4466ccca2f5618509c49675eb",
+        "width": 16,
+        "operation": "multiply",
+        "architecture": "parallel",
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "2c79b7"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "ca86a4364415c6b38ce631862b637bee0d2f0a80870fcafee115fead1921a99c",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8278,
+          "coverage": {
+            "accepted": 5040,
+            "completed": 5030,
+            "output_stall": 2685,
+            "reset_pending": 10,
+            "busy_stall": 0,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 1,
+          "verified_initiation_interval": 1,
+          "latency_range": [
+            1,
+            1
+          ],
+          "steady_state_acceptance_intervals": [
+            1
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "14d7b41454ea665818361b1881a11e1b4894f5f75d119e0a0d4eba469e00f4e7",
+          "log": "eaf6a4/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "eaf6a4"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "4f6d81981f6d3df6efee76d8ee8d74153d4ed8a4466ccca2f5618509c49675eb",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8280,
+          "coverage": {
+            "accepted": 5040,
+            "completed": 5030,
+            "output_stall": 2685,
+            "reset_pending": 10,
+            "busy_stall": 0,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 1,
+          "verified_initiation_interval": 1,
+          "latency_range": [
+            1,
+            1
+          ],
+          "steady_state_acceptance_intervals": [
+            1
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "656558b21d6e9a7453ee6b1b7a97ddd12ef1e03b96e6c06a262421796a75226c",
+          "log": "740668/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "740668"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053559-2d9540-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "b77dcf7ce7d0407ee956cda0dfc60d03b35219895791c7d88783d63f51df1d66",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053559-2d9540-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053559-2d9540-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "dc562087f0acd131c93f421debd82432f7b732403c54202d457900d8cf017922",
+        "width": 16,
+        "operation": "divide",
+        "architecture": "parallel",
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "2d9540"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "b77dcf7ce7d0407ee956cda0dfc60d03b35219895791c7d88783d63f51df1d66",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8278,
+          "coverage": {
+            "accepted": 5040,
+            "completed": 5030,
+            "output_stall": 2685,
+            "reset_pending": 10,
+            "busy_stall": 0,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 1,
+          "verified_initiation_interval": 1,
+          "latency_range": [
+            1,
+            1
+          ],
+          "steady_state_acceptance_intervals": [
+            1
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "14d7b41454ea665818361b1881a11e1b4894f5f75d119e0a0d4eba469e00f4e7",
+          "log": "1b8bbe/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "1b8bbe"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "dc562087f0acd131c93f421debd82432f7b732403c54202d457900d8cf017922",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8280,
+          "coverage": {
+            "accepted": 5040,
+            "completed": 5030,
+            "output_stall": 2685,
+            "reset_pending": 10,
+            "busy_stall": 0,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 1,
+          "verified_initiation_interval": 1,
+          "latency_range": [
+            1,
+            1
+          ],
+          "steady_state_acceptance_intervals": [
+            1
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "656558b21d6e9a7453ee6b1b7a97ddd12ef1e03b96e6c06a262421796a75226c",
+          "log": "d9f829/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "d9f829"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053600-1e4ed9-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "bc0cd7988bc99ed728f05d6cbdd72bf3205d46a94d60884aac0c9b08b8d6a902",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053600-1e4ed9-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053600-1e4ed9-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "7574bffdbf0db6f6942276c18589961ecc43f3f58c725aebd522b8f5ff72fb08",
+        "width": 16,
+        "operation": "multiply",
+        "architecture": "serial",
+        "latency_cycles": 17,
+        "initiation_interval": 17,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "1e4ed9"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "bc0cd7988bc99ed728f05d6cbdd72bf3205d46a94d60884aac0c9b08b8d6a902",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 9350,
+          "coverage": {
+            "accepted": 538,
+            "completed": 528,
+            "output_stall": 255,
+            "reset_pending": 10,
+            "busy_stall": 8445,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 17,
+          "verified_initiation_interval": 17,
+          "latency_range": [
+            17,
+            17
+          ],
+          "steady_state_acceptance_intervals": [
+            17
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "8e69caf3e5d35f8e67ea8bf25a7a17c85bacd6c08aeccb17f202124c30fd1e82",
+          "log": "10ac30/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "10ac30"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "7574bffdbf0db6f6942276c18589961ecc43f3f58c725aebd522b8f5ff72fb08",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 9352,
+          "coverage": {
+            "accepted": 538,
+            "completed": 528,
+            "output_stall": 255,
+            "reset_pending": 10,
+            "busy_stall": 8445,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 17,
+          "verified_initiation_interval": 17,
+          "latency_range": [
+            17,
+            17
+          ],
+          "steady_state_acceptance_intervals": [
+            17
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "2c9f50e36f78f56c503c7dbf3d8b15b77d7f8483c32bd3694ab623d6f86b8545",
+          "log": "cfa4b1/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "cfa4b1"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053601-123bbf-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "19bbd3b4ffc272a78802ff88343f3309781afd3b6cf63c6d0b79c900939c27ed",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053601-123bbf-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053601-123bbf-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "41c6f827ba0def06b8ac204917fa5e8251bb4f27bd285d5c2cd884430ae978b8",
+        "width": 16,
+        "operation": "divide",
+        "architecture": "serial",
+        "latency_cycles": 17,
+        "initiation_interval": 17,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "123bbf"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "19bbd3b4ffc272a78802ff88343f3309781afd3b6cf63c6d0b79c900939c27ed",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 9350,
+          "coverage": {
+            "accepted": 538,
+            "completed": 528,
+            "output_stall": 255,
+            "reset_pending": 10,
+            "busy_stall": 8445,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 17,
+          "verified_initiation_interval": 17,
+          "latency_range": [
+            17,
+            17
+          ],
+          "steady_state_acceptance_intervals": [
+            17
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "8e69caf3e5d35f8e67ea8bf25a7a17c85bacd6c08aeccb17f202124c30fd1e82",
+          "log": "65455f/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "65455f"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "41c6f827ba0def06b8ac204917fa5e8251bb4f27bd285d5c2cd884430ae978b8",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 9352,
+          "coverage": {
+            "accepted": 538,
+            "completed": 528,
+            "output_stall": 255,
+            "reset_pending": 10,
+            "busy_stall": 8445,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 17,
+          "verified_initiation_interval": 17,
+          "latency_range": [
+            17,
+            17
+          ],
+          "steady_state_acceptance_intervals": [
+            17
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "2c9f50e36f78f56c503c7dbf3d8b15b77d7f8483c32bd3694ab623d6f86b8545",
+          "log": "790841/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "790841"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053601-77bdf8-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "f55f3e2138bed90e81ea24bd27af630934af097b40f35364c72eb2340374e749",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053601-77bdf8-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053601-77bdf8-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "9b70b2422c8ad324207fd967fcf78e1c2885ae5a6c42470602c20105fe105743",
+        "width": 16,
+        "operation": "multiply",
+        "architecture": "radix4",
+        "latency_cycles": 9,
+        "initiation_interval": 9,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "77bdf8"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "f55f3e2138bed90e81ea24bd27af630934af097b40f35364c72eb2340374e749",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8814,
+          "coverage": {
+            "accepted": 926,
+            "completed": 916,
+            "output_stall": 499,
+            "reset_pending": 10,
+            "busy_stall": 7230,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 9,
+          "verified_initiation_interval": 9,
+          "latency_range": [
+            9,
+            9
+          ],
+          "steady_state_acceptance_intervals": [
+            9
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "f7c470693aa652f5bff35b5ce1e06b448c3d4419cb04cfc8eeaa76a7630c3c68",
+          "log": "2dd16d/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "2dd16d"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "9b70b2422c8ad324207fd967fcf78e1c2885ae5a6c42470602c20105fe105743",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8816,
+          "coverage": {
+            "accepted": 926,
+            "completed": 916,
+            "output_stall": 499,
+            "reset_pending": 10,
+            "busy_stall": 7230,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 9,
+          "verified_initiation_interval": 9,
+          "latency_range": [
+            9,
+            9
+          ],
+          "steady_state_acceptance_intervals": [
+            9
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "14713dd2bfcaec682396a3a4762dad6e91531278903b6e3c286479a194d28b9d",
+          "log": "ad8868/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "ad8868"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053602-92852c-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "4215e903da7e4eb5a404978956c833111de96fd71be5c050126eb57ca18e4412",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053602-92852c-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053602-92852c-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "10f15c6baf79e959d689af831e060b0c1b901c7042bc28ac4afea84ab1b0e336",
+        "width": 16,
+        "operation": "divide",
+        "architecture": "radix4",
+        "latency_cycles": 9,
+        "initiation_interval": 9,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "92852c"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "4215e903da7e4eb5a404978956c833111de96fd71be5c050126eb57ca18e4412",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8814,
+          "coverage": {
+            "accepted": 926,
+            "completed": 916,
+            "output_stall": 499,
+            "reset_pending": 10,
+            "busy_stall": 7230,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 9,
+          "verified_initiation_interval": 9,
+          "latency_range": [
+            9,
+            9
+          ],
+          "steady_state_acceptance_intervals": [
+            9
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "f7c470693aa652f5bff35b5ce1e06b448c3d4419cb04cfc8eeaa76a7630c3c68",
+          "log": "a9b549/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "a9b549"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "10f15c6baf79e959d689af831e060b0c1b901c7042bc28ac4afea84ab1b0e336",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8816,
+          "coverage": {
+            "accepted": 926,
+            "completed": 916,
+            "output_stall": 499,
+            "reset_pending": 10,
+            "busy_stall": 7230,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 9,
+          "verified_initiation_interval": 9,
+          "latency_range": [
+            9,
+            9
+          ],
+          "steady_state_acceptance_intervals": [
+            9
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "14713dd2bfcaec682396a3a4762dad6e91531278903b6e3c286479a194d28b9d",
+          "log": "f10e33/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "f10e33"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053603-f5824c-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "a7eb50b7e785072044692b9e4976e0e38874f043f224b3e6e946f0e9dfd77cbe",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053603-f5824c-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053603-f5824c-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "4e27ed0a5c6a710c0fcfee5fb6c7d816f4b8b21daf57f3b9f2d5771723a7dd72",
+        "width": 32,
+        "operation": "multiply",
+        "architecture": "parallel",
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "f5824c"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "a7eb50b7e785072044692b9e4976e0e38874f043f224b3e6e946f0e9dfd77cbe",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8278,
+          "coverage": {
+            "accepted": 4980,
+            "completed": 4970,
+            "output_stall": 2650,
+            "reset_pending": 10,
+            "busy_stall": 0,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 1,
+          "verified_initiation_interval": 1,
+          "latency_range": [
+            1,
+            1
+          ],
+          "steady_state_acceptance_intervals": [
+            1
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "76bfa87c6647b52416f8bd1f6d63fc68c71c2a78398e6d9806ceee903e47474a",
+          "log": "5d6492/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "5d6492"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "4e27ed0a5c6a710c0fcfee5fb6c7d816f4b8b21daf57f3b9f2d5771723a7dd72",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8280,
+          "coverage": {
+            "accepted": 4980,
+            "completed": 4970,
+            "output_stall": 2650,
+            "reset_pending": 10,
+            "busy_stall": 0,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 1,
+          "verified_initiation_interval": 1,
+          "latency_range": [
+            1,
+            1
+          ],
+          "steady_state_acceptance_intervals": [
+            1
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "6c1890bbe62ca5db7a6e9906660233f7f9f79bcaa35ce3f8e0db4444925a4b5d",
+          "log": "8c4ba0/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "8c4ba0"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053604-ea41d3-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "dadd10e0690f0fe8d5a34522679df51992160f99d0207c03dd0817e076e0fa68",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053604-ea41d3-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053604-ea41d3-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "3d425cde8fa505b5370d55892f383dd098ff8adf7fcabaf25cd9b54ef9dc02df",
+        "width": 32,
+        "operation": "divide",
+        "architecture": "parallel",
+        "latency_cycles": 1,
+        "initiation_interval": 1,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "ea41d3"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "dadd10e0690f0fe8d5a34522679df51992160f99d0207c03dd0817e076e0fa68",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8278,
+          "coverage": {
+            "accepted": 4980,
+            "completed": 4970,
+            "output_stall": 2650,
+            "reset_pending": 10,
+            "busy_stall": 0,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 1,
+          "verified_initiation_interval": 1,
+          "latency_range": [
+            1,
+            1
+          ],
+          "steady_state_acceptance_intervals": [
+            1
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "76bfa87c6647b52416f8bd1f6d63fc68c71c2a78398e6d9806ceee903e47474a",
+          "log": "90407e/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "90407e"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "3d425cde8fa505b5370d55892f383dd098ff8adf7fcabaf25cd9b54ef9dc02df",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 8280,
+          "coverage": {
+            "accepted": 4980,
+            "completed": 4970,
+            "output_stall": 2650,
+            "reset_pending": 10,
+            "busy_stall": 0,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 1,
+          "verified_initiation_interval": 1,
+          "latency_range": [
+            1,
+            1
+          ],
+          "steady_state_acceptance_intervals": [
+            1
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "6c1890bbe62ca5db7a6e9906660233f7f9f79bcaa35ce3f8e0db4444925a4b5d",
+          "log": "9a8b4f/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "9a8b4f"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053605-27937e-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "11bc9e7e63495bd796d1b3a0ebf8684cf753a997ad4ef2bdc2553df187e2becf",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053605-27937e-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053605-27937e-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "f5e3c0e249b3ee26de9990e301be5ce2e126c3b4a3c2b15b274abd186279a11a",
+        "width": 32,
+        "operation": "multiply",
+        "architecture": "serial",
+        "latency_cycles": 33,
+        "initiation_interval": 33,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "27937e"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "11bc9e7e63495bd796d1b3a0ebf8684cf753a997ad4ef2bdc2553df187e2becf",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 10422,
+          "coverage": {
+            "accepted": 315,
+            "completed": 305,
+            "output_stall": 115,
+            "reset_pending": 10,
+            "busy_stall": 9873,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 33,
+          "verified_initiation_interval": 33,
+          "latency_range": [
+            33,
+            33
+          ],
+          "steady_state_acceptance_intervals": [
+            33
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "ca3e554da63fde6cf7dffd7b519167a5d72c91cbcaac4cc9729d4bc11ef163b4",
+          "log": "5aa3f6/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "5aa3f6"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "f5e3c0e249b3ee26de9990e301be5ce2e126c3b4a3c2b15b274abd186279a11a",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 10424,
+          "coverage": {
+            "accepted": 315,
+            "completed": 305,
+            "output_stall": 115,
+            "reset_pending": 10,
+            "busy_stall": 9873,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 33,
+          "verified_initiation_interval": 33,
+          "latency_range": [
+            33,
+            33
+          ],
+          "steady_state_acceptance_intervals": [
+            33
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "f1287051b71c2941a1f7164d536ec4d1def57ce9099df8dade0400c79878aa23",
+          "log": "91ffad/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "91ffad"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053606-7f1a10-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "0007121496528a4f6fa0664032043ae60fbe3278a57f1b27bfb6eae4bf10738e",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053606-7f1a10-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053606-7f1a10-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "4abb8cdc23f5f29f3e10442955de7f332d52239e0dc07aa0d6716ac9fa74c686",
+        "width": 32,
+        "operation": "divide",
+        "architecture": "serial",
+        "latency_cycles": 33,
+        "initiation_interval": 33,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "7f1a10"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "0007121496528a4f6fa0664032043ae60fbe3278a57f1b27bfb6eae4bf10738e",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 10422,
+          "coverage": {
+            "accepted": 315,
+            "completed": 305,
+            "output_stall": 115,
+            "reset_pending": 10,
+            "busy_stall": 9873,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 33,
+          "verified_initiation_interval": 33,
+          "latency_range": [
+            33,
+            33
+          ],
+          "steady_state_acceptance_intervals": [
+            33
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "ca3e554da63fde6cf7dffd7b519167a5d72c91cbcaac4cc9729d4bc11ef163b4",
+          "log": "d7fccb/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "d7fccb"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "4abb8cdc23f5f29f3e10442955de7f332d52239e0dc07aa0d6716ac9fa74c686",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 10424,
+          "coverage": {
+            "accepted": 315,
+            "completed": 305,
+            "output_stall": 115,
+            "reset_pending": 10,
+            "busy_stall": 9873,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 33,
+          "verified_initiation_interval": 33,
+          "latency_range": [
+            33,
+            33
+          ],
+          "steady_state_acceptance_intervals": [
+            33
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "f1287051b71c2941a1f7164d536ec4d1def57ce9099df8dade0400c79878aa23",
+          "log": "8b6981/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "8b6981"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053607-8bf397-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "536a8b0782d667d976c7e7abccb4ca0e13aecbce8f826e6a2f2a4f9f2fb347c2",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053607-8bf397-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053607-8bf397-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "abfe787e31bfecc90f49bfba14488b2d9ec587bb4d8797c583015e5adc7bbc81",
+        "width": 32,
+        "operation": "multiply",
+        "architecture": "radix4",
+        "latency_cycles": 17,
+        "initiation_interval": 17,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "8bf397"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "536a8b0782d667d976c7e7abccb4ca0e13aecbce8f826e6a2f2a4f9f2fb347c2",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 9350,
+          "coverage": {
+            "accepted": 537,
+            "completed": 527,
+            "output_stall": 270,
+            "reset_pending": 10,
+            "busy_stall": 8414,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 17,
+          "verified_initiation_interval": 17,
+          "latency_range": [
+            17,
+            17
+          ],
+          "steady_state_acceptance_intervals": [
+            17
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "cce1d2e80cd540320b9159a61f81e808160d9568256fdbc9f176086328943f59",
+          "log": "df7c8b/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "df7c8b"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "abfe787e31bfecc90f49bfba14488b2d9ec587bb4d8797c583015e5adc7bbc81",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 9352,
+          "coverage": {
+            "accepted": 537,
+            "completed": 527,
+            "output_stall": 270,
+            "reset_pending": 10,
+            "busy_stall": 8414,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 17,
+          "verified_initiation_interval": 17,
+          "latency_range": [
+            17,
+            17
+          ],
+          "steady_state_acceptance_intervals": [
+            17
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "7be67c31462915eafe1741360198401308e686f9ef011d7a704a0ec7c0439df2",
+          "log": "5a420f/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "5a420f"
+      }
+    ]
+  },
+  {
+    "generator": {
+      "ok": true,
+      "data": {
+        "files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053608-8e7a58-synth\\artifacts\\arithmetic.sv"
+        ],
+        "top": "arithmetic_dut",
+        "source_sha256": "ddac89569e6992fadc038f9559766432930f0cf3858946ef524fa43112712201",
+        "timing_files": [
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053608-8e7a58-synth\\artifacts\\arithmetic.sv",
+          "C:\\Users\\User\\Desktop\\agent_workspace\\npu\\worktrees\\npu-issue80-a\\.ic\\runs\\2026-09-28\\053608-8e7a58-synth\\artifacts\\arithmetic_timing.sv"
+        ],
+        "timing_top": "arithmetic_timing",
+        "timing_sha256": "f3685b4d0d7326bbff0e35de7fe4d9a532e2edf0addf71d4bdf3b1d1ca95f61d",
+        "width": 32,
+        "operation": "divide",
+        "architecture": "radix4",
+        "latency_cycles": 17,
+        "initiation_interval": 17,
+        "fixture_observation_delay_cycles": 2
+      },
+      "note": "Exact unsigned arithmetic with synchronous reset cancelling in-flight work. Inputs pack a then b. Multiply returns the full product; divide packs quotient low and remainder high, with divide-by-zero quotient all ones and remainder a. Output holds under backpressure. Fixture is a delayed observation environment, not an external handshake adapter.",
+      "run_id": "8e7a58"
+    },
+    "checks": [
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "ddac89569e6992fadc038f9559766432930f0cf3858946ef524fa43112712201",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 9350,
+          "coverage": {
+            "accepted": 537,
+            "completed": 527,
+            "output_stall": 270,
+            "reset_pending": 10,
+            "busy_stall": 8414,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 17,
+          "verified_initiation_interval": 17,
+          "latency_range": [
+            17,
+            17
+          ],
+          "steady_state_acceptance_intervals": [
+            17
+          ],
+          "observation_delay_cycles": 0,
+          "stimulus_sha256": "cce1d2e80cd540320b9159a61f81e808160d9568256fdbc9f176086328943f59",
+          "log": "f9bf01/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "f9bf01"
+      },
+      {
+        "ok": true,
+        "data": {
+          "source_sha256": "f3685b4d0d7326bbff0e35de7fe4d9a532e2edf0addf71d4bdf3b1d1ca95f61d",
+          "source_unchanged": true,
+          "passed": true,
+          "cycles": 9352,
+          "coverage": {
+            "accepted": 537,
+            "completed": 527,
+            "output_stall": 270,
+            "reset_pending": 10,
+            "busy_stall": 8414,
+            "zero_operand": 11
+          },
+          "first_mismatch": null,
+          "verified_latency_cycles": 17,
+          "verified_initiation_interval": 17,
+          "latency_range": [
+            17,
+            17
+          ],
+          "steady_state_acceptance_intervals": [
+            17
+          ],
+          "observation_delay_cycles": 2,
+          "stimulus_sha256": "7be67c31462915eafe1741360198401308e686f9ef011d7a704a0ec7c0439df2",
+          "log": "1ff6f9/cycles.log"
+        },
+        "note": "Independent exact-integer transaction oracle checks every ready/valid cycle, held outputs, reset cancellation, result packing and declared first-valid latency/II. Reported cycles require a matching full trace. Fixture mode checks delayed observations, not an external protocol adapter. Bounded simulation is not unbounded sequential formal proof.",
+        "run_id": "1ff6f9"
+      }
+    ]
+  }
+]
