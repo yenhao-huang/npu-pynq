@@ -66,7 +66,7 @@ jobs:
           fi
           echo "promotion declares ${release_tag} (${changelog_path})"
 
-      - name: Verify continuous deployment still gates the stable Release
+      - name: Verify continuous deployment still gates the Release
         shell: bash
         run: |
           set -euo pipefail
@@ -74,17 +74,27 @@ jobs:
           import sys
           import yaml
 
-          workflow = yaml.safe_load(open(".github/workflows/cd.yml", encoding="utf-8"))
-          triggers = workflow[True] if True in workflow else workflow["on"]
-          if triggers.get("release", {}).get("types") != ["published"]:
-              sys.exit("cd.yml must run when a release is published")
-          promote = workflow["jobs"]["promote-release"]
-          required = {"validate-release", "host-checks", "build-overlay", "board-validation"}
-          if not required.issubset(set(promote["needs"])):
-              sys.exit("promote-release must depend on every validation job")
-          for name, job in workflow["jobs"].items():
-              if name == "promote-release":
+          cd = yaml.safe_load(open(".github/workflows/cd.yml", encoding="utf-8"))
+          triggers = cd[True] if True in cd else cd["on"]
+          branches = triggers.get("push", {}).get("branches") or []
+          if not any(str(pattern).startswith("release/") for pattern in branches):
+              sys.exit("cd.yml must run on release/* branches")
+          draft = cd["jobs"]["publish-draft"]
+          required = {"validate-source", "host-checks", "build-overlay", "board-validation"}
+          if not required.issubset(set(draft["needs"])):
+              sys.exit("publish-draft must depend on every validation job")
+          for name, job in cd["jobs"].items():
+              if name == "publish-draft":
                   continue
               if job.get("permissions", {}).get("contents") == "write":
                   sys.exit(f"{name} must not hold contents: write")
+
+          publish = yaml.safe_load(
+              open(".github/workflows/release-publish.yml", encoding="utf-8")
+          )
+          publish_triggers = publish[True] if True in publish else publish["on"]
+          if set(publish_triggers) != {"workflow_dispatch"}:
+              sys.exit("release-publish.yml must only run on workflow_dispatch")
+          if publish["jobs"]["publish"]["environment"] != "pynq-z1-release":
+              sys.exit("publishing must go through the pynq-z1-release environment")
           PY
