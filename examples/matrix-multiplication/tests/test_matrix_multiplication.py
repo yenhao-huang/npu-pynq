@@ -169,7 +169,11 @@ class MatrixMultiplicationTests(unittest.TestCase):
         self.assertEqual(len(runtime.calls), 1)
 
     def test_zero_elapsed_time_reports_infinite_throughput(self):
-        result = TiledMatrixMultiplier(FakePhysicalRuntime()).run(
+        # A frozen clock is the only way to reach the zero-elapsed branch. The
+        # real monotonic clock has nanosecond resolution here, so reading it
+        # twice never returns the same value.
+        clock = MutableClock()
+        result = TiledMatrixMultiplier(FakePhysicalRuntime(), monotonic=clock).run(
             np.ones((1, 1), dtype=np.int8),
             np.ones((1, 1), dtype=np.int8),
         )
