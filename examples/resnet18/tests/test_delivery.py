@@ -17,6 +17,9 @@ import numpy as np
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE_ROOT = REPOSITORY_ROOT / "examples" / "resnet18"
+CD_DEPLOYER = (
+    REPOSITORY_ROOT / ".github" / "cd" / "resnet18_deploy_and_accept.ps1"
+)
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
@@ -300,7 +303,7 @@ class ResNet18DeliveryTests(unittest.TestCase):
         result = subprocess.run(
             [
                 str(powershell), "-NoProfile", "-File",
-                str(EXAMPLE_ROOT / "deploy_release.ps1"),
+                str(CD_DEPLOYER),
                 "-PackageArchive", str(archive),
                 "-ReleaseTag", "v0.2.0",
                 "-DeploymentId", "dry-run",
@@ -317,7 +320,7 @@ class ResNet18DeliveryTests(unittest.TestCase):
         self.assertFalse((self.root / "evidence.json").exists())
 
     def test_deployment_makes_root_evidence_readable_before_promotion(self):
-        script = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(encoding="utf-8")
+        script = CD_DEPLOYER.read_text(encoding="utf-8")
         runner = script.index("--evidence board-evidence.json")
         readable = script.index("chmod 0644 board-evidence.json")
         promotion = script.index("mv '$remoteStaging' '$remoteDeployment'")
