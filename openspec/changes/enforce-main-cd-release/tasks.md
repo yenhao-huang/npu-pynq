@@ -24,11 +24,11 @@
 - [x] 4.1 Update `docs/rules/ci-cd.md` and `AGENTS.md` for release-branch CD, the four release states, approval boundaries, and failure recovery, and add the `release-npu-pynq` skill.
 - [x] 4.4 Give the release skill the runner step: start this host's `actions.runner.*` services, confirm the `vivado` and `pynq-z1` labels are online, and refuse to push a release branch before they are.
 - [x] 4.2 Document the three-step Quick Start, prerequisites, and known limitations in the package, the example README, and the root README.
-- [x] 4.3 Record the release contents and boundaries in `changelog/v0.1.5.md`.
+- [x] 4.3 Record the release contents and boundaries in `changelog/v1.0.6.md`.
 
 ## 5. Validation
 
 - [x] 5.1 Run the repository Python suites and record exact results.
 - [ ] 5.2 Configure branch protection on `main` with `lint-and-simulate` and `release-readiness` required, and create the `pynq-z1-release` environment with required reviewers. Repository settings; blocked outside GitHub.
-- [ ] 5.3 Push `release/v0.1.5`, run CD to completion including Vivado synthesis and physical PYNQ-Z1 image inference, confirm the draft, merge the promotion, publish, and link the run URL and commit SHA. Blocked until the trusted runners and the board are available.
+- [ ] 5.3 Push `release/v1.0.6`, run CD to completion including Vivado synthesis and physical PYNQ-Z1 image inference, confirm the draft, merge the promotion, publish, and link the run URL and commit SHA. Blocked until the trusted runners and the board are available.
 - [ ] 5.4 Demonstrate a failed validation run producing no draft and no tag, and record the run URL.

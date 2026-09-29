@@ -161,6 +161,6 @@ Approving the `pynq-z1-release` environment is the release decision.
 ## Reporting state
 
 Say which of the four states the release is in and what the next action is, for
-example: "v0.1.5 is validated; the draft holds the packages and board evidence;
+example: "v1.0.6 is validated; the draft holds the packages and board evidence;
 the promotion pull request is open and waiting on you." Never describe
 synthesis, timing or board results that no run produced.
