@@ -479,8 +479,8 @@ which needs a PDK.
 Added 2026-09-28; this section was run on the same machine, which has Yosys but
 neither OpenROAD nor a standard-cell PDK. What is reproduced here is therefore
 the surface and the error paths, not a measurement. OpenROAD later became a
-required npm host prerequisite; current setup stops before downloading the OSS
-CAD Suite when `openroad -version` cannot run.
+required npm dependency: current setup prefers `openroad` on PATH and otherwise
+pulls a pinned official `openroad/orfs` image when Docker is available.
 
 Without OpenROAD the tool is reachable and says exactly what is missing, the
 same way `synth --mode full` does without Vivado:

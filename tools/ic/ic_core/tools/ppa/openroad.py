@@ -22,6 +22,7 @@ and `synth --mode full` remains the only statement about the board.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -337,6 +338,32 @@ def _note(mode: str, params: PpaIn, virtual_clock: bool) -> str:
     return " ".join(parts)
 
 
+def _openroad_environment(
+    ctx, params: PpaIn, pdk: dict, script: Path, netlist: Path
+):
+    """Tell the managed Docker wrapper which host directories to bind.
+
+    Paths retain their host absolute names inside the container, so the Tcl is
+    identical for native and Docker OpenROAD. The wrapper also binds cwd and
+    applies the host UID/GID before starting the pinned image.
+    """
+    if not os.environ.get("IC_OPENROAD_DOCKER_IMAGE"):
+        return None
+
+    directories = {str(Path(ctx.cwd).resolve()), str(script.parent.resolve()),
+                   str(netlist.parent.resolve())}
+    inputs = [*pdk["liberty"], *pdk["lef"], pdk["tech_lef"], params.sdc]
+    for value in inputs:
+        if value:
+            candidate = Path(value)
+            if not candidate.is_absolute():
+                candidate = Path(ctx.cwd) / candidate
+            directories.add(str(candidate.resolve().parent))
+    env = os.environ.copy()
+    env["IC_OPENROAD_MOUNTS"] = json.dumps(sorted(directories))
+    return env
+
+
 @backend("ppa", "openroad", requires="openroad", version_cmd=["openroad", "-version"])
 class OpenRoadPpa:
     def ppa(self, params: PpaIn, ctx) -> PpaOut:
@@ -395,6 +422,7 @@ class OpenRoadPpa:
             log_path=log,
             cwd=ctx.cwd,
             timeout_s=max(params.timeout_s - mapped.duration_s, 60.0),
+            env=_openroad_environment(ctx, params, pdk, analysis_script, netlist),
             append=True,
         )
         text = analysed.text()

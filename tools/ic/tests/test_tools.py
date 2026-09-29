@@ -346,6 +346,37 @@ def test_ppa_needs_yosys_as_well_as_openroad(monkeypatch, store, tmp_path):
     assert "yosys" in str(raised.value)
 
 
+def test_ppa_docker_provider_mounts_project_run_and_pdk_directories(monkeypatch, tmp_path):
+    import json
+    from types import SimpleNamespace
+
+    from ic_core.tools.ppa import PpaIn
+    from ic_core.tools.ppa.openroad import _openroad_environment
+
+    project = tmp_path / "project"
+    work = tmp_path / "store" / "work"
+    artifacts = tmp_path / "store" / "artifacts"
+    pdk = tmp_path / "pdk"
+    for directory in (project, work, artifacts, pdk):
+        directory.mkdir(parents=True)
+    liberty = pdk / "cells.lib"
+    liberty.write_text("library(test) {}\n")
+    script = work / "ppa.tcl"
+    netlist = artifacts / "netlist.v"
+    monkeypatch.setenv("IC_OPENROAD_DOCKER_IMAGE", "openroad/orfs:pinned")
+
+    env = _openroad_environment(
+        SimpleNamespace(cwd=project),
+        PpaIn(files=["design.sv"], top="top", liberty=[str(liberty)]),
+        {"liberty": [str(liberty)], "lef": [], "tech_lef": None},
+        script,
+        netlist,
+    )
+    mounts = set(json.loads(env["IC_OPENROAD_MOUNTS"]))
+    assert {str(project.resolve()), str(work.resolve()), str(artifacts.resolve()),
+            str(pdk.resolve())} <= mounts
+
+
 @needs("openroad")
 @needs("yosys")
 @needs_env("IC_PDK_LIBERTY")

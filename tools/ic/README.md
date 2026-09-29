@@ -76,11 +76,14 @@ and `init pi`; it does not accept `ic-tools lint`.
 
 ### Runtime dependencies
 
-npm's `postinstall` first requires a working `openroad` executable on `PATH`,
-then downloads a pinned, checksum-verified OSS CAD Suite and installs
-hash-locked Python dependencies. The first setup downloads about 480–710 MiB
-plus Python packages; later runs reuse the cache. No Python venv activation is
-required.
+npm's `postinstall` first looks for a working `openroad` executable on `PATH`.
+If none is present and Docker is running, setup pulls the official
+`openroad/orfs:26Q1-534-g510137693` Linux/amd64 image pinned by manifest digest
+and installs a managed wrapper. It then downloads a pinned, checksum-verified
+OSS CAD Suite and hash-locked Python
+dependencies. The first setup downloads about 480–710 MiB plus Python packages
+and, when needed, the Docker image; later runs reuse both caches. No Python venv
+activation is required.
 
 - Linux/WSL: provide a C++ compiler, Make, tar, zlib and LZ4 development files
   for simulation builds. On Debian/Ubuntu these include `build-essential`,
@@ -88,10 +91,10 @@ required.
 - macOS: provide a compatible native build toolchain; GUI viewing requires
   a desktop session.
 - Native Windows is unsupported; run Node, npm and the agent inside WSL.
-- OpenROAD is required. Install an official prebuilt package or build it by
-  following the [OpenROAD installation guide](https://openroad.readthedocs.io/en/latest/user/Build.html),
-  then confirm `openroad -version` works before running npm install. The npm
-  lifecycle script does not invoke a system package manager or `sudo`.
+- OpenROAD is required, either as a host executable or through Docker. Native
+  OpenROAD is preferred. Otherwise Docker must be installed and its daemon
+  running; npm pulls the pinned official image without invoking a system
+  package manager or `sudo`.
 - Vivado is separately installed and licensed.
 
 If install scripts were skipped, run `ic-tools setup` before starting the agent.
@@ -174,8 +177,9 @@ using package discovery to avoid registering the tools twice.
 `--local` saves the registry package declaration in this project's settings.
 See the
 [pi acceptance guide](../../docs/goals/ic-design-tools/acceptance/pi-agent.md) for all eight checks.
-`ppa` also needs a standard-cell library or PDK. OpenROAD is a required host
-dependency checked during setup; the technology files remain user-supplied.
+`ppa` also needs a standard-cell library or PDK. Setup provides OpenROAD from
+the host or Docker; the technology files remain user-supplied and are mounted
+read-write only through their containing directories for each Docker run.
 
 ## Verification demo
 
