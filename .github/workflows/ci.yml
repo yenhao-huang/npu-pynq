@@ -23,8 +23,12 @@ jobs:
       - name: Run simulations
         run: make -C src/test sim
 
+      - name: Install Python test dependencies
+        run: |
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
+
       - name: Run host model and example suites
-        run: make -C src/test model
+        run: make -C src/test model PYTHON=python3
 
       - name: Upload waveforms on failure
         if: failure()
@@ -45,12 +49,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Python gate dependencies
+        run: python3 -m pip install --upgrade --break-system-packages pyyaml
+
       - name: Resolve the release version this promotion declares
         shell: bash
         run: |
           set -euo pipefail
           git fetch --tags --force origin
-          python .github/cd/resolve_release_version.py --output resolution.env
+          python3 .github/cd/resolve_release_version.py --output resolution.env
           . ./resolution.env
           if [ "${should_release}" != "true" ]; then
             echo "this promotion declares no new release version" >&2
@@ -63,7 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
+          python3 - <<'PY'
           import sys
           import yaml
 

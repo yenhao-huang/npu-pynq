@@ -36,7 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --tags --force origin
-          python .github/cd/resolve_release_version.py --output "$GITHUB_OUTPUT"
+          python3 .github/cd/resolve_release_version.py --output "$GITHUB_OUTPUT"
 
   host-checks:
     needs: select-version
@@ -58,8 +58,12 @@ jobs:
       - name: Run simulations
         run: make -C src/test sim
 
+      - name: Install Python test dependencies
+        run: |
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
+
       - name: Run host model and example suites
-        run: make -C src/test model
+        run: make -C src/test model PYTHON=python3
 
   build-overlay:
     needs: [select-version, host-checks]
