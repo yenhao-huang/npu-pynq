@@ -186,7 +186,8 @@ class ModelDownloadTests(unittest.TestCase):
         code_source = "\n".join(
             line for cell in code_cells for line in cell.get("source", [])
         )
-        self.assertIn("deployment.json", notebook_source)
+        # The notebook binds itself to the extracted release package.
+        self.assertIn("package.manifest.json", notebook_source)
         self.assertIn("load_model_package", notebook_source)
         self.assertIn("load_pynq_runtime", notebook_source)
         self.assertIn("NPUModelRuntime", notebook_source)

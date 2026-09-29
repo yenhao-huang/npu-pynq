@@ -1,0 +1,584 @@
+{
+ "layers": [
+  {
+   "layer": "stem.conv",
+   "shape_OIHW": [
+    64,
+    3,
+    7,
+    7
+   ],
+   "parameters": 9408,
+   "raw_checkpoint": {
+    "max_abs": 1.0164732933044434,
+    "std": 0.12969133257865906
+   },
+   "folded": {
+    "max_abs": 0.39387547969818115,
+    "std": 0.03198283165693283,
+    "max_over_std": 12.315216064453125
+   },
+   "per_output_channel_max_abs": {
+    "min": 1.3656693573856245e-14,
+    "median": 0.05906644091010094,
+    "max": 0.39387547969818115,
+    "max_over_min": 393875488768.0
+   },
+   "relative_error": {
+    "per_channel": 0.00917577019686181,
+    "per_tensor_if_used_instead": 0.026139231398701668
+   }
+  },
+  {
+   "layer": "layer1.0.conv1",
+   "shape_OIHW": [
+    64,
+    64,
+    3,
+    3
+   ],
+   "parameters": 36864,
+   "raw_checkpoint": {
+    "max_abs": 0.7993080019950867,
+    "std": 0.053397037088871
+   },
+   "folded": {
+    "max_abs": 0.3745041787624359,
+    "std": 0.02711527794599533,
+    "max_over_std": 13.811555862426758
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.051017433404922485,
+    "median": 0.18416181206703186,
+    "max": 0.3745041787624359,
+    "max_over_min": 7.340709686279297
+   },
+   "relative_error": {
+    "per_channel": 0.015624600956515768,
+    "per_tensor_if_used_instead": 0.029490699991583824
+   }
+  },
+  {
+   "layer": "layer1.0.conv2",
+   "shape_OIHW": [
+    64,
+    64,
+    3,
+    3
+   ],
+   "parameters": 36864,
+   "raw_checkpoint": {
+    "max_abs": 0.48791390657424927,
+    "std": 0.0451996847987175
+   },
+   "folded": {
+    "max_abs": 0.7707811594009399,
+    "std": 0.06281047314405441,
+    "max_over_std": 12.271538734436035
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.07970856130123138,
+    "median": 0.2639232873916626,
+    "max": 0.7707811594009399,
+    "max_over_min": 9.669992446899414
+   },
+   "relative_error": {
+    "per_channel": 0.011446313382153241,
+    "per_tensor_if_used_instead": 0.02778817154467106
+   }
+  },
+  {
+   "layer": "layer1.1.conv1",
+   "shape_OIHW": [
+    64,
+    64,
+    3,
+    3
+   ],
+   "parameters": 36864,
+   "raw_checkpoint": {
+    "max_abs": 0.6491185426712036,
+    "std": 0.050834231078624725
+   },
+   "folded": {
+    "max_abs": 0.2799574136734009,
+    "std": 0.025639036670327187,
+    "max_over_std": 10.91918659210205
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.0664157122373581,
+    "median": 0.1290033906698227,
+    "max": 0.2799574136734009,
+    "max_over_min": 4.21522855758667
+   },
+   "relative_error": {
+    "per_channel": 0.013156576088761163,
+    "per_tensor_if_used_instead": 0.024775778874754906
+   }
+  },
+  {
+   "layer": "layer1.1.conv2",
+   "shape_OIHW": [
+    64,
+    64,
+    3,
+    3
+   ],
+   "parameters": 36864,
+   "raw_checkpoint": {
+    "max_abs": 0.38061150908470154,
+    "std": 0.04397549852728844
+   },
+   "folded": {
+    "max_abs": 1.0473909378051758,
+    "std": 0.08665107190608978,
+    "max_over_std": 12.087454795837402
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.05645659565925598,
+    "median": 0.34788036346435547,
+    "max": 1.0473909378051758,
+    "max_over_min": 18.55214500427246
+   },
+   "relative_error": {
+    "per_channel": 0.011507550758724732,
+    "per_tensor_if_used_instead": 0.02746347151696682
+   }
+  },
+  {
+   "layer": "layer2.0.conv1",
+   "shape_OIHW": [
+    128,
+    64,
+    3,
+    3
+   ],
+   "parameters": 73728,
+   "raw_checkpoint": {
+    "max_abs": 0.34053823351860046,
+    "std": 0.04158298671245575
+   },
+   "folded": {
+    "max_abs": 0.21269580721855164,
+    "std": 0.017035631462931633,
+    "max_over_std": 12.48534870147705
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.04130551218986511,
+    "median": 0.08284527063369751,
+    "max": 0.21269580721855164,
+    "max_over_min": 5.149332046508789
+   },
+   "relative_error": {
+    "per_channel": 0.011992870020391531,
+    "per_tensor_if_used_instead": 0.02831999585032463
+   }
+  },
+  {
+   "layer": "layer2.0.conv2",
+   "shape_OIHW": [
+    128,
+    128,
+    3,
+    3
+   ],
+   "parameters": 147456,
+   "raw_checkpoint": {
+    "max_abs": 0.4271599352359772,
+    "std": 0.03401247039437294
+   },
+   "folded": {
+    "max_abs": 0.7241502404212952,
+    "std": 0.04531266912817955,
+    "max_over_std": 15.981186866760254
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.0765783041715622,
+    "median": 0.23962804675102234,
+    "max": 0.7241502404212952,
+    "max_over_min": 9.456336975097656
+   },
+   "relative_error": {
+    "per_channel": 0.014591559231880696,
+    "per_tensor_if_used_instead": 0.03637200593948364
+   }
+  },
+  {
+   "layer": "layer2.0.projection",
+   "shape_OIHW": [
+    128,
+    64,
+    1,
+    1
+   ],
+   "parameters": 8192,
+   "raw_checkpoint": {
+    "max_abs": 0.7802272439002991,
+    "std": 0.07061649858951569
+   },
+   "folded": {
+    "max_abs": 0.6922508478164673,
+    "std": 0.059447262436151505,
+    "max_over_std": 11.644789695739746
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.002792598446831107,
+    "median": 0.1574157178401947,
+    "max": 0.6922508478164673,
+    "max_over_min": 247.88771057128906
+   },
+   "relative_error": {
+    "per_channel": 0.009363944376576632,
+    "per_tensor_if_used_instead": 0.026481270790100098
+   }
+  },
+  {
+   "layer": "layer2.1.conv1",
+   "shape_OIHW": [
+    128,
+    128,
+    3,
+    3
+   ],
+   "parameters": 147456,
+   "raw_checkpoint": {
+    "max_abs": 0.43874824047088623,
+    "std": 0.03417030721902847
+   },
+   "folded": {
+    "max_abs": 0.3110506236553192,
+    "std": 0.02429782785475254,
+    "max_over_std": 12.801581382751465
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.049962230026721954,
+    "median": 0.13856086134910583,
+    "max": 0.3110506236553192,
+    "max_over_min": 6.225715160369873
+   },
+   "relative_error": {
+    "per_channel": 0.014636209445930493,
+    "per_tensor_if_used_instead": 0.029079267755150795
+   }
+  },
+  {
+   "layer": "layer2.1.conv2",
+   "shape_OIHW": [
+    128,
+    128,
+    3,
+    3
+   ],
+   "parameters": 147456,
+   "raw_checkpoint": {
+    "max_abs": 0.35565757751464844,
+    "std": 0.03005089983344078
+   },
+   "folded": {
+    "max_abs": 0.8770783543586731,
+    "std": 0.05254731699824333,
+    "max_over_std": 16.691211700439453
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.03878423571586609,
+    "median": 0.21488100290298462,
+    "max": 0.8770783543586731,
+    "max_over_min": 22.614299774169922
+   },
+   "relative_error": {
+    "per_channel": 0.011999123132743041,
+    "per_tensor_if_used_instead": 0.03793341666460037
+   }
+  },
+  {
+   "layer": "layer3.0.conv1",
+   "shape_OIHW": [
+    256,
+    128,
+    3,
+    3
+   ],
+   "parameters": 294912,
+   "raw_checkpoint": {
+    "max_abs": 0.39195019006729126,
+    "std": 0.029047276824712753
+   },
+   "folded": {
+    "max_abs": 0.23571735620498657,
+    "std": 0.018770137801766396,
+    "max_over_std": 12.558104515075684
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.04976923018693924,
+    "median": 0.09722426533699036,
+    "max": 0.23571735620498657,
+    "max_over_min": 4.736206531524658
+   },
+   "relative_error": {
+    "per_channel": 0.013361142956329747,
+    "per_tensor_if_used_instead": 0.028544673696160316
+   }
+  },
+  {
+   "layer": "layer3.0.conv2",
+   "shape_OIHW": [
+    256,
+    256,
+    3,
+    3
+   ],
+   "parameters": 589824,
+   "raw_checkpoint": {
+    "max_abs": 0.33351418375968933,
+    "std": 0.02504602260887623
+   },
+   "folded": {
+    "max_abs": 0.5639192461967468,
+    "std": 0.027561068534851074,
+    "max_over_std": 20.460718154907227
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.06851301342248917,
+    "median": 0.15017519891262054,
+    "max": 0.5639192461967468,
+    "max_over_min": 8.230834007263184
+   },
+   "relative_error": {
+    "per_channel": 0.015971779775558418,
+    "per_tensor_if_used_instead": 0.046504732221364975
+   }
+  },
+  {
+   "layer": "layer3.0.projection",
+   "shape_OIHW": [
+    256,
+    128,
+    1,
+    1
+   ],
+   "parameters": 32768,
+   "raw_checkpoint": {
+    "max_abs": 0.2676500678062439,
+    "std": 0.03294399753212929
+   },
+   "folded": {
+    "max_abs": 0.4081612229347229,
+    "std": 0.025334762409329414,
+    "max_over_std": 16.1107177734375
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.01788618229329586,
+    "median": 0.08295013010501862,
+    "max": 0.4081612229347229,
+    "max_over_min": 22.819917678833008
+   },
+   "relative_error": {
+    "per_channel": 0.009338627150139469,
+    "per_tensor_if_used_instead": 0.03649372607469559
+   }
+  },
+  {
+   "layer": "layer3.1.conv1",
+   "shape_OIHW": [
+    256,
+    256,
+    3,
+    3
+   ],
+   "parameters": 589824,
+   "raw_checkpoint": {
+    "max_abs": 0.2960415184497833,
+    "std": 0.022360950708389282
+   },
+   "folded": {
+    "max_abs": 0.27238303422927856,
+    "std": 0.01726718060672283,
+    "max_over_std": 15.774609565734863
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.04402635991573334,
+    "median": 0.08982984721660614,
+    "max": 0.27238303422927856,
+    "max_over_min": 6.186817169189453
+   },
+   "relative_error": {
+    "per_channel": 0.01390280436068688,
+    "per_tensor_if_used_instead": 0.03574443981051445
+   }
+  },
+  {
+   "layer": "layer3.1.conv2",
+   "shape_OIHW": [
+    256,
+    256,
+    3,
+    3
+   ],
+   "parameters": 589824,
+   "raw_checkpoint": {
+    "max_abs": 0.32954689860343933,
+    "std": 0.020670205354690552
+   },
+   "folded": {
+    "max_abs": 0.970120906829834,
+    "std": 0.04214531555771828,
+    "max_over_std": 23.018474578857422
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.027029499411582947,
+    "median": 0.16454744338989258,
+    "max": 0.970120906829834,
+    "max_over_min": 35.89118957519531
+   },
+   "relative_error": {
+    "per_channel": 0.013219049495667264,
+    "per_tensor_if_used_instead": 0.052217621356248856
+   }
+  },
+  {
+   "layer": "layer4.0.conv1",
+   "shape_OIHW": [
+    512,
+    256,
+    3,
+    3
+   ],
+   "parameters": 1179648,
+   "raw_checkpoint": {
+    "max_abs": 0.38262122869491577,
+    "std": 0.019873499870300293
+   },
+   "folded": {
+    "max_abs": 0.30162283778190613,
+    "std": 0.014986129477620125,
+    "max_over_std": 20.126800537109375
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.03420902043581009,
+    "median": 0.07392997294664383,
+    "max": 0.30162283778190613,
+    "max_over_min": 8.817055702209473
+   },
+   "relative_error": {
+    "per_channel": 0.012666720492412176,
+    "per_tensor_if_used_instead": 0.04562927037477493
+   }
+  },
+  {
+   "layer": "layer4.0.conv2",
+   "shape_OIHW": [
+    512,
+    512,
+    3,
+    3
+   ],
+   "parameters": 2359296,
+   "raw_checkpoint": {
+    "max_abs": 0.3487204611301422,
+    "std": 0.01732483133673668
+   },
+   "folded": {
+    "max_abs": 1.1437747478485107,
+    "std": 0.050601452589035034,
+    "max_over_std": 22.603595733642578
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.05195745825767517,
+    "median": 0.274333119392395,
+    "max": 1.1437747478485107,
+    "max_over_min": 22.0136775970459
+   },
+   "relative_error": {
+    "per_channel": 0.014835581398579366,
+    "per_tensor_if_used_instead": 0.05125339701771736
+   }
+  },
+  {
+   "layer": "layer4.0.projection",
+   "shape_OIHW": [
+    512,
+    256,
+    1,
+    1
+   ],
+   "parameters": 131072,
+   "raw_checkpoint": {
+    "max_abs": 0.7471701502799988,
+    "std": 0.03278264403343201
+   },
+   "folded": {
+    "max_abs": 0.9982080459594727,
+    "std": 0.06102524697780609,
+    "max_over_std": 16.357295989990234
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.022745536640286446,
+    "median": 0.22182998061180115,
+    "max": 0.9982080459594727,
+    "max_over_min": 43.885887145996094
+   },
+   "relative_error": {
+    "per_channel": 0.010417520453226178,
+    "per_tensor_if_used_instead": 0.03716738894581795
+   }
+  },
+  {
+   "layer": "layer4.1.conv1",
+   "shape_OIHW": [
+    512,
+    512,
+    3,
+    3
+   ],
+   "parameters": 2359296,
+   "raw_checkpoint": {
+    "max_abs": 0.26581713557243347,
+    "std": 0.017829060554504395
+   },
+   "folded": {
+    "max_abs": 0.2932627201080322,
+    "std": 0.014544421806931496,
+    "max_over_std": 20.163244247436523
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.02601870708167553,
+    "median": 0.06876426935195923,
+    "max": 0.2932627201080322,
+    "max_over_min": 11.271225929260254
+   },
+   "relative_error": {
+    "per_channel": 0.012606019739606369,
+    "per_tensor_if_used_instead": 0.04549155756831169
+   }
+  },
+  {
+   "layer": "layer4.1.conv2",
+   "shape_OIHW": [
+    512,
+    512,
+    3,
+    3
+   ],
+   "parameters": 2359296,
+   "raw_checkpoint": {
+    "max_abs": 0.2717711329460144,
+    "std": 0.013201368041336536
+   },
+   "folded": {
+    "max_abs": 3.648308038711548,
+    "std": 0.21800103783607483,
+    "max_over_std": 16.735279083251953
+   },
+   "per_output_channel_max_abs": {
+    "min": 0.7622683048248291,
+    "median": 1.1638717651367188,
+    "max": 3.648308038711548,
+    "max_over_min": 4.786120414733887
+   },
+   "relative_error": {
+    "per_channel": 0.014198707269455442,
+    "per_tensor_if_used_instead": 0.03802839666604996
+   }
+  }
+ ]
+}

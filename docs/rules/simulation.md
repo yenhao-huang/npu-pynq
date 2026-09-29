@@ -24,3 +24,28 @@ Rules:
 - Generated simulation output belongs under `src/test/build/` or
   `src/test/waves/` and must remain ignored.
 - Run `make -C src/test lint sim` before requesting merge.
+
+## Interactive iteration
+
+`make -C src/test lint sim` remains the gate for CI and for merge. It is not
+the fastest way to work while a change is still being shaped.
+
+`tools/ic/` exists for that inner loop: `ic lint` after each RTL edit, `ic sim`
+for a verdict plus a waveform handle, and `ic first_mismatch` to locate the
+cycle where a signal diverges from its reference without opening the waveform.
+`ic synth --mode estimate` gives rough area in seconds; only
+`ic synth --mode full` produces timing that may be reported as timing.
+
+Rules:
+
+- The `ic` tools supplement the Makefile; they never replace it. A change is
+  not ready to merge on `ic sim` alone.
+- `ic` writes to `.ic/`, which is machine-local and never committed. Simulation
+  output produced by the Makefile still belongs under `src/test/build/` or
+  `src/test/waves/`.
+- `ic sim` traces through a generated probe module. Do not add
+  `$dumpfile`/`$dumpvars` to a checked-in testbench to make it work.
+- Verilator, the default backend, is two-state. Use `--backend icarus` for
+  reset, initialisation, and X-propagation problems.
+
+See [../ic-design-tools/README.md](../ic-design-tools/README.md).

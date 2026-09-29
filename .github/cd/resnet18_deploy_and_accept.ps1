@@ -1,5 +1,23 @@
+<#
+.SYNOPSIS
+Deploy one published ResNet-18 release package to the PYNQ-Z1 and accept it.
+
+.DESCRIPTION
+This is the automated CD deployer. It transfers exactly the archive that was
+published with the Release, proves the deployed tree against that archive's
+digest on the board, runs the acceptance corpus on the physical overlay, and
+retrieves the evidence. It promotes the immutable deployment directory only
+after the board run has written readable evidence.
+#>
 [CmdletBinding()]
 param(
+    [Parameter(Mandatory = $true)]
+    [string]$PackageArchive,
+
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^(v[0-9]+\.[0-9]+\.[0-9]+|local-[0-9a-fA-F]{8,64})$')]
+    [string]$ReleaseTag,
+
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
     [string]$DeploymentId,
@@ -7,23 +25,14 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$EvidencePath,
 
-    [Parameter(Mandatory = $true)]
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
-    [string]$BoardHost,
+    [string]$BoardHost = '192.168.2.99',
 
-    [Parameter(Mandatory = $true)]
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
-    [string]$BoardUser,
+    [string]$BoardUser = 'xilinx',
 
-    [Parameter(Mandatory = $true)]
     [ValidatePattern('^/[A-Za-z0-9._/-]+$')]
-    [string]$RemoteRoot,
-
-    [string]$ArtifactDir = 'build/vivado/npu_matrix_8x8/artifacts',
-
-    [string]$ModelDir = 'examples/resnet18/model',
-
-    [switch]$AllowArtifactCommitMismatch,
+    [string]$RemoteRoot = '/home/xilinx/jupyter_notebooks/npu_resnet18',
 
     [switch]$DryRun
 )
@@ -49,112 +58,65 @@ function Invoke-CheckedCommand {
     }
 }
 
-$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$resolvedArtifacts = (Resolve-Path (Join-Path $repositoryRoot $ArtifactDir)).Path
-$resolvedModel = (Resolve-Path (Join-Path $repositoryRoot $ModelDir)).Path
-$resolvedEvidence = [IO.Path]::GetFullPath(
-    (Join-Path $repositoryRoot $EvidencePath)
-)
-
-$requiredArtifacts = @(
-    'npu_matrix.bit',
-    'npu_matrix.hwh',
-    'npu_matrix.manifest.json'
-)
-$requiredModel = @(
-    'resnet18-f37072fd.pth',
-    'resnet18.npu.json',
-    'resnet18.npu.bin',
-    'resnet18.validation.npy',
-    'resnet18.conversion.json',
-    'acceptance.json'
-)
-foreach ($name in $requiredArtifacts) {
-    $path = Join-Path $resolvedArtifacts $name
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        throw "Required Vivado artifact is missing: $name"
-    }
+$archive = (Resolve-Path -LiteralPath $PackageArchive).Path
+if ([IO.Path]::GetExtension($archive).ToLowerInvariant() -ne '.zip') {
+    throw "Release package must be a .zip archive: $archive"
 }
-foreach ($name in $requiredModel) {
-    $path = Join-Path $resolvedModel $name
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        throw "Required model asset is missing: $name"
-    }
+$archiveName = [IO.Path]::GetFileName($archive)
+if ($archiveName -notmatch '^[A-Za-z0-9._-]+$') {
+    throw "Release package filename must be a plain basename: $archiveName"
 }
-
-Push-Location $repositoryRoot
-try {
-    $sourceCommit = (& git rev-parse HEAD).Trim().ToLowerInvariant()
-    if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch '^[0-9a-f]{40}$') {
-        throw 'Cannot determine the exact source commit'
-    }
-    $artifactManifest = Get-Content -Raw -LiteralPath (
-        Join-Path $resolvedArtifacts 'npu_matrix.manifest.json'
-    ) | ConvertFrom-Json
-    $artifactCommit = ([string]$artifactManifest.source_commit).ToLowerInvariant()
-    if (
-        $artifactCommit -ne $sourceCommit -and
-        -not $AllowArtifactCommitMismatch
-    ) {
-        throw "Vivado artifacts use $artifactCommit but this checkout uses $sourceCommit; rebuild the overlay from this commit"
-    }
-    if ($artifactCommit -ne $sourceCommit) {
-        Write-Warning "Development-only source mismatch: artifacts=$artifactCommit checkout=$sourceCommit"
-    }
-    Invoke-CheckedCommand -Command 'python' -Arguments @(
-        '-m', 'src.runtime.verify_overlay', $resolvedArtifacts
-    )
-    Invoke-CheckedCommand -Command 'python' -Arguments @(
-        'examples/resnet18/package_example.py',
-        '--model-dir', $resolvedModel,
-        '--check-only'
-    )
-}
-finally {
-    Pop-Location
-}
+$archiveDigest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+$resolvedEvidence = [IO.Path]::GetFullPath($EvidencePath)
 
 $target = "$BoardUser@$BoardHost"
 $remoteBase = $RemoteRoot.TrimEnd('/')
+$remoteStaging = "$remoteBase/staging/$DeploymentId"
 $remoteDeployment = "$remoteBase/releases/$DeploymentId"
-Write-Host "Deployment target: $target`:$remoteDeployment"
+
+Write-Host "Release package : $archiveName"
+Write-Host "Archive SHA-256 : $archiveDigest"
+Write-Host "Release tag     : $ReleaseTag"
+Write-Host "Deployment      : $target`:$remoteDeployment"
 
 if ($DryRun) {
-    Write-Host 'PASS: deployment inputs verified; no SSH or SCP command executed'
+    Write-Host 'PASS: deployment inputs verified; no network command was executed'
     exit 0
 }
 
 Assert-CommandAvailable -Name 'ssh'
 Assert-CommandAvailable -Name 'scp'
+
 Invoke-CheckedCommand -Command 'ssh' -Arguments @(
     $target,
-    "set -eu; test ! -e '$remoteDeployment'; mkdir -p '$remoteDeployment/examples' '$remoteDeployment/src' '$remoteDeployment/build/vivado/npu_matrix_8x8'"
+    "set -eu; test ! -e '$remoteDeployment'; rm -rf '$remoteStaging'; mkdir -p '$remoteStaging'"
 )
 Invoke-CheckedCommand -Command 'scp' -Arguments @(
-    '-r', '--',
-    (Join-Path $repositoryRoot 'examples/resnet18'),
-    "${target}:$remoteDeployment/examples/"
-)
-foreach ($directory in @('model', 'runtime', 'export')) {
-    Invoke-CheckedCommand -Command 'scp' -Arguments @(
-        '-r', '--',
-        (Join-Path $repositoryRoot "src/$directory"),
-        "${target}:$remoteDeployment/src/"
-    )
-}
-Invoke-CheckedCommand -Command 'scp' -Arguments @(
-    '-r', '--',
-    $resolvedArtifacts,
-    "${target}:$remoteDeployment/build/vivado/npu_matrix_8x8/"
+    '--', $archive, "${target}:$remoteStaging/$archiveName"
 )
 
-$mismatchOption = if ($AllowArtifactCommitMismatch) {
-    ' --allow-source-mismatch'
-} else {
-    ''
-}
-$remoteCommand = "set -eu; cd '$remoteDeployment'; test -r /etc/profile.d/xrt_setup.sh; source /etc/profile.d/xrt_setup.sh; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; test -x /usr/local/share/pynq-venv/bin/python3; sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 examples/resnet18/run_on_board.py --artifact-dir build/vivado/npu_matrix_8x8/artifacts --expected-source-commit '$artifactCommit' --deployed-source-commit '$sourceCommit'$mismatchOption --evidence board-evidence.json"
+# The board proves the extracted tree against the published archive digest,
+# runs the acceptance corpus on the physical overlay, and writes evidence.
+$remoteCommand = @(
+    "set -eu",
+    "cd '$remoteStaging'",
+    "unzip -q -o '$archiveName' -d package",
+    "test -r /etc/profile.d/xrt_setup.sh",
+    "source /etc/profile.d/xrt_setup.sh",
+    "test -r /etc/profile.d/pynq_venv.sh",
+    "source /etc/profile.d/pynq_venv.sh",
+    "test -x /usr/local/share/pynq-venv/bin/python3",
+    "cd package",
+    "sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 run_on_board.py --package-root . --package-archive '../$archiveName' --archive-sha256 '$archiveDigest' --release-tag '$ReleaseTag' --evidence board-evidence.json",
+    "sudo -n chmod 0644 board-evidence.json"
+) -join '; '
 Invoke-CheckedCommand -Command 'ssh' -Arguments @($target, $remoteCommand)
+
+# Promotion is atomic and happens only after readable evidence exists.
+Invoke-CheckedCommand -Command 'ssh' -Arguments @(
+    $target,
+    "set -eu; test -r '$remoteStaging/package/board-evidence.json'; mkdir -p '$remoteBase/releases'; mv '$remoteStaging' '$remoteDeployment'; ln -sfn '$remoteDeployment/package' '$remoteBase/current'"
+)
 
 $evidenceDirectory = Split-Path -Parent $resolvedEvidence
 if ($evidenceDirectory) {
@@ -162,7 +124,7 @@ if ($evidenceDirectory) {
 }
 Invoke-CheckedCommand -Command 'scp' -Arguments @(
     '--',
-    "${target}:$remoteDeployment/board-evidence.json",
+    "${target}:$remoteDeployment/package/board-evidence.json",
     $resolvedEvidence
 )
-Write-Host "PASS: physical evidence downloaded to $resolvedEvidence"
+Write-Host "PASS [physical-pynq-z1]: board evidence downloaded to $resolvedEvidence"

@@ -13,7 +13,8 @@ npu_repo_in_pynq/
 |   `-- vMAJOR.MINOR.PATCH.md
 |-- .github/
 |   |-- cd/
-|   |   `-- *.ps1              automated deployment and acceptance scripts
+|   |   |-- *.ps1             automated deployment and acceptance scripts
+|   |   `-- *.py              release version selection for the workflows
 |   `-- workflows/
 |       |-- cd.yml
 |       `-- ci.yml
@@ -53,8 +54,10 @@ npu_repo_in_pynq/
 |       |-- README.md
 |       |-- *.ipynb
 |       |-- *-source.json        pinned download metadata
+|       |-- QUICKSTART.md          three-step board quick start
 |       |-- package_example.py
 |       |-- run_on_board.py
+|       |-- accept_image_on_board.py
 |       |-- deploy_release.ps1
 |       |-- model/
 |       |   `-- .gitkeep
@@ -62,8 +65,14 @@ npu_repo_in_pynq/
 |       |   `-- *.py
 |       |-- runtime/
 |       |   `-- *.py
-|       `-- tests/
-|           `-- test_*.py
+|       |-- tests/
+|       |   `-- test_*.py
+|       `-- docs/
+|           `-- <study>/          example-scoped measurement studies
+|               |-- README.md
+|               |-- scripts/
+|               |-- data/
+|               `-- *.html
 |-- docs/
 |   |-- assets/
 |   |   `-- *.png              versioned images embedded by documentation
@@ -86,10 +95,40 @@ npu_repo_in_pynq/
 |   |   |-- roadmap.md
 |   |   `-- changelog/
 |   |       `-- <YYYY-Www>.md
+|   |-- plans/
+|   |   `-- <YYYY>-<MMDD>-<NNN>-<topic>.md
+|   |-- acceptance/
+|   |   `-- reproduce.md        how to reproduce a delivered capability
+|   |-- <toolchain>/
+|   |   `-- README.md           developer toolchain documentation
 |   `-- <design>-spec.md
+|-- tools/
+|   `-- ic/                     agent-facing IC design toolchain
+|       |-- pyproject.toml
+|       |-- ic_core/            one folder per tool category
+|       |   `-- tools/<category>/
+|       |       |-- __init__.py    the category contract
+|       |       `-- <backend>.py   one file per backend
+|       |-- ic_daemon/          run records and job lifecycle
+|       |-- ic_cli/             the `ic` command line
+|       |-- ic_mcp/             MCP adapter
+|       |-- integrations/pi/    pi extension and its verifier
+|       |-- npm/                npm MCP bootstrap, pinned downloads and tests
+|       |-- package.json        npm package and launcher entry point
+|       |-- package-lock.json   locked launcher dependencies
+|       |-- README.md           package overview and quick start
+|       |-- docs/manual/        installation instructions and agent demos
+|       |-- LICENSE             license included in the npm distribution
+|       `-- tests/
+|-- .pi/
+|   |-- settings.json
+|   `-- extensions/
+|       `-- *.ts
+|-- .mcp.json
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
+|-- .ic/                        run store, not tracked
 `-- mount/
 ```
 
@@ -127,6 +166,16 @@ A `*-source.json` file pins one download set by URL, length, SHA-256, and
 license; the downloaded bytes themselves are never committed.
 The canonical generated-data path is `examples/<example>/model/`.
 
+`examples/<example>/docs/<study>/` holds a self-contained measurement study
+for that example: its `README.md` states the conclusions, `scripts/` holds the
+entry points that produced them, `data/` holds the machine-readable
+measurements, and a rendered `*.html` visualization may sit at the study root.
+A study is committed, unlike the `model/` workspace, because its conclusions
+have to remain readable and auditable without re-running anything. Input
+corpora stay out: they belong under `model/` and stay ignored. Keep a study's
+committed bytes proportionate; a rendered page and its summary JSON/CSV are in
+scope, raw captures and datasets are not.
+
 `.github/cd/` owns non-interactive deployment and acceptance scripts used by
 continuous delivery. Example-local `deploy_release.ps1` files only copy a
 release for later human validation; they must not execute acceptance, request
@@ -138,6 +187,31 @@ top-level location for them. Classify reusable development workflows under
 repository-specific IC design workflows under `custom/ic_design/`. Do not add
 a top-level `skills/` directory or place IC design skills directly under
 `.codex/skills/`.
+
+`tools/` holds developer and agent toolchains that act on this repository but
+are not part of the product. `tools/ic/` is the IC design toolchain: `ic_core/`
+holds one folder per tool category, each owning its schema and containing one
+file per backend; `ic_daemon/`, `ic_cli/`, `ic_mcp/` and `integrations/pi/` are
+thin clients over it and contain no tool knowledge. Adding a backend touches
+one file and adding a category one folder; no client changes either way. See
+[../ic-design-tools/README.md](../ic-design-tools/README.md).
+
+`.pi/` and `.mcp.json` attach those tools to specific agents: `.pi/settings.json`
+selects the native pi package and `.mcp.json` registers the MCP server.
+They are configuration only. The skill that tells a model when to use the
+tools lives with the other skills, under
+`.codex/skills/custom/ic_design/ic-design-tools/`, so one copy serves pi,
+Claude Code and Codex alike.
+
+`docs/plans/` holds architecture and implementation plans.
+`docs/goals/ic-design-tools/` holds the toolchain overview and its `acceptance/`
+reproduction procedures, including commands, recorded outputs and validation
+limitations. Package installation and demo instructions live under
+`tools/ic/docs/manual/` and ship with the npm package.
+
+`.ic/` is the run store written by `tools/ic`. It is machine-local and not
+tracked: `meta.json` records are kilobytes but the artifacts beside them are
+gigabytes. Never commit it.
 
 `openspec/` contains change proposals and specifications used by the
 development workflow. Keep planning artifacts here, separate from product

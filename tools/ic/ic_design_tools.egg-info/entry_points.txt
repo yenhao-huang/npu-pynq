@@ -1,0 +1,4 @@
+[console_scripts]
+ic = ic_cli.main:main
+ic-mcp = ic_mcp.server:main
+ic-toold = ic_daemon.__main__:main
