@@ -19,7 +19,7 @@ async function main() {
     else throw new Error(`Unknown or incomplete option: ${option}`);
   }
   if (command === 'help') {
-    process.stdout.write('Usage: ic-tools [serve|setup|doctor] [--project DIR]\n       ic-tools init pi [--project DIR]\nDefault: stdio MCP server; automatically installs missing dependencies.\nIC_MCP_CACHE: runtime cache. IC_ROOT: project artifacts. IC_MCP_ARCHIVE: verified offline toolchain archive.\n');
+    process.stdout.write('Usage: ic-tools [serve|setup|doctor] [--project DIR]\n       ic-tools init pi [--project DIR]\nDefault: stdio MCP server; prepares bundled dependencies after verifying OpenROAD on PATH.\nIC_MCP_CACHE: runtime cache. IC_ROOT: project artifacts. IC_MCP_ARCHIVE: verified offline toolchain archive.\n');
     return 0;
   }
   if (!['serve', 'setup', 'doctor', 'init-pi'].includes(command)) throw new Error(`Unknown command: ${command}`);

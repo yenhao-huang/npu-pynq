@@ -149,12 +149,29 @@ export async function checked(command, args, options) {
   if (code !== 0) throw new Error(`${path.basename(command)} exited ${code}. See diagnostics above.`);
 }
 
+export async function requireOpenroad({ env = process.env, runImpl = run } = {}) {
+  const guidance = 'OpenROAD is required. Install it first and ensure `openroad` is on PATH: https://openroad.readthedocs.io/en/latest/user/Build.html';
+  try {
+    const code = await runImpl('openroad', ['-version'], { env });
+    if (code !== 0) throw new Error(`openroad exited ${code}`);
+  } catch (error) {
+    throw new Error(`${guidance} (${error.message})`, { cause: error });
+  }
+}
+
 export async function completed(runtime, key) {
   const marker = await readFile(path.join(runtime, 'complete.json'), 'utf8').then(JSON.parse).catch(() => null);
   return marker?.key === key && await exists(pythonPath(runtime)) && await exists(path.join(runtime, 'python-packages', 'mcp', '__init__.py'));
 }
 
-export async function ensureRuntime({ root = cacheRoot(), spec = platformSpec(), install = installRuntime } = {}) {
+export async function ensureRuntime({
+  root = cacheRoot(), spec = platformSpec(), install = installRuntime,
+  requireTools = requireOpenroad,
+} = {}) {
+  // OpenROAD is deliberately a host prerequisite. Its official packages have
+  // distribution-specific shared-library dependencies, so an npm lifecycle
+  // script must not attempt to install them with apt/sudo.
+  await requireTools();
   const key = runtimeKey(spec);
   const runtime = path.join(root, key);
   if (await completed(runtime, key)) return runtime;

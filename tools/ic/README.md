@@ -76,10 +76,11 @@ and `init pi`; it does not accept `ic-tools lint`.
 
 ### Runtime dependencies
 
-npm's `postinstall` runs setup, downloading a pinned, checksum-verified OSS
-CAD Suite and installing hash-locked Python dependencies. The first setup
-downloads about 480–710 MiB plus Python packages; later runs reuse the cache.
-No Python venv activation is required.
+npm's `postinstall` first requires a working `openroad` executable on `PATH`,
+then downloads a pinned, checksum-verified OSS CAD Suite and installs
+hash-locked Python dependencies. The first setup downloads about 480–710 MiB
+plus Python packages; later runs reuse the cache. No Python venv activation is
+required.
 
 - Linux/WSL: provide a C++ compiler, Make, tar, zlib and LZ4 development files
   for simulation builds. On Debian/Ubuntu these include `build-essential`,
@@ -87,6 +88,10 @@ No Python venv activation is required.
 - macOS: provide a compatible native build toolchain; GUI viewing requires
   a desktop session.
 - Native Windows is unsupported; run Node, npm and the agent inside WSL.
+- OpenROAD is required. Install an official prebuilt package or build it by
+  following the [OpenROAD installation guide](https://openroad.readthedocs.io/en/latest/user/Build.html),
+  then confirm `openroad -version` works before running npm install. The npm
+  lifecycle script does not invoke a system package manager or `sudo`.
 - Vivado is separately installed and licensed.
 
 If install scripts were skipped, run `ic-tools setup` before starting the agent.
@@ -169,8 +174,8 @@ using package discovery to avoid registering the tools twice.
 `--local` saves the registry package declaration in this project's settings.
 See the
 [pi acceptance guide](../../docs/goals/ic-design-tools/acceptance/pi-agent.md) for all eight checks.
-`ppa` needs OpenROAD and a standard-cell library, neither of which ships with
-the package; it reports itself unavailable until they are installed.
+`ppa` also needs a standard-cell library or PDK. OpenROAD is a required host
+dependency checked during setup; the technology files remain user-supplied.
 
 ## Verification demo
 

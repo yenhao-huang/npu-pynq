@@ -2,8 +2,8 @@
 
 The npm package is `@jony2156/ai-eda-tools`; its CLI command remains `ic-tools`.
 
-Expose eight tools to your agent: `lint`, `sim`, `signals`, `first_mismatch`,
-`value_at`, `value_range`, `show_wave` and `synth`.
+Expose nine tools to your agent: `lint`, `sim`, `signals`, `first_mismatch`,
+`value_at`, `value_range`, `show_wave`, `synth` and `ppa`.
 
 - [MCP-based installation](#mcp-based-installation): Claude Code and Codex.
 - [Others installation](#others-installation): pi.
@@ -17,6 +17,16 @@ Install Node.js 20.11+ and your chosen agent first, and configure its model
 provider. Run the Bash commands below from the repository root, in the same
 Linux/macOS environment as the agent. Windows users must use WSL.
 See [platform requirements](#platforms-and-requirements).
+
+Install OpenROAD before installing the npm package, and confirm it is on PATH:
+
+```bash
+openroad -version
+```
+
+Use an official prebuilt package or follow the
+[OpenROAD installation guide](https://openroad.readthedocs.io/en/latest/user/Build.html).
+The npm setup intentionally does not invoke a system package manager or `sudo`.
 
 If you already have a runtime, select its [existing cache](#reuse-an-existing-environment)
 before installing. No Python venv activation is required.
@@ -127,7 +137,8 @@ The older directory name can remain; it does not change the command name.
 
 ### First setup and recovery
 
-The current implementation downloads a pinned
+The current implementation first verifies the required host OpenROAD command,
+then downloads a pinned
 [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build) archive
 (approximately 480–710 MiB) and hash-locked Python wheels. It still uses this
 managed bundle. npm installs Node dependencies, then `postinstall` prepares
@@ -174,6 +185,9 @@ agent. Runtime caches and project `.ic/` evidence remain on disk.
 - Node.js >=20.11. Pinned manifests cover Linux x64/arm64 and macOS x64/arm64;
   see acceptance records for platforms actually tested.
 - Native Windows is unsupported; run Node/npm and the agent inside WSL.
+- OpenROAD is required on PATH. Setup fails before the large toolchain download
+  when `openroad -version` cannot run. A standard-cell PDK is supplied
+  separately when invoking `ppa`; npm does not install technology files.
 - Linux simulation requires a C++ compiler, Make, and zlib/LZ4 development files
   (`build-essential`, `zlib1g-dev`, `liblz4-dev` on Debian). npm does not install them.
 - macOS needs an upstream-supported OS version and may need Xcode command-line

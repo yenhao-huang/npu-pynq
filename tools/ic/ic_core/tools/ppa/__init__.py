@@ -174,9 +174,6 @@ CATEGORY = register_category(
         name="ppa",
         summary="Power, area and fmax against a standard-cell library, for comparing two implementations.",
         default_backend="openroad",
-        # OpenROAD and a standard-cell PDK are an extra, not part of the
-        # lint/sim loop, so a machine without them is still a healthy one.
-        optional=True,
         ops=[
             Op(
                 name="ppa",

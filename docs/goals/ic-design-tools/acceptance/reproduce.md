@@ -478,7 +478,9 @@ which needs a PDK.
 
 Added 2026-09-28; this section was run on the same machine, which has Yosys but
 neither OpenROAD nor a standard-cell PDK. What is reproduced here is therefore
-the surface and the error paths, not a measurement.
+the surface and the error paths, not a measurement. OpenROAD later became a
+required npm host prerequisite; current setup stops before downloading the OSS
+CAD Suite when `openroad -version` cannot run.
 
 Without OpenROAD the tool is reachable and says exactly what is missing, the
 same way `synth --mode full` does without Vivado:
@@ -493,9 +495,9 @@ ic ppa --files tools/ic/tests/fixtures/counter.sv --top counter_ref --compact
            "details": {"backend": "openroad", "requires": "openroad"}}}
 ```
 
-`ic doctor` still reports `{"ok": true}` with that backend listed unavailable.
-`ppa` is registered as an optional category, so needing a PDK does not make an
-install that lints and simulates look broken:
+Current `ic doctor` reports `{"ok": false}` with that backend listed as a
+blocking dependency. A PDK is still supplied at execution time and is not an
+npm installation prerequisite:
 
 ```json
 {"category": "ppa", "backend": "openroad", "default": true,

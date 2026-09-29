@@ -54,14 +54,15 @@ def test_unknown_op_is_rejected():
         find_op("no_such_tool")
 
 
-def test_an_optional_category_does_not_condemn_the_toolchain():
-    """`ic doctor` reports ok when the lint/sim loop works. OpenROAD and a
-    standard-cell PDK are an extra, so their absence is listed as unavailable
-    without being counted as blocking."""
+def test_missing_openroad_is_a_blocking_doctor_failure(monkeypatch):
+    """The npm package promises PPA, so OpenROAD is a baseline dependency."""
     from ic_cli.main import cmd_doctor
 
     load_all()
-    assert CATEGORIES["ppa"].optional
+    ppa = CATEGORIES["ppa"]
+    monkeypatch.setattr(ppa.backends["openroad"], "available", lambda: False)
+    assert not ppa.optional
     report = cmd_doctor()
     assert [r for r in report["backends"] if r["category"] == "ppa"]
-    assert not any("ppa" in entry for entry in report["blocking"])
+    assert any("ppa" in entry for entry in report["blocking"])
+    assert not report["ok"]

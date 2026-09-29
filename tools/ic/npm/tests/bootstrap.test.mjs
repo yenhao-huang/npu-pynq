@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import * as tar from 'tar';
-import { platformSpec, verify, download, withLock, ensureRuntime, runtimeEnvironment, extract, packageRoot, run } from '../bootstrap.mjs';
+import { platformSpec, verify, download, withLock, ensureRuntime, runtimeEnvironment, extract, packageRoot, requireOpenroad, run } from '../bootstrap.mjs';
 
 async function fixture(t) {
   const dir = await mkdtemp(path.join(tmpdir(), 'ic-mcp-test-'));
@@ -48,6 +48,7 @@ test('bad checksum, failed HTTP and oversized response never publish an archive'
 test('concurrent setup serializes one install and completed runtime works offline', async t => {
   const root = await fixture(t);
   let installs = 0;
+  let checks = 0;
   const install = async stage => {
     installs++;
     await sleep(40);
@@ -56,15 +57,21 @@ test('concurrent setup serializes one install and completed runtime works offlin
     await mkdir(path.join(stage, 'python-packages', 'mcp'), { recursive: true });
     await writeFile(path.join(stage, 'python-packages', 'mcp', '__init__.py'), '');
   };
-  const paths = await Promise.all([ensureRuntime({ root, spec, install }), ensureRuntime({ root, spec, install })]);
+  const requireTools = async () => { checks++; };
+  const paths = await Promise.all([
+    ensureRuntime({ root, spec, install, requireTools }),
+    ensureRuntime({ root, spec, install, requireTools }),
+  ]);
   assert.equal(paths[0], paths[1]);
   assert.equal(installs, 1);
-  assert.equal(await ensureRuntime({ root, spec, install: () => { throw new Error('must not install'); } }), paths[0]);
+  assert.equal(await ensureRuntime({ root, spec, requireTools,
+    install: () => { throw new Error('must not install'); } }), paths[0]);
+  assert.equal(checks, 3, 'the required tool is checked even when the runtime is cached');
 });
 
 test('failed setup cleans staging and lock and can be retried', async t => {
   const root = await fixture(t);
-  await assert.rejects(ensureRuntime({ root, spec, install: async stage => {
+  await assert.rejects(ensureRuntime({ root, spec, requireTools: async () => {}, install: async stage => {
     await writeFile(path.join(stage, 'partial'), 'incomplete'); throw new Error('interrupted');
   } }), /interrupted/);
   assert.deepEqual(await readdir(root), []);
@@ -97,11 +104,26 @@ test('runtime environment ignores ambient Python paths but preserves artifact lo
   assert.ok(!env.PYTHONPATH.includes('/wrong'));
 });
 
+test('OpenROAD is a required host prerequisite with actionable install guidance', async () => {
+  let invocation;
+  await requireOpenroad({ env: { PATH: '/tools' }, runImpl: async (...args) => {
+    invocation = args;
+    return 0;
+  } });
+  assert.deepEqual(invocation, ['openroad', ['-version'], { env: { PATH: '/tools' } }]);
+  await assert.rejects(
+    requireOpenroad({ runImpl: async () => { throw Object.assign(new Error('spawn ENOENT'), { code: 'ENOENT' }); } }),
+    /OpenROAD is required.*openroad.*PATH.*openroad\.readthedocs\.io/s,
+  );
+  await assert.rejects(requireOpenroad({ runImpl: async () => 127 }), /openroad exited 127/);
+});
+
 test('help and invalid arguments do not trigger setup', () => {
   const cli = path.join(packageRoot, 'npm', 'cli.mjs');
   const help = spawnSync(process.execPath, [cli, '--help'], { encoding: 'utf8' });
   assert.equal(help.status, 0);
   assert.match(help.stdout, /setup\|doctor/);
+  assert.match(help.stdout, /OpenROAD on PATH/);
   const bad = spawnSync(process.execPath, [cli, 'remove-everything'], { encoding: 'utf8' });
   assert.equal(bad.status, 1);
   assert.equal(bad.stdout, '');
