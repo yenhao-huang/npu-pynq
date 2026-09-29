@@ -17,7 +17,8 @@ npu_repo_in_pynq/
 |   |   `-- *.py              release version selection for the workflows
 |   `-- workflows/
 |       |-- cd.yml
-|       `-- ci.yml
+|       |-- ci.yml
+|       `-- release-publish.yml
 |-- .codex/
 |   `-- skills/
 |       |-- dev/                 shared development workflows

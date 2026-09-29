@@ -13,16 +13,18 @@ to the board, and the published Release carried only the matrix example.
 
 ## What Changes
 
-- Keep publication as the trigger, but make the candidate a **prerelease**. CD
-  validates it and promotes it to a stable Release; a stable Release is never
-  published by hand.
-- Refuse a draft, refuse an already-stable Release, and refuse a tag whose
-  commit is not contained in `main` or that disagrees with the version
-  `changelog/vMAJOR.MINOR.PATCH.md` declares, all before any privileged work.
+- Validate a `release/vMAJOR.MINOR.PATCH` branch cut from `dev`, before
+  anything is tagged, published, or merged. A push event uses the workflow from
+  the branch it ran on, so a release validates the delivery path as well as
+  itself.
+- Require the branch name to equal the version `changelog/vMAJOR.MINOR.PATCH.md`
+  declares, and refuse a version that is already tagged.
 - Order the gates so host checks, the Vivado build, the standalone packages and
-  physical PYNQ-Z1 acceptance all pass before the prerelease flag is cleared.
-- Attach the packages, overlay artifacts, checksums and board evidence to the
-  candidate, then clear the prerelease flag as the last action of the run.
+  physical PYNQ-Z1 acceptance all pass before any Release object exists.
+- Publish a **draft** Release from a passing run, holding the packages, overlay
+  artifacts, checksums and board evidence. A draft has no tag and is not public.
+- Create the tag only when the draft is published, and only once the validated
+  commit is contained in `main`.
 - Refuse a promotion into `main` that declares no new release version, so the
   version a candidate may carry is settled in review.
 - Assemble a standalone ResNet-18 package that carries the notebook, runtime,
@@ -43,14 +45,18 @@ to the board, and the published Release carried only the matrix example.
 
 ### Modified Capabilities
 
-- `release-continuous-deployment`: Narrows the CD trigger to a published
-  prerelease, makes the stable Release the output of a passing run rather than
-  something published by hand, and extends the published asset set with the
-  ResNet-18 package, checksums, and evidence.
+- `release-continuous-deployment`: Moves validation ahead of every Release
+  object by running CD on a release branch, makes a draft Release the output of
+  a passing run, separates publication into its own dispatched workflow, and
+  extends the published asset set with the ResNet-18 package, checksums, and
+  evidence.
 
 ## Impact
 
-- `.github/workflows/cd.yml`, `.github/workflows/ci.yml`, and `.github/cd/`.
+- `.github/workflows/cd.yml`, `.github/workflows/ci.yml`, the new
+  `.github/workflows/release-publish.yml`, and `.github/cd/`.
+- A new `release-npu-pynq` skill under `.codex/skills/deploy/` carrying the
+  procedure.
 - `examples/resnet18/` packaging, board entry points, notebook root detection,
   and tests; `examples/matrix-multiplication/` workflow contract tests.
 - `docs/rules/ci-cd.md`, the root README, and the v0.1.5 changelog.

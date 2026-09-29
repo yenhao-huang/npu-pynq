@@ -75,10 +75,12 @@ and on what may not be added.
   Release. Releases are semantic-version tags on `main`, using the default
   patch sequence `v0.1.0` → `v0.1.1` → `v0.1.2` unless a release decision
   explicitly selects a new major or minor version. The promotion declares that
-  version as `changelog/vMAJOR.MINOR.PATCH.md`. Publish the candidate as a
-  **prerelease**; continuous deployment validates it and promotes it to a stable
-  Release. Never publish a stable Release by hand, and never clear the
-  prerelease flag yourself.
+  version as `changelog/vMAJOR.MINOR.PATCH.md`. Cut `release/vMAJOR.MINOR.PATCH`
+  from `dev` first: pushing it runs CD, and a passing run leaves a draft Release
+  holding the packages and the board evidence. Only then prepare the promotion
+  pull request, and merge it with a merge commit. Publishing is the
+  `release-publish` workflow, never a hand-published Release. The
+  `release-npu-pynq` skill under `.codex/skills/deploy/` has the full procedure.
 - Agents may read `docs/human/`, but must obtain explicit human confirmation
   for the exact batch before creating, editing, appending, formatting,
   renaming, moving, or deleting anything under it. Code, issue, PR, merge, and

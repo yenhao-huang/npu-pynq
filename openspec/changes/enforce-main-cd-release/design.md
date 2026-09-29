@@ -33,30 +33,32 @@ execution, and atomic promotion.
 
 ## Decisions
 
-### The stable Release is an output; the prerelease is the trigger
+### Validation comes before any Release object exists
 
-Publication still comes first, which keeps the familiar order: a person decides
-a candidate is ready and publishes it. What changes is what they publish. The
-candidate goes out as a prerelease, CD validates it, and the last action of a
-passing run clears the prerelease flag. A stable Release therefore always means
-the board accepted the packages attached to it.
+The ordering problem was that validation could only run after something had
+already been published. A release branch removes it entirely: `release/vX.Y.Z`
+is cut from `dev` and pushed, and CD runs on that branch. Because a push event
+uses the workflow file from the branch it ran on, the release validates the
+delivery path as well as itself — the first execution of a changed workflow is
+never the one that publishes.
 
-CD refuses a Release that is already stable, because validating one would attach
-evidence to something that was already public and unvalidated, which is the
-failure this change exists to remove.
+A passing run publishes a draft Release. A draft has no tag, is not public, and
+can be recreated, so a failed or repeated run costs nothing and leaves nothing
+behind. The draft is the artifact of validation: it holds the packages, the
+checksums and the board evidence, and it is what the promotion pull request
+points at.
 
-Converting a prerelease to a stable Release raises GitHub's `released` event,
-not `published`, so the promotion at the end of a run cannot retrigger CD. The
-workflow listens only to `published`.
+Publication is a separate dispatched workflow. It builds nothing, touches no
+board, and refuses a draft whose commit is not contained in `main`. The tag is
+therefore created last, and it names a commit that is both hardware-validated
+and merged.
 
-Alternative considered: trigger on a push to `main` and have CD create the tag
-and Release itself. Rejected because it takes the publication decision away from
-the person making it, and because the ordering people already have in their
-heads — publish, then watch it validate — is worth keeping when it can be made
-safe.
-
-Only `promote-release` holds `contents: write`, so no earlier job can modify the
-Release or the repository even if it is compromised.
+Alternatives considered. Triggering on a push to `main` and having CD create the
+tag: rejected because it takes the publication decision away from the person
+making it, and because CD could not be exercised before it was load-bearing.
+Triggering on a published prerelease: closer, but the first run of a changed
+workflow still had to come from the default branch, so a change to CD could not
+be validated before it mattered.
 
 ### Version selection is declarative
 
@@ -68,21 +70,28 @@ the pre-merge gate in `ci.yml`: a promotion into `main` that declares no new
 version cannot merge. Version selection therefore happens in review, in a file,
 not in a workflow input.
 
-### Human approval sits at promotion
+### Human approval sits at three places
 
-`board-validation` uses the protected `pynq-z1-production` environment, and
-`promote-release` uses `pynq-z1-release`. Configuring required reviewers on the
-latter keeps the decision to make a candidate stable with a person, while
-everything that decision needs — build reports, board evidence, the real-image
-result — is already attached to the run.
+`board-validation` uses the protected `pynq-z1-production` environment. Merging
+the promotion pull request is a person's decision, as `AGENTS.md` requires.
+Publishing the draft is a dispatched workflow in the `pynq-z1-release`
+environment, whose required reviewers own the release decision. None of the
+three implies another, and everything each decision needs is already attached to
+the CD run.
+
+### Squash merges are refused, deliberately
+
+The packages record the commit they were built from, and the tag is created at
+that commit. A squash merge produces a different commit, leaving the validated
+one absent from `main`, so publication checks containment and fails with an
+explanation rather than tagging something unvalidated.
 
 ### Failure recovery
 
-A failed run leaves the candidate as a prerelease. That is a visible, honest
-state: it says a candidate existed and was not accepted. Fix the cause, promote
-again, and publish a prerelease for the next version. Clearing a prerelease flag
-by hand to "finish" a run defeats the whole arrangement, so the rules say not to;
-tags are never moved or deleted.
+Nothing is tagged or public until the last step, so recovery is ordinary work:
+fix the cause on `dev`, rebuild the release branch, push again, and the run
+recreates the draft. Publishing a draft by hand to finish a run defeats the
+containment check, so the rules say not to; tags are never moved or deleted.
 
 ### The package is the deployment unit
 
@@ -109,15 +118,16 @@ board evidence to identify.
 
 ## Risks / Trade-offs
 
-- Publishing a prerelease starts a multi-hour privileged run. The concurrency
-  group serializes runs, and the pre-merge gate settles the version before the
-  candidate can be published at all.
-- A prerelease is publicly visible while it is being validated. That is the cost
-  of keeping publication first; it is labelled as a prerelease throughout, and it
-  carries no assets until the run attaches them.
+- Pushing a release branch starts a multi-hour privileged run. The concurrency
+  group serializes runs, and the branch name must match a declared version, so a
+  run cannot start by accident.
+- The release branch is a fourth long-lived-looking ref during a release. It is
+  short-lived: it exists between the cut and the promotion merge, and carries the
+  same tree as the `dev` commit it was cut from.
 - The self-hosted runners must hold the untracked ResNet-18 model workspace and
   acceptance bundle. The packaging step fails closed when they are absent, so
   the failure is a missing input, never a silently smaller package.
-- Editing the Release from CI requires `contents: write` on one job. It is
-  scoped to `promote-release` and gated by an environment with required
+- Creating the draft requires `contents: write` on one CD job, and publishing
+  requires it on one job of the publication workflow. Both are scoped to a single
+  job, and publication is additionally gated by an environment with required
   reviewers.
