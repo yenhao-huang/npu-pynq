@@ -154,8 +154,30 @@ python examples/resnet18/package_example.py `
 
 Expected marker: `PASS [real-model-host]`. The checkpoint itself is not
 redistributed. Missing, stale, substituted, incomplete, or unvalidated model
-workspaces publish no archive. Issue #7 combines this validated model boundary
-with the matching trusted overlay for standalone board delivery.
+workspaces publish no archive.
+
+The model archive is the conversion boundary. The thing a user downloads is the
+standalone release package, which adds the notebook, the shared runtime and
+export sources, the ImageNet labels, the bundled photographs, the verified
+overlay, and the Vivado build reports:
+
+```powershell
+python examples/resnet18/package_example.py `
+  --repository-root . `
+  --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
+  --report-dir build/vivado/npu_matrix_8x8/reports `
+  --descriptor examples/resnet18/acceptance/acceptance.json `
+  --output-archive mount/resnet18/npu-resnet18-local.zip
+```
+
+It refuses to publish anything when an input is missing, when the build
+evidence reports DRC errors, failing setup paths, or non-positive slack, or
+when the overlay names another source commit. Identical inputs produce a
+byte-identical archive, and `package.manifest.json` inside it records the
+release tag, the source commit, the overlay digests, the Vivado gates, and the
+SHA-256 of every file. Continuous deployment builds this same archive, so a
+local build is for inspection; the published one comes from a validated `main`
+commit.
 
 ## 8. Deploy to the PYNQ-Z1
 
@@ -181,11 +203,17 @@ checkout.
 ## 9. Open the notebook and run the demo
 
 In the PYNQ Jupyter interface (e.g., http://192.168.2.99:9090/notebooks/), open
-the release directory printed by the deployment wrapper, then open:
+the release directory printed by the deployment wrapper, then open
+`examples/resnet18/resnet18.ipynb`. From an extracted release package the
+notebook sits at the package root instead:
 
 ```text
-examples/resnet18/resnet18.ipynb
+resnet18.ipynb
 ```
+
+The notebook finds its root by looking for `package.manifest.json` beside a
+`model/` and an `artifacts/` directory, so the same notebook runs from either
+layout without editing.
 
 Select the board's PYNQ Python kernel and run one cell at a time.
 
@@ -262,3 +290,27 @@ All download, conversion, validation, and archive outputs are intentionally
 write-once. To repeat a step, choose a new output path or deliberately remove
 only the corresponding ignored generated files after preserving any evidence
 you need. The scripts never overwrite prior evidence silently.
+
+## Automated release delivery
+
+Steps 1 through 9 are the development path. The published path is continuous
+deployment, and it runs the same code:
+
+1. A push to `main` selects the version its `changelog/vMAJOR.MINOR.PATCH.md`
+   declares.
+2. Host checks and the Vivado build run, and this example is packaged into
+   `npu-resnet18-<tag>.zip` with a checksum file.
+3. `.github/cd/resnet18_deploy_and_accept.ps1` copies exactly that archive to
+   the board, where `run_on_board.py --package-root` proves the extracted tree
+   against the archive digest and the package manifest before programming the
+   overlay, runs the acceptance corpus, and writes `board-evidence.json`.
+4. `.github/cd/resnet18_accept_image.ps1` then runs
+   `accept_image_on_board.py`, which classifies the pinned photograph on the
+   physical overlay, compares every capture against the host record, and writes
+   `image-acceptance.json` naming the release tag, the source commit, the
+   overlay digests, the input image, the top-5, and the verdict.
+5. Only after all of that does the workflow tag the commit and publish the
+   Release with the packages, checksums, and evidence attached.
+
+See [docs/rules/ci-cd.md](../../docs/rules/ci-cd.md) for the gates, the
+approval boundaries, and how a failed run is recovered.

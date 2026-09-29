@@ -23,6 +23,9 @@ jobs:
       - name: Run simulations
         run: make -C src/test sim
 
+      - name: Run host model and example suites
+        run: make -C src/test model
+
       - name: Upload waveforms on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -30,3 +33,46 @@ jobs:
           name: waves
           path: src/test/waves/
           if-no-files-found: ignore
+
+  # Enforced pre-merge gate for `main`. A promotion that does not declare the
+  # version it will release cannot reach `main`, so continuous deployment never
+  # has to guess which release a validated commit publishes.
+  release-readiness:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve the release version this promotion declares
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          python .github/cd/resolve_release_version.py --output resolution.env
+          . ./resolution.env
+          if [ "${should_release}" != "true" ]; then
+            echo "this promotion declares no new release version" >&2
+            echo "add changelog/vMAJOR.MINOR.PATCH.md for the version to publish" >&2
+            exit 1
+          fi
+          echo "promotion declares ${release_tag} (${changelog_path})"
+
+      - name: Verify continuous deployment still gates main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import sys
+          import yaml
+
+          workflow = yaml.safe_load(open(".github/workflows/cd.yml", encoding="utf-8"))
+          triggers = workflow[True] if True in workflow else workflow["on"]
+          if triggers.get("push", {}).get("branches") != ["main"]:
+              sys.exit("cd.yml must run on every push to main")
+          publish = workflow["jobs"]["publish-release"]
+          required = {"select-version", "host-checks", "build-overlay", "board-validation"}
+          if not required.issubset(set(publish["needs"])):
+              sys.exit("publish-release must depend on every validation job")
+          PY
