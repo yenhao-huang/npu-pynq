@@ -45,7 +45,7 @@ On this repository's Windows host the runner is:
 | Registration name | `DESKTOP-54U632L` |
 | Labels | `self-hosted`, `Windows`, `X64`, `vivado`, `pynq-z1` |
 | Started by | Scheduled task `GitHub Actions Runner`, at logon, as the signed-in user |
-| Model workspace for CD | `C:\npu-assets\resnet18\model` (or the `RESNET18_MODEL_DIR` repository variable) |
+| Model workspace for CD | None: the release's `build-model` job builds it on a hosted machine |
 
 It runs as a logon task rather than a service on purpose. See "Why a logon
 task" below before changing that.

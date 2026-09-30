@@ -384,7 +384,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         draft = cd["jobs"]["publish-draft"]
         self.assertEqual(
             set(draft["needs"]),
-            {"validate-source", "host-checks", "build-overlay", "board-validation"},
+            {"validate-source", "host-checks", "build-model", "build-overlay", "board-validation"},
         )
         self.assertEqual(draft["permissions"]["contents"], "write")
         self.assertIn("--draft", self.cd)
@@ -461,23 +461,53 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             ),
             "Vivado must not start before both runners are proven ready",
         )
-        for marker in ("vivado", "pwsh", "--check-only", "resnet18.demo.json", "BatchMode=yes"):
+        for marker in ("vivado", "pwsh", "BatchMode=yes"):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.cd)
 
-    def test_model_workspace_lives_outside_the_checkout(self) -> None:
-        # actions/checkout removes untracked files, and the model workspace is
-        # untracked, so a path inside the repository would always be empty.
+    def test_the_release_builds_its_own_model(self) -> None:
+        # A model left on some machine may predate the conversion code it ships
+        # with, so the release converts and validates it from pinned sources.
         import yaml
 
         jobs = yaml.safe_load(self.cd)["jobs"]
-        for name in ("preflight-vivado", "build-overlay"):
-            value = str(jobs[name]["env"]["RESNET18_MODEL_DIR"])
-            with self.subTest(job=name):
-                self.assertNotIn("examples/resnet18", value)
-                self.assertIn("vars.RESNET18_MODEL_DIR", value)
-        # The real model is accepted from its workspace; no bundle is required.
+        build = jobs["build-model"]
+        self.assertEqual(build["runs-on"], "ubuntu-latest")
+        run = "\n".join(str(step.get("run", "")) for step in build["steps"])
+        for script in (
+            "download_model.py",
+            "download_calibration.py",
+            "convert_model.py",
+            "verify_model.py",
+            "download_demo_assets.py",
+            "prepare_demo_image.py",
+            "download_gallery.py",
+            "package_example.py --check-only",
+        ):
+            with self.subTest(script=script):
+                self.assertIn(script, run)
+        # The host must already classify the demo correctly, before Vivado.
+        self.assertIn("host_top_k", run)
+        self.assertIn("build-model", jobs["build-overlay"]["needs"])
+        self.assertIn("build-model", jobs["publish-draft"]["needs"])
+        # No machine-local model path, and no external acceptance bundle.
+        self.assertNotIn("npu-assets", self.cd)
+        self.assertNotIn("vars.RESNET18_MODEL_DIR", self.cd)
         self.assertNotIn("--descriptor", self.cd)
+        # The model arrives after checkout, which would delete it as untracked.
+        steps = [str(step.get("uses", "")) for step in jobs["build-overlay"]["steps"]]
+        self.assertLess(
+            next(i for i, uses in enumerate(steps) if uses.startswith("actions/checkout")),
+            next(i for i, uses in enumerate(steps) if uses.startswith("actions/download-artifact")),
+        )
+
+    def test_the_conversion_environment_is_pinned(self) -> None:
+        requirements = (
+            REPOSITORY_ROOT / "examples" / "resnet18" / "requirements-convert.txt"
+        ).read_text(encoding="utf-8").lower()
+        for package in ("numpy==", "torch==", "pillow=="):
+            with self.subTest(package=package):
+                self.assertIn(package, requirements)
 
     def test_pre_merge_gate_protects_main(self) -> None:
         ci = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text(

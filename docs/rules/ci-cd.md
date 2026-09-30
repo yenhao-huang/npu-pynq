@@ -47,11 +47,15 @@ Rules:
 - `preflight-vivado` and `preflight-board` run before any long job. They check
   the runner's tools, the model workspace, and SSH to the board, so a missing
   piece fails in a minute rather than after a multi-hour build.
-- The ResNet-18 model workspace is untracked, and checkout deletes untracked
-  files, so CD reads it from outside the checkout: `RESNET18_MODEL_DIR`, a
-  repository variable defaulting to `C:\npu-assets\resnet18\model`. The release
-  package is accepted from that workspace's host acceptance record; an external
-  acceptance bundle is optional.
+- The release builds its own ResNet-18 model. `build-model` runs on a hosted
+  machine: it downloads the pinned checkpoint and calibration images, converts
+  with the release commit's code, validates against the independent integer
+  reference, prepares the demo input and gallery, and fails unless the host
+  classifies the demo correctly. The Vivado job downloads that workspace after
+  checkout, which would otherwise delete it as untracked. A model workspace left
+  on a machine is never used: it may predate the conversion code.
+- The release package is accepted from that workspace's host acceptance record.
+  An external acceptance bundle is optional.
 - The ResNet-18 package is what the board runs and what the Release publishes.
   The board proves the extracted tree against the published archive digest and
   the package manifest before programming the overlay, runs the acceptance

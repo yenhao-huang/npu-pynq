@@ -93,25 +93,82 @@ jobs:
       - name: Run host model and example suites
         run: make -C src/test model PYTHON=python3
 
-  # Everything the privileged jobs need is checked here, in about a minute,
-  # before Vivado spends hours on a build that would fail at packaging.
-  preflight-vivado:
+  # The release converts and validates its own model from pinned sources, with
+  # the code in this commit. Nothing depends on files left on some machine, and
+  # the model always matches the conversion code it ships with. It needs neither
+  # Vivado nor the board, so it runs on a hosted machine alongside the preflights.
+  build-model:
     needs: validate-source
-    runs-on: [self-hosted, vivado]
-    timeout-minutes: 10
-    env:
-      # The model workspace is not tracked, and checkout deletes untracked files,
-      # so it lives outside the checkout. Override with a repository variable.
-      RESNET18_MODEL_DIR: ${{ vars.RESNET18_MODEL_DIR || 'C:\npu-assets\resnet18\model' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - name: Check out the validated release commit
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.validate-source.outputs.release_commit }}
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the pinned conversion environment
+        run: |
+          python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r examples/resnet18/requirements-convert.txt
+
+      - name: Download the pinned checkpoint and calibration images
+        run: |
+          python examples/resnet18/scripts/download_model.py
+          python examples/resnet18/scripts/download_calibration.py
+
+      - name: Convert to the NPU package
+        run: python examples/resnet18/scripts/convert_model.py
+
+      - name: Validate against the independent integer reference
+        run: python examples/resnet18/scripts/verify_model.py --software-timeout 7200
+
+      - name: Prepare the demo input and the bundled gallery
+        run: |
+          python examples/resnet18/scripts/download_demo_assets.py
+          python examples/resnet18/scripts/prepare_demo_image.py --software-timeout 7200
+          python examples/resnet18/scripts/download_gallery.py
+
+      # The board refuses a demo it classifies wrongly, but only after hours of
+      # Vivado and an hour of inference. The host record already knows.
+      - name: Require the host to classify the demo correctly
+        shell: python
+        run: |
+          import json, sys
+          record = json.load(open("examples/resnet18/model/resnet18.demo.json", encoding="utf-8"))
+          top, expected = record["host_top_k"][0], record["expected"]
+          print(f"host top-1: {top['name']} ({top['probability']:.2%})")
+          if expected is not None and top["index"] != expected["index"]:
+              sys.exit(f"host predicts {top['name']!r}, the demo expects {expected['name']!r}")
+
+      - name: Confirm the workspace is package-ready
+        run: python examples/resnet18/package_example.py --check-only
+
+      - name: Retain the model workspace
+        uses: actions/upload-artifact@v4
+        with:
+          name: resnet18-model-${{ needs.validate-source.outputs.release_tag }}
+          if-no-files-found: error
+          path: |
+            examples/resnet18/model/*
+            !examples/resnet18/model/calibration
+            !examples/resnet18/model/.gitkeep
+
+  # Everything the privileged jobs need is checked here, in about a minute,
+  # before Vivado spends hours on a build that would fail at packaging.
+  preflight-vivado:
+    needs: validate-source
+    runs-on: [self-hosted, vivado]
+    timeout-minutes: 10
+    steps:
       # Windows PowerShell is always present; pwsh may not be, and it is the
       # first thing to check.
-      - name: Check tools and the model workspace
+      - name: Check the runner's tools
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
@@ -120,21 +177,6 @@ jobs:
             $found = Get-Command $tool -ErrorAction SilentlyContinue
             if ($found) { Write-Host "ok    $tool -> $($found.Source)" }
             else { $problems += "$tool is not on this runner's PATH" }
-          }
-          $model = $env:RESNET18_MODEL_DIR
-          if (-not (Test-Path -LiteralPath $model -PathType Container)) {
-            $problems += "model workspace not found at $model"
-          }
-          else {
-            foreach ($name in 'resnet18.demo.json', 'resnet18.demo.npy', 'imagenet-classes.txt') {
-              if (-not (Test-Path -LiteralPath (Join-Path $model $name))) {
-                $problems += "model workspace lacks $name (run the runbook's step 5)"
-              }
-            }
-            if (Get-Command python -ErrorAction SilentlyContinue) {
-              python examples/resnet18/package_example.py --check-only --model-dir $model
-              if ($LASTEXITCODE -ne 0) { $problems += 'model workspace failed validation' }
-            }
           }
           if ($problems) {
             $problems | ForEach-Object { Write-Host "::error::$_" }
@@ -169,11 +211,11 @@ jobs:
           Write-Host 'PASS: board is reachable'
 
   build-overlay:
-    needs: [validate-source, host-checks, preflight-vivado, preflight-board]
+    needs: [validate-source, host-checks, build-model, preflight-vivado, preflight-board]
     runs-on: [self-hosted, vivado]
     timeout-minutes: 180
     env:
-      RESNET18_MODEL_DIR: ${{ vars.RESNET18_MODEL_DIR || 'C:\npu-assets\resnet18\model' }}
+      RESNET18_MODEL_DIR: build/resnet18-model
     steps:
       # CD never creates a tag, so the release commit is the only exact ref.
       - name: Check out the validated release commit
@@ -181,6 +223,13 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ needs.validate-source.outputs.release_commit }}
+
+      # After checkout, which would otherwise delete it as untracked.
+      - name: Download the model this release built
+        uses: actions/download-artifact@v4
+        with:
+          name: resnet18-model-${{ needs.validate-source.outputs.release_tag }}
+          path: build/resnet18-model
 
       - name: Build routed overlay and bitstream
         shell: pwsh
@@ -400,7 +449,7 @@ jobs:
             build/board/resnet18-image-acceptance.json
 
   publish-draft:
-    needs: [validate-source, host-checks, build-overlay, board-validation]
+    needs: [validate-source, host-checks, build-model, build-overlay, board-validation]
     runs-on: ubuntu-latest
     permissions:
       contents: write

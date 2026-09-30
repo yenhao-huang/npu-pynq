@@ -84,18 +84,19 @@ Stop and report if the script exits non-zero:
 - A label is missing — a runner exists but does not offer `vivado` or `pynq-z1`.
   Add it on the repository's Runners page; re-registration is not needed.
 
-Check the model workspace too. CD reads it from `C:\npu-assets\resnet18\model`,
-or from the `RESNET18_MODEL_DIR` repository variable, because the checkout
-deletes untracked files and the workspace is untracked. It must hold the
-validated conversion (`acceptance.json`, `resnet18.npu.*`,
-`resnet18.validation.npy`), the demo input (`resnet18.demo.*`) and
-`imagenet-classes.txt`, produced by the runbook in `examples/resnet18/README.md`.
-Copy an existing workspace there rather than regenerating it.
+The release builds its own model. The `build-model` job, on a hosted
+machine, downloads the pinned checkpoint and calibration images, converts with
+the code in the release commit, validates against the independent integer
+reference, prepares the demo input and gallery, and requires the host to
+classify the demo correctly. Nothing needs to be provisioned on the runner, and
+the shipped model always matches the conversion code it ships with. Do not
+substitute a model workspace left on a machine: one converted before a
+calibration change still passes digest validation while no longer matching the
+code.
 
-The `preflight-vivado` and `preflight-board` jobs check all of this, plus
-`pwsh`, `python`, `vivado` and SSH to the board, before Vivado starts. A missing
-piece fails in about a minute and names itself, instead of after a three-hour
-build.
+The `preflight-vivado` and `preflight-board` jobs check `pwsh`, `python`,
+`vivado`, `git` and SSH to the board before Vivado starts. A missing piece fails
+in about a minute and names itself, instead of after a three-hour build.
 
 Do not push the release branch until the runners are online. Pushing is what
 starts the multi-hour privileged run, and a queued run wastes a day before
@@ -120,9 +121,12 @@ branch it ran on, this validates the workflow itself as well as the release;
 
 ## 4. Watch the CD run
 
-Its jobs, in order: `validate-source`; then `host-checks`, `preflight-vivado`
-and `preflight-board` in parallel; then `build-overlay` (Vivado, self-hosted),
-`board-validation` (physical PYNQ-Z1), and `publish-draft`.
+Its jobs, in order: `validate-source`; then `host-checks`, `build-model`,
+`preflight-vivado` and `preflight-board` in parallel; then `build-overlay`
+(Vivado, self-hosted), `board-validation` (physical PYNQ-Z1), and
+`publish-draft`. Roughly: ten to twenty minutes until Vivado starts, two to
+three hours of Vivado, then about two hours on the board (one pass over the
+validation tensor, one over the demo photograph).
 
 ```bash
 gh run list --workflow cd.yml --branch release/vX.Y.Z
@@ -144,8 +148,9 @@ gh run rerun <run-id> --failed
 
 Read `docs/rules/ci-cd.md` before diagnosing anything else. Common causes:
 
-- Packaging names a missing file — the untracked ResNet-18 model workspace or
-  acceptance bundle is absent from the Vivado runner.
+- `build-model` fails — a pinned download changed or is unreachable, or the
+  host no longer classifies the demo correctly after a conversion change. The
+  release must not ship in either case.
 - `board-validation` fails immediately — the `pynq-z1-production` environment
   does not exist.
 - `validate-source` rejects the branch — the branch name and the declared
