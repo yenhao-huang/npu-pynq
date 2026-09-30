@@ -436,6 +436,49 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, self.publish)
 
+    def test_self_hosted_jobs_check_out_the_commit_not_a_tag(self) -> None:
+        # CD never creates a tag, so checking one out fails on the runner with
+        # "A branch or tag with the name 'vX.Y.Z' could not be found".
+        import yaml
+
+        jobs = yaml.safe_load(self.cd)["jobs"]
+        for name, job in jobs.items():
+            for step in job.get("steps", []):
+                if str(step.get("uses", "")).startswith("actions/checkout"):
+                    ref = str((step.get("with") or {}).get("ref", ""))
+                    with self.subTest(job=name):
+                        self.assertNotIn("release_tag", ref)
+
+    def test_preflight_runs_before_anything_expensive(self) -> None:
+        import yaml
+
+        jobs = yaml.safe_load(self.cd)["jobs"]
+        self.assertEqual(jobs["preflight-vivado"]["runs-on"], ["self-hosted", "vivado"])
+        self.assertEqual(jobs["preflight-board"]["runs-on"], ["self-hosted", "pynq-z1"])
+        self.assertTrue(
+            {"preflight-vivado", "preflight-board"}.issubset(
+                set(jobs["build-overlay"]["needs"])
+            ),
+            "Vivado must not start before both runners are proven ready",
+        )
+        for marker in ("vivado", "pwsh", "--check-only", "resnet18.demo.json", "BatchMode=yes"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, self.cd)
+
+    def test_model_workspace_lives_outside_the_checkout(self) -> None:
+        # actions/checkout removes untracked files, and the model workspace is
+        # untracked, so a path inside the repository would always be empty.
+        import yaml
+
+        jobs = yaml.safe_load(self.cd)["jobs"]
+        for name in ("preflight-vivado", "build-overlay"):
+            value = str(jobs[name]["env"]["RESNET18_MODEL_DIR"])
+            with self.subTest(job=name):
+                self.assertNotIn("examples/resnet18", value)
+                self.assertIn("vars.RESNET18_MODEL_DIR", value)
+        # The real model is accepted from its workspace; no bundle is required.
+        self.assertNotIn("--descriptor", self.cd)
+
     def test_pre_merge_gate_protects_main(self) -> None:
         ci = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"

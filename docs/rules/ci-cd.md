@@ -42,7 +42,16 @@ Rules:
   a later human-run notebook or CLI validation.
 - The Vivado job must build from the release branch commit, verify the BIT, HWH,
   provenance manifest, and implementation evidence, and assemble the standalone
-  matrix and ResNet-18 packages with a checksum file.
+  matrix and ResNet-18 packages with a checksum file. Every checkout in CD names
+  the release commit, never the release tag: CD creates no tag.
+- `preflight-vivado` and `preflight-board` run before any long job. They check
+  the runner's tools, the model workspace, and SSH to the board, so a missing
+  piece fails in a minute rather than after a multi-hour build.
+- The ResNet-18 model workspace is untracked, and checkout deletes untracked
+  files, so CD reads it from outside the checkout: `RESNET18_MODEL_DIR`, a
+  repository variable defaulting to `C:\npu-assets\resnet18\model`. The release
+  package is accepted from that workspace's host acceptance record; an external
+  acceptance bundle is optional.
 - The ResNet-18 package is what the board runs and what the Release publishes.
   The board proves the extracted tree against the published archive digest and
   the package manifest before programming the overlay, runs the acceptance

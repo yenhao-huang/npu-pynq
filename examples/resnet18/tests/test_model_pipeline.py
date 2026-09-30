@@ -403,3 +403,105 @@ class BoardSourceBindingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReleasePackageFromModelWorkspaceTests(ModelPackageTests):
+    """The real release is accepted from its model workspace, not a bundle."""
+
+    COMMIT = "a" * 40
+
+    def setUp(self):
+        super().setUp()
+        from src.runtime.verify_overlay import write_manifest
+        from src.test.tests.test_verify_overlay import HWH
+
+        self.artifacts = self.root / "artifacts"
+        self.reports = self.root / "reports"
+        self.artifacts.mkdir()
+        self.reports.mkdir()
+        (self.artifacts / "npu_matrix.bit").write_bytes(b"trusted-bit")
+        (self.artifacts / "npu_matrix.hwh").write_text(HWH, encoding="utf-8")
+        write_manifest(
+            self.artifacts, source_commit=self.COMMIT, vivado_version="2026.1"
+        )
+        (self.reports / "build_evidence.txt").write_text(
+            "vivado=2026.1\npart=xc7z020clg400-1\nwns=0.250\n"
+            "setup_failing_paths=0\ndrc_errors=0\nbit=b\nhwh=h\n"
+            f"source_commit={self.COMMIT}\n",
+            encoding="utf-8",
+        )
+        for name in (
+            "drc_routed.rpt", "route_status.rpt", "timing_summary_routed.rpt",
+            "utilization_impl.rpt", "utilization_synth.rpt",
+        ):
+            (self.reports / name).write_text(f"trusted {name}\n", encoding="utf-8")
+        self.board = load_module(
+            "resnet18_run_on_board_release", EXAMPLE_ROOT / "run_on_board.py"
+        )
+
+    def _release(self, name="release.zip", **overrides):
+        arguments = dict(
+            repository_root=REPOSITORY_ROOT,
+            artifact_dir=self.artifacts,
+            report_dir=self.reports,
+            output_archive=self.root / name,
+            release_tag="v1.0.6",
+            source_commit=self.COMMIT,
+            model_dir=self.model_dir,
+            source_metadata_path=self.metadata_path,
+        )
+        arguments.update(overrides)
+        return self.packager.build_delivery_archive(**arguments), self.root / name
+
+    def test_release_package_carries_the_workspace_and_no_checkpoint(self):
+        manifest, archive = self._release()
+        self.assertEqual(manifest["acceptance_source"], "model-workspace")
+        with zipfile.ZipFile(archive) as stream:
+            names = set(stream.namelist())
+            stream.extractall(self.root / "deployed")
+        self.assertIn("model/acceptance.json", names)
+        self.assertIn("model/resnet18.npu.bin", names)
+        self.assertNotIn("model/resnet18-f37072fd.pth", names)
+        self.assertFalse(any(name.startswith("acceptance/") for name in names))
+
+        deployed = self.root / "deployed"
+        verified = self.board.verify_package_tree(
+            deployed,
+            archive_path=archive,
+            expected_archive_sha256=self._path_digest(archive),
+        )
+        self.assertIsNone(verified.descriptor_path)
+
+        # The checkpoint is not shipped, so the board validates without it.
+        self.packager.validate_workspace(
+            deployed / "model",
+            deployed / "model-source.json",
+            require_checkpoint=False,
+        )
+        with self.assertRaisesRegex(self.packager.ResNet18PackageError, "checkpoint"):
+            self.packager.validate_workspace(
+                deployed / "model", deployed / "model-source.json"
+            )
+
+    def test_checkpointless_validation_still_binds_the_source_pin(self):
+        _manifest, archive = self._release()
+        deployed = self.root / "deployed"
+        with zipfile.ZipFile(archive) as stream:
+            stream.extractall(deployed)
+        metadata_path = deployed / "model-source.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata["sha256"] = "0" * 64
+        self._write_json(metadata_path, metadata)
+        with self.assertRaisesRegex(
+            self.packager.ResNet18PackageError, "acceptance source differs"
+        ):
+            self.packager.validate_workspace(
+                deployed / "model", metadata_path, require_checkpoint=False
+            )
+
+    def test_a_package_needs_something_to_accept_it_by(self):
+        with self.assertRaisesRegex(
+            self.packager.ResNet18PackageError, "model workspace or an acceptance bundle"
+        ):
+            self._release(model_dir=None, source_metadata_path=None)
+        self.assertFalse((self.root / "release.zip").exists())

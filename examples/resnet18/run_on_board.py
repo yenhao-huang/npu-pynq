@@ -124,8 +124,11 @@ def run_board(
     allow_source_mismatch: bool,
     evidence_path: Path,
     software_timeout: float,
+    require_checkpoint: bool = True,
 ) -> dict[str, object]:
-    validate_workspace(model_dir, source_metadata_path)
+    validate_workspace(
+        model_dir, source_metadata_path, require_checkpoint=require_checkpoint
+    )
     model_dir = model_dir.resolve()
     artifact_dir = artifact_dir.resolve()
     overlay = verify_artifacts(artifact_dir)
@@ -212,7 +215,7 @@ class VerifiedPackage:
 
     root: Path
     manifest: dict[str, object]
-    descriptor_path: Path
+    descriptor_path: Path | None
     artifact_dir: Path
     reports: tuple[dict[str, object], ...]
     archive_sha256: str
@@ -320,9 +323,14 @@ def verify_package_tree(
         if _digest_or_fail(report, "build report") != record.get("sha256"):
             raise BoardAcceptanceError(f"build report was modified: {record['path']}")
 
-    descriptor_path = root / "acceptance" / "acceptance.json"
-    if not descriptor_path.is_file():
-        raise BoardAcceptanceError("acceptance descriptor is missing")
+    # A package is accepted from an external bundle when it carries one, and
+    # otherwise from its model workspace. It must carry one or the other.
+    bundle = root / "acceptance" / "acceptance.json"
+    descriptor_path = bundle if bundle.is_file() else None
+    if descriptor_path is None and not (root / "model" / "acceptance.json").is_file():
+        raise BoardAcceptanceError(
+            "package carries neither an acceptance bundle nor a model workspace"
+        )
 
     return VerifiedPackage(
         root=root,
@@ -346,6 +354,8 @@ def execute_board_acceptance(
 
     if not isinstance(verified, VerifiedPackage):
         raise TypeError("verified must come from verify_package_tree")
+    if verified.descriptor_path is None:
+        raise BoardAcceptanceError("this package carries no acceptance bundle")
     bundle = load_acceptance_bundle(verified.descriptor_path)
     model = load_model_package(bundle.model_manifest_path)
     runtime = NPUModelRuntime(matrix_runtime, model)
@@ -418,17 +428,33 @@ def _accept_package(arguments: argparse.Namespace) -> int:
             raise BoardAcceptanceError(
                 "package manifest names another release tag"
             )
-        physical = load_pynq_runtime(verified.artifact_dir / "npu_matrix.bit")
-        if not isinstance(physical, NPURuntime):
-            raise BoardAcceptanceError(
-                "physical evidence requires the public NPURuntime"
+        if verified.descriptor_path is None:
+            # The real release: accept the model workspace the package carries.
+            # verify_package_tree has already proved every file digest.
+            commit = str(verified.manifest.get("source_commit", ""))
+            run_board(
+                model_dir=verified.root / "model",
+                source_metadata_path=verified.root / "model-source.json",
+                artifact_dir=verified.artifact_dir,
+                expected_source_commit=commit,
+                deployed_source_commit=commit,
+                allow_source_mismatch=False,
+                evidence_path=arguments.evidence,
+                software_timeout=arguments.software_timeout,
+                require_checkpoint=False,
             )
-        execute_board_acceptance(
-            verified,
-            physical,
-            evidence_path=arguments.evidence,
-            software_timeout=arguments.software_timeout,
-        )
+        else:
+            physical = load_pynq_runtime(verified.artifact_dir / "npu_matrix.bit")
+            if not isinstance(physical, NPURuntime):
+                raise BoardAcceptanceError(
+                    "physical evidence requires the public NPURuntime"
+                )
+            execute_board_acceptance(
+                verified,
+                physical,
+                evidence_path=arguments.evidence,
+                software_timeout=arguments.software_timeout,
+            )
     except Exception as error:
         print(f"standalone package acceptance failed: {error}", file=sys.stderr)
         return 1

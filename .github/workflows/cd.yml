@@ -93,19 +93,94 @@ jobs:
       - name: Run host model and example suites
         run: make -C src/test model PYTHON=python3
 
+  # Everything the privileged jobs need is checked here, in about a minute,
+  # before Vivado spends hours on a build that would fail at packaging.
+  preflight-vivado:
+    needs: validate-source
+    runs-on: [self-hosted, vivado]
+    timeout-minutes: 10
+    env:
+      # The model workspace is not tracked, and checkout deletes untracked files,
+      # so it lives outside the checkout. Override with a repository variable.
+      RESNET18_MODEL_DIR: ${{ vars.RESNET18_MODEL_DIR || 'C:\npu-assets\resnet18\model' }}
+    steps:
+      - name: Check out the validated release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-source.outputs.release_commit }}
+
+      # Windows PowerShell is always present; pwsh may not be, and it is the
+      # first thing to check.
+      - name: Check tools and the model workspace
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $problems = @()
+          foreach ($tool in 'pwsh', 'python', 'vivado', 'git', 'tar') {
+            $found = Get-Command $tool -ErrorAction SilentlyContinue
+            if ($found) { Write-Host "ok    $tool -> $($found.Source)" }
+            else { $problems += "$tool is not on this runner's PATH" }
+          }
+          $model = $env:RESNET18_MODEL_DIR
+          if (-not (Test-Path -LiteralPath $model -PathType Container)) {
+            $problems += "model workspace not found at $model"
+          }
+          else {
+            foreach ($name in 'resnet18.demo.json', 'resnet18.demo.npy', 'imagenet-classes.txt') {
+              if (-not (Test-Path -LiteralPath (Join-Path $model $name))) {
+                $problems += "model workspace lacks $name (run the runbook's step 5)"
+              }
+            }
+            if (Get-Command python -ErrorAction SilentlyContinue) {
+              python examples/resnet18/package_example.py --check-only --model-dir $model
+              if ($LASTEXITCODE -ne 0) { $problems += 'model workspace failed validation' }
+            }
+          }
+          if ($problems) {
+            $problems | ForEach-Object { Write-Host "::error::$_" }
+            throw "$($problems.Count) preflight problem(s); nothing expensive was started"
+          }
+          Write-Host 'PASS: Vivado runner is ready'
+
+  preflight-board:
+    needs: validate-source
+    runs-on: [self-hosted, pynq-z1]
+    timeout-minutes: 5
+    steps:
+      - name: Check that the PYNQ-Z1 answers over SSH
+        shell: powershell
+        env:
+          PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
+          PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { '192.168.2.99' }
+          $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
+          foreach ($tool in 'ssh', 'scp') {
+            if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
+              throw "$tool is not on this runner's PATH"
+            }
+          }
+          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new `
+            "$userName@$hostName" 'test -r /etc/profile.d/pynq_venv.sh && echo reachable'
+          if ($LASTEXITCODE -ne 0) {
+            throw "cannot reach $userName@$hostName without a password prompt"
+          }
+          Write-Host 'PASS: board is reachable'
+
   build-overlay:
-    needs: [validate-source, host-checks]
+    needs: [validate-source, host-checks, preflight-vivado, preflight-board]
     runs-on: [self-hosted, vivado]
     timeout-minutes: 180
     env:
-      RESNET18_MODEL_DIR: examples/resnet18/model
-      RESNET18_ACCEPTANCE_DIR: examples/resnet18/acceptance
+      RESNET18_MODEL_DIR: ${{ vars.RESNET18_MODEL_DIR || 'C:\npu-assets\resnet18\model' }}
     steps:
-      - name: Check out the validated release tag
+      # CD never creates a tag, so the release commit is the only exact ref.
+      - name: Check out the validated release commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.validate-source.outputs.release_tag }}
+          ref: ${{ needs.validate-source.outputs.release_commit }}
 
       - name: Build routed overlay and bitstream
         shell: pwsh
@@ -164,7 +239,6 @@ jobs:
             --repository-root . `
             --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
             --report-dir build/vivado/npu_matrix_8x8/reports `
-            --descriptor "$env:RESNET18_ACCEPTANCE_DIR/acceptance.json" `
             --model-dir $env:RESNET18_MODEL_DIR `
             --output-archive "build/cd/npu-resnet18-$tag.zip" `
             --release-tag $tag `
@@ -221,7 +295,7 @@ jobs:
       - name: Check out deployment wrappers
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.validate-source.outputs.release_tag }}
+          ref: ${{ needs.validate-source.outputs.release_commit }}
 
       - name: Download standalone deployment packages
         uses: actions/download-artifact@v4
