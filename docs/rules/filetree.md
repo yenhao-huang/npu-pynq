@@ -23,6 +23,11 @@ npu_repo_in_pynq/
 |   `-- skills/
 |       |-- dev/                 shared development workflows
 |       |-- deploy/              installation and deployment workflows
+|       |   `-- <skill>/
+|       |       |-- SKILL.md
+|       |       `-- references/
+|       |           |-- rules/       environment and state rules
+|       |           `-- scripts/     *.ps1 helpers the skill runs
 |       `-- custom/
 |           `-- ic_design/       repository-specific FPGA/NPU workflows
 |-- src/

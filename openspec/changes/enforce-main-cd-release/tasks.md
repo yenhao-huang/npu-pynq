@@ -22,6 +22,7 @@
 ## 4. Documentation
 
 - [x] 4.1 Update `docs/rules/ci-cd.md` and `AGENTS.md` for release-branch CD, the four release states, approval boundaries, and failure recovery, and add the `release-npu-pynq` skill.
+- [x] 4.4 Give the release skill the runner step: start this host's `actions.runner.*` services, confirm the `vivado` and `pynq-z1` labels are online, and refuse to push a release branch before they are.
 - [x] 4.2 Document the three-step Quick Start, prerequisites, and known limitations in the package, the example README, and the root README.
 - [x] 4.3 Record the release contents and boundaries in `changelog/v0.1.5.md`.
 

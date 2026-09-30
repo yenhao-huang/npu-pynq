@@ -70,6 +70,11 @@ Rules:
   blocked and must be reported as not run. Pushing a release branch does not make
   a missing trusted runner or physical board pass implicitly, and without them no
   draft is produced at all.
+- Bring the runners online before pushing a release branch. A job whose labels no
+  online runner offers stays queued for about a day and then expires. The
+  `release-npu-pynq` skill under `.codex/skills/deploy/` starts this host's
+  runner services and confirms their labels; registering a runner is a person's
+  one-time setup.
 
 ## The four states of a release
 

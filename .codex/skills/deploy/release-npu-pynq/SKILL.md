@@ -1,6 +1,6 @@
 ---
 name: release-npu-pynq
-description: Take a validated `dev` to a published GitHub Release for this repository. Use when the user asks to cut, prepare, run, or publish a release, to promote `dev` to `main`, to start CD, or asks what state a release is in. Covers the release branch, the CD validation run, the draft Release, the promotion pull request, and the publish step.
+description: Take a validated `dev` to a published GitHub Release for this repository. Use when the user asks to cut, prepare, run, or publish a release, to promote `dev` to `main`, to start CD, to bring the self-hosted runners online, or asks what state a release is in or why a CD job is queued. Covers the runners, the release branch, the CD validation run, the draft Release, the promotion pull request, and the publish step.
 ---
 
 # Release npu-pynq
@@ -9,8 +9,8 @@ One release moves through four states. Each one is visible in the repository, so
 you can always answer "where is this release" by looking, not by remembering.
 
 ```text
-dev  ──▶  release/vX.Y.Z  ──▶  draft Release  ──▶  main  ──▶  published Release
-          (branch)            (cd.yml)          (PR)      (release-publish.yml)
+runners online  ──▶  release/vX.Y.Z  ──▶  draft Release  ──▶  main  ──▶  published
+   (step 2)           (branch)            (cd.yml)          (PR)    (release-publish.yml)
 ```
 
 Nothing is tagged until the last step, and the tag names a commit that is both
@@ -27,6 +27,8 @@ validated by hardware and merged into `main`.
 - A tag is never moved or deleted. A corrected release is a new version.
 - Never publish a Release by hand, and never clear a draft by hand. The publish
   workflow is what checks that the draft was validated and merged.
+- Bring the runners online before pushing a release branch. That is this skill's
+  job, not something to hand back to the user.
 
 ## 1. Decide the version
 
@@ -41,7 +43,45 @@ If the version needs to change, rename the changelog file; nothing else selects
 the version. Default to the next patch unless the release decision says
 otherwise.
 
-## 2. Cut the release branch
+## 2. Bring the runners online
+
+Do this yourself, before pushing. Two CD jobs need this host's runners, and a
+release branch pushed without them leaves a job queued for a day:
+
+| Job | Labels |
+| --- | --- |
+| `build-overlay` | `self-hosted`, `vivado` |
+| `board-validation` | `self-hosted`, `pynq-z1` |
+
+Read `references/rules/env.md`, then:
+
+```powershell
+& .codex/skills/deploy/release-npu-pynq/references/scripts/start_cd_runners.ps1 -WhatIf
+& .codex/skills/deploy/release-npu-pynq/references/scripts/start_cd_runners.ps1
+```
+
+The script starts every `actions.runner.*` service on this host and waits for
+the repository to report them online with both labels. It starts services only;
+registering a runner is a person's one-time setup, described in
+`references/runners.md`.
+
+Stop and report if the script exits non-zero:
+
+- No service exists — no runner is installed on this host, or it is configured
+  to run interactively and needs a person to launch its `run.cmd`.
+- Runners never report online — the service is running but cannot reach GitHub.
+- A label is missing — a runner exists but does not offer `vivado` or `pynq-z1`.
+
+Do not push the release branch until the runners are online. Pushing is what
+starts the multi-hour privileged run, and a queued run wastes a day before
+anyone notices.
+
+Also confirm the two environments exist, because a job naming a missing
+environment fails immediately: `pynq-z1-production` for the board job, and
+`pynq-z1-release` with required reviewers for publishing. They are repository
+settings and a person creates them.
+
+## 3. Cut the release branch
 
 ```bash
 git fetch origin dev
@@ -53,7 +93,7 @@ The push starts `cd.yml`. Because a push event uses the workflow file from the
 branch it ran on, this validates the workflow itself as well as the release;
 `main` does not have to be touched first.
 
-## 3. Watch the CD run
+## 4. Watch the CD run
 
 Its jobs, in order: `validate-source`, `host-checks`, `build-overlay` (Vivado,
 self-hosted), `board-validation` (physical PYNQ-Z1), `publish-draft`.
@@ -67,18 +107,28 @@ A passing run leaves a **draft Release** holding the ResNet-18 package, the
 matrix package, the overlay artifacts, the checksums and the board evidence. A
 draft has no tag and is not public.
 
-Read `docs/rules/ci-cd.md` before diagnosing a failure. Common causes:
+A job that sits at `queued` with `runner=-` has no runner offering its labels,
+whatever the log says above that line: `Evaluating: success() / Result: true`
+means only that the job is eligible to run. A started job prints `Runner name:`.
+Go back to step 2, then rerun:
 
-- `build-overlay` queued forever — no `[self-hosted, vivado]` runner is online.
+```bash
+gh run rerun <run-id> --failed
+```
+
+Read `docs/rules/ci-cd.md` before diagnosing anything else. Common causes:
+
 - Packaging names a missing file — the untracked ResNet-18 model workspace or
   acceptance bundle is absent from the Vivado runner.
+- `board-validation` fails immediately — the `pynq-z1-production` environment
+  does not exist.
 - `validate-source` rejects the branch — the branch name and the declared
   version disagree.
 
 Fix on `dev`, then rebuild the release branch from the new `dev` and push again.
 The run recreates the draft, so a retry is safe.
 
-## 4. Prepare the promotion pull request
+## 5. Prepare the promotion pull request
 
 Only after the CD run is green. Base `main`, head `release/vX.Y.Z`. The body
 states the integrated `dev` commit, the issues and pull requests in the upload,
@@ -90,7 +140,7 @@ issue and pull request, following `docs/rules/git/changelog.md`.
 
 Stop here and hand the pull request to a person.
 
-## 5. Publish
+## 6. Publish
 
 After the pull request is merged with a merge commit:
 

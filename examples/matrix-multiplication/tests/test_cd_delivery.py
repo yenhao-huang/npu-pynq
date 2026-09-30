@@ -14,6 +14,9 @@ import numpy as np
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE_ROOT = REPOSITORY_ROOT / "examples" / "matrix-multiplication"
+SKILL_ROOT = (
+    REPOSITORY_ROOT / ".codex" / "skills" / "deploy" / "release-npu-pynq"
+)
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 if str(EXAMPLE_ROOT) not in sys.path:
@@ -448,14 +451,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
                 self.assertIn(marker, ci)
 
     def test_the_release_skill_documents_the_whole_path(self) -> None:
-        skill = (
-            REPOSITORY_ROOT
-            / ".codex"
-            / "skills"
-            / "deploy"
-            / "release-npu-pynq"
-            / "SKILL.md"
-        )
+        skill = SKILL_ROOT / "SKILL.md"
         self.assertTrue(skill.is_file(), "the release skill is required")
         body = skill.read_text(encoding="utf-8")
         for marker in (
@@ -467,6 +463,34 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, body)
+
+    def test_the_release_skill_starts_the_runners_itself(self) -> None:
+        body = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        # Bringing the runners online is the skill's job, and it must happen
+        # before the push that starts the privileged run.
+        self.assertIn("start_cd_runners.ps1", body)
+        runners = body.index("Bring the runners online")
+        branch = body.index("Cut the release branch")
+        self.assertLess(runners, branch, "runners come online before the push")
+        for marker in ("vivado", "pynq-z1", "queued"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, body)
+
+        script = SKILL_ROOT / "references" / "scripts" / "start_cd_runners.ps1"
+        self.assertTrue(script.is_file(), "the runner start script is required")
+        source = script.read_text(encoding="utf-8")
+        # Discover services; a hardcoded runner name would not survive a rename.
+        self.assertIn("actions.runner.*", source)
+        self.assertIn("Start-Service", source)
+        self.assertIn("SupportsShouldProcess", source)
+        # Starting a service is the whole remit: no registration, no tokens.
+        for forbidden in ("config.cmd", "--token", "svc.cmd install", "Remove-Service"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, source)
+
+        for reference in ("references/rules/env.md", "references/runners.md"):
+            with self.subTest(reference=reference):
+                self.assertTrue((SKILL_ROOT / reference).is_file(), reference)
 
 
 if __name__ == "__main__":
