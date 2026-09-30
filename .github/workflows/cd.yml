@@ -242,7 +242,7 @@ jobs:
             'test -r /etc/profile.d/xrt_setup.sh || { echo "missing /etc/profile.d/xrt_setup.sh"; exit 1; }'
             'test -r /etc/profile.d/pynq_venv.sh || { echo "missing /etc/profile.d/pynq_venv.sh"; exit 1; }'
             'test -x /usr/local/share/pynq-venv/bin/python3 || { echo "missing the PYNQ venv python3"; exit 1; }'
-            'sudo -n true 2>/dev/null || { echo "sudo needs a password for $(id -un); board steps run sudo -n"; exit 1; }'
+            'for c in /usr/local/share/pynq-venv/bin/python3 chmod; do sudo -n -l "$c" >/dev/null 2>&1 || { echo "$(id -un) cannot run sudo -n $c without a password; add /etc/sudoers.d/npu-pynq-cd (see release skill references/runners.md)"; exit 1; }; done'
             'python3 -c "import zipfile" || { echo "python3 cannot import zipfile"; exit 1; }'
             'avail=$(df -Pk "$HOME" | awk ''NR==2 {print $4}''); test "$avail" -gt 1048576 || { echo "less than 1 GiB free in $HOME"; exit 1; }'
             'echo board-ready'

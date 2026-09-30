@@ -184,6 +184,26 @@ That is a person's setup task, not something this skill does.
 | `config.cmd remove` asks for a token | That is the removal token, from the runner's Remove button; not needed for a stale one |
 | Service start: error 1053 | The runner lives under `C:\Windows`; move it |
 | Checkout: "A branch or tag with the name 'vX.Y.Z' could not be found" | The workflow asked for a tag; CD never creates one (fixed: it checks out the commit) |
+| preflight-board: "xilinx cannot run sudo -n ... without a password" | The board is missing the CD sudo rule below; board steps never type a password |
+
+## Board: passwordless sudo for the CD commands
+
+Board steps load the overlay as root with `sudo -n` (non-interactive), so the
+`xilinx` account must be allowed to run exactly those commands without a
+password. Once per board, a person runs this **on the board** (it asks for the
+`xilinx` sudo password once):
+
+```bash
+sudo tee /etc/sudoers.d/npu-pynq-cd >/dev/null <<'EOF'
+xilinx ALL=(root) NOPASSWD:SETENV: /usr/local/share/pynq-venv/bin/python3, /usr/bin/chmod, /bin/chmod
+EOF
+sudo chmod 0440 /etc/sudoers.d/npu-pynq-cd
+sudo visudo -c
+```
+
+`SETENV` is needed because the steps pass `XILINX_XRT=/usr` through sudo.
+`preflight-board` checks both commands with `sudo -n -l`, so a missing rule
+fails there in seconds instead of after the Vivado build.
 
 ## When no runner exists yet
 

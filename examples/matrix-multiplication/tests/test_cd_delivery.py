@@ -371,7 +371,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         # An ssh alias that exists on one runner host only must not be the default.
         self.assertNotIn("'pynq_board'", self.cd)
         preflight = yaml.safe_dump(jobs["preflight-board"])
-        self.assertIn("sudo -n true", preflight)
+        self.assertIn("sudo -n -l", preflight)
         board_runs = [
             step.get("run", "")
             for step in jobs["board-validation"]["steps"]
