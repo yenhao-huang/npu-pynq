@@ -49,10 +49,48 @@ Pass `-WhatIf` first to see which services it would start. The script starts
 services only; it never registers, reconfigures, or removes a runner, and it
 never handles a registration token.
 
-A runner configured to run interactively rather than as a service has no
-service entry. The script reports that and names the `run.cmd` it found, which a
-person launches in its own window; it stays online only while that window is
-open.
+## Interactive runners
+
+A runner configured with `run.cmd` rather than as a service has no service
+entry. `Get-Service -Name 'actions.runner.*'` returns nothing, which looks the
+same as no runner at all. Find it:
+
+```powershell
+Get-ChildItem -Path C:\, $HOME -Filter run.cmd -Recurse -Depth 4 `
+    -ErrorAction SilentlyContinue |
+  Where-Object { $_.DirectoryName -match 'actions-runner' } |
+  Select-Object -ExpandProperty FullName
+```
+
+Then start it in its own window:
+
+```powershell
+cd <the folder printed above>
+.\run.cmd
+```
+
+It prints `Listening for Jobs` and stays online only while that window is open.
+`start_cd_runners.ps1` does this discovery and launch for you.
+
+### Prefer a service
+
+An interactive runner has to be started by hand after every reboot, and a closed
+window silently takes CD offline. Convert it once:
+
+```powershell
+cd <runner folder>
+.\svc.cmd install
+.\svc.cmd start
+```
+
+### A runner under System32 should be relocated
+
+`C:\Windows\System32\actions-runner` works, but the runner writes its
+`_work/` tree beside itself, and a Vivado build puts gigabytes of output there —
+inside a protected system directory that needs elevation for ordinary file
+operations. Move it to something like `C:\actions-runner`: remove the old
+registration (`.\config.cmd remove`), then register again from the new folder.
+That is a person's setup task, not something this skill does.
 
 ## When no runner exists yet
 

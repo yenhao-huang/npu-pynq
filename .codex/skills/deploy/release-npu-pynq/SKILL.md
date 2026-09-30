@@ -65,12 +65,18 @@ the repository to report them online with both labels. It starts services only;
 registering a runner is a person's one-time setup, described in
 `references/runners.md`.
 
+The script handles both shapes a runner can take: it starts the
+`actions.runner.*` services, and when there are none it finds the runner's
+`run.cmd` and launches it in its own window. An interactive runner is online
+only while that window stays open.
+
 Stop and report if the script exits non-zero:
 
-- No service exists — no runner is installed on this host, or it is configured
-  to run interactively and needs a person to launch its `run.cmd`.
-- Runners never report online — the service is running but cannot reach GitHub.
+- Nothing found — no runner is installed on this host. `references/runners.md`
+  has the one-time registration.
+- Runners never report online — the runner started but cannot reach GitHub.
 - A label is missing — a runner exists but does not offer `vivado` or `pynq-z1`.
+  Add it on the repository's Runners page; re-registration is not needed.
 
 Do not push the release branch until the runners are online. Pushing is what
 starts the multi-hour privileged run, and a queued run wastes a day before

@@ -483,6 +483,9 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertIn("actions.runner.*", source)
         self.assertIn("Start-Service", source)
         self.assertIn("SupportsShouldProcess", source)
+        # A runner may be a service or an interactive run.cmd; handle both.
+        self.assertIn("run.cmd", source)
+        self.assertIn("Start-Process", source)
         # Starting a service is the whole remit: no registration, no tokens.
         for forbidden in ("config.cmd", "--token", "svc.cmd install", "Remove-Service"):
             with self.subTest(forbidden=forbidden):

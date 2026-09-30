@@ -91,34 +91,54 @@ function Test-LabelsOnline {
 Write-Host 'Runner state before starting:'
 Show-RunnerState -Runners (Get-RunnerState)
 
-$services = Get-RunnerServices
-if (-not $services) {
-    Write-Warning 'No actions.runner.* service exists on this host.'
-    $interactive = Get-ChildItem -Path $HOME, 'C:\' -Filter 'run.cmd' -Depth 3 `
+function Find-InteractiveRunner {
+    <#
+    Returns run.cmd paths for runners configured to run interactively rather
+    than as a service. Such a runner is online only while its window is open.
+    #>
+    $roots = @($HOME, 'C:\', 'C:\Windows\System32') | Select-Object -Unique
+    Get-ChildItem -Path $roots -Filter 'run.cmd' -Recurse -Depth 4 `
         -ErrorAction SilentlyContinue |
         Where-Object { $_.DirectoryName -match 'actions-runner' } |
-        Select-Object -First 3
-    if ($interactive) {
-        Write-Host 'Found an interactively configured runner. Launch it in its own window:'
-        foreach ($entry in $interactive) {
-            Write-Host "  $($entry.FullName)"
-        }
-        Write-Host 'It stays online only while that window is open.'
-    }
-    else {
-        Write-Host 'No runner is installed here. references/runners.md has the one-time setup.'
-    }
-    exit 1
+        Select-Object -ExpandProperty FullName -Unique
 }
 
-foreach ($service in $services) {
-    if ($service.Status -eq 'Running') {
-        Write-Host "Already running: $($service.Name)"
-        continue
+$services = Get-RunnerServices
+if (-not $services) {
+    Write-Host 'No actions.runner.* service on this host; looking for an interactive runner.'
+    $interactive = @(Find-InteractiveRunner)
+    if (-not $interactive) {
+        Write-Warning 'No runner is installed here. references/runners.md has the one-time setup.'
+        exit 1
     }
-    if ($PSCmdlet.ShouldProcess($service.Name, 'Start runner service')) {
-        Start-Service -Name $service.Name
-        Write-Host "Started: $($service.Name)"
+    foreach ($entry in $interactive) {
+        if ($entry -like 'C:\Windows\System32\*') {
+            Write-Warning "Runner lives under System32: $entry"
+            Write-Warning 'Its _work directory will hold gigabytes of Vivado output inside a protected system folder. Relocate it after this release; references/runners.md explains.'
+        }
+        if ($PSCmdlet.ShouldProcess($entry, 'Launch interactive runner')) {
+            # Its own window, so the runner survives this script exiting.
+            Start-Process -FilePath $entry `
+                -WorkingDirectory (Split-Path -Parent $entry)
+            Write-Host "Launched: $entry"
+            Write-Host 'It stays online only while that window is open.'
+        }
+    }
+    if ($WhatIfPreference) {
+        Write-Host 'WhatIf: nothing was launched.'
+        exit 0
+    }
+}
+else {
+    foreach ($service in $services) {
+        if ($service.Status -eq 'Running') {
+            Write-Host "Already running: $($service.Name)"
+            continue
+        }
+        if ($PSCmdlet.ShouldProcess($service.Name, 'Start runner service')) {
+            Start-Service -Name $service.Name
+            Write-Host "Started: $($service.Name)"
+        }
     }
 }
 
