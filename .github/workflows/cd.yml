@@ -112,27 +112,56 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Every model step runs through `step`, which turns a failure's last lines
+      # into a workflow annotation. Annotations are readable through the API
+      # even where raw job logs are not, so the cause is visible without them.
+      - name: Define the step runner
+        run: |
+          cat > "$RUNNER_TEMP/step.sh" <<'SH'
+          step() {
+            local label="$1"; shift
+            local log; log="$(mktemp)"
+            local code=0
+            "$@" >"$log" 2>&1 || code=$?
+            cat "$log"
+            if [ "$code" -ne 0 ]; then
+              local tail
+              tail="$(tail -n 12 "$log" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk '{printf "%s%%0A", $0}')"
+              echo "::error title=build-model: ${label}::${tail}"
+            fi
+            return "$code"
+          }
+          SH
+
       - name: Install the pinned conversion environment
         run: |
-          python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+          . "$RUNNER_TEMP/step.sh"
+          step "install" python -m pip install \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
             -r examples/resnet18/requirements-convert.txt
 
       - name: Download the pinned checkpoint and calibration images
         run: |
-          python examples/resnet18/scripts/download_model.py
-          python examples/resnet18/scripts/download_calibration.py
+          . "$RUNNER_TEMP/step.sh"
+          step "download_model" python examples/resnet18/scripts/download_model.py
+          step "download_calibration" python examples/resnet18/scripts/download_calibration.py
 
       - name: Convert to the NPU package
-        run: python examples/resnet18/scripts/convert_model.py
+        run: |
+          . "$RUNNER_TEMP/step.sh"
+          step "convert_model" python examples/resnet18/scripts/convert_model.py
 
       - name: Validate against the independent integer reference
-        run: python examples/resnet18/scripts/verify_model.py --software-timeout 7200
+        run: |
+          . "$RUNNER_TEMP/step.sh"
+          step "verify_model" python examples/resnet18/scripts/verify_model.py --software-timeout 7200
 
       - name: Prepare the demo input and the bundled gallery
         run: |
-          python examples/resnet18/scripts/download_demo_assets.py
-          python examples/resnet18/scripts/prepare_demo_image.py --software-timeout 7200
-          python examples/resnet18/scripts/download_gallery.py
+          . "$RUNNER_TEMP/step.sh"
+          step "download_demo_assets" python examples/resnet18/scripts/download_demo_assets.py
+          step "prepare_demo_image" python examples/resnet18/scripts/prepare_demo_image.py --software-timeout 7200
+          step "download_gallery" python examples/resnet18/scripts/download_gallery.py
 
       # The board refuses a demo it classifies wrongly, but only after hours of
       # Vivado and an hour of inference. The host record already knows.

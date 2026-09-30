@@ -17,6 +17,8 @@ from pathlib import Path
 import re
 import sys
 import tempfile
+import time
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
@@ -26,7 +28,15 @@ METADATA_FIELDS = {"approved_host", "format", "images", "magic"}
 IMAGE_FIELDS = {"bytes", "expected_class", "filename", "license", "sha256", "url"}
 LICENSE_FIELDS = {"attribution", "notes", "source_page", "spdx"}
 MAGIC = "NPU_RESNET18_GALLERY_SOURCE"
-USER_AGENT = "npu-in-pynq-resnet18-demo/1"
+# Wikimedia requires an informative User-Agent with contact information, and
+# refuses generic ones outright from cloud addresses such as CI runners.
+USER_AGENT = (
+    "npu-in-pynq-resnet18-demo/1 "
+    "(https://github.com/yenhao-huang/npu-pynq; release gallery fetch)"
+)
+# Wikimedia rate-limits bursts with 429; a short backoff clears it.
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+ATTEMPTS = 5
 READ_CHUNK = 256 * 1024
 
 
@@ -148,6 +158,32 @@ def load_gallery_metadata(path: str | Path) -> tuple[GalleryImage, ...]:
     return tuple(images)
 
 
+def _open_with_retry(request: Request, *, sleep=time.sleep):
+    """Open a pinned URL, backing off on rate limits and transient failures."""
+
+    delay = 2.0
+    for attempt in range(1, ATTEMPTS + 1):
+        try:
+            return urlopen(request, timeout=120)  # noqa: S310 - host is pinned
+        except HTTPError as error:
+            if error.code not in RETRY_STATUSES or attempt == ATTEMPTS:
+                raise GalleryAssetError(
+                    f"{request.full_url} answered HTTP {error.code} {error.reason}"
+                ) from error
+            retry_after = error.headers.get("Retry-After") if error.headers else None
+            wait = float(retry_after) if retry_after and retry_after.isdigit() else delay
+        except URLError as error:
+            if attempt == ATTEMPTS:
+                raise GalleryAssetError(
+                    f"{request.full_url} is unreachable: {error.reason}"
+                ) from error
+            wait = delay
+        print(f"INFO: retrying {request.full_url} in {wait:.0f}s (attempt {attempt})")
+        sleep(min(wait, 60.0))
+        delay *= 2
+    raise AssertionError("unreachable")
+
+
 def _download_one(image: GalleryImage, destination: Path) -> None:
     digest = hashlib.sha256()
     received = 0
@@ -157,7 +193,7 @@ def _download_one(image: GalleryImage, destination: Path) -> None:
         temporary = Path(stream.name)
         try:
             request = Request(image.url, headers={"User-Agent": USER_AGENT})
-            with urlopen(request, timeout=120) as response:  # noqa: S310 - host is pinned
+            with _open_with_retry(request) as response:
                 _validated_url(response.geturl(), image.approved_host)
                 while True:
                     chunk = response.read(READ_CHUNK)
