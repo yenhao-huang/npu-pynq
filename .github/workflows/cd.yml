@@ -494,11 +494,23 @@ jobs:
           name: npu-packages-${{ needs.validate-source.outputs.release_tag }}
           path: build/release
 
+      # Uploaded from build/vivado/npu_matrix_8x8/{artifacts,reports}, so the
+      # artifact keeps those two folders; flatten them beside the packages.
       - name: Download overlay artifacts
         uses: actions/download-artifact@v4
         with:
           name: npu-build-${{ needs.validate-source.outputs.release_tag }}
-          path: build/release
+          path: build/overlay
+
+      - name: Gather the overlay files beside the packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/overlay/artifacts/npu_matrix.bit \
+             build/overlay/artifacts/npu_matrix.hwh \
+             build/overlay/artifacts/npu_matrix.manifest.json \
+             build/overlay/reports/build_evidence.txt \
+             build/release/
 
       - name: Download board acceptance evidence
         uses: actions/download-artifact@v4

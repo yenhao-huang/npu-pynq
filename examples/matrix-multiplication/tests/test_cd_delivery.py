@@ -509,6 +509,25 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             with self.subTest(package=package):
                 self.assertIn(package, requirements)
 
+    def test_publish_finds_overlay_files_the_upload_nested(self) -> None:
+        # upload-artifact roots the overlay artifact at npu_matrix_8x8/, so it
+        # keeps artifacts/ and reports/ folders the draft must flatten.
+        import yaml
+
+        steps = yaml.safe_load(self.cd)["jobs"]["publish-draft"]["steps"]
+        run = "\n".join(str(step.get("run", "")) for step in steps)
+        self.assertIn("build/overlay/artifacts/npu_matrix.bit", run)
+        self.assertIn("build/overlay/reports/build_evidence.txt", run)
+
+    def test_board_commands_need_nothing_the_pynq_image_may_lack(self) -> None:
+        for name in ("resnet18_deploy_and_accept.ps1", "resnet18_accept_image.ps1"):
+            script = (REPOSITORY_ROOT / ".github" / "cd" / name).read_text(encoding="utf-8")
+            with self.subTest(script=name):
+                self.assertNotIn("unzip ", script)
+                self.assertIn("python3 -B ", script)
+        deploy = (REPOSITORY_ROOT / ".github" / "cd" / "resnet18_deploy_and_accept.ps1").read_text(encoding="utf-8")
+        self.assertIn("python3 -m zipfile -e", deploy)
+
     def test_pre_merge_gate_protects_main(self) -> None:
         ci = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"

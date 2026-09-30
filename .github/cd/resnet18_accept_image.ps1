@@ -79,7 +79,7 @@ $remoteCommand = @(
     "test -r /etc/profile.d/pynq_venv.sh",
     "source /etc/profile.d/pynq_venv.sh",
     "test -x /usr/local/share/pynq-venv/bin/python3",
-    "sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 accept_image_on_board.py --package-root . --evidence image-acceptance.json",
+    "sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -B accept_image_on_board.py --package-root . --evidence image-acceptance.json",
     "sudo -n chmod 0644 image-acceptance.json"
 ) -join '; '
 Invoke-CheckedCommand -Command 'ssh' -Arguments @($target, $remoteCommand)

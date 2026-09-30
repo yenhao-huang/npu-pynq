@@ -400,7 +400,7 @@ def evaluate_vivado_gates(evidence: dict[str, str], source_commit: str) -> dict:
         raise ResNet18PackageError(
             f"vivado gates reject this build: {setup_failing_paths} failing setup paths"
         )
-    if wns <= 0.0:
+    if wns < 0.0:
         raise ResNet18PackageError(
             f"vivado gates reject this build: worst negative slack is {wns}"
         )

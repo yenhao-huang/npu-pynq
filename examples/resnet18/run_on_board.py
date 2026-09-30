@@ -238,10 +238,12 @@ def _package_json(path: Path, label: str) -> dict[str, object]:
 
 
 def _relative_entries(root: Path) -> set[str]:
+    # Importing this very module writes __pycache__ beside the package sources
+    # before any check can run, so bytecode caches are not package content.
     return {
         path.relative_to(root).as_posix()
         for path in root.rglob("*")
-        if path.is_file()
+        if path.is_file() and "__pycache__" not in path.relative_to(root).parts
     }
 
 

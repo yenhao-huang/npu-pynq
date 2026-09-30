@@ -505,3 +505,54 @@ class ReleasePackageFromModelWorkspaceTests(ModelPackageTests):
         ):
             self._release(model_dir=None, source_metadata_path=None)
         self.assertFalse((self.root / "release.zip").exists())
+
+
+class BoardRuntimeToleranceTests(ReleasePackageFromModelWorkspaceTests):
+    """What the board itself adds to a deployed package must not fail it."""
+
+    def test_bytecode_caches_are_not_tampering(self):
+        # Importing run_on_board.py writes __pycache__ before the tree check.
+        _manifest, archive = self._release()
+        deployed = self.root / "deployed"
+        with zipfile.ZipFile(archive) as stream:
+            stream.extractall(deployed)
+        for folder in (deployed / "__pycache__", deployed / "src" / "runtime" / "__pycache__"):
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / "module.cpython-311.pyc").write_bytes(b"bytecode")
+        verified = self.board.verify_package_tree(
+            deployed,
+            archive_path=archive,
+            expected_archive_sha256=self._path_digest(archive),
+        )
+        self.assertIsNone(verified.descriptor_path)
+
+        (deployed / "injected.py").write_text("pass\n", encoding="utf-8")
+        with self.assertRaisesRegex(self.board.BoardAcceptanceError, "unexpected"):
+            self.board.verify_package_tree(
+                deployed,
+                archive_path=archive,
+                expected_archive_sha256=self._path_digest(archive),
+            )
+
+
+class VivadoGateTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.packager = load_module(
+            "resnet18_package_gates", EXAMPLE_ROOT / "package_example.py"
+        )
+
+    def _gates(self, wns: str):
+        evidence = {
+            "bit": "b", "drc_errors": "0", "hwh": "h", "part": "xc7z020clg400-1",
+            "setup_failing_paths": "0", "source_commit": "a" * 40,
+            "vivado": "2026.1", "wns": wns,
+        }
+        return self.packager.evaluate_vivado_gates(evidence, "a" * 40)
+
+    def test_zero_slack_passes_as_it_does_in_the_vivado_build(self):
+        self.assertEqual(self._gates("0.000")["wns"], 0.0)
+
+    def test_negative_slack_fails(self):
+        with self.assertRaisesRegex(self.packager.ResNet18PackageError, "slack"):
+            self._gates("-0.001")

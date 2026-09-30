@@ -100,14 +100,14 @@ Invoke-CheckedCommand -Command 'scp' -Arguments @(
 $remoteCommand = @(
     "set -eu",
     "cd '$remoteStaging'",
-    "unzip -q -o '$archiveName' -d package",
+    "python3 -m zipfile -e '$archiveName' package",
     "test -r /etc/profile.d/xrt_setup.sh",
     "source /etc/profile.d/xrt_setup.sh",
     "test -r /etc/profile.d/pynq_venv.sh",
     "source /etc/profile.d/pynq_venv.sh",
     "test -x /usr/local/share/pynq-venv/bin/python3",
     "cd package",
-    "sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 run_on_board.py --package-root . --package-archive '../$archiveName' --archive-sha256 '$archiveDigest' --release-tag '$ReleaseTag' --evidence board-evidence.json",
+    "sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -B run_on_board.py --package-root . --package-archive '../$archiveName' --archive-sha256 '$archiveDigest' --release-tag '$ReleaseTag' --evidence board-evidence.json",
     "sudo -n chmod 0644 board-evidence.json"
 ) -join '; '
 Invoke-CheckedCommand -Command 'ssh' -Arguments @($target, $remoteCommand)
