@@ -534,6 +534,16 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, source)
 
+        task_script = SKILL_ROOT / "references" / "scripts" / "register_runner_task.ps1"
+        self.assertTrue(task_script.is_file(), "the logon task setup is required")
+        task_source = task_script.read_text(encoding="utf-8")
+        # Must survive reboots and never time out; must not run beside a service.
+        for marker in ("-AtLogOn", "[TimeSpan]::Zero", "Set-Service", "Disabled"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, task_source)
+        self.assertIn("Start-ScheduledTask", source)
+        self.assertIn("register_runner_task.ps1", body)
+
         for reference in ("references/rules/env.md", "references/runners.md"):
             with self.subTest(reference=reference):
                 self.assertTrue((SKILL_ROOT / reference).is_file(), reference)

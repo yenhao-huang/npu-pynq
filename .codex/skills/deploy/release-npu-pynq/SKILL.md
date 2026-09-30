@@ -65,10 +65,16 @@ the repository to report them online with both labels. It starts services only;
 registering a runner is a person's one-time setup, described in
 `references/runners.md`.
 
-The script handles both shapes a runner can take: it starts the
-`actions.runner.*` services, and when there are none it finds the runner's
-`run.cmd` and launches it in its own window. An interactive runner is online
-only while that window stays open.
+The script handles every shape a runner can take here, in this order: the
+logon scheduled task `GitHub Actions Runner` (how this host is set up), an
+enabled `actions.runner.*` service, or a bare `run.cmd` launched in its own
+window. A bare `run.cmd` is online only while that window stays open.
+
+If no task exists yet, `references/scripts/register_runner_task.ps1` is the
+one-time setup. It is the right choice when the Windows account has no password,
+which rules out a service, and it gives the jobs the user's own PATH, Vivado
+licence and SSH keys. `references/runners.md` explains why, and lists what each
+setup symptom on this host turned out to mean.
 
 Stop and report if the script exits non-zero:
 
@@ -77,6 +83,19 @@ Stop and report if the script exits non-zero:
 - Runners never report online — the runner started but cannot reach GitHub.
 - A label is missing — a runner exists but does not offer `vivado` or `pynq-z1`.
   Add it on the repository's Runners page; re-registration is not needed.
+
+Check the model workspace too. CD reads it from `C:\npu-assets\resnet18\model`,
+or from the `RESNET18_MODEL_DIR` repository variable, because the checkout
+deletes untracked files and the workspace is untracked. It must hold the
+validated conversion (`acceptance.json`, `resnet18.npu.*`,
+`resnet18.validation.npy`), the demo input (`resnet18.demo.*`) and
+`imagenet-classes.txt`, produced by the runbook in `examples/resnet18/README.md`.
+Copy an existing workspace there rather than regenerating it.
+
+The `preflight-vivado` and `preflight-board` jobs check all of this, plus
+`pwsh`, `python`, `vivado` and SSH to the board, before Vivado starts. A missing
+piece fails in about a minute and names itself, instead of after a three-hour
+build.
 
 Do not push the release branch until the runners are online. Pushing is what
 starts the multi-hour privileged run, and a queued run wastes a day before
@@ -101,8 +120,9 @@ branch it ran on, this validates the workflow itself as well as the release;
 
 ## 4. Watch the CD run
 
-Its jobs, in order: `validate-source`, `host-checks`, `build-overlay` (Vivado,
-self-hosted), `board-validation` (physical PYNQ-Z1), `publish-draft`.
+Its jobs, in order: `validate-source`; then `host-checks`, `preflight-vivado`
+and `preflight-board` in parallel; then `build-overlay` (Vivado, self-hosted),
+`board-validation` (physical PYNQ-Z1), and `publish-draft`.
 
 ```bash
 gh run list --workflow cd.yml --branch release/vX.Y.Z

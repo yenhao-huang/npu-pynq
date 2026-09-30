@@ -26,7 +26,10 @@ param(
 
     # Seconds to wait for the runners to report online after starting them.
     [ValidateRange(0, 600)]
-    [int]$TimeoutSeconds = 120
+    [int]$TimeoutSeconds = 120,
+
+    # The logon task register_runner_task.ps1 creates.
+    [string]$TaskName = 'GitHub Actions Runner'
 )
 
 Set-StrictMode -Version Latest
@@ -103,18 +106,39 @@ function Find-InteractiveRunner {
         Select-Object -ExpandProperty FullName -Unique
 }
 
-$services = Get-RunnerServices
-if (-not $services) {
-    Write-Host 'No actions.runner.* service on this host; looking for an interactive runner.'
-    $interactive = @(Find-InteractiveRunner)
+# A runner comes up in one of three ways, in this order of preference:
+# a logon scheduled task (the user's own environment, no password needed),
+# an enabled Windows service, or a bare run.cmd launched in a window.
+$task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+$services = @(Get-RunnerServices | Where-Object { $_.StartType -ne 'Disabled' })
+if ($task) {
+    if ($task.State -eq 'Running') {
+        Write-Host "Already running: scheduled task '$TaskName'"
+    }
+    elseif ($PSCmdlet.ShouldProcess($TaskName, 'Start runner scheduled task')) {
+        Start-ScheduledTask -TaskName $TaskName
+        Write-Host "Started scheduled task: $TaskName"
+    }
+    if ($WhatIfPreference) {
+        Write-Host 'WhatIf: nothing was started.'
+        exit 0
+    }
+}
+elseif (-not $services) {
+    Write-Host 'No runner task or service on this host; looking for an interactive runner.'
+    # Copies of one registration must not run side by side, so launch exactly
+    # one, preferring any copy outside C:\Windows.
+    $interactive = @(Find-InteractiveRunner |
+        Sort-Object { if ($_ -like 'C:\Windows\*') { 1 } else { 0 } } |
+        Select-Object -First 1)
     if (-not $interactive) {
         Write-Warning 'No runner is installed here. references/runners.md has the one-time setup.'
         exit 1
     }
     foreach ($entry in $interactive) {
-        if ($entry -like 'C:\Windows\System32\*') {
-            Write-Warning "Runner lives under System32: $entry"
-            Write-Warning 'Its _work directory will hold gigabytes of Vivado output inside a protected system folder. Relocate it after this release; references/runners.md explains.'
+        if ($entry -like 'C:\Windows\*') {
+            Write-Warning "Runner lives under C:\Windows: $entry"
+            Write-Warning 'As a service it fails with error 1053, and its _work tree fills a protected folder. references/runners.md explains how to move it.'
         }
         if ($PSCmdlet.ShouldProcess($entry, 'Launch interactive runner')) {
             # Its own window, so the runner survives this script exiting.
