@@ -361,6 +361,27 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             "tag-push build workflow must be retired",
         )
 
+    def test_board_steps_share_one_target_and_report_their_failure(self) -> None:
+        import yaml
+
+        cd = yaml.safe_load(self.cd)
+        jobs = cd["jobs"]
+        for name in ("preflight-board", "board-validation"):
+            self.assertIn("PYNQ_BOARD_HOST", jobs[name].get("env", {}), name)
+        # An ssh alias that exists on one runner host only must not be the default.
+        self.assertNotIn("'pynq_board'", self.cd)
+        preflight = yaml.safe_dump(jobs["preflight-board"])
+        self.assertIn("sudo -n true", preflight)
+        board_runs = [
+            step.get("run", "")
+            for step in jobs["board-validation"]["steps"]
+            if ".ps1" in step.get("run", "") and "-Script" in step.get("run", "")
+        ]
+        self.assertEqual(len(board_runs), 3)
+        for run in board_runs:
+            self.assertIn(".github/cd/invoke_reported.ps1", run)
+        self.assertTrue((REPOSITORY_ROOT / ".github" / "cd" / "invoke_reported.ps1").is_file())
+
     def test_the_branch_name_must_match_the_declared_version(self) -> None:
         self.assertIn("resolve_release_version.py --format tag", self.cd)
         self.assertIn("but the changelog declares", self.cd)

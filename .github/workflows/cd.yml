@@ -217,27 +217,42 @@ jobs:
     needs: validate-source
     runs-on: [self-hosted, pynq-z1]
     timeout-minutes: 5
+    # Exactly the host and user every board step uses, so a preflight pass
+    # means the board steps can reach the same board.
+    env:
+      PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
+      PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}
     steps:
-      - name: Check that the PYNQ-Z1 answers over SSH
+      - name: Check the board and everything the board steps run there
         shell: powershell
-        env:
-          PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
-          PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { '192.168.2.99' }
-          $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
-          foreach ($tool in 'ssh', 'scp') {
+          foreach ($tool in 'ssh', 'scp', 'tar') {
             if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
+              Write-Host "::error::$tool is not on this runner's PATH"
               throw "$tool is not on this runner's PATH"
             }
           }
-          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new `
-            "$userName@$hostName" 'test -r /etc/profile.d/pynq_venv.sh && echo reachable'
-          if ($LASTEXITCODE -ne 0) {
-            throw "cannot reach $userName@$hostName without a password prompt"
+          $target = "$env:PYNQ_BOARD_USER@$env:PYNQ_BOARD_HOST"
+          # Each check prints one line; the first failure names itself.
+          $checks = @(
+            'test -r /etc/profile.d/xrt_setup.sh || { echo "missing /etc/profile.d/xrt_setup.sh"; exit 1; }',
+            'test -r /etc/profile.d/pynq_venv.sh || { echo "missing /etc/profile.d/pynq_venv.sh"; exit 1; }',
+            'test -x /usr/local/share/pynq-venv/bin/python3 || { echo "missing the PYNQ venv python3"; exit 1; }',
+            'sudo -n true 2>/dev/null || { echo "sudo needs a password; board steps run sudo -n"; exit 1; }',
+            'python3 -c "import zipfile" || { echo "python3 cannot import zipfile"; exit 1; }',
+            'avail=$(df -Pk "$HOME" | awk "NR==2 {print \$4}"); test "$avail" -gt 1048576 || { echo "less than 1 GiB free in $HOME"; exit 1; }',
+            'echo board-ready'
+          ) -join '; '
+          $output = ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $target $checks 2>&1
+          $code = $LASTEXITCODE
+          $output | ForEach-Object { Write-Host $_ }
+          if ($code -ne 0) {
+            $reason = ($output | Select-Object -Last 3) -join ' / '
+            Write-Host "::error title=preflight-board ($target)::$reason"
+            throw "board preflight failed for $target"
           }
-          Write-Host 'PASS: board is reachable'
+          Write-Host "PASS: $target is reachable and ready"
 
   build-overlay:
     needs: [validate-source, host-checks, build-model, preflight-vivado, preflight-board]
@@ -369,6 +384,9 @@ jobs:
     runs-on: [self-hosted, pynq-z1]
     timeout-minutes: 240
     environment: pynq-z1-production
+    env:
+      PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
+      PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}
     steps:
       - name: Check out deployment wrappers
         uses: actions/checkout@v4
@@ -410,62 +428,58 @@ jobs:
             throw "package extraction failed with exit code $LASTEXITCODE"
           }
 
+      # Each board step runs through invoke_reported.ps1, which turns the
+      # tail of ssh, scp and remote Python output into an annotation.
       - name: Deploy and execute the matrix example
         shell: pwsh
         env:
-          PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
-          PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
-          PYNQ_REMOTE_ROOT: ${{ vars.PYNQ_REMOTE_ROOT }}
+          PYNQ_REMOTE_ROOT: ${{ vars.PYNQ_REMOTE_ROOT || '/home/xilinx/jupyter_notebooks/npu_matrix' }}
         run: |
-          $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { 'pynq_board' }
-          $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
-          $remoteRoot = if ($env:PYNQ_REMOTE_ROOT) { $env:PYNQ_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_matrix' }
-          & examples/matrix-multiplication/deploy_release.ps1 `
-            -PackagePath 'build/cd-package' `
-            -ReleaseTag '${{ needs.validate-source.outputs.release_tag }}' `
-            -DeploymentId '${{ github.run_id }}-${{ github.run_attempt }}' `
-            -EvidencePath 'build/board/board-evidence.json' `
-            -BoardHost $hostName `
-            -BoardUser $userName `
-            -RemoteRoot $remoteRoot
+          & .github/cd/invoke_reported.ps1 -Title 'board: matrix example' `
+            -Script examples/matrix-multiplication/deploy_release.ps1 `
+            -ArgumentList @(
+              '-PackagePath', 'build/cd-package',
+              '-ReleaseTag', '${{ needs.validate-source.outputs.release_tag }}',
+              '-DeploymentId', '${{ github.run_id }}-${{ github.run_attempt }}',
+              '-EvidencePath', 'build/board/board-evidence.json',
+              '-BoardHost', $env:PYNQ_BOARD_HOST,
+              '-BoardUser', $env:PYNQ_BOARD_USER,
+              '-RemoteRoot', $env:PYNQ_REMOTE_ROOT)
+          exit $LASTEXITCODE
 
       - name: Deploy and accept the ResNet-18 release package
         shell: pwsh
         env:
-          PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
-          PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
-          PYNQ_RESNET18_REMOTE_ROOT: ${{ vars.PYNQ_RESNET18_REMOTE_ROOT }}
+          PYNQ_RESNET18_REMOTE_ROOT: ${{ vars.PYNQ_RESNET18_REMOTE_ROOT || '/home/xilinx/jupyter_notebooks/npu_resnet18' }}
         run: |
           $tag = '${{ needs.validate-source.outputs.release_tag }}'
-          $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { '192.168.2.99' }
-          $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
-          $remoteRoot = if ($env:PYNQ_RESNET18_REMOTE_ROOT) { $env:PYNQ_RESNET18_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_resnet18' }
-          & .github/cd/resnet18_deploy_and_accept.ps1 `
-            -PackageArchive "build/cd-download/npu-resnet18-$tag.zip" `
-            -ReleaseTag $tag `
-            -DeploymentId '${{ github.run_id }}-${{ github.run_attempt }}' `
-            -EvidencePath 'build/board/resnet18-board-evidence.json' `
-            -BoardHost $hostName `
-            -BoardUser $userName `
-            -RemoteRoot $remoteRoot
+          & .github/cd/invoke_reported.ps1 -Title 'board: ResNet-18 package acceptance' `
+            -Script .github/cd/resnet18_deploy_and_accept.ps1 `
+            -ArgumentList @(
+              '-PackageArchive', "build/cd-download/npu-resnet18-$tag.zip",
+              '-ReleaseTag', $tag,
+              '-DeploymentId', '${{ github.run_id }}-${{ github.run_attempt }}',
+              '-EvidencePath', 'build/board/resnet18-board-evidence.json',
+              '-BoardHost', $env:PYNQ_BOARD_HOST,
+              '-BoardUser', $env:PYNQ_BOARD_USER,
+              '-RemoteRoot', $env:PYNQ_RESNET18_REMOTE_ROOT)
+          exit $LASTEXITCODE
 
       - name: Run the real-image inference acceptance on the board
         shell: pwsh
         env:
-          PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
-          PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
-          PYNQ_RESNET18_REMOTE_ROOT: ${{ vars.PYNQ_RESNET18_REMOTE_ROOT }}
+          PYNQ_RESNET18_REMOTE_ROOT: ${{ vars.PYNQ_RESNET18_REMOTE_ROOT || '/home/xilinx/jupyter_notebooks/npu_resnet18' }}
         run: |
-          $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { '192.168.2.99' }
-          $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
-          $remoteRoot = if ($env:PYNQ_RESNET18_REMOTE_ROOT) { $env:PYNQ_RESNET18_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_resnet18' }
-          & .github/cd/resnet18_accept_image.ps1 `
-            -ReleaseTag '${{ needs.validate-source.outputs.release_tag }}' `
-            -DeploymentId '${{ github.run_id }}-${{ github.run_attempt }}' `
-            -EvidencePath 'build/board/resnet18-image-acceptance.json' `
-            -BoardHost $hostName `
-            -BoardUser $userName `
-            -RemoteRoot $remoteRoot
+          & .github/cd/invoke_reported.ps1 -Title 'board: real-image acceptance' `
+            -Script .github/cd/resnet18_accept_image.ps1 `
+            -ArgumentList @(
+              '-ReleaseTag', '${{ needs.validate-source.outputs.release_tag }}',
+              '-DeploymentId', '${{ github.run_id }}-${{ github.run_attempt }}',
+              '-EvidencePath', 'build/board/resnet18-image-acceptance.json',
+              '-BoardHost', $env:PYNQ_BOARD_HOST,
+              '-BoardUser', $env:PYNQ_BOARD_USER,
+              '-RemoteRoot', $env:PYNQ_RESNET18_REMOTE_ROOT)
+          exit $LASTEXITCODE
 
       - name: Retain board evidence
         uses: actions/upload-artifact@v4
