@@ -290,3 +290,36 @@ Do not add a top-level `skills/`, `scripts/`, `sim/`, `sw/`, `configs/`,
 Do not add `vivado_projects/`, `results/`, a bitstream, or any Vivado project
 directory. Regenerate them from `src/hw/vivado_tcl/`; bitstreams attach to a
 GitHub Release.
+
+## Standalone experiment sources
+
+`exp/<experiment>/` contains isolated research tools, reference models, test
+harnesses, configuration, and authored reports. These do not enter the NPU
+synthesis source set or alter its numeric contract. Each experiment documents
+its own functional and synthesis validation commands. Repository lint/sim still
+runs before publication.
+
+For `exp/fp32_multipier/`, reviewed frozen candidate RTL and small reference
+records are source fixtures: `runs/<NNN>_<name>/design.sv`, `metrics.json`,
+`synthesis.log`, `sta.log`, `simulation.log`, and `gate_simulation.log`. The
+reviewed `top3.json`, `environment.json`, `docs/pdk-sources.json`, and authored
+`report.md` are provenance references for reproducing the experiment. Failed
+candidate records remain visible and are excluded from ranking. Logs may contain
+original tool paths and messages, but must never contain credentials.
+
+All other run outputs, replay directories, compiled models, cell-model output,
+mapped netlists, PDK/library installations, build directories, virtualenvs,
+acceptance outputs and regenerated CSV tables remain ignored. Do not vendor the
+referenced paper or PDK. This is the narrow source-artifact exception referenced
+by `generated-artifacts.md`.
+
+## FP16 adder experiment evidence
+
+The same narrow frozen-source exception applies to `exp/fp16_adder/`:
+reviewed numbered run directories may contain `design.sv`, `metrics.json`,
+`simulation.log`, `gate_simulation.log`, `synthesis.log`, and `sta.log`.
+`top3.json` records the joint ranking; `environment.json` and
+`docs/pdk-sources.json` record the reproducible tool/library provenance.
+All compiled models, mapped netlists,
+PDK libraries, virtualenvs and fresh replay directories remain ignored.
+The FP16 adder report must not count historical FP12 multiplier measurements.

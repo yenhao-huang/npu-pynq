@@ -12,7 +12,11 @@ Use Conventional Commits based on the actual diff:
 
 Types include `feat`, `fix`, `perf`, `test`, `refactor`, `docs`, `build`, `ci`,
 `chore`, and `revert`. Use a design name as scope for focused hardware work;
-otherwise use `hw`, `test`, `export`, `runtime`, `examples`, `docs`, or `ci`.
+otherwise use `hw`, `test`, `export`, `runtime`, `examples`, `exp`, `docs`, or `ci`.
+
+Use `exp` for standalone experiment designs, evaluation tools, and reports.
+For example: `feat(exp): evaluate binary16 adder architectures`. Use the same
+scope in the PR title and intended squash-merge commit subject.
 
 The subject is imperative, present tense, has no trailing period, and stays
 under 72 characters. The body explains why, numeric or interface consequences,
