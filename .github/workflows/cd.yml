@@ -353,6 +353,18 @@ jobs:
           github-token: ${{ github.token }}
           path: build/vivado/npu_matrix_8x8
 
+      # Older npu-build artifacts held only build_evidence.txt; that run's
+      # ResNet-18 package carries the other reports with their digests.
+      - name: Download the candidate's packages
+        if: steps.previous-overlay.outputs.run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-packages-${{ needs.validate-source.outputs.release_tag }}
+          run-id: ${{ steps.previous-overlay.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: build/candidate
+
       # Reuse only a verified overlay from an ancestor commit whose hardware
       # sources are identical to this commit's; otherwise discard it and build.
       - name: Decide whether the candidate overlay can be reused
@@ -369,6 +381,13 @@ jobs:
           if (-not $reason) {
             python src/runtime/verify_overlay.py "$root/artifacts"
             if ($LASTEXITCODE -ne 0) { $reason = 'it does not verify' }
+          }
+          if (-not $reason) {
+            $output = python .github/cd/recover_overlay_reports.py `
+              --package-zip "build/candidate/npu-resnet18-${{ needs.validate-source.outputs.release_tag }}.zip" `
+              --artifact-dir "$root/artifacts" --report-dir "$root/reports" 2>&1
+            $output | ForEach-Object { Write-Host "$_" }
+            if ($LASTEXITCODE -ne 0) { $reason = "its Vivado reports are incomplete: $(($output | Select-Object -Last 1))" }
           }
           if (-not $reason) {
             $built = "$((Get-Content -Raw "$root/artifacts/npu_matrix.manifest.json" | ConvertFrom-Json).source_commit)".ToLowerInvariant()
@@ -454,14 +473,17 @@ jobs:
           $package = "mount/matrix-multiplication/$tag"
           $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
-          python examples/matrix-multiplication/package_example.py `
+          $output = python examples/matrix-multiplication/package_example.py `
             --repository-root . `
             --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
             --output-dir $package `
             --release-tag $tag `
-            --source-commit $commit @reuse
-          if ($LASTEXITCODE -ne 0) {
-            throw "package assembly failed with exit code $LASTEXITCODE"
+            --source-commit $commit @reuse 2>&1
+          $code = $LASTEXITCODE
+          $output | ForEach-Object { Write-Host "$_" }
+          if ($code -ne 0) {
+            Write-Host "::error title=matrix package::$((($output | Select-Object -Last 3) -join ' / ') -replace '%', '%25')"
+            exit 1
           }
           New-Item -ItemType Directory -Force 'build/cd' | Out-Null
           tar -czf "build/cd/npu-matrix-$tag.tar.gz" -C $package .
@@ -477,16 +499,19 @@ jobs:
           New-Item -ItemType Directory -Force 'build/cd' | Out-Null
           $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
-          python examples/resnet18/package_example.py `
+          $output = python examples/resnet18/package_example.py `
             --repository-root . `
             --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
             --report-dir build/vivado/npu_matrix_8x8/reports `
             --model-dir $env:RESNET18_MODEL_DIR `
             --output-archive "build/cd/npu-resnet18-$tag.zip" `
             --release-tag $tag `
-            --source-commit $commit @reuse
-          if ($LASTEXITCODE -ne 0) {
-            throw "ResNet-18 package assembly failed with exit code $LASTEXITCODE"
+            --source-commit $commit @reuse 2>&1
+          $code = $LASTEXITCODE
+          $output | ForEach-Object { Write-Host "$_" }
+          if ($code -ne 0) {
+            Write-Host "::error title=ResNet-18 package::$((($output | Select-Object -Last 3) -join ' / ') -replace '%', '%25')"
+            exit 1
           }
 
       - name: Record deterministic checksums
@@ -517,6 +542,7 @@ jobs:
             build/vivado/npu_matrix_8x8/artifacts/npu_matrix.hwh
             build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json
             build/vivado/npu_matrix_8x8/reports/build_evidence.txt
+            build/vivado/npu_matrix_8x8/reports/*.rpt
 
       - name: Retain standalone deployment packages
         uses: actions/upload-artifact@v4

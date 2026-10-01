@@ -72,7 +72,11 @@ Rules:
   run on the same release branch whose `build-overlay` succeeded, but only if
   the overlay verifies, its commit is an ancestor of the release commit, and
   `src/hw` and `src/runtime/verify_overlay.py` are identical between the two.
-  Otherwise Vivado runs. A reused overlay keeps its own commit in its manifest
+  Otherwise Vivado runs. The reused overlay must bring every Vivado report the
+  ResNet-18 package needs; an older artifact that holds only
+  `build_evidence.txt` has the rest recovered from that run's own ResNet-18
+  package (`.github/cd/recover_overlay_reports.py`), only when that package
+  names the same BIT/HWH digests and evidence. A reused overlay keeps its own commit in its manifest
   and Vivado evidence; the packages record it as the overlay's source commit
   (`--overlay-commit`) beside the release commit.
 - Board deployment must use the protected `pynq-z1-production` environment, and

@@ -502,8 +502,11 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         finder = steps["Find this release's last successful overlay build"]
         self.assertIn("build-overlay", finder["with"]["script"])
         self.assertIn("npu-build-", finder["env"]["ARTIFACT"])
+        # Every report the ResNet-18 package needs travels with the overlay.
+        retained = steps["Retain overlay and build evidence"]["with"]["path"]
+        self.assertIn("reports/*.rpt", retained)
         decide = steps["Decide whether the candidate overlay can be reused"]["run"]
-        for marker in ("verify_overlay.py", "merge-base --is-ancestor", "git diff --quiet", "src/hw"):
+        for marker in ("verify_overlay.py", "recover_overlay_reports.py", "merge-base --is-ancestor", "git diff --quiet", "src/hw"):
             self.assertIn(marker, decide)
         self.assertEqual(
             steps["Build routed overlay and bitstream"]["if"],

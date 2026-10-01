@@ -197,6 +197,30 @@ class ResNet18DeliveryTests(unittest.TestCase):
             stream.extractall(target)
         return target
 
+    def test_reports_of_a_reused_overlay_are_recovered_from_its_package(self):
+        recovery = load_module(
+            "recover_overlay_reports",
+            REPOSITORY_ROOT / ".github" / "cd" / "recover_overlay_reports.py",
+        )
+        archive = self.root / "candidate.zip"
+        self.build(archive)
+        reused = self.root / "reused-reports"
+        reused.mkdir()
+        shutil.copy2(self.reports / "build_evidence.txt", reused)
+        written = recovery.recover(archive, self.artifacts, reused)
+        self.assertEqual(written, list(recovery.REQUIRED_REPORTS[1:]))
+        for name in recovery.REQUIRED_REPORTS:
+            self.assertEqual(
+                (reused / name).read_bytes(), (self.reports / name).read_bytes()
+            )
+        # Another build's evidence binds nothing, and nothing is written.
+        other = self.root / "other-reports"
+        other.mkdir()
+        (other / "build_evidence.txt").write_text("another build\n", encoding="utf-8")
+        with self.assertRaises(recovery.RecoveryError):
+            recovery.recover(archive, self.artifacts, other)
+        self.assertEqual(sorted(p.name for p in other.iterdir()), ["build_evidence.txt"])
+
     def test_a_reused_overlay_is_recorded_as_the_overlay_source(self):
         release = "f" * 40
         with self.assertRaises(self.packager.ResNet18PackageError):
