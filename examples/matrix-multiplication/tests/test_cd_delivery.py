@@ -702,10 +702,8 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertIn("Start-ScheduledTask", source)
         self.assertIn("register_runner_task.ps1", body)
 
-        rehearsal = SKILL_ROOT / "references" / "scripts" / "rehearse_release.py"
-        self.assertTrue(rehearsal.is_file(), "the release rehearsal is required")
-        self.assertIn("rehearse_release.py", body)
-        self.assertLess(body.index("Rehearse"), body.index("Cut the release branch"))
+        # CD itself is the validation; the skill has no rehearsal step.
+        self.assertNotIn("rehearse", body.lower())
 
         for reference in ("references/rules/env.md", "references/runners.md"):
             with self.subTest(reference=reference):
