@@ -1,8 +1,18 @@
 name: cd
 
+# Continuous deployment validates a release branch, before anything is tagged,
+# published, or merged into `main`. A push event uses the workflow file from the
+# branch it ran on, so this validates itself as well as the release.
+#
+# A passing run publishes a DRAFT Release carrying the packages, checksums and
+# board evidence. A draft has no tag and is not public. The draft becomes a real
+# Release only through `release-publish.yml`, and only once its commit is
+# contained in `main`.
 on:
-  release:
-    types: [published]
+  push:
+    branches:
+      - 'release/v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,53 +22,395 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  validate-release:
-    if: github.event.release.draft == false && github.event.release.prerelease == false
+  validate-source:
     runs-on: ubuntu-latest
     outputs:
-      release_tag: ${{ steps.release.outputs.release_tag }}
-      release_commit: ${{ steps.release.outputs.release_commit }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+      release_commit: ${{ steps.version.outputs.release_commit }}
     steps:
-      - name: Check out the release tag
+      - name: Check out the release branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.release.tag_name }}
 
-      - name: Validate stable release source
-        id: release
+      - name: Resolve and check the release version
+        id: version
         shell: bash
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "release tag must match vMAJOR.MINOR.PATCH" >&2
+          git fetch --tags --force origin
+          declared="$(python3 .github/cd/resolve_release_version.py --format tag)"
+
+          # The branch names the version it is releasing, so a run cannot be
+          # aimed at one version while the changelog declares another.
+          case "$BRANCH" in
+            release/*)
+              named="${BRANCH#release/}"
+              if [ "$named" != "$declared" ]; then
+                echo "branch $BRANCH releases $named but the changelog declares $declared" >&2
+                exit 1
+              fi
+              ;;
+            *)
+              echo "cd runs on a release/vMAJOR.MINOR.PATCH branch; got $BRANCH" >&2
+              exit 1
+              ;;
+          esac
+
+          if git rev-parse -q --verify "refs/tags/${declared}" >/dev/null; then
+            echo "$declared is already tagged; releases are never republished" >&2
             exit 1
           fi
-          git fetch --no-tags origin main
-          release_commit="$(git rev-parse "${RELEASE_TAG}^{commit}")"
-          if ! git merge-base --is-ancestor "$release_commit" origin/main; then
-            echo "release commit is not contained in origin/main" >&2
+
+          echo "release_tag=$declared" >> "$GITHUB_OUTPUT"
+          echo "release_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  host-checks:
+    needs: validate-source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-source.outputs.release_commit }}
+
+      - name: Install open-source EDA tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y verilator iverilog
+
+      - name: Install Python test dependencies
+        run: |
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
+
+      - name: Lint RTL
+        run: make -C src/test lint
+
+      - name: Run simulations
+        run: make -C src/test sim
+
+      - name: Run host model and example suites
+        run: make -C src/test model PYTHON=python3
+
+  # The release converts and validates its own model from pinned sources, with
+  # the code in this commit. Nothing depends on files left on some machine, and
+  # the model always matches the conversion code it ships with. It needs neither
+  # Vivado nor the board, so it runs on a hosted machine alongside the preflights.
+  build-model:
+    needs: validate-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out the validated release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-source.outputs.release_commit }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # A model built and checked earlier for this same release, from the same
+      # model inputs, is reused instead of rebuilt. The key names the release,
+      # so nothing crosses from one version to another.
+      - name: Reuse this release's model when its inputs are unchanged
+        id: model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: examples/resnet18/model
+          key: resnet18-model-${{ needs.validate-source.outputs.release_tag }}-${{ hashFiles('src/**', '!src/hw/**', 'examples/resnet18/**', '!examples/resnet18/tests/**', '!examples/resnet18/**/*.md', '!examples/resnet18/**/*.ipynb', '!examples/resnet18/model/**') }}
+
+      # Every model step runs through `step`, which turns a failure's last lines
+      # into a workflow annotation. Annotations are readable through the API
+      # even where raw job logs are not, so the cause is visible without them.
+      - name: Define the step runner
+        run: |
+          cat > "$RUNNER_TEMP/step.sh" <<'SH'
+          step() {
+            local label="$1"; shift
+            local log; log="$(mktemp)"
+            local code=0
+            "$@" >"$log" 2>&1 || code=$?
+            cat "$log"
+            if [ "$code" -ne 0 ]; then
+              local tail
+              tail="$(tail -n 12 "$log" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | awk '{printf "%s%%0A", $0}')"
+              echo "::error title=build-model: ${label}::${tail}"
+            fi
+            return "$code"
+          }
+          SH
+
+      - name: Install the pinned conversion environment
+        run: |
+          . "$RUNNER_TEMP/step.sh"
+          step "install" python -m pip install \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r examples/resnet18/requirements-convert.txt
+
+      - name: Download the pinned checkpoint and calibration images
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          . "$RUNNER_TEMP/step.sh"
+          step "download_model" python examples/resnet18/scripts/download_model.py
+          step "download_calibration" python examples/resnet18/scripts/download_calibration.py
+
+      - name: Convert to the NPU package
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          . "$RUNNER_TEMP/step.sh"
+          step "convert_model" python examples/resnet18/scripts/convert_model.py
+
+      - name: Validate against the independent integer reference
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          . "$RUNNER_TEMP/step.sh"
+          step "verify_model" python examples/resnet18/scripts/verify_model.py --software-timeout 7200
+
+      - name: Prepare the demo input and the bundled gallery
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          . "$RUNNER_TEMP/step.sh"
+          step "download_demo_assets" python examples/resnet18/scripts/download_demo_assets.py
+          step "prepare_demo_image" python examples/resnet18/scripts/prepare_demo_image.py --software-timeout 7200
+          step "download_gallery" python examples/resnet18/scripts/download_gallery.py
+
+      # The board refuses a demo it classifies wrongly, but only after hours of
+      # Vivado and an hour of inference. The host record already knows.
+      - name: Require the host to classify the demo correctly
+        shell: python
+        run: |
+          import json, sys
+          record = json.load(open("examples/resnet18/model/resnet18.demo.json", encoding="utf-8"))
+          top, expected = record["host_top_k"][0], record["expected"]
+          print(f"host top-1: {top['name']} ({top['probability']:.2%})")
+          if expected is not None and top["index"] != expected["index"]:
+              sys.exit(f"host predicts {top['name']!r}, the demo expects {expected['name']!r}")
+
+      - name: Confirm the workspace is package-ready
+        run: python examples/resnet18/package_example.py --check-only
+
+      - name: Keep the checked model for later runs of this release
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: examples/resnet18/model
+          key: ${{ steps.model-cache.outputs.cache-primary-key }}
+
+      - name: Retain the model workspace
+        uses: actions/upload-artifact@v4
+        with:
+          name: resnet18-model-${{ needs.validate-source.outputs.release_tag }}
+          if-no-files-found: error
+          path: |
+            examples/resnet18/model/*
+            !examples/resnet18/model/calibration
+            !examples/resnet18/model/.gitkeep
+
+  # Everything the privileged jobs need is checked here, in about a minute,
+  # before Vivado spends hours on a build that would fail at packaging.
+  preflight-vivado:
+    needs: validate-source
+    runs-on: [self-hosted, vivado]
+    timeout-minutes: 10
+    steps:
+      # Windows PowerShell is always present; pwsh may not be, and it is the
+      # first thing to check.
+      - name: Check the runner's tools
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $problems = @()
+          foreach ($tool in 'pwsh', 'python', 'vivado', 'git', 'tar') {
+            $found = Get-Command $tool -ErrorAction SilentlyContinue
+            if ($found) { Write-Host "ok    $tool -> $($found.Source)" }
+            else { $problems += "$tool is not on this runner's PATH" }
+          }
+          if ($problems) {
+            $problems | ForEach-Object { Write-Host "::error::$_" }
+            throw "$($problems.Count) preflight problem(s); nothing expensive was started"
+          }
+          Write-Host 'PASS: Vivado runner is ready'
+
+  preflight-board:
+    needs: validate-source
+    runs-on: [self-hosted, pynq-z1]
+    timeout-minutes: 5
+    # Exactly the host and user every board step uses, so a preflight pass
+    # means the board steps can reach the same board.
+    env:
+      PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
+      PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}
+    steps:
+      - name: Check the board and everything the board steps run there
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($tool in 'ssh', 'scp', 'tar') {
+            if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
+              Write-Host "::error::$tool is not on this runner's PATH"
+              throw "$tool is not on this runner's PATH"
+            }
+          }
+          $target = "$env:PYNQ_BOARD_USER@$env:PYNQ_BOARD_HOST"
+          # Each check prints one line; the first failure names itself. The script is
+          # sent base64-encoded because Windows PowerShell mangles embedded quotes in
+          # native-command arguments.
+          $checks = @(
+            'set -u'
+            'test -r /etc/profile.d/xrt_setup.sh || { echo "missing /etc/profile.d/xrt_setup.sh"; exit 1; }'
+            'test -r /etc/profile.d/pynq_venv.sh || { echo "missing /etc/profile.d/pynq_venv.sh"; exit 1; }'
+            'test -x /usr/local/share/pynq-venv/bin/python3 || { echo "missing the PYNQ venv python3"; exit 1; }'
+            'for c in /usr/local/share/pynq-venv/bin/python3 chmod; do sudo -n -l "$c" >/dev/null 2>&1 || { echo "$(id -un) cannot run sudo -n $c without a password; add /etc/sudoers.d/npu-pynq-cd (see release skill references/runners.md)"; exit 1; }; done'
+            'python3 -c "import zipfile" || { echo "python3 cannot import zipfile"; exit 1; }'
+            'avail=$(df -Pk "$HOME" | awk ''NR==2 {print $4}''); test "$avail" -gt 1048576 || { echo "less than 1 GiB free in $HOME"; exit 1; }'
+            'echo board-ready'
+          ) -join "`n"
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($checks + "`n"))
+          # ssh writes notices (e.g. a newly accepted host key) to stderr; under 'Stop'
+          # Windows PowerShell would turn those into a terminating error before the
+          # reason below is reported.
+          $ErrorActionPreference = 'Continue'
+          $output = @(ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new $target "echo $encoded | base64 -d | bash" 2>&1 | ForEach-Object { "$_" })
+          $code = $LASTEXITCODE
+          $ErrorActionPreference = 'Stop'
+          $output | ForEach-Object { Write-Host $_ }
+          if ($code -ne 0) {
+            $reason = (($output | Select-Object -Last 3) -join ' / ') -replace '%', '%25'
+            if (-not $reason) { $reason = "ssh exited with $code and printed nothing" }
+            Write-Host "::error title=preflight-board ($target)::$reason"
             exit 1
-          fi
-          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
+          }
+          Write-Host "PASS: $target is reachable and ready"
 
   build-overlay:
-    needs: validate-release
+    needs: [validate-source, host-checks, build-model, preflight-vivado, preflight-board]
     runs-on: [self-hosted, vivado]
-    timeout-minutes: 180
+    # actions: read lets the job find and download an earlier run's overlay.
     permissions:
-      contents: write
+      contents: read
+      actions: read
+    timeout-minutes: 180
+    env:
+      RESNET18_MODEL_DIR: build/resnet18-model
     steps:
-      - name: Check out the validated release tag
+      # CD never creates a tag, so the release commit is the only exact ref.
+      - name: Check out the validated release commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ needs.validate-release.outputs.release_tag }}
+          ref: ${{ needs.validate-source.outputs.release_commit }}
+
+      # After checkout, which would otherwise delete it as untracked.
+      - name: Download the model this release built
+        uses: actions/download-artifact@v4
+        with:
+          name: resnet18-model-${{ needs.validate-source.outputs.release_tag }}
+          path: build/resnet18-model
+
+      # Vivado is the long stage. When an earlier run of this same release
+      # branch built the overlay successfully, and the hardware sources have not
+      # changed since that commit, its bitstream is reused instead of rebuilt.
+      - name: Find this release's last successful overlay build
+        id: previous-overlay
+        uses: actions/github-script@v7
+        env:
+          ARTIFACT: npu-build-${{ needs.validate-source.outputs.release_tag }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner, repo, workflow_id: 'cd.yml', branch: context.ref.replace('refs/heads/', ''),
+              per_page: 50,
+            }, (response, done) => { done(); return response.data; });
+            for (const run of runs) {
+              if (run.id === context.runId) continue;
+              const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt, {
+                owner, repo, run_id: run.id, attempt_number: run.run_attempt, per_page: 100,
+              });
+              if (!jobs.some(job => job.name === 'build-overlay' && job.conclusion === 'success')) continue;
+              const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner, repo, run_id: run.id, name: process.env.ARTIFACT,
+              });
+              const artifact = data.artifacts.find(a => !a.expired);
+              if (!artifact) continue;
+              core.notice(`candidate overlay: run ${run.id} at ${run.head_sha}`);
+              core.setOutput('run_id', String(run.id));
+              return;
+            }
+            core.info('no earlier successful overlay build on this branch');
+
+      # A failed download only means building from scratch.
+      - name: Download the candidate overlay
+        if: steps.previous-overlay.outputs.run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-build-${{ needs.validate-source.outputs.release_tag }}
+          run-id: ${{ steps.previous-overlay.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: build/vivado/npu_matrix_8x8
+
+      # Older npu-build artifacts held only build_evidence.txt; that run's
+      # ResNet-18 package carries the other reports with their digests.
+      - name: Download the candidate's packages
+        if: steps.previous-overlay.outputs.run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-packages-${{ needs.validate-source.outputs.release_tag }}
+          run-id: ${{ steps.previous-overlay.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: build/candidate
+
+      # Reuse only a verified overlay from an ancestor commit whose hardware
+      # sources are identical to this commit's; otherwise discard it and build.
+      - name: Decide whether the candidate overlay can be reused
+        id: overlay-reuse
+        if: steps.previous-overlay.outputs.run_id != ''
+        shell: pwsh
+        run: |
+          $root = 'build/vivado/npu_matrix_8x8'
+          $release = '${{ needs.validate-source.outputs.release_commit }}'
+          $reason = $null
+          if (-not (Test-Path -LiteralPath "$root/reports/build_evidence.txt" -PathType Leaf)) {
+            $reason = 'it was not downloaded completely'
+          }
+          if (-not $reason) {
+            python src/runtime/verify_overlay.py "$root/artifacts"
+            if ($LASTEXITCODE -ne 0) { $reason = 'it does not verify' }
+          }
+          if (-not $reason) {
+            $output = python .github/cd/recover_overlay_reports.py `
+              --package-zip "build/candidate/npu-resnet18-${{ needs.validate-source.outputs.release_tag }}.zip" `
+              --artifact-dir "$root/artifacts" --report-dir "$root/reports" 2>&1
+            $output | ForEach-Object { Write-Host "$_" }
+            if ($LASTEXITCODE -ne 0) { $reason = "its Vivado reports are incomplete: $(($output | Select-Object -Last 1))" }
+          }
+          if (-not $reason) {
+            $built = "$((Get-Content -Raw "$root/artifacts/npu_matrix.manifest.json" | ConvertFrom-Json).source_commit)".ToLowerInvariant()
+            git merge-base --is-ancestor $built $release
+            if ($LASTEXITCODE -ne 0) { $reason = "$built is not an ancestor of $release" }
+          }
+          if (-not $reason) {
+            git diff --quiet $built $release -- src/hw src/runtime/verify_overlay.py
+            if ($LASTEXITCODE -ne 0) { $reason = "hardware sources changed since $built" }
+          }
+          if ($reason) {
+            Write-Host "::notice title=overlay rebuilt::not reusing the earlier overlay: $reason"
+            Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+            "reuse=false" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+          }
+          else {
+            Write-Host "::notice title=overlay reused::bitstream from $built (run ${{ steps.previous-overlay.outputs.run_id }}); hardware sources identical; Vivado skipped"
+            "reuse=true" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+          }
+          exit 0
 
       - name: Build routed overlay and bitstream
+        if: steps.overlay-reuse.outputs.reuse != 'true'
         shell: pwsh
         run: |
           vivado -mode batch -nojournal -nolog `
@@ -84,20 +436,54 @@ jobs:
             throw "missing build evidence: $evidence"
           }
 
+      # The overlay names the commit it was built from. A reused one must come
+      # from an earlier commit of this release with identical hardware sources
+      # (checked again here, whatever path produced it); the packages then
+      # record that commit as the overlay's source.
+      - name: Prove a reused overlay matches this commit's hardware
+        id: overlay-source
+        shell: pwsh
+        run: |
+          $manifest = Get-Content -Raw 'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json' | ConvertFrom-Json
+          $built = "$($manifest.source_commit)".ToLowerInvariant()
+          $release = '${{ needs.validate-source.outputs.release_commit }}'
+          if ($built -eq $release) {
+            Write-Host "overlay built from this commit"
+            "commit=" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+            exit 0
+          }
+          git merge-base --is-ancestor $built $release
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error title=overlay reuse::cached overlay commit $built is not an ancestor of $release"
+            exit 1
+          }
+          git diff --quiet $built $release -- src/hw src/runtime/verify_overlay.py
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error title=overlay reuse::hardware sources changed since $built"
+            exit 1
+          }
+          Write-Host "::notice title=overlay reused::bitstream from $built (hardware sources identical to $release); Vivado skipped"
+          "commit=$built" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+
       - name: Assemble standalone matrix example
         shell: pwsh
         run: |
-          $tag = '${{ needs.validate-release.outputs.release_tag }}'
-          $commit = '${{ needs.validate-release.outputs.release_commit }}'
+          $tag = '${{ needs.validate-source.outputs.release_tag }}'
+          $commit = '${{ needs.validate-source.outputs.release_commit }}'
           $package = "mount/matrix-multiplication/$tag"
-          python examples/matrix-multiplication/package_example.py `
+          $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
+          $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
+          $output = python examples/matrix-multiplication/package_example.py `
             --repository-root . `
             --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
             --output-dir $package `
             --release-tag $tag `
-            --source-commit $commit
-          if ($LASTEXITCODE -ne 0) {
-            throw "package assembly failed with exit code $LASTEXITCODE"
+            --source-commit $commit @reuse 2>&1
+          $code = $LASTEXITCODE
+          $output | ForEach-Object { Write-Host "$_" }
+          if ($code -ne 0) {
+            Write-Host "::error title=matrix package::$((($output | Select-Object -Last 3) -join ' / ') -replace '%', '%25')"
+            exit 1
           }
           New-Item -ItemType Directory -Force 'build/cd' | Out-Null
           tar -czf "build/cd/npu-matrix-$tag.tar.gz" -C $package .
@@ -105,105 +491,285 @@ jobs:
             throw "package archive failed with exit code $LASTEXITCODE"
           }
 
+      - name: Assemble standalone ResNet-18 release package
+        shell: pwsh
+        run: |
+          $tag = '${{ needs.validate-source.outputs.release_tag }}'
+          $commit = '${{ needs.validate-source.outputs.release_commit }}'
+          New-Item -ItemType Directory -Force 'build/cd' | Out-Null
+          $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
+          $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
+          $output = python examples/resnet18/package_example.py `
+            --repository-root . `
+            --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
+            --report-dir build/vivado/npu_matrix_8x8/reports `
+            --model-dir $env:RESNET18_MODEL_DIR `
+            --output-archive "build/cd/npu-resnet18-$tag.zip" `
+            --release-tag $tag `
+            --source-commit $commit @reuse 2>&1
+          $code = $LASTEXITCODE
+          $output | ForEach-Object { Write-Host "$_" }
+          if ($code -ne 0) {
+            Write-Host "::error title=ResNet-18 package::$((($output | Select-Object -Last 3) -join ' / ') -replace '%', '%25')"
+            exit 1
+          }
+
+      - name: Record deterministic checksums
+        shell: pwsh
+        run: |
+          $tag = '${{ needs.validate-source.outputs.release_tag }}'
+          $files = @(
+            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit',
+            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.hwh',
+            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json',
+            'build/vivado/npu_matrix_8x8/reports/build_evidence.txt',
+            "build/cd/npu-matrix-$tag.tar.gz",
+            "build/cd/npu-resnet18-$tag.zip"
+          )
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([IO.Path]::GetFileName($file))"
+          }
+          [IO.File]::WriteAllLines('build/cd/SHA256SUMS', $lines)
+
       - name: Retain overlay and build evidence
         uses: actions/upload-artifact@v4
         with:
-          name: npu-matrix-build-${{ needs.validate-release.outputs.release_tag }}
+          name: npu-build-${{ needs.validate-source.outputs.release_tag }}
           if-no-files-found: error
           path: |
             build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit
             build/vivado/npu_matrix_8x8/artifacts/npu_matrix.hwh
             build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json
             build/vivado/npu_matrix_8x8/reports/build_evidence.txt
+            build/vivado/npu_matrix_8x8/reports/*.rpt
 
-      - name: Retain standalone deployment package
+      - name: Retain standalone deployment packages
         uses: actions/upload-artifact@v4
         with:
-          name: npu-matrix-package-${{ needs.validate-release.outputs.release_tag }}
+          name: npu-packages-${{ needs.validate-source.outputs.release_tag }}
           if-no-files-found: error
-          path: build/cd/npu-matrix-${{ needs.validate-release.outputs.release_tag }}.tar.gz
-
-      - name: Publish deterministic Release assets
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = '${{ needs.validate-release.outputs.release_tag }}'
-          gh release upload $tag `
-            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit' `
-            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.hwh' `
-            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json' `
-            'build/vivado/npu_matrix_8x8/reports/build_evidence.txt' `
-            "build/cd/npu-matrix-$tag.tar.gz" `
-            --clobber
-          if ($LASTEXITCODE -ne 0) {
-            throw "gh release upload failed with exit code $LASTEXITCODE"
-          }
+          path: |
+            build/cd/npu-matrix-${{ needs.validate-source.outputs.release_tag }}.tar.gz
+            build/cd/npu-resnet18-${{ needs.validate-source.outputs.release_tag }}.zip
+            build/cd/SHA256SUMS
 
   board-validation:
-    needs: [validate-release, build-overlay]
+    needs: [validate-source, build-overlay]
     runs-on: [self-hosted, pynq-z1]
-    timeout-minutes: 30
+    timeout-minutes: 240
     environment: pynq-z1-production
-    permissions:
-      contents: write
+    env:
+      PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
+      PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}
     steps:
-      - name: Check out deployment wrapper
+      - name: Check out deployment wrappers
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.validate-release.outputs.release_tag }}
+          ref: ${{ needs.validate-source.outputs.release_commit }}
 
-      - name: Download standalone deployment package
+      - name: Download standalone deployment packages
         uses: actions/download-artifact@v4
         with:
-          name: npu-matrix-package-${{ needs.validate-release.outputs.release_tag }}
+          name: npu-packages-${{ needs.validate-source.outputs.release_tag }}
           path: build/cd-download
 
-      - name: Extract standalone deployment package
+      - name: Verify checksums before deployment
         shell: pwsh
         run: |
-          $tag = '${{ needs.validate-release.outputs.release_tag }}'
+          Push-Location 'build/cd-download'
+          try {
+            foreach ($line in Get-Content 'SHA256SUMS') {
+              $parts = $line -split '\s+', 2
+              $name = $parts[1].Trim()
+              if (-not (Test-Path -LiteralPath $name -PathType Leaf)) { continue }
+              $actual = (Get-FileHash -LiteralPath $name -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actual -ne $parts[0].Trim().ToLowerInvariant()) {
+                throw "checksum mismatch for $name"
+              }
+            }
+          }
+          finally {
+            Pop-Location
+          }
+
+      - name: Extract standalone matrix package
+        shell: pwsh
+        run: |
+          $tag = '${{ needs.validate-source.outputs.release_tag }}'
           New-Item -ItemType Directory -Force 'build/cd-package' | Out-Null
-          tar -xzf "build/cd-download/npu-matrix-$tag.tar.gz" `
-            -C 'build/cd-package'
+          tar -xzf "build/cd-download/npu-matrix-$tag.tar.gz" -C 'build/cd-package'
           if ($LASTEXITCODE -ne 0) {
             throw "package extraction failed with exit code $LASTEXITCODE"
           }
 
-      - name: Deploy and execute Phase 1C example
+      # Each board step runs through invoke_reported.ps1, which turns the
+      # tail of ssh, scp and remote Python output into an annotation.
+      # The matrix example is installed, not run: the ResNet-18 image below
+      # exercises the same overlay on the FPGA.
+      - name: Deploy the matrix example
         shell: pwsh
         env:
-          PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST }}
-          PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER }}
-          PYNQ_REMOTE_ROOT: ${{ vars.PYNQ_REMOTE_ROOT }}
+          PYNQ_REMOTE_ROOT: ${{ vars.PYNQ_REMOTE_ROOT || '/home/xilinx/jupyter_notebooks/npu_matrix' }}
         run: |
-          $hostName = if ($env:PYNQ_BOARD_HOST) { $env:PYNQ_BOARD_HOST } else { 'pynq_board' }
-          $userName = if ($env:PYNQ_BOARD_USER) { $env:PYNQ_BOARD_USER } else { 'xilinx' }
-          $remoteRoot = if ($env:PYNQ_REMOTE_ROOT) { $env:PYNQ_REMOTE_ROOT } else { '/home/xilinx/jupyter_notebooks/npu_matrix' }
-          & examples/matrix-multiplication/deploy_release.ps1 `
-            -PackagePath 'build/cd-package' `
-            -ReleaseTag '${{ needs.validate-release.outputs.release_tag }}' `
-            -DeploymentId '${{ github.run_id }}-${{ github.run_attempt }}' `
-            -EvidencePath 'build/board/board-evidence.json' `
-            -BoardHost $hostName `
-            -BoardUser $userName `
-            -RemoteRoot $remoteRoot
+          & .github/cd/invoke_reported.ps1 -Title 'board: matrix deploy' `
+            -Script examples/matrix-multiplication/deploy_release.ps1 `
+            -ArgumentList @(
+              '-PackagePath', 'build/cd-package',
+              '-ReleaseTag', '${{ needs.validate-source.outputs.release_tag }}',
+              '-DeploymentId', '${{ github.run_id }}-${{ github.run_attempt }}',
+              '-DeployOnly',
+              '-BoardHost', $env:PYNQ_BOARD_HOST,
+              '-BoardUser', $env:PYNQ_BOARD_USER,
+              '-RemoteRoot', $env:PYNQ_REMOTE_ROOT)
+          exit $LASTEXITCODE
+
+      # Installs and proves the tree against the archive digest; no FPGA work.
+      - name: Deploy the ResNet-18 release package
+        shell: pwsh
+        env:
+          PYNQ_RESNET18_REMOTE_ROOT: ${{ vars.PYNQ_RESNET18_REMOTE_ROOT || '/home/xilinx/jupyter_notebooks/npu_resnet18' }}
+        run: |
+          $tag = '${{ needs.validate-source.outputs.release_tag }}'
+          & .github/cd/invoke_reported.ps1 -Title 'board: ResNet-18 deploy' `
+            -Script .github/cd/resnet18_deploy.ps1 `
+            -ArgumentList @(
+              '-PackageArchive', "build/cd-download/npu-resnet18-$tag.zip",
+              '-ReleaseTag', $tag,
+              '-DeploymentId', '${{ github.run_id }}-${{ github.run_attempt }}',
+              '-BoardHost', $env:PYNQ_BOARD_HOST,
+              '-BoardUser', $env:PYNQ_BOARD_USER,
+              '-RemoteRoot', $env:PYNQ_RESNET18_REMOTE_ROOT)
+          exit $LASTEXITCODE
+
+      # The one board check: classify the pinned photo on the FPGA. It runs
+      # detached on the board and is polled, so a dropped ssh session is
+      # survivable.
+      - name: Run the real-image inference acceptance on the board
+        shell: pwsh
+        env:
+          PYNQ_RESNET18_REMOTE_ROOT: ${{ vars.PYNQ_RESNET18_REMOTE_ROOT || '/home/xilinx/jupyter_notebooks/npu_resnet18' }}
+        run: |
+          & .github/cd/invoke_reported.ps1 -Title 'board: real-image acceptance' `
+            -Script .github/cd/resnet18_accept_image.ps1 `
+            -ArgumentList @(
+              '-ReleaseTag', '${{ needs.validate-source.outputs.release_tag }}',
+              '-DeploymentId', '${{ github.run_id }}-${{ github.run_attempt }}',
+              '-EvidencePath', 'build/board/resnet18-image-acceptance.json',
+              '-TimeoutMinutes', '180',
+              '-BoardHost', $env:PYNQ_BOARD_HOST,
+              '-BoardUser', $env:PYNQ_BOARD_USER,
+              '-RemoteRoot', $env:PYNQ_RESNET18_REMOTE_ROOT)
+          exit $LASTEXITCODE
 
       - name: Retain board evidence
         uses: actions/upload-artifact@v4
         with:
-          name: npu-matrix-board-${{ needs.validate-release.outputs.release_tag }}
+          name: npu-board-${{ needs.validate-source.outputs.release_tag }}
           if-no-files-found: error
-          path: build/board/board-evidence.json
+          path: build/board/resnet18-image-acceptance.json
 
-      - name: Publish board evidence to Release
-        shell: pwsh
+  publish-draft:
+    needs: [validate-source, host-checks, build-model, build-overlay, board-validation]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the validated release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-source.outputs.release_commit }}
+
+      - name: Download validated packages
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-packages-${{ needs.validate-source.outputs.release_tag }}
+          path: build/release
+
+      # Uploaded from build/vivado/npu_matrix_8x8/{artifacts,reports}, so the
+      # artifact keeps those two folders; flatten them beside the packages.
+      - name: Download overlay artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-build-${{ needs.validate-source.outputs.release_tag }}
+          path: build/overlay
+
+      - name: Gather the overlay files beside the packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/overlay/artifacts/npu_matrix.bit \
+             build/overlay/artifacts/npu_matrix.hwh \
+             build/overlay/artifacts/npu_matrix.manifest.json \
+             build/overlay/reports/build_evidence.txt \
+             build/release/
+
+      - name: Download board acceptance evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-board-${{ needs.validate-source.outputs.release_tag }}
+          path: build/release
+
+      - name: Verify checksums and evidence
+        shell: bash
+        env:
+          TAG: ${{ needs.validate-source.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          cd build/release
+          sha256sum --check --strict SHA256SUMS
+          test -s "npu-resnet18-${TAG}.zip"
+          test -s resnet18-image-acceptance.json
+
+      - name: Publish the validated draft Release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.validate-source.outputs.release_tag }}
+          COMMIT: ${{ needs.validate-source.outputs.release_commit }}
+          CHANGELOG: changelog/${{ needs.validate-source.outputs.release_tag }}.md
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh release upload '${{ needs.validate-release.outputs.release_tag }}' `
-            'build/board/board-evidence.json' `
-            --clobber
-          if ($LASTEXITCODE -ne 0) {
-            throw "board evidence upload failed with exit code $LASTEXITCODE"
-          }
+          set -euo pipefail
+          # A draft carries no tag and is not public. Recreate it on every run so
+          # the draft always reflects the newest validated commit.
+          if gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null | grep -q true; then
+            gh release delete "$TAG" --yes
+          fi
+          {
+            cat "$CHANGELOG"
+            echo
+            echo "---"
+            echo
+            echo "Validated by CD run $RUN_URL at commit \`$COMMIT\`."
+          } > build/notes.md
+          gh release create "$TAG" \
+            --draft \
+            --target "$COMMIT" \
+            --title "$TAG" \
+            --notes-file build/notes.md \
+            build/release/npu-resnet18-"$TAG".zip \
+            build/release/npu-matrix-"$TAG".tar.gz \
+            build/release/npu_matrix.bit \
+            build/release/npu_matrix.hwh \
+            build/release/npu_matrix.manifest.json \
+            build/release/build_evidence.txt \
+            build/release/resnet18-image-acceptance.json \
+            build/release/SHA256SUMS
+
+      - name: Say what to do next
+        shell: bash
+        env:
+          TAG: ${{ needs.validate-source.outputs.release_tag }}
+        run: |
+          {
+            echo "## $TAG is validated"
+            echo
+            echo "A draft Release now holds the packages, checksums and board evidence."
+            echo "It has no tag and is not public yet."
+            echo
+            echo "Next: open a pull request from this release branch into \`main\`,"
+            echo "merge it **with a merge commit** (not a squash, which would leave"
+            echo "this validated commit out of \`main\`), then run the"
+            echo "\`release-publish\` workflow for $TAG."
+          } >> "$GITHUB_STEP_SUMMARY"

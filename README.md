@@ -16,16 +16,27 @@ Jupyter notebook validation.
 > execution are implemented; strict same-commit release provenance and
 > production hardening remain separate acceptance boundaries.
 
-## What works today
+## Contents
 
-| Capability | Status | Evidence |
-| --- | --- | --- |
-| Quantized numeric contract and hardware ABI | Available | Phase 0, Issue #2 / PR #12 |
-| Processing elements and systolic-array RTL | Available | Phase 1A, Issue #3 / PR #13 |
-| AXI DMA board vertical slice | Available | Phase 1B, Issue #4 / PR #17 |
-| Tiled matrix multiplication | Released in v0.1.3 | Phase 1C, Issue #5 / PR #18 |
-| Deterministic ResNet model package and runtime | Available in v0.1.4 candidate | Phase 2A, Issues #33–#36 |
-| Pinned TorchVision ResNet-18 workflow | Host and physical development validation passed | Issues #7 and #47 / PRs #46 and #48 |
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Design Flow of NPU PYNQ](#design-flow-of-npu-pynq)
+- [Hardware Architecture](#hardware-architecture)
+- [Supported target and contracts](#supported-target-and-contracts)
+- [Experiment Results](#experiment-results)
+- [Agentic Components](#agentic-components)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Features
+
+| Capability | Status |
+| --- | --- |
+| Support Quantized ResNet-18 | Done |
+| Customized EDA Tools | Done |
+| Transformers | Undone |
+| RTL Optimization by Design Space Exploration | Undone |
 
 The ResNet path intentionally supports the pinned TorchVision ResNet-18 schema;
 it does not claim support for arbitrary ONNX models, arbitrary ResNet variants,
@@ -33,47 +44,38 @@ or boards other than the PYNQ-Z1.
 
 ## Quick start
 
-### Run the ResNet-18 workflow
+Three steps, no development tools. Every release publishes one self-contained
+ResNet-18 package holding the notebook, the runtime, the quantized model, the
+ImageNet labels, the demo photographs, and the verified overlay.
 
-The ResNet example deliberately separates host conversion, Vivado artifacts,
-deployment, and human board acceptance. Follow the ordered
-[ResNet-18 runbook](examples/resnet18/README.md) to:
+1. Download `npu-resnet18-<tag>.zip` from the
+   [latest release](https://github.com/yenhao-huang/npu-pynq/releases/latest)
+   and copy it to the PYNQ-Z1's Jupyter directory.
+2. Extract it on the board, preserving its folder structure:
+   `unzip npu-resnet18-<tag>.zip -d npu-resnet18`.
+3. Open `resnet18.ipynb` in the board's Jupyter interface and run the cells in
+   order. Pick a bundled picture or upload your own; the last cell prints the
+   top-5 ImageNet labels, their scores, and a CORRECT or INCORRECT verdict.
 
-1. create the conversion environment;
-2. download and verify the pinned checkpoint;
-3. convert and validate the signed-INT8 model package;
-4. build or select the Vivado overlay;
-5. copy the release to the PYNQ-Z1; and
-6. inspect and approve each physical acceptance step in `resnet18.ipynb`.
+**Prerequisites.** A PYNQ-Z1 running the PYNQ image with its Jupyter interface
+reachable, and about 1.5 hours. Nothing else: no Vivado, no PyTorch, and no
+internet access on the board.
 
-### Run the standalone matrix release
+**Known limitations.** One forward pass is 1,814,073,344 MACs on the 8 x 8
+systolic array and takes roughly an hour, so this is a start-it-and-talk demo
+rather than an interactive classifier. The bundled pictures are Creative
+Commons photographs, not ImageNet dataset images, so a correct prediction is a
+demonstration and not an accuracy measurement. The package requires the 8 x 8
+overlay with `MAX_K=256`, and the pinned TorchVision checkpoint is not
+redistributed.
 
-1. Download the standalone package `npu-matrix-v0.1.3.tar.gz`.
-2. Extract the complete package without changing its layout into the board's
-   Jupyter directory at `/home/xilinx/jupyter_notebooks/npu_matrix`.
-3. Open `matrix_multiplication.ipynb` and select **Run All**.
-4. Confirm that the final output includes:
-
-   ```text
-   PASS: NPU matrix multiplication example
-   ```
-
-## Verified physical ResNet-18 run
-
-The human-reviewed notebook completed one full physical execution on the
-PYNQ-Z1 on 2026-09-04:
-
-| Measurement | Result |
-| --- | --- |
-| Physical matrix jobs | 2,104,040 |
-| Elapsed time | 28,031.949 seconds (about 7 h 47 min) |
-| Recorded output captures | 3 of 3 matched independent host digests |
-| Evidence class | `physical-pynq-z1-development` |
-
-The run explicitly allowed an artifact/source commit mismatch. It demonstrates
-real FPGA execution and exact output agreement in development mode, but it is
-not strict same-commit release evidence, an ImageNet accuracy result, or a
-performance claim.
+Each package carries `package.manifest.json` recording the release tag, the
+source commit, the overlay digests, the Vivado timing and DRC gates, and the
+SHA-256 of every file, and the same release carries the board acceptance
+evidence produced from that exact package. The full quick start is
+[examples/resnet18/QUICKSTART.md](examples/resnet18/QUICKSTART.md); to rebuild
+the workflow from source, follow the
+[ResNet-18 runbook](examples/resnet18/README.md).
 
 ## Design Flow of NPU PYNQ
 
@@ -125,34 +127,66 @@ ports, while AXI DMA streams operands through the matrix controller and the
 | Host tooling | Python and PowerShell; Vivado is required only for hardware builds |
 | Board runtime | PYNQ Linux with the repository's Python runtime and notebook |
 
-## Development
+## Experiment Results
 
-Run the open-source RTL gates from the repository root:
+The human-reviewed notebook completed one full physical execution on the
+PYNQ-Z1 on 2026-09-04:
+
+| Measurement | Result |
+| --- | --- |
+| Physical matrix jobs | 2,104,040 |
+| Elapsed time | 28,031.949 seconds (about 7 h 47 min) |
+| Recorded output captures | 3 of 3 matched independent host digests |
+| Evidence class | `physical-pynq-z1-development` |
+
+The run explicitly allowed an artifact/source commit mismatch. It demonstrates
+real FPGA execution and exact output agreement in development mode, but it is
+not strict same-commit release evidence, an ImageNet accuracy result, or a
+performance claim.
+
+## Agentic Components
+
+### IC design tools
+
+Give Claude Code, Codex, pi-agent and other compatible agents tools for RTL
+linting, simulation, waveform debugging and synthesis. Install in Linux/WSL
+or macOS with Node.js 20.11+:
 
 ```bash
-make -C src/test lint
-make -C src/test sim
+npm install -g --foreground-scripts @jony2156/ai-eda-tools@0.1.0
+ic-tools doctor
 ```
 
-Run the Python regression suites:
+Connect Claude Code from your project root:
 
 ```bash
-python -m unittest discover -s src/test/tests -v
-python -m unittest discover -s examples/matrix-multiplication/tests -v
-python -m unittest discover -s examples/resnet18/tests -v
+claude mcp add --transport stdio --scope project ic-tools -- \
+  "$(command -v ic-tools)" serve --project "$PWD"
+claude mcp list
+claude
 ```
 
-Vivado synthesis and implementation require a licensed local or self-hosted
-environment:
+See the [tool guide](tools/ic/README.md) for capabilities and
+[agent installation guide](tools/ic/docs/manual/installation.md) for Codex, pi
+and environment requirements.
 
-```bash
-vivado -mode batch -nojournal -nolog \
-  -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
-```
+### EDA skills
 
-GitHub-hosted CI runs Verilator lint and Icarus simulation. Publishing a stable
-semantic-version release triggers the separately gated Vivado build and board
-delivery workflow; bitstreams and generated Vivado projects are never committed.
+[`.codex/skills/`](.codex/skills/) provides reusable development, deployment
+and IC design workflows, including hardware builds and PYNQ board delivery.
+Skills guide the agent's workflow; tools execute the design operations.
+
+### Harness Engineering
+
+- **Agent instructions:** [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md)
+  define repository context and working rules.
+- **Git management:** [docs/rules/git/](docs/rules/git/) defines issue,
+  branch, commit and pull-request workflows.
+- **Environment and structure:** [environment.md](docs/rules/environment.md)
+  and [filetree.md](docs/rules/filetree.md) define tool assumptions and where
+  source, tests and generated artifacts belong.
+- **Spec-Driven Development:** use the OpenSpec skills to propose, implement
+  and archive changes under [openspec/](openspec/).
 
 ## Documentation
 

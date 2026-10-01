@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,6 +18,9 @@ import numpy as np
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE_ROOT = REPOSITORY_ROOT / "examples" / "resnet18"
+CD_DEPLOYER = (
+    REPOSITORY_ROOT / ".github" / "cd" / "resnet18_deploy.ps1"
+)
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
@@ -193,6 +197,55 @@ class ResNet18DeliveryTests(unittest.TestCase):
             stream.extractall(target)
         return target
 
+    def test_reports_of_a_reused_overlay_are_recovered_from_its_package(self):
+        recovery = load_module(
+            "recover_overlay_reports",
+            REPOSITORY_ROOT / ".github" / "cd" / "recover_overlay_reports.py",
+        )
+        archive = self.root / "candidate.zip"
+        self.build(archive)
+        reused = self.root / "reused-reports"
+        reused.mkdir()
+        shutil.copy2(self.reports / "build_evidence.txt", reused)
+        written = recovery.recover(archive, self.artifacts, reused)
+        self.assertEqual(written, list(recovery.REQUIRED_REPORTS[1:]))
+        for name in recovery.REQUIRED_REPORTS:
+            self.assertEqual(
+                (reused / name).read_bytes(), (self.reports / name).read_bytes()
+            )
+        # Another build's evidence binds nothing, and nothing is written.
+        other = self.root / "other-reports"
+        other.mkdir()
+        (other / "build_evidence.txt").write_text("another build\n", encoding="utf-8")
+        with self.assertRaises(recovery.RecoveryError):
+            recovery.recover(archive, self.artifacts, other)
+        self.assertEqual(sorted(p.name for p in other.iterdir()), ["build_evidence.txt"])
+
+    def test_a_reused_overlay_is_recorded_as_the_overlay_source(self):
+        release = "f" * 40
+        with self.assertRaises(self.packager.ResNet18PackageError):
+            self.packager.build_archive(
+                repository_root=REPOSITORY_ROOT,
+                artifact_dir=self.artifacts,
+                report_dir=self.reports,
+                descriptor_path=self.descriptor,
+                output_archive=self.root / "mismatch.zip",
+                release_tag="v0.2.0",
+                source_commit=release,
+            )
+        manifest = self.packager.build_archive(
+            repository_root=REPOSITORY_ROOT,
+            artifact_dir=self.artifacts,
+            report_dir=self.reports,
+            descriptor_path=self.descriptor,
+            output_archive=self.root / "reused.zip",
+            release_tag="v0.2.0",
+            source_commit=release,
+            overlay_commit=self.commit,
+        )
+        self.assertEqual(manifest["source_commit"], release)
+        self.assertEqual(manifest["overlay"]["source_commit"], self.commit)
+
     def test_archive_is_reproducible_allowlisted_and_path_free(self):
         first = self.root / "first.zip"
         second = self.root / "second.zip"
@@ -300,11 +353,10 @@ class ResNet18DeliveryTests(unittest.TestCase):
         result = subprocess.run(
             [
                 str(powershell), "-NoProfile", "-File",
-                str(EXAMPLE_ROOT / "deploy_release.ps1"),
+                str(CD_DEPLOYER),
                 "-PackageArchive", str(archive),
                 "-ReleaseTag", "v0.2.0",
                 "-DeploymentId", "dry-run",
-                "-EvidencePath", str(self.root / "evidence.json"),
                 "-DryRun",
             ],
             cwd=REPOSITORY_ROOT,
@@ -314,15 +366,46 @@ class ResNet18DeliveryTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("no network command was executed", result.stdout)
-        self.assertFalse((self.root / "evidence.json").exists())
 
-    def test_deployment_makes_root_evidence_readable_before_promotion(self):
-        script = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(encoding="utf-8")
-        runner = script.index("--evidence board-evidence.json")
-        readable = script.index("chmod 0644 board-evidence.json")
+    def test_deployment_proves_the_tree_before_promotion(self):
+        script = CD_DEPLOYER.read_text(encoding="utf-8")
+        proof = script.index("--archive-sha256 '$archiveDigest'")
+        verify_only = script.index("--verify-only")
         promotion = script.index("mv '$remoteStaging' '$remoteDeployment'")
-        self.assertLess(runner, readable)
-        self.assertLess(readable, promotion)
+        self.assertLess(proof, promotion)
+        self.assertLess(verify_only, promotion)
+
+    def test_verify_only_proves_the_tree_and_runs_nothing(self):
+        archive = self.root / "package.zip"
+        self.build(archive)
+        extracted = self.root / "verify-only"
+        with zipfile.ZipFile(archive) as bundle:
+            bundle.extractall(extracted)
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(extracted)
+        command = [
+            sys.executable, "-B", str(extracted / "run_on_board.py"),
+            "--package-root", str(extracted),
+            "--package-archive", str(archive),
+            "--archive-sha256", digest,
+            "--verify-only",
+        ]
+        result = subprocess.run(
+            command, cwd=extracted, env=environment,
+            check=False, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("matches the published archive", result.stdout)
+        self.assertEqual(
+            sorted(path.name for path in extracted.glob("*evidence*.json")), []
+        )
+        (extracted / "artifacts" / "npu_matrix.hwh").write_bytes(b"tampered")
+        tampered = subprocess.run(
+            command, cwd=extracted, env=environment,
+            check=False, capture_output=True, text=True,
+        )
+        self.assertNotEqual(tampered.returncode, 0)
 
 
 if __name__ == "__main__":

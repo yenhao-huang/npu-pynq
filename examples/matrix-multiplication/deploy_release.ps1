@@ -11,11 +11,11 @@ param(
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
     [string]$DeploymentId,
 
-    [Parameter(Mandatory = $true)]
+    # Required unless -DeployOnly; a deploy-only run executes nothing.
     [string]$EvidencePath,
 
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
-    [string]$BoardHost = 'pynq_board',
+    [string]$BoardHost = '192.168.2.99',
 
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
     [string]$BoardUser = 'xilinx',
@@ -25,7 +25,10 @@ param(
 
     [switch]$DryRun,
 
-    [switch]$InteractiveSudo
+    [switch]$InteractiveSudo,
+
+    # Install the package on the board without running it (what CD does).
+    [switch]$DeployOnly
 )
 
 Set-StrictMode -Version Latest
@@ -74,7 +77,10 @@ foreach ($relativePath in $requiredFiles) {
     }
 }
 
-$resolvedEvidence = [IO.Path]::GetFullPath($EvidencePath)
+if (-not $DeployOnly -and -not $EvidencePath) {
+    throw 'EvidencePath is required unless -DeployOnly is given'
+}
+$resolvedEvidence = if ($EvidencePath) { [IO.Path]::GetFullPath($EvidencePath) } else { '(none: deploy only)' }
 $remoteRootNormalized = $RemoteRoot.TrimEnd('/')
 $remoteStaging = "$remoteRootNormalized/.staging/$ReleaseTag-$DeploymentId"
 $remoteVersionRoot = "$remoteRootNormalized/releases/$ReleaseTag"
@@ -103,9 +109,11 @@ if (Test-Path -LiteralPath $archivePath) {
     throw "Refusing to overwrite existing temporary archive: $archivePath"
 }
 
-$evidenceDirectory = Split-Path -Parent $resolvedEvidence
-if ($evidenceDirectory) {
-    New-Item -ItemType Directory -Force -Path $evidenceDirectory | Out-Null
+if (-not $DeployOnly) {
+    $evidenceDirectory = Split-Path -Parent $resolvedEvidence
+    if ($evidenceDirectory) {
+        New-Item -ItemType Directory -Force -Path $evidenceDirectory | Out-Null
+    }
 }
 
 try {
@@ -119,6 +127,17 @@ try {
     Invoke-CheckedCommand -Command 'scp' -Arguments @(
         '--', $archivePath, "${target}:$remoteStaging/package.tar.gz"
     )
+    if ($DeployOnly) {
+        # Install exactly the package: unpack, check its required files, and
+        # promote it. Nothing runs on the FPGA. File names carry no spaces, so
+        # the remote loop needs no embedded double quotes.
+        $requiredList = $requiredFiles -join ' '
+        Invoke-CheckedCommand -Command 'ssh' -Arguments @(
+            $target,
+            "set -eu; tar -xzf '$remoteStaging/package.tar.gz' -C '$remoteStaging'; rm -f '$remoteStaging/package.tar.gz'; cd '$remoteStaging'; for f in $requiredList; do test -s `$f || { echo missing `$f; exit 1; }; done; mv '$remoteStaging' '$remoteDeployment'; ln -sfn '$DeploymentId' '$remoteVersionRoot/current'"
+        )
+    }
+    else {
     $sudoArguments = if ($InteractiveSudo) { '' } else { '-n ' }
     $validationCommand = "set -eu; tar -xzf '$remoteStaging/package.tar.gz' -C '$remoteStaging'; cd '$remoteStaging'; test -r /etc/profile.d/xrt_setup.sh; source /etc/profile.d/xrt_setup.sh; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; test -x /usr/local/share/pynq-venv/bin/python3; sudo ${sudoArguments}XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 run_on_board.py --artifact-dir artifacts --release-tag '$ReleaseTag' --evidence board-evidence.json; test -s board-evidence.json; mv '$remoteStaging' '$remoteDeployment'; ln -sfn '$DeploymentId' '$remoteVersionRoot/current'"
     $validationSshArguments = @()
@@ -130,6 +149,7 @@ try {
     Invoke-CheckedCommand -Command 'scp' -Arguments @(
         '--', "${target}:$remoteEvidence", $resolvedEvidence
     )
+    }
 }
 finally {
     if (Test-Path -LiteralPath $archivePath) {
@@ -137,4 +157,9 @@ finally {
     }
 }
 
-Write-Host "PASS: deployed $ReleaseTag as $DeploymentId and retrieved board evidence"
+if ($DeployOnly) {
+    Write-Host "PASS: deployed $ReleaseTag as $DeploymentId (deploy only; nothing was executed)"
+}
+else {
+    Write-Host "PASS: deployed $ReleaseTag as $DeploymentId and retrieved board evidence"
+}
