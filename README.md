@@ -50,16 +50,16 @@ ImageNet labels, the demo photographs, and the verified overlay.
 
 1. Download the package on your computer:
    [npu-resnet18-v1.0.6.zip](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.6/npu-resnet18-v1.0.6.zip).
-2. Copy it to the PYNQ-Z1 (`<user>` is the board account, `xilinx` by default):
+2. Copy it to the PYNQ-Z1:
 
    ```bash
-   scp npu-resnet18-v1.0.6.zip <user>@192.168.2.99:~/jupyter_notebooks/
+   scp npu-resnet18-v1.0.6.zip xilinx@192.168.2.99:~/jupyter_notebooks/
    ```
 
 3. Log in to the board:
 
    ```bash
-   ssh <user>@192.168.2.99
+   ssh xilinx@192.168.2.99
    ```
 
 4. Extract the package:
