@@ -19,7 +19,7 @@ Jupyter notebook validation.
 ## Contents
 
 - [Features](#features)
-- [Quick start](#quick-start)
+- [Quick Start](#quick-start)
 - [Design Flow of NPU PYNQ](#design-flow-of-npu-pynq)
 - [Hardware Architecture](#hardware-architecture)
 - [Supported target and contracts](#supported-target-and-contracts)
@@ -42,11 +42,7 @@ The ResNet path intentionally supports the pinned TorchVision ResNet-18 schema;
 it does not claim support for arbitrary ONNX models, arbitrary ResNet variants,
 or boards other than the PYNQ-Z1.
 
-## Quick start
-
-Five steps, no development tools. Every release publishes one self-contained
-ResNet-18 package holding the notebook, the runtime, the quantized model, the
-ImageNet labels, the demo photographs, and the verified overlay.
+## Quick Start
 
 1. Download the package on your computer:
    [npu-resnet18-v1.0.6.zip](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.6/npu-resnet18-v1.0.6.zip).
@@ -74,26 +70,6 @@ ImageNet labels, the demo photographs, and the verified overlay.
    cells in order. Pick a bundled picture or upload your own; the last cell
    prints the top-5 ImageNet labels, their scores, and a CORRECT or INCORRECT
    verdict.
-
-**Prerequisites.** A PYNQ-Z1 running the PYNQ image with its Jupyter interface
-reachable, and about 1.5 hours. Nothing else: no Vivado, no PyTorch, and no
-internet access on the board.
-
-**Known limitations.** One forward pass is 1,814,073,344 MACs on the 8 x 8
-systolic array and takes roughly an hour, so this is a start-it-and-talk demo
-rather than an interactive classifier. The bundled pictures are Creative
-Commons photographs, not ImageNet dataset images, so a correct prediction is a
-demonstration and not an accuracy measurement. The package requires the 8 x 8
-overlay with `MAX_K=256`, and the pinned TorchVision checkpoint is not
-redistributed.
-
-Each package carries `package.manifest.json` recording the release tag, the
-source commit, the overlay digests, the Vivado timing and DRC gates, and the
-SHA-256 of every file, and the same release carries the board acceptance
-evidence produced from that exact package. The full quick start is
-[examples/resnet18/QUICKSTART.md](examples/resnet18/QUICKSTART.md); to rebuild
-the workflow from source, follow the
-[ResNet-18 runbook](examples/resnet18/README.md).
 
 ## Design Flow of NPU PYNQ
 
