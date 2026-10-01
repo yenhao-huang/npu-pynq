@@ -86,6 +86,32 @@ class StandalonePackageTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary_directory.cleanup()
 
+    def test_a_reused_overlay_is_accepted_only_when_named(self) -> None:
+        package_module = load_required_module(
+            "matrix_package_example_reuse",
+            EXAMPLE_ROOT / "package_example.py",
+        )
+        # The overlay fixture was built from commit a...; the release is b...
+        with self.assertRaises(Exception):
+            package_module.build_package(
+                repository_root=REPOSITORY_ROOT,
+                artifact_dir=self.artifact_dir,
+                output_dir=self.output_dir,
+                release_tag="v0.1.1",
+                source_commit="b" * 40,
+            )
+        self.assertFalse(self.output_dir.exists())
+        manifest = package_module.build_package(
+            repository_root=REPOSITORY_ROOT,
+            artifact_dir=self.artifact_dir,
+            output_dir=self.output_dir,
+            release_tag="v0.1.1",
+            source_commit="b" * 40,
+            overlay_commit="a" * 40,
+        )
+        self.assertEqual(manifest["source_commit"], "b" * 40)
+        self.assertEqual(manifest["overlay_source_commit"], "a" * 40)
+
     def test_package_uses_explicit_standalone_layout(self) -> None:
         package_module = load_required_module(
             "matrix_package_example",
@@ -426,12 +452,71 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             "npu-matrix-",
             "SHA256SUMS",
             "sha256sum --check --strict",
-            "resnet18-board-evidence.json",
             "resnet18-image-acceptance.json",
-            "board-evidence.json",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.cd)
+
+    def test_the_real_image_is_the_only_board_check(self) -> None:
+        import yaml
+
+        steps = yaml.safe_load(self.cd)["jobs"]["board-validation"]["steps"]
+        runs = {step["name"]: step.get("run", "") for step in steps}
+        self.assertIn("-DeployOnly", runs["Deploy the matrix example"])
+        self.assertIn("resnet18_deploy.ps1", runs["Deploy the ResNet-18 release package"])
+        self.assertIn(
+            "resnet18_accept_image.ps1",
+            runs["Run the real-image inference acceptance on the board"],
+        )
+        # Neither deploy step produces evidence; the image acceptance does.
+        self.assertNotIn("board-evidence.json", self.cd)
+        self.assertNotIn("board-evidence.json", self.publish)
+        deploy = (REPOSITORY_ROOT / ".github" / "cd" / "resnet18_deploy.ps1").read_text(encoding="utf-8")
+        self.assertIn("--verify-only", deploy)
+        self.assertNotIn("sudo", deploy)
+        accept = (REPOSITORY_ROOT / ".github" / "cd" / "resnet18_accept_image.ps1").read_text(encoding="utf-8")
+        # Detached on the board and polled, so a dropped session is survivable.
+        self.assertIn("nohup setsid", accept)
+        self.assertNotIn("& ;", accept)
+
+    def test_a_release_reuses_its_own_successful_builds(self) -> None:
+        import yaml
+
+        jobs = yaml.safe_load(self.cd)["jobs"]
+        # The model: a cache scoped to this release version and its inputs.
+        model = jobs["build-model"]["steps"]
+        restore = next(step for step in model if step.get("id") == "model-cache")
+        self.assertTrue(restore["with"]["key"].startswith(
+            "resnet18-model-${{ needs.validate-source.outputs.release_tag }}-"
+        ))
+        self.assertIn("hashFiles(", restore["with"]["key"])
+        saves = [s for s in model if str(s.get("uses", "")).startswith("actions/cache/save")]
+        self.assertEqual(len(saves), 1)
+        self.assertIn("cache-hit != 'true'", saves[0]["if"])
+
+        # The overlay: the last successful build of this release branch, reused
+        # only from an ancestor with identical hardware sources.
+        overlay = jobs["build-overlay"]
+        self.assertEqual(overlay["permissions"]["actions"], "read")
+        steps = {s["name"]: s for s in overlay["steps"]}
+        finder = steps["Find this release's last successful overlay build"]
+        self.assertIn("build-overlay", finder["with"]["script"])
+        self.assertIn("npu-build-", finder["env"]["ARTIFACT"])
+        decide = steps["Decide whether the candidate overlay can be reused"]["run"]
+        for marker in ("verify_overlay.py", "merge-base --is-ancestor", "git diff --quiet", "src/hw"):
+            self.assertIn(marker, decide)
+        self.assertEqual(
+            steps["Build routed overlay and bitstream"]["if"],
+            "steps.overlay-reuse.outputs.reuse != 'true'",
+        )
+        proof = steps["Prove a reused overlay matches this commit's hardware"]["run"]
+        self.assertIn("merge-base --is-ancestor", proof)
+        self.assertIn("git diff --quiet", proof)
+        names = list(steps)
+        self.assertLess(
+            names.index("Prove a reused overlay matches this commit's hardware"),
+            names.index("Assemble standalone matrix example"),
+        )
 
     def test_publishing_requires_a_validated_and_merged_draft(self) -> None:
         import yaml
@@ -541,12 +626,12 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertIn("build/overlay/reports/build_evidence.txt", run)
 
     def test_board_commands_need_nothing_the_pynq_image_may_lack(self) -> None:
-        for name in ("resnet18_deploy_and_accept.ps1", "resnet18_accept_image.ps1"):
+        for name in ("resnet18_deploy.ps1", "resnet18_accept_image.ps1"):
             script = (REPOSITORY_ROOT / ".github" / "cd" / name).read_text(encoding="utf-8")
             with self.subTest(script=name):
                 self.assertNotIn("unzip ", script)
                 self.assertIn("python3 -B ", script)
-        deploy = (REPOSITORY_ROOT / ".github" / "cd" / "resnet18_deploy_and_accept.ps1").read_text(encoding="utf-8")
+        deploy = (REPOSITORY_ROOT / ".github" / "cd" / "resnet18_deploy.ps1").read_text(encoding="utf-8")
         self.assertIn("python3 -m zipfile -e", deploy)
 
     def test_pre_merge_gate_protects_main(self) -> None:

@@ -203,6 +203,7 @@ GENERATED_PACKAGE_FILES = frozenset(
     }
 )
 RECOVERY_PROBE_KIND = "physical-accelerator-timeout"
+VERIFY_PASS_MARKER = "PASS: deployed package matches the published archive"
 
 
 class BoardAcceptanceError(RuntimeError):
@@ -430,10 +431,22 @@ def _accept_package(arguments: argparse.Namespace) -> int:
             raise BoardAcceptanceError(
                 "package manifest names another release tag"
             )
+        if arguments.verify_only:
+            # Deployment check only: the tree is exactly the published archive.
+            # The physical run is a separate step (accept_image_on_board.py).
+            print(VERIFY_PASS_MARKER)
+            return 0
         if verified.descriptor_path is None:
             # The real release: accept the model workspace the package carries.
-            # verify_package_tree has already proved every file digest.
-            commit = str(verified.manifest.get("source_commit", ""))
+            # verify_package_tree has already proved every file digest. A
+            # release may reuse an overlay built from an earlier commit with
+            # identical hardware sources, so bind to the overlay's own commit.
+            overlay_record = verified.manifest.get("overlay")
+            commit = str(
+                overlay_record.get("source_commit", "")
+                if isinstance(overlay_record, dict)
+                else ""
+            )
             run_board(
                 model_dir=verified.root / "model",
                 source_metadata_path=verified.root / "model-source.json",
@@ -475,7 +488,7 @@ def main() -> int:
     parser.add_argument("--expected-source-commit")
     parser.add_argument("--deployed-source-commit")
     parser.add_argument("--allow-source-mismatch", action="store_true")
-    parser.add_argument("--evidence", type=Path, required=True)
+    parser.add_argument("--evidence", type=Path)
     parser.add_argument("--software-timeout", type=float, default=86400.0)
     parser.add_argument(
         "--package-root",
@@ -485,7 +498,16 @@ def main() -> int:
     parser.add_argument("--package-archive", type=Path)
     parser.add_argument("--archive-sha256")
     parser.add_argument("--release-tag")
+    parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="with --package-root: prove the deployed tree, run nothing",
+    )
     arguments = parser.parse_args()
+    if arguments.verify_only and arguments.package_root is None:
+        parser.error("--verify-only requires --package-root")
+    if arguments.evidence is None and not arguments.verify_only:
+        parser.error("--evidence is required")
     if arguments.package_root is not None:
         return _accept_package(arguments)
     missing = [

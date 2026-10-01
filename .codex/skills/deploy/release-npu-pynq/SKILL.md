@@ -121,10 +121,11 @@ python .codex/skills/deploy/release-npu-pynq/references/scripts/rehearse_release
 ```
 
 It builds the real package with placeholder overlay artifacts, extracts it the
-way the board does, and runs both board entry points from inside the package
-against a NumPy 8 x 8 NPU with the overlay's tile limits. All four lines must
+way the board does, and runs CD's two board steps from inside the package (the
+deploy check `run_on_board.py --verify-only`, then the real-image inference)
+against a NumPy 8 x 8 NPU with the overlay's tile limits. All three lines must
 print PASS; the job count should be 135,290. Only the FPGA is not exercised.
-It takes about five minutes.
+It takes about three minutes.
 
 The v1.0.6 release found three defects this way while Vivado was already
 running: the board rejecting its own `__pycache__`, the draft looking for
@@ -149,9 +150,17 @@ branch it ran on, this validates the workflow itself as well as the release;
 Its jobs, in order: `validate-source`; then `host-checks`, `build-model`,
 `preflight-vivado` and `preflight-board` in parallel; then `build-overlay`
 (Vivado, self-hosted), `board-validation` (physical PYNQ-Z1), and
-`publish-draft`. Roughly: ten to twenty minutes until Vivado starts, two to
-three hours of Vivado, then about two hours on the board (one pass over the
-validation tensor, one over the demo photograph).
+`publish-draft`. Roughly: ten to twenty minutes until Vivado starts, about an
+hour of Vivado, then under an hour on the board: both packages are deployed,
+and the only board check is the ResNet-18 real-image inference.
+
+A run never redoes a stage that already succeeded for this release. If an
+earlier run on the same `release/vX.Y.Z` branch passed `build-overlay` and
+`src/hw` is unchanged since its commit, the bitstream is reused and Vivado is
+skipped (the job shows an `overlay reused` notice); the model is likewise
+restored from a cache keyed by the release and its model inputs. So after a
+board or packaging fix, push the fix to the release branch and expect the run
+to reach the board in minutes.
 
 ```bash
 gh run list --workflow cd.yml --branch release/vX.Y.Z
@@ -181,8 +190,10 @@ Read `docs/rules/ci-cd.md` before diagnosing anything else. Common causes:
 - `validate-source` rejects the branch — the branch name and the declared
   version disagree.
 
-Fix on `dev`, then rebuild the release branch from the new `dev` and push again.
-The run recreates the draft, so a retry is safe.
+Fix on `dev`, then bring the release branch up to the new `dev` and push again.
+Prefer a fast-forward (or a merge) over a force-push: an earlier overlay is
+reused only from an ancestor of the new release commit, so a rewritten branch
+pays for Vivado again. The run recreates the draft, so a retry is safe.
 
 ## 6. Prepare the promotion pull request
 

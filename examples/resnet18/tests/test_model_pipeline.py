@@ -230,13 +230,22 @@ class ModelDownloadTests(unittest.TestCase):
             REPOSITORY_ROOT
             / ".github"
             / "cd"
-            / "resnet18_deploy_and_accept.ps1"
+            / "resnet18_deploy.ps1"
         ).read_text(encoding="utf-8")
+        # CD deploys and proves the tree without the FPGA, as the board user.
         self.assertIn("source /etc/profile.d/pynq_venv.sh", cd)
         self.assertIn("source /etc/profile.d/xrt_setup.sh", cd)
-        self.assertIn("sudo", cd)
         self.assertIn("run_on_board.py", cd)
-        self.assertIn("EvidencePath", cd)
+        self.assertIn("--verify-only", cd)
+        self.assertNotIn("sudo", cd)
+        self.assertNotIn("EvidencePath", cd)
+        accept = (
+            REPOSITORY_ROOT / ".github" / "cd" / "resnet18_accept_image.ps1"
+        ).read_text(encoding="utf-8")
+        # The physical run, and its evidence, belong to the image acceptance.
+        self.assertIn("sudo -n", accept)
+        self.assertIn("accept_image_on_board.py", accept)
+        self.assertIn("EvidencePath", accept)
 
 
 class ModelPackageTests(unittest.TestCase):

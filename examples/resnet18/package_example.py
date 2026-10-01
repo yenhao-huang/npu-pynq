@@ -506,8 +506,13 @@ def build_delivery_archive(
     descriptor_path: Path | None = None,
     model_dir: Path | None = None,
     source_metadata_path: Path | None = None,
+    overlay_commit: str | None = None,
 ) -> dict[str, object]:
     """Publish one reproducible standalone board package, or publish nothing.
+
+    ``overlay_commit`` names the commit the overlay was built from when a
+    release reuses an earlier build of identical hardware sources; the caller
+    proves that identity. By default the overlay must come from this commit.
 
     The board accepts a package from one of two sources: the real model
     workspace, whose host acceptance record binds the exact model, input and
@@ -531,14 +536,19 @@ def build_delivery_archive(
         raise ResNet18PackageError("output archive already exists")
     tag = _validated_release_tag(release_tag)
     commit = _validated_commit(source_commit)
+    hardware_commit = (
+        commit if overlay_commit is None else _validated_commit(overlay_commit)
+    )
 
     overlay = verify_artifacts(artifact_dir)
-    if str(overlay.get("source_commit", "")).lower() != commit:
+    if str(overlay.get("source_commit", "")).lower() != hardware_commit:
         raise ResNet18PackageError(
             "overlay manifest source commit differs from the release commit"
+            if overlay_commit is None
+            else "overlay manifest source commit differs from --overlay-commit"
         )
     gates = evaluate_vivado_gates(
-        parse_build_evidence(report_dir / "build_evidence.txt"), commit
+        parse_build_evidence(report_dir / "build_evidence.txt"), hardware_commit
     )
 
     entries, report_records = _delivery_entries(
@@ -575,7 +585,7 @@ def build_delivery_archive(
         "overlay": {
             "bit_sha256": overlay["bit"]["sha256"],
             "hwh_sha256": overlay["hwh"]["sha256"],
-            "source_commit": commit,
+            "source_commit": hardware_commit,
             "target_part": overlay["target_part"],
         },
         "release_tag": tag,
@@ -641,6 +651,10 @@ def main() -> int:
     parser.add_argument("--release-tag")
     parser.add_argument("--source-commit")
     parser.add_argument(
+        "--overlay-commit",
+        help="the overlay was built from this earlier commit (reused build)",
+    )
+    parser.add_argument(
         "--without-model-workspace",
         action="store_true",
         help="omit the ignored model workspace from the standalone package",
@@ -676,6 +690,7 @@ def main() -> int:
             source_metadata_path=(
                 None if arguments.without_model_workspace else arguments.source_metadata
             ),
+            overlay_commit=arguments.overlay_commit,
         )
         print(
             "PASS [real-model-host]: standalone release package at "

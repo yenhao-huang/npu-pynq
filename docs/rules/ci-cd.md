@@ -57,10 +57,24 @@ Rules:
 - The release package is accepted from that workspace's host acceptance record.
   An external acceptance bundle is optional.
 - The ResNet-18 package is what the board runs and what the Release publishes.
-  The board proves the extracted tree against the published archive digest and
-  the package manifest before programming the overlay, runs the acceptance
-  corpus, then classifies the pinned photograph, and promotes the deployment
-  directory only after readable evidence exists.
+  Deployment proves the extracted tree against the archive digest and the
+  package manifest (`run_on_board.py --verify-only`, no FPGA work) and only then
+  promotes the deployment directory. The one board check is the real-image
+  inference: `accept_image_on_board.py` classifies the pinned photograph on the
+  physical overlay, compares every capture with the host record, and writes
+  `resnet18-image-acceptance.json`. It runs detached on the board and CD polls
+  it, so a dropped ssh session does not fail the run.
+- The matrix example is deployed only (`deploy_release.ps1 -DeployOnly`); the
+  ResNet-18 inference exercises the same overlay.
+- A release does not redo a stage that already succeeded for it. `build-model`
+  restores a cache keyed by the release version and a hash of the model
+  inputs. `build-overlay` reuses the `npu-build-<tag>` artifact of the newest
+  run on the same release branch whose `build-overlay` succeeded, but only if
+  the overlay verifies, its commit is an ancestor of the release commit, and
+  `src/hw` and `src/runtime/verify_overlay.py` are identical between the two.
+  Otherwise Vivado runs. A reused overlay keeps its own commit in its manifest
+  and Vivado evidence; the packages record it as the overlay's source commit
+  (`--overlay-commit`) beside the release commit.
 - Board deployment must use the protected `pynq-z1-production` environment, and
   publishing must use the `pynq-z1-release` environment whose reviewers own the
   release decision. Board host, user, remote root, SSH configuration, and

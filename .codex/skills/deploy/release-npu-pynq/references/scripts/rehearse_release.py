@@ -2,11 +2,11 @@
 
 Builds the real ResNet-18 release package from a validated model workspace,
 with placeholder overlay artifacts, extracts it the way the board does, and
-runs both board entry points from inside the extracted package against a NumPy
+runs CD's two board steps from inside the extracted package: the deploy check
+(run_on_board.py --verify-only) and the real-image inference, against a NumPy
 8 x 8 NPU that enforces the hardware tile limits. Everything but the FPGA runs:
-tree verification, workspace validation, overlay and commit binding, 135,290
-tiled jobs, capture comparison against the host record, demo decoding and
-evidence writing.
+tree verification, overlay binding, 135,290 tiled jobs, capture comparison
+against the host record, demo decoding and evidence writing.
 
 A full CD run spends two to three hours in Vivado before any of this executes,
 so run this first whenever packaging, the board scripts or the model code
@@ -70,18 +70,11 @@ BOARD_DRIVER = textwrap.dedent(
     npu = NumpyNPU()
     board.load_pynq_runtime = lambda bit: npu
     image.load_pynq_runtime = lambda bit: npu
-    commit = json.loads((root / "package.manifest.json").read_text())["source_commit"]
-    evidence = board.run_board(
-        model_dir=root / "model", source_metadata_path=root / "model-source.json",
-        artifact_dir=root / "artifacts", expected_source_commit=commit,
-        deployed_source_commit=commit, allow_source_mismatch=False,
-        evidence_path=root / "board-evidence.json", software_timeout=86400.0,
-        require_checkpoint=False)
-    runtime = evidence["runtime"]
-    print(f"PASS board acceptance: {runtime['physical_jobs']:,} jobs, {runtime['mac_count']:,} MACs")
+    # CD's one board check: the real-image inference.
     result = image.accept_image(package_root=root, evidence_path=root / "image-acceptance.json")
-    top = result["top_k"][0]
-    print(f"PASS image acceptance: {top['name']} ({top['probability']:.2%}), verdict {result['verdict']}")
+    top, runtime = result["top_k"][0], result["runtime"]
+    print(f"PASS image acceptance: {top['name']} ({top['probability']:.2%}), verdict {result['verdict']}, "
+          f"{runtime['physical_jobs']:,} jobs, {runtime['mac_count']:,} MACs")
     '''
 )
 
@@ -126,19 +119,18 @@ def main() -> int:
     )
     print(f"PASS package: {archive.stat().st_size // 1024} KiB")
 
-    # Exactly what the board does: copy, extract with Python, verify, run.
+    # Exactly what the board does: copy, extract with Python, verify, then classify.
     shutil.copy2(archive, staging / archive.name)
     subprocess.run([sys.executable, "-m", "zipfile", "-e", archive.name, "package"], cwd=staging, check=True)
     package = staging / "package"
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     environment = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
 
-    # The tree check must pass from inside the package, after its own imports.
+    # The deploy step's check, exactly as resnet18_deploy.ps1 runs it.
     check = subprocess.run(
-        [sys.executable, "-c",
-         "import sys; sys.path.insert(0, '.'); import run_on_board as b; "
-         f"b.verify_package_tree('.', archive_path='../{archive.name}', expected_archive_sha256='{digest}'); "
-         "print('PASS package tree verified from inside the package')"],
+        [sys.executable, "-B", "run_on_board.py", "--package-root", ".",
+         "--package-archive", f"../{archive.name}", "--archive-sha256", digest,
+         "--release-tag", arguments.release_tag, "--verify-only"],
         cwd=package, env=environment, text=True,
     )
     if check.returncode:

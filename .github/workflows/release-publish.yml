@@ -73,7 +73,6 @@ jobs:
           for asset in \
             "npu-resnet18-${TAG}.zip" \
             "SHA256SUMS" \
-            "resnet18-board-evidence.json" \
             "resnet18-image-acceptance.json"
           do
             if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx "$asset"; then
