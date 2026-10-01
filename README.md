@@ -44,18 +44,36 @@ or boards other than the PYNQ-Z1.
 
 ## Quick start
 
-Three steps, no development tools. Every release publishes one self-contained
+Five steps, no development tools. Every release publishes one self-contained
 ResNet-18 package holding the notebook, the runtime, the quantized model, the
 ImageNet labels, the demo photographs, and the verified overlay.
 
-1. Download `npu-resnet18-<tag>.zip` from the
-   [latest release](https://github.com/yenhao-huang/npu-pynq/releases/latest)
-   and copy it to the PYNQ-Z1's Jupyter directory.
-2. Extract it on the board, preserving its folder structure:
-   `unzip npu-resnet18-<tag>.zip -d npu-resnet18`.
-3. Open `resnet18.ipynb` in the board's Jupyter interface and run the cells in
-   order. Pick a bundled picture or upload your own; the last cell prints the
-   top-5 ImageNet labels, their scores, and a CORRECT or INCORRECT verdict.
+1. Download the package on your computer:
+   [npu-resnet18-v1.0.6.zip](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.6/npu-resnet18-v1.0.6.zip).
+2. Copy it to the PYNQ-Z1 (`<user>` is the board account, `xilinx` by default):
+
+   ```bash
+   scp npu-resnet18-v1.0.6.zip <user>@192.168.2.99:~/jupyter_notebooks/
+   ```
+
+3. Log in to the board:
+
+   ```bash
+   ssh <user>@192.168.2.99
+   ```
+
+4. Extract the package:
+
+   ```bash
+   cd ~/jupyter_notebooks
+   unzip npu-resnet18-v1.0.6.zip -d npu-resnet18
+   ```
+
+5. Open the notebook in Jupyter at
+   <http://192.168.2.99:9090/notebooks/npu-resnet18/resnet18.ipynb> and run the
+   cells in order. Pick a bundled picture or upload your own; the last cell
+   prints the top-5 ImageNet labels, their scores, and a CORRECT or INCORRECT
+   verdict.
 
 **Prerequisites.** A PYNQ-Z1 running the PYNQ image with its Jupyter interface
 reachable, and about 1.5 hours. Nothing else: no Vivado, no PyTorch, and no

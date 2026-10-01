@@ -92,8 +92,20 @@ def _digest_record(record: object, key: str, label: str) -> str:
     return digest
 
 
-def validate_workspace(model_dir: Path, source_metadata_path: Path) -> list[Path]:
-    """Return package assets only after validating the whole readiness boundary."""
+def validate_workspace(
+    model_dir: Path,
+    source_metadata_path: Path,
+    *,
+    require_checkpoint: bool = True,
+) -> list[Path]:
+    """Return package assets only after validating the whole readiness boundary.
+
+    The pinned TorchVision checkpoint is never redistributed, so a deployed
+    release package does not carry it. There, pass ``require_checkpoint=False``:
+    the host acceptance record must still name the checkpoint digest that the
+    source metadata pins, which binds the package to the same source without
+    shipping it.
+    """
 
     model_dir = model_dir.resolve()
     metadata_path = source_metadata_path.resolve()
@@ -113,13 +125,21 @@ def validate_workspace(model_dir: Path, source_metadata_path: Path) -> list[Path
     ):
         raise ResNet18PackageError("source checkpoint filename is invalid")
     checkpoint = model_dir / checkpoint_name
-    if not checkpoint.is_file():
-        raise ResNet18PackageError("pinned source checkpoint is missing")
-    if (
-        checkpoint.stat().st_size != source.get("bytes")
-        or _sha256(checkpoint) != source.get("sha256")
-    ):
-        raise ResNet18PackageError("pinned source checkpoint differs from metadata")
+    if require_checkpoint:
+        if not checkpoint.is_file():
+            raise ResNet18PackageError("pinned source checkpoint is missing")
+        if (
+            checkpoint.stat().st_size != source.get("bytes")
+            or _sha256(checkpoint) != source.get("sha256")
+        ):
+            raise ResNet18PackageError(
+                "pinned source checkpoint differs from metadata"
+            )
+        checkpoint_sha256 = _sha256(checkpoint)
+    else:
+        checkpoint_sha256 = source.get("sha256")
+        if not isinstance(checkpoint_sha256, str):
+            raise ResNet18PackageError("source metadata pins no checkpoint digest")
 
     conversion_path = model_dir / "resnet18.conversion.json"
     acceptance_path = model_dir / "acceptance.json"
@@ -177,7 +197,7 @@ def validate_workspace(model_dir: Path, source_metadata_path: Path) -> list[Path
             raise ResNet18PackageError(f"stale or substituted asset: {path.name}")
     if (
         _digest_record(acceptance.get("source"), "sha256", "acceptance source")
-        != _sha256(checkpoint)
+        != checkpoint_sha256
     ):
         raise ResNet18PackageError("acceptance source differs from pinned checkpoint")
     return required
@@ -380,7 +400,7 @@ def evaluate_vivado_gates(evidence: dict[str, str], source_commit: str) -> dict:
         raise ResNet18PackageError(
             f"vivado gates reject this build: {setup_failing_paths} failing setup paths"
         )
-    if wns <= 0.0:
+    if wns < 0.0:
         raise ResNet18PackageError(
             f"vivado gates reject this build: worst negative slack is {wns}"
         )
@@ -398,7 +418,7 @@ def _delivery_entries(
     repository_root: Path,
     artifact_dir: Path,
     report_dir: Path,
-    descriptor_path: Path,
+    descriptor_path: Path | None,
     model_dir: Path | None,
     source_metadata_path: Path | None,
 ) -> tuple[list[tuple[str, bytes]], list[dict[str, object]]]:
@@ -413,23 +433,39 @@ def _delivery_entries(
         (f"reports/{name}", report_dir / name) for name in DELIVERY_REPORT_FILES
     )
 
-    bundle = _json(descriptor_path)
-    assets = bundle.get("assets")
-    if not isinstance(assets, dict):
-        raise ResNet18PackageError("acceptance descriptor has no asset record")
-    sources.append(("acceptance/acceptance.json", descriptor_path))
-    descriptor_root = descriptor_path.parent
-    for name in sorted(assets):
-        record = assets[name]
-        if not isinstance(record, dict) or not isinstance(record.get("filename"), str):
-            raise ResNet18PackageError(f"acceptance asset {name!r} is malformed")
-        filename = record["filename"]
-        if PurePosixPath(filename).is_absolute() or ".." in PurePosixPath(filename).parts:
-            raise ResNet18PackageError(f"acceptance asset {name!r} escapes the bundle")
-        sources.append((f"acceptance/{filename}", descriptor_root / filename))
+    if descriptor_path is not None:
+        # An externally supplied acceptance bundle (a corpus with labels). The
+        # real ResNet-18 release is accepted from its model workspace instead.
+        bundle = _json(descriptor_path)
+        assets = bundle.get("assets")
+        if not isinstance(assets, dict):
+            raise ResNet18PackageError("acceptance descriptor has no asset record")
+        sources.append(("acceptance/acceptance.json", descriptor_path))
+        descriptor_root = descriptor_path.parent
+        for name in sorted(assets):
+            record = assets[name]
+            if not isinstance(record, dict) or not isinstance(
+                record.get("filename"), str
+            ):
+                raise ResNet18PackageError(f"acceptance asset {name!r} is malformed")
+            filename = record["filename"]
+            pure = PurePosixPath(filename)
+            if pure.is_absolute() or ".." in pure.parts:
+                raise ResNet18PackageError(
+                    f"acceptance asset {name!r} escapes the bundle"
+                )
+            sources.append((f"acceptance/{filename}", descriptor_root / filename))
 
     if model_dir is not None and source_metadata_path is not None:
         validate_workspace(model_dir, source_metadata_path)
+        # Ship the metadata that was just validated, so the board checks the
+        # workspace against the same pin rather than whatever the checkout holds.
+        sources = [
+            (destination, source_metadata_path.resolve())
+            if destination == "model-source.json"
+            else (destination, source)
+            for destination, source in sources
+        ]
         checkpoint = str(_json(source_metadata_path).get("filename"))
         for path in sorted(model_dir.resolve().iterdir()):
             if not path.is_file() or path.name == checkpoint:
@@ -464,19 +500,35 @@ def build_delivery_archive(
     repository_root: Path,
     artifact_dir: Path,
     report_dir: Path,
-    descriptor_path: Path,
     output_archive: Path,
     release_tag: str,
     source_commit: str,
+    descriptor_path: Path | None = None,
     model_dir: Path | None = None,
     source_metadata_path: Path | None = None,
+    overlay_commit: str | None = None,
 ) -> dict[str, object]:
-    """Publish one reproducible standalone board package, or publish nothing."""
+    """Publish one reproducible standalone board package, or publish nothing.
+
+    ``overlay_commit`` names the commit the overlay was built from when a
+    release reuses an earlier build of identical hardware sources; the caller
+    proves that identity. By default the overlay must come from this commit.
+
+    The board accepts a package from one of two sources: the real model
+    workspace, whose host acceptance record binds the exact model, input and
+    captures; or an externally supplied acceptance bundle. At least one must be
+    present, or the package could never be accepted.
+    """
 
     repository_root = repository_root.resolve()
     artifact_dir = artifact_dir.resolve()
     report_dir = report_dir.resolve()
-    descriptor_path = descriptor_path.resolve()
+    if descriptor_path is not None:
+        descriptor_path = descriptor_path.resolve()
+    if descriptor_path is None and model_dir is None:
+        raise ResNet18PackageError(
+            "a release package needs the model workspace or an acceptance bundle"
+        )
     output = output_archive.resolve()
     if output.suffix.lower() != ".zip":
         raise ResNet18PackageError("output archive must use .zip")
@@ -484,14 +536,19 @@ def build_delivery_archive(
         raise ResNet18PackageError("output archive already exists")
     tag = _validated_release_tag(release_tag)
     commit = _validated_commit(source_commit)
+    hardware_commit = (
+        commit if overlay_commit is None else _validated_commit(overlay_commit)
+    )
 
     overlay = verify_artifacts(artifact_dir)
-    if str(overlay.get("source_commit", "")).lower() != commit:
+    if str(overlay.get("source_commit", "")).lower() != hardware_commit:
         raise ResNet18PackageError(
             "overlay manifest source commit differs from the release commit"
+            if overlay_commit is None
+            else "overlay manifest source commit differs from --overlay-commit"
         )
     gates = evaluate_vivado_gates(
-        parse_build_evidence(report_dir / "build_evidence.txt"), commit
+        parse_build_evidence(report_dir / "build_evidence.txt"), hardware_commit
     )
 
     entries, report_records = _delivery_entries(
@@ -519,13 +576,16 @@ def build_delivery_archive(
         "files": [_record(name, data) for name, data in entries],
         "format": {"major": 1, "minor": 0},
         "magic": DELIVERY_MAGIC,
+        "acceptance_source": (
+            "bundle" if descriptor_path is not None else "model-workspace"
+        ),
         "model_workspace": any(
             name.startswith("model/") for name, _data in entries
         ),
         "overlay": {
             "bit_sha256": overlay["bit"]["sha256"],
             "hwh_sha256": overlay["hwh"]["sha256"],
-            "source_commit": commit,
+            "source_commit": hardware_commit,
             "target_part": overlay["target_part"],
         },
         "release_tag": tag,
@@ -552,11 +612,10 @@ def build_archive(**arguments: object) -> dict[str, object]:
         "repository_root",
         "artifact_dir",
         "report_dir",
-        "descriptor_path",
         "release_tag",
         "source_commit",
     }
-    if delivery_keys & set(arguments):
+    if (delivery_keys | {"descriptor_path"}) & set(arguments):
         missing = sorted(delivery_keys - set(arguments))
         if missing:
             raise ResNet18PackageError(
@@ -592,6 +651,10 @@ def main() -> int:
     parser.add_argument("--release-tag")
     parser.add_argument("--source-commit")
     parser.add_argument(
+        "--overlay-commit",
+        help="the overlay was built from this earlier commit (reused build)",
+    )
+    parser.add_argument(
         "--without-model-workspace",
         action="store_true",
         help="omit the ignored model workspace from the standalone package",
@@ -606,7 +669,7 @@ def main() -> int:
     if arguments.repository_root is not None:
         missing = [
             name
-            for name in ("artifact_dir", "report_dir", "descriptor")
+            for name in ("artifact_dir", "report_dir")
             if getattr(arguments, name) is None
         ]
         if missing:
@@ -627,6 +690,7 @@ def main() -> int:
             source_metadata_path=(
                 None if arguments.without_model_workspace else arguments.source_metadata
             ),
+            overlay_commit=arguments.overlay_commit,
         )
         print(
             "PASS [real-model-host]: standalone release package at "

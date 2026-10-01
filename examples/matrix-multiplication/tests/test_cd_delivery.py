@@ -14,6 +14,9 @@ import numpy as np
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLE_ROOT = REPOSITORY_ROOT / "examples" / "matrix-multiplication"
+SKILL_ROOT = (
+    REPOSITORY_ROOT / ".codex" / "skills" / "deploy" / "release-npu-pynq"
+)
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 if str(EXAMPLE_ROOT) not in sys.path:
@@ -82,6 +85,32 @@ class StandalonePackageTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary_directory.cleanup()
+
+    def test_a_reused_overlay_is_accepted_only_when_named(self) -> None:
+        package_module = load_required_module(
+            "matrix_package_example_reuse",
+            EXAMPLE_ROOT / "package_example.py",
+        )
+        # The overlay fixture was built from commit a...; the release is b...
+        with self.assertRaises(Exception):
+            package_module.build_package(
+                repository_root=REPOSITORY_ROOT,
+                artifact_dir=self.artifact_dir,
+                output_dir=self.output_dir,
+                release_tag="v0.1.1",
+                source_commit="b" * 40,
+            )
+        self.assertFalse(self.output_dir.exists())
+        manifest = package_module.build_package(
+            repository_root=REPOSITORY_ROOT,
+            artifact_dir=self.artifact_dir,
+            output_dir=self.output_dir,
+            release_tag="v0.1.1",
+            source_commit="b" * 40,
+            overlay_commit="a" * 40,
+        )
+        self.assertEqual(manifest["source_commit"], "b" * 40)
+        self.assertEqual(manifest["overlay_source_commit"], "a" * 40)
 
     def test_package_uses_explicit_standalone_layout(self) -> None:
         package_module = load_required_module(
@@ -358,6 +387,27 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             "tag-push build workflow must be retired",
         )
 
+    def test_board_steps_share_one_target_and_report_their_failure(self) -> None:
+        import yaml
+
+        cd = yaml.safe_load(self.cd)
+        jobs = cd["jobs"]
+        for name in ("preflight-board", "board-validation"):
+            self.assertIn("PYNQ_BOARD_HOST", jobs[name].get("env", {}), name)
+        # An ssh alias that exists on one runner host only must not be the default.
+        self.assertNotIn("'pynq_board'", self.cd)
+        preflight = yaml.safe_dump(jobs["preflight-board"])
+        self.assertIn("sudo -n -l", preflight)
+        board_runs = [
+            step.get("run", "")
+            for step in jobs["board-validation"]["steps"]
+            if ".ps1" in step.get("run", "") and "-Script" in step.get("run", "")
+        ]
+        self.assertEqual(len(board_runs), 3)
+        for run in board_runs:
+            self.assertIn(".github/cd/invoke_reported.ps1", run)
+        self.assertTrue((REPOSITORY_ROOT / ".github" / "cd" / "invoke_reported.ps1").is_file())
+
     def test_the_branch_name_must_match_the_declared_version(self) -> None:
         self.assertIn("resolve_release_version.py --format tag", self.cd)
         self.assertIn("but the changelog declares", self.cd)
@@ -381,7 +431,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         draft = cd["jobs"]["publish-draft"]
         self.assertEqual(
             set(draft["needs"]),
-            {"validate-source", "host-checks", "build-overlay", "board-validation"},
+            {"validate-source", "host-checks", "build-model", "build-overlay", "board-validation"},
         )
         self.assertEqual(draft["permissions"]["contents"], "write")
         self.assertIn("--draft", self.cd)
@@ -402,12 +452,74 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             "npu-matrix-",
             "SHA256SUMS",
             "sha256sum --check --strict",
-            "resnet18-board-evidence.json",
             "resnet18-image-acceptance.json",
-            "board-evidence.json",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.cd)
+
+    def test_the_real_image_is_the_only_board_check(self) -> None:
+        import yaml
+
+        steps = yaml.safe_load(self.cd)["jobs"]["board-validation"]["steps"]
+        runs = {step["name"]: step.get("run", "") for step in steps}
+        self.assertIn("-DeployOnly", runs["Deploy the matrix example"])
+        self.assertIn("resnet18_deploy.ps1", runs["Deploy the ResNet-18 release package"])
+        self.assertIn(
+            "resnet18_accept_image.ps1",
+            runs["Run the real-image inference acceptance on the board"],
+        )
+        # Neither deploy step produces evidence; the image acceptance does.
+        self.assertNotIn("board-evidence.json", self.cd)
+        self.assertNotIn("board-evidence.json", self.publish)
+        deploy = (REPOSITORY_ROOT / ".github" / "cd" / "resnet18_deploy.ps1").read_text(encoding="utf-8")
+        self.assertIn("--verify-only", deploy)
+        self.assertNotIn("sudo", deploy)
+        accept = (REPOSITORY_ROOT / ".github" / "cd" / "resnet18_accept_image.ps1").read_text(encoding="utf-8")
+        # Detached on the board and polled, so a dropped session is survivable.
+        self.assertIn("nohup setsid", accept)
+        self.assertNotIn("& ;", accept)
+
+    def test_a_release_reuses_its_own_successful_builds(self) -> None:
+        import yaml
+
+        jobs = yaml.safe_load(self.cd)["jobs"]
+        # The model: a cache scoped to this release version and its inputs.
+        model = jobs["build-model"]["steps"]
+        restore = next(step for step in model if step.get("id") == "model-cache")
+        self.assertTrue(restore["with"]["key"].startswith(
+            "resnet18-model-${{ needs.validate-source.outputs.release_tag }}-"
+        ))
+        self.assertIn("hashFiles(", restore["with"]["key"])
+        saves = [s for s in model if str(s.get("uses", "")).startswith("actions/cache/save")]
+        self.assertEqual(len(saves), 1)
+        self.assertIn("cache-hit != 'true'", saves[0]["if"])
+
+        # The overlay: the last successful build of this release branch, reused
+        # only from an ancestor with identical hardware sources.
+        overlay = jobs["build-overlay"]
+        self.assertEqual(overlay["permissions"]["actions"], "read")
+        steps = {s["name"]: s for s in overlay["steps"]}
+        finder = steps["Find this release's last successful overlay build"]
+        self.assertIn("build-overlay", finder["with"]["script"])
+        self.assertIn("npu-build-", finder["env"]["ARTIFACT"])
+        # Every report the ResNet-18 package needs travels with the overlay.
+        retained = steps["Retain overlay and build evidence"]["with"]["path"]
+        self.assertIn("reports/*.rpt", retained)
+        decide = steps["Decide whether the candidate overlay can be reused"]["run"]
+        for marker in ("verify_overlay.py", "recover_overlay_reports.py", "merge-base --is-ancestor", "git diff --quiet", "src/hw"):
+            self.assertIn(marker, decide)
+        self.assertEqual(
+            steps["Build routed overlay and bitstream"]["if"],
+            "steps.overlay-reuse.outputs.reuse != 'true'",
+        )
+        proof = steps["Prove a reused overlay matches this commit's hardware"]["run"]
+        self.assertIn("merge-base --is-ancestor", proof)
+        self.assertIn("git diff --quiet", proof)
+        names = list(steps)
+        self.assertLess(
+            names.index("Prove a reused overlay matches this commit's hardware"),
+            names.index("Assemble standalone matrix example"),
+        )
 
     def test_publishing_requires_a_validated_and_merged_draft(self) -> None:
         import yaml
@@ -433,6 +545,98 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, self.publish)
 
+    def test_self_hosted_jobs_check_out_the_commit_not_a_tag(self) -> None:
+        # CD never creates a tag, so checking one out fails on the runner with
+        # "A branch or tag with the name 'vX.Y.Z' could not be found".
+        import yaml
+
+        jobs = yaml.safe_load(self.cd)["jobs"]
+        for name, job in jobs.items():
+            for step in job.get("steps", []):
+                if str(step.get("uses", "")).startswith("actions/checkout"):
+                    ref = str((step.get("with") or {}).get("ref", ""))
+                    with self.subTest(job=name):
+                        self.assertNotIn("release_tag", ref)
+
+    def test_preflight_runs_before_anything_expensive(self) -> None:
+        import yaml
+
+        jobs = yaml.safe_load(self.cd)["jobs"]
+        self.assertEqual(jobs["preflight-vivado"]["runs-on"], ["self-hosted", "vivado"])
+        self.assertEqual(jobs["preflight-board"]["runs-on"], ["self-hosted", "pynq-z1"])
+        self.assertTrue(
+            {"preflight-vivado", "preflight-board"}.issubset(
+                set(jobs["build-overlay"]["needs"])
+            ),
+            "Vivado must not start before both runners are proven ready",
+        )
+        for marker in ("vivado", "pwsh", "BatchMode=yes"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, self.cd)
+
+    def test_the_release_builds_its_own_model(self) -> None:
+        # A model left on some machine may predate the conversion code it ships
+        # with, so the release converts and validates it from pinned sources.
+        import yaml
+
+        jobs = yaml.safe_load(self.cd)["jobs"]
+        build = jobs["build-model"]
+        self.assertEqual(build["runs-on"], "ubuntu-latest")
+        run = "\n".join(str(step.get("run", "")) for step in build["steps"])
+        for script in (
+            "download_model.py",
+            "download_calibration.py",
+            "convert_model.py",
+            "verify_model.py",
+            "download_demo_assets.py",
+            "prepare_demo_image.py",
+            "download_gallery.py",
+            "package_example.py --check-only",
+        ):
+            with self.subTest(script=script):
+                self.assertIn(script, run)
+        # The host must already classify the demo correctly, before Vivado.
+        self.assertIn("host_top_k", run)
+        self.assertIn("build-model", jobs["build-overlay"]["needs"])
+        self.assertIn("build-model", jobs["publish-draft"]["needs"])
+        # No machine-local model path, and no external acceptance bundle.
+        self.assertNotIn("npu-assets", self.cd)
+        self.assertNotIn("vars.RESNET18_MODEL_DIR", self.cd)
+        self.assertNotIn("--descriptor", self.cd)
+        # The model arrives after checkout, which would delete it as untracked.
+        steps = [str(step.get("uses", "")) for step in jobs["build-overlay"]["steps"]]
+        self.assertLess(
+            next(i for i, uses in enumerate(steps) if uses.startswith("actions/checkout")),
+            next(i for i, uses in enumerate(steps) if uses.startswith("actions/download-artifact")),
+        )
+
+    def test_the_conversion_environment_is_pinned(self) -> None:
+        requirements = (
+            REPOSITORY_ROOT / "examples" / "resnet18" / "requirements-convert.txt"
+        ).read_text(encoding="utf-8").lower()
+        for package in ("numpy==", "torch==", "pillow=="):
+            with self.subTest(package=package):
+                self.assertIn(package, requirements)
+
+    def test_publish_finds_overlay_files_the_upload_nested(self) -> None:
+        # upload-artifact roots the overlay artifact at npu_matrix_8x8/, so it
+        # keeps artifacts/ and reports/ folders the draft must flatten.
+        import yaml
+
+        steps = yaml.safe_load(self.cd)["jobs"]["publish-draft"]["steps"]
+        run = "\n".join(str(step.get("run", "")) for step in steps)
+        self.assertIn("build/overlay/artifacts/npu_matrix.bit", run)
+        self.assertIn("build/overlay/reports/build_evidence.txt", run)
+
+    def test_board_commands_need_nothing_the_pynq_image_may_lack(self) -> None:
+        for name in ("resnet18_deploy.ps1", "resnet18_accept_image.ps1"):
+            script = (REPOSITORY_ROOT / ".github" / "cd" / name).read_text(encoding="utf-8")
+            with self.subTest(script=name):
+                self.assertNotIn("unzip ", script)
+                self.assertIn("python3 -B ", script)
+        deploy = (REPOSITORY_ROOT / ".github" / "cd" / "resnet18_deploy.ps1").read_text(encoding="utf-8")
+        self.assertIn("python3 -m zipfile -e", deploy)
+
     def test_pre_merge_gate_protects_main(self) -> None:
         ci = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"
@@ -448,14 +652,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
                 self.assertIn(marker, ci)
 
     def test_the_release_skill_documents_the_whole_path(self) -> None:
-        skill = (
-            REPOSITORY_ROOT
-            / ".codex"
-            / "skills"
-            / "deploy"
-            / "release-npu-pynq"
-            / "SKILL.md"
-        )
+        skill = SKILL_ROOT / "SKILL.md"
         self.assertTrue(skill.is_file(), "the release skill is required")
         body = skill.read_text(encoding="utf-8")
         for marker in (
@@ -467,6 +664,50 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, body)
+
+    def test_the_release_skill_starts_the_runners_itself(self) -> None:
+        body = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        # Bringing the runners online is the skill's job, and it must happen
+        # before the push that starts the privileged run.
+        self.assertIn("start_cd_runners.ps1", body)
+        runners = body.index("Bring the runners online")
+        branch = body.index("Cut the release branch")
+        self.assertLess(runners, branch, "runners come online before the push")
+        for marker in ("vivado", "pynq-z1", "queued"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, body)
+
+        script = SKILL_ROOT / "references" / "scripts" / "start_cd_runners.ps1"
+        self.assertTrue(script.is_file(), "the runner start script is required")
+        source = script.read_text(encoding="utf-8")
+        # Discover services; a hardcoded runner name would not survive a rename.
+        self.assertIn("actions.runner.*", source)
+        self.assertIn("Start-Service", source)
+        self.assertIn("SupportsShouldProcess", source)
+        # A runner may be a service or an interactive run.cmd; handle both.
+        self.assertIn("run.cmd", source)
+        self.assertIn("Start-Process", source)
+        # Starting a service is the whole remit: no registration, no tokens.
+        for forbidden in ("config.cmd", "--token", "svc.cmd install", "Remove-Service"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, source)
+
+        task_script = SKILL_ROOT / "references" / "scripts" / "register_runner_task.ps1"
+        self.assertTrue(task_script.is_file(), "the logon task setup is required")
+        task_source = task_script.read_text(encoding="utf-8")
+        # Must survive reboots and never time out; must not run beside a service.
+        for marker in ("-AtLogOn", "[TimeSpan]::Zero", "Set-Service", "Disabled"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, task_source)
+        self.assertIn("Start-ScheduledTask", source)
+        self.assertIn("register_runner_task.ps1", body)
+
+        # CD itself is the validation; the skill has no rehearsal step.
+        self.assertNotIn("rehearse", body.lower())
+
+        for reference in ("references/rules/env.md", "references/runners.md"):
+            with self.subTest(reference=reference):
+                self.assertTrue((SKILL_ROOT / reference).is_file(), reference)
 
 
 if __name__ == "__main__":

@@ -61,6 +61,25 @@ reviewers own the release decision.
 
 ## ADDED Requirements
 
+### Requirement: The runners are brought online before the release branch is pushed
+The release procedure SHALL start this host's runner services and confirm that
+the labels the CD jobs request are online before the release branch is pushed,
+and SHALL refuse to push when they are not. Registering a runner SHALL remain a
+person's one-time setup; the procedure SHALL NOT register, reconfigure, or remove
+a runner, and SHALL NOT handle a registration token.
+
+#### Scenario: A requested label has no online runner
+- **WHEN** no online runner offers `vivado` or `pynq-z1`
+- **THEN** the procedure reports which label is missing and does not push the branch
+
+#### Scenario: No runner is installed on this host
+- **WHEN** no runner service exists
+- **THEN** the procedure says so and points at the one-time registration setup
+
+#### Scenario: A job is queued because a runner went offline
+- **WHEN** a CD job stays queued with no runner assigned
+- **THEN** the runners are brought back online and the run is rerun, not rebuilt from a new branch
+
 ### Requirement: Recovery never moves a tag
 A failed run SHALL leave no tag and nothing public. A corrected release SHALL be
 a new release branch, and a superseded version SHALL NOT be retagged or
