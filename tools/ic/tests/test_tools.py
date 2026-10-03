@@ -452,3 +452,20 @@ def test_equiv_rejects_different_ports(store, tmp_path):
     dut.write_text(ADDER.replace("output co", "output c") % "a + b + cin")
     with pytest.raises(InvalidInput):
         dispatch("equiv", {"ref_files": [str(ref)], "dut_files": [str(dut)], "top": "add8"}, cwd=tmp_path)
+
+
+@needs("yosys")
+def test_equiv_elaborates_parameterised_submodules(store, tmp_path):
+    # A rewrite into parameterised blocks used to be flattened with the
+    # blocks' default parameters, which produced a false counterexample.
+    ref, dut = tmp_path / "ref.v", tmp_path / "dut.v"
+    ref.write_text("module add16(input [15:0] a, b, output [16:0] s);\n  assign s = a + b;\nendmodule\n")
+    dut.write_text(
+        "module blk #(parameter N = 8)(input [N-1:0] a, b, input ci, output [N-1:0] s, output co);\n"
+        "  assign {co, s} = a + b + ci;\nendmodule\n"
+        "module add16(input [15:0] a, b, output [16:0] s);\n"
+        "  wire c;\n"
+        "  blk #(6)  lo(.a(a[5:0]),  .b(b[5:0]),  .ci(1'b0), .s(s[5:0]),  .co(c));\n"
+        "  blk #(10) hi(.a(a[15:6]), .b(b[15:6]), .ci(c),    .s(s[15:6]), .co(s[16]));\nendmodule\n")
+    out = dispatch("equiv", {"ref_files": [str(ref)], "dut_files": [str(dut)], "top": "add16"}, cwd=tmp_path)
+    assert out["method"] == "sat-proof" and out["equivalent"] is True, out["counterexample"]

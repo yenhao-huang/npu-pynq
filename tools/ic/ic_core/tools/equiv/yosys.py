@@ -141,8 +141,16 @@ class YosysEquiv:
         if not sequential:
             script = work / "miter.ys"
             script.write_text("\n".join([
-                f"read_verilog -sv {ref_v}", f"read_verilog -sv {dut_v}",
-                f"proc; flatten; opt_clean",
+                # Elaborate each side under its own top before flattening:
+                # without `hierarchy`, a parameterised submodule (`rca #(6)`)
+                # is flattened with its default parameters, which silently
+                # changes the circuit and yields a false counterexample.
+                f"read_verilog -sv {ref_v}", f"hierarchy -check -top ref_{top}",
+                "proc; flatten; opt_clean", "design -stash ic_ref",
+                f"read_verilog -sv {dut_v}", f"hierarchy -check -top dut_{top}",
+                "proc; flatten; opt_clean", "design -stash ic_dut",
+                f"design -copy-from ic_ref -as ref_{top} ref_{top}",
+                f"design -copy-from ic_dut -as dut_{top} dut_{top}",
                 f"miter -equiv -flatten -make_outputs -ignore_gold_x ref_{top} dut_{top} ic_miter",
                 "hierarchy -top ic_miter",
                 "sat -verify -prove trigger 0 -show-inputs -timeout 240 ic_miter",
