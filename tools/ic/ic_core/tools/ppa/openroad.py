@@ -31,7 +31,7 @@ from pathlib import Path
 from ...errors import BackendUnavailable, InvalidInput
 from ...process import run as run_process
 from ...registry import backend
-from . import Area, Power, PpaIn, PpaOut, PpaTiming
+from . import Area, CriticalPath, Power, PpaIn, PpaOut, PpaTiming
 
 # -- report parsing ------------------------------------------------------
 #
@@ -48,8 +48,8 @@ SEQ_CELL = re.compile(r"^\s+(\S*(?:DFF|DLL|SDFF|LATCH|dff|latch)\S*)\s+(\d+)\s*$
 #: OpenSTA: "Design area 1532 u^2 12% utilization."
 DESIGN_AREA = re.compile(r"Design area\s+([\d.]+)\s*u\^2\s+([\d.]+)\s*%\s*utilization")
 #: OpenSTA prints "worst slack -0.42", with an optional MAX/MIN qualifier.
-WORST_SLACK = re.compile(r"worst slack\s+(?:MAX\s+|MIN\s+)?(-?[\d.]+)")
-TNS = re.compile(r"^\s*tns\s+(-?[\d.]+)", re.M)
+WORST_SLACK = re.compile(r"worst slack\s+(?:MAX\s+|MIN\s+)?(-?[\d.]+)", re.I)
+TNS = re.compile(r"^\s*tns\s+(?:MAX\s+|MIN\s+)?(-?[\d.]+)", re.M | re.I)
 #: The `report_power` group table. Four columns of watts, then a percentage.
 POWER_ROW = re.compile(
     r"^\s*(Sequential|Combinational|Clock|Macro|Pad|Total)\s+"
@@ -121,6 +121,39 @@ def parse_timing(text: str, period_ns: float) -> PpaTiming:
         met=wns >= 0,
         fmax_mhz=round(1000.0 / achievable, 2) if achievable > 0 else None,
     )
+
+
+PATH_BLOCK = re.compile(r"^Startpoint: (\S+).*?^Endpoint: (\S+).*?^Path Group: (\S+).*?"
+                        r"^\s+([\d.]+)\s+data arrival time", re.M | re.S)
+#: One cell output on a timing path; clock pins (the launching edge) are skipped.
+PATH_CELL = re.compile(r"^\s+(?:\d+\s+)?[\d.]+\s+[\d.]+\s+[\^v]\s+\S+/(?!CK\b|CLK\b)\S+\s+\((\w+)\)", re.M)
+Q_NET = re.compile(r"^\s+\w+\s+(\S+)\s+\((?:(?!\);).)*?\.Q\((\S+?)\s*\)", re.M | re.S)
+#: Yosys `stat -liberty` rows: "     12   95.760  NAND2_X1" (0.5x) or "NAND2_X1  12" (older).
+CELL_AREA_ROW = re.compile(r"^\s+(\d+)\s+([\d.]+)\s+([A-Z]\w*_X\d+)\s*$", re.M)
+
+
+def parse_critical_path(text: str, netlist_text: str) -> CriticalPath | None:
+    """The worst non-asynchronous path from `report_checks`, renamed to RTL nets."""
+    paths = []
+    for m in PATH_BLOCK.finditer(text):
+        if m.group(3) == "asynchronous":
+            continue
+        body = text[m.start():m.end()]
+        paths.append((float(m.group(4)), m.group(1), m.group(2), PATH_CELL.findall(body)))
+    if not paths:
+        return None
+    arrival, start, end, cells = max(paths)
+    names = {inst.lstrip("\\"): net.lstrip("\\") for inst, net in Q_NET.findall(netlist_text)}
+    rename = lambda n: names.get(n.lstrip("\\"), n)
+    return CriticalPath(startpoint=rename(start), endpoint=rename(end), arrival_ns=arrival,
+                        logic_levels=max(len(cells) - 1, 0), cells=cells)
+
+
+def parse_area_by_cell(text: str) -> dict[str, float]:
+    rows = {}
+    for count, area, cell in CELL_AREA_ROW.findall(text):
+        rows[cell] = round(float(area), 3)
+    return dict(sorted(rows.items(), key=lambda kv: -kv[1])[:8])
 
 
 def parse_markers(text: str) -> dict[str, str]:
@@ -217,6 +250,21 @@ def openroad_script(params: PpaIn, liberty: list[str], netlist: Path,
         # better than no constraint; `note` on the result says register paths
         # were left unconstrained so the slack is not read as a full answer.
         lines.append(f"create_clock -name clk -period {params.clock_period_ns}")
+    if not params.sdc:
+        # Without I/O delays OpenSTA leaves port paths unconstrained, so a
+        # combinational design reports no slack at all.
+        # The clock port is dropped from the inputs the way ORFS constraints do.
+        if params.clock_port:
+            lines += [
+                f"set clk_indx [lsearch [all_inputs] [get_ports {params.clock_port}]]",
+                "set data_inputs [lreplace [all_inputs] $clk_indx $clk_indx]",
+            ]
+        else:
+            lines.append("set data_inputs [all_inputs]")
+        lines += [
+            "if {[llength $data_inputs]} {set_input_delay 0 -clock clk $data_inputs}",
+            "set_output_delay 0 -clock clk [all_outputs]",
+        ]
 
     if params.mode == "placed":
         lines += [
@@ -251,6 +299,8 @@ def openroad_script(params: PpaIn, liberty: list[str], netlist: Path,
         'puts "@ic section timing"',
         "report_worst_slack",
         "report_tns",
+        'puts "@ic section path"',
+        "report_checks -path_delay max -fields {fanout}",
         'puts "@ic section power"',
         "report_power",
         "exit 0",
@@ -412,6 +462,12 @@ class OpenRoadPpa:
                 note="Mapping failed; no power, area or timing was measured. " + note,
             )
 
+        # OpenSTA's netlist reader rejects `signed` on declarations (STA-0164);
+        # a gate-level netlist carries no arithmetic, so dropping it is safe.
+        netlist.write_text(
+            re.sub(r"\b(input|output|inout|wire|reg)\s+signed\b", r"\1", netlist.read_text())
+        )
+
         # 2. Analyse it. Appended to the same log: one run, one transcript.
         analysis_script = ctx.run.work / "ppa.tcl"
         analysis_script.write_text(
@@ -453,6 +509,10 @@ class OpenRoadPpa:
             area=area,
             power=power,
             timing=timing,
+            adp=(round(area.cell_area_um2 * 1000.0 / timing.fmax_mhz, 3)
+                 if area.cell_area_um2 and timing.fmax_mhz else None),
+            critical_path=parse_critical_path(text, netlist.read_text()),
+            area_by_cell=parse_area_by_cell(map_text),
             liberty=pdk["liberty"],
             summary=summary,
             report=ctx.run.handle("ppa.log"),
