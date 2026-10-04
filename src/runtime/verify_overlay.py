@@ -19,6 +19,7 @@ EXPECTED_METADATA = {
             "ROWS": "2",
             "COLUMNS": "2",
             "MAX_K": "256",
+            "IN_BYTES": "8",
             "C_BASEADDR": "0x43C00000",
             "C_HIGHADDR": "0x43C0FFFF",
         },
@@ -29,7 +30,8 @@ EXPECTED_METADATA = {
             "C_INCLUDE_SG": "0",
             "C_INCLUDE_MM2S": "1",
             "C_INCLUDE_S2MM": "1",
-            "C_M_AXIS_MM2S_TDATA_WIDTH": "8",
+            "C_M_AXI_MM2S_DATA_WIDTH": "64",
+            "C_M_AXIS_MM2S_TDATA_WIDTH": "64",
             "C_S_AXIS_S2MM_TDATA_WIDTH": "32",
             "C_BASEADDR": "0x40400000",
             "C_HIGHADDR": "0x4040FFFF",
@@ -99,6 +101,7 @@ def inspect_hwh(hwh_path: Path, *, array_size: int = 2) -> dict[str, object]:
         observed[role] = {"instance": instance, "parameters": expected_parameters}
     required_connections = (
         'INSTANCE="npu_matrix_accelerator_0" PORT="s_axis_tdata"',
+        'INSTANCE="npu_matrix_accelerator_0" PORT="s_axis_tkeep"',
         'INSTANCE="npu_matrix_accelerator_0" PORT="m_axis_tdata"',
         'INSTANCE="npu_matrix_accelerator_0" PORT="irq"',
         'SLAVEBUSINTERFACE="S_AXI_HP0"',

@@ -41,6 +41,15 @@ Finally, deploy the matching BIT/HWH pair to a PYNQ-Z1 and run the matrix
 example's board smoke test. Open-source simulation does not substitute for
 Vivado timing/resource evidence or physical-board validation.
 
+## Operand input stream
+
+A and B reach the accelerator as two AXI4-Stream frames from AXI DMA MM2S,
+eight INT8 operands per 64-bit beat in row-major byte order. A frame whose
+length is not a multiple of eight ends with one partial beat marked by TKEEP.
+Software still sends `M*K` and `K*N` byte transfers. A row aligner writes one
+row-aligned word per cycle into the operand banks, so a stall-free physical job
+takes `M*ceil(K/8) + K*ceil(N/8) + M*N + M + N + 4` cycles.
+
 ## 8x8 implementation evidence
 
 Vivado 2026.1 implemented and routed the 8x8 target for
@@ -49,6 +58,10 @@ specified constraints with setup WNS 0.079 ns and hold WHS 0.017 ns. The
 implementation used 17,302 slice LUTs (32.52%), 8,528 slice registers (8.02%),
 2 block RAM tiles (1.43%), and 64 DSPs (29.09%). There were no unrouted nets,
 routing errors, setup failures, hold failures, or DRC errors.
+
+These figures predate the 64-bit packed operand stream (#93), which changes
+the input buffers and the DMA MM2S width; they must be re-measured from the
+next Vivado build.
 
 These figures establish build feasibility for the PYNQ-Z1 target. A physical
 matrix smoke test is still required for each release artifact because the
