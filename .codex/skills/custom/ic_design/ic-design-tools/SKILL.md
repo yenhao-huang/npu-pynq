@@ -1,6 +1,6 @@
 ---
 name: ic-design-tools
-description: Lint, simulate, debug waveforms, view and synthesize the RTL in this repository. Use when changing anything under src/hw/, when a testbench fails, when you need to find the cycle where a signal diverges from its reference, when you need LUT/FF/timing numbers, or when you need to compare two implementations by power, area and fmax. Provides lint, sim, signals, first_mismatch, value_at, value_range, show_wave, synth and ppa.
+description: Lint, simulate, debug waveforms, view and synthesize the RTL in this repository. Use when changing anything under src/hw/, when a testbench fails, when you need to find the cycle where a signal diverges from its reference, when you need LUT/FF/timing numbers, or when you need to compare two implementations by power, area and fmax. Provides lint, sim, signals, first_mismatch, value_at, value_range, show_wave, synth, ppa and equiv.
 ---
 
 # IC design tools

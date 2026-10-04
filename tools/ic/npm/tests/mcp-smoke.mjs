@@ -56,7 +56,7 @@ try {
   const initialization = await request('initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'npm-acceptance', version: '1.0' } });
   child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
   const catalogue = await request('tools/list', {});
-  assert.deepEqual(catalogue.tools.map(t => t.name).sort(), ['lint', 'sim', 'signals', 'first_mismatch', 'value_at', 'value_range', 'show_wave', 'synth', 'ppa'].sort());
+  assert.deepEqual(catalogue.tools.map(t => t.name).sort(), ['lint', 'sim', 'signals', 'first_mismatch', 'value_at', 'value_range', 'show_wave', 'synth', 'ppa', 'equiv'].sort());
   const files = ['src/hw/rtl/systolic_array/npu_pe.sv', 'src/hw/rtl/systolic_array/npu_systolic_array.sv'];
   const lint = await call('lint', { files, top: 'npu_systolic_array' });
   assert.equal(lint.error_count, 0);
