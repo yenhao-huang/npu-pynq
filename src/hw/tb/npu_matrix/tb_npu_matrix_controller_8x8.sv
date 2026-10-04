@@ -180,11 +180,13 @@ module tb_npu_matrix_controller_8x8;
             m_axis_tready = 1'b0;
             if (status_busy || !status_done || status_error || error_code != 0)
                 fail("successful job status mismatch");
-            // Stall-free job length: one cycle per input beat, then CLEAR,
-            // compute and output. The two extra cycles are the idle edges this
-            // testbench leaves after START and between the A and B transfers.
-            if (cycles != expected_beats + active_m * active_n +
-                          active_k + active_m + active_n + 1 + 2) begin
+            // Stall-free job length: one cycle per row-aligned word of A and
+            // B, then drain and output, plus one aligner fill cycle per frame.
+            // The extra cycle is the idle edge this testbench leaves after
+            // START.
+            if (cycles != active_m * ((active_k + IN_BYTES - 1) / IN_BYTES) +
+                          active_k * ((active_n + IN_BYTES - 1) / IN_BYTES) +
+                          active_m * active_n + active_m + active_n + 4 + 1) begin
                 $display("FAIL tb_npu_matrix_controller_8x8: cycles %0d for %0dx%0dx%0d",
                          cycles, active_m, active_n, active_k);
                 $fatal(1);
