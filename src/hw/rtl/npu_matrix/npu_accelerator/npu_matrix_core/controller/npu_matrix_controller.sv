@@ -75,7 +75,11 @@ module npu_matrix_controller #(
     localparam logic [31:0] COLUMNS_U32 = COLUMNS;
     localparam logic [31:0] MAX_K_U32 = MAX_K;
     localparam logic [31:0] IN_BYTES_U32 = IN_BYTES;
-    localparam integer LANE_BITS = (IN_BYTES > 1) ? $clog2(IN_BYTES) : 1;
+    // A frame is at most max(ROWS, COLUMNS) * MAX_K bytes; byte counts are
+    // kept this narrow to keep their carry chains short.
+    localparam integer FRAME_BITS =
+        $clog2(((ROWS > COLUMNS) ? ROWS : COLUMNS) * MAX_K + 1);
+    localparam logic [FRAME_BITS-1:0] IN_BYTES_FRAME = FRAME_BITS'(IN_BYTES);
     localparam integer ALIGN_BYTES = 2 * IN_BYTES;
     localparam integer COUNT_BITS = $clog2(ALIGN_BYTES + 1);
 
@@ -104,6 +108,11 @@ module npu_matrix_controller #(
     logic [15:0] slot_m [0:1];
     logic [15:0] slot_n [0:1];
     logic [15:0] slot_k [0:1];
+    // Frame byte counts, computed once when START is accepted so that no
+    // multiplier sits on the load path.
+    logic [FRAME_BITS-1:0] slot_a_bytes [0:1];
+    logic [FRAME_BITS-1:0] slot_b_bytes [0:1];
+    logic [FRAME_BITS-1:0] cfg_a_bytes, cfg_b_bytes;
     logic [31:0] slot_timeout [0:1];
     logic [63:0] slot_cycles [0:1];
     logic        alloc_ptr, load_ptr, exec_ptr;
@@ -112,7 +121,7 @@ module npu_matrix_controller #(
     logic [15:0] active_m, active_n, active_k;
     logic [15:0] load_m, load_n, load_k;
     // Bytes of the current frame not yet accepted from the stream.
-    logic [31:0] load_remaining;
+    logic [FRAME_BITS-1:0] load_remaining;
     logic [15:0] output_row_count;
     logic [15:0] output_column_count;
     logic [63:0] span_cycles;
@@ -126,8 +135,13 @@ module npu_matrix_controller #(
     // bank locations the compute schedule never marks valid.
     logic [ALIGN_BYTES*8-1:0] align_buffer;
     logic [COUNT_BITS-1:0] align_count;
-    logic [15:0] frame_rows, row_bytes;
-    logic [31:0] row_left;
+    // Aligner position, kept as registers and updated incrementally so that
+    // the emit/row/frame decisions are a compare or two from flops: bytes of
+    // the current row not yet emitted, rows of the frame not yet completed,
+    // and the frame's row length.
+    logic [15:0] row_left;
+    logic [15:0] rows_left;
+    logic [15:0] row_length;
     logic [COUNT_BITS-1:0] align_need;
     logic [COUNT_BITS-1:0] count_after_emit;
     logic loading, row_done, frame_done;
@@ -175,15 +189,15 @@ module npu_matrix_controller #(
 
     always_comb begin
         loading = (load_state == LOAD_A) || (load_state == LOAD_B);
-        frame_rows = (load_state == LOAD_B) ? load_k : load_m;
-        row_bytes = (load_state == LOAD_B) ? load_n : load_k;
-        row_left = widen_u16(row_bytes) - (widen_u16(align_word) << LANE_BITS);
-        align_need = (row_left >= IN_BYTES_U32) ?
+        // Truncation only affects rejected jobs, whose counts are unused.
+        cfg_a_bytes = FRAME_BITS'(widen_u16(cfg_m) * widen_u16(cfg_k));
+        cfg_b_bytes = FRAME_BITS'(widen_u16(cfg_k) * widen_u16(cfg_n));
+        align_need = (widen_u16(row_left) >= IN_BYTES_U32) ?
             COUNT_BITS'(IN_BYTES) : COUNT_BITS'(row_left);
-        align_emit = loading && (align_row < frame_rows) &&
+        align_emit = loading && (rows_left != 16'd0) &&
             (align_count >= align_need);
-        row_done = align_emit && (widen_u16({{(16-COUNT_BITS){1'b0}}, align_need}) == row_left);
-        frame_done = row_done && (align_row == frame_rows - 1);
+        row_done = align_emit && (widen_u16(row_left) <= IN_BYTES_U32);
+        frame_done = row_done && (rows_left == 16'd1);
         count_after_emit = align_count - (align_emit ? align_need : '0);
 
         // A beat is accepted only when TLAST and TKEEP match the bytes the
@@ -192,7 +206,7 @@ module npu_matrix_controller #(
         // aligner lacks room for a whole beat.
         s_axis_tready = loading && (load_remaining != 0) &&
             (count_after_emit <= COUNT_BITS'(IN_BYTES));
-        beat_is_last = (load_remaining <= IN_BYTES_U32);
+        beat_is_last = (load_remaining <= IN_BYTES_FRAME);
         for (lane_index = 0; lane_index < IN_BYTES; lane_index = lane_index + 1) begin
             beat_expected_keep[lane_index] = (lane_index < load_remaining);
             beat_bytes[lane_index*8 +: 8] = s_axis_tkeep[lane_index] ?
@@ -294,6 +308,8 @@ module npu_matrix_controller #(
             slot_m[0] <= 16'd0; slot_m[1] <= 16'd0;
             slot_n[0] <= 16'd0; slot_n[1] <= 16'd0;
             slot_k[0] <= 16'd0; slot_k[1] <= 16'd0;
+            slot_a_bytes[0] <= '0; slot_a_bytes[1] <= '0;
+            slot_b_bytes[0] <= '0; slot_b_bytes[1] <= '0;
             slot_timeout[0] <= 32'd0; slot_timeout[1] <= 32'd0;
             slot_cycles[0] <= 64'd0; slot_cycles[1] <= 64'd0;
             alloc_ptr <= 1'b0;
@@ -303,11 +319,14 @@ module npu_matrix_controller #(
             active_m <= 16'd0;
             active_n <= 16'd0;
             active_k <= 16'd0;
-            load_remaining <= 32'd0;
+            load_remaining <= '0;
             align_buffer <= '0;
             align_count <= '0;
             align_row <= 16'd0;
             align_word <= 16'd0;
+            row_left <= 16'd0;
+            rows_left <= 16'd0;
+            row_length <= 16'd0;
             compute_step <= 32'd0;
             output_row_count <= 16'd0;
             output_column_count <= 16'd0;
@@ -337,11 +356,14 @@ module npu_matrix_controller #(
             active_m <= 16'd0;
             active_n <= 16'd0;
             active_k <= 16'd0;
-            load_remaining <= 32'd0;
+            load_remaining <= '0;
             align_buffer <= '0;
             align_count <= '0;
             align_row <= 16'd0;
             align_word <= 16'd0;
+            row_left <= 16'd0;
+            rows_left <= 16'd0;
+            row_length <= 16'd0;
             compute_step <= 32'd0;
             output_row_count <= 16'd0;
             output_column_count <= 16'd0;
@@ -415,6 +437,8 @@ module npu_matrix_controller #(
                     slot_m[alloc_ptr] <= cfg_m;
                     slot_n[alloc_ptr] <= cfg_n;
                     slot_k[alloc_ptr] <= cfg_k;
+                    slot_a_bytes[alloc_ptr] <= cfg_a_bytes;
+                    slot_b_bytes[alloc_ptr] <= cfg_b_bytes;
                     slot_timeout[alloc_ptr] <= cfg_timeout_cycles;
                     slot_cycles[alloc_ptr] <= 64'd0;
                     alloc_ptr <= ~alloc_ptr;
@@ -423,7 +447,10 @@ module npu_matrix_controller #(
                     // on the cycle after START.
                     if ((load_state == LOAD_IDLE) && (load_ptr == alloc_ptr)) begin
                         load_state <= LOAD_A;
-                        load_remaining <= widen_u16(cfg_m) * widen_u16(cfg_k);
+                        load_remaining <= cfg_a_bytes;
+                        rows_left <= cfg_m;
+                        row_left <= cfg_k;
+                        row_length <= cfg_k;
                         align_buffer <= '0;
                         align_count <= '0;
                         align_row <= 16'd0;
@@ -439,7 +466,10 @@ module npu_matrix_controller #(
                 LOAD_IDLE: begin
                     if (slot_valid[load_ptr] && !slot_a_loaded[load_ptr]) begin
                         load_state <= LOAD_A;
-                        load_remaining <= widen_u16(load_m) * widen_u16(load_k);
+                        load_remaining <= slot_a_bytes[load_ptr];
+                        rows_left <= load_m;
+                        row_left <= load_k;
+                        row_length <= load_k;
                         align_buffer <= '0;
                         align_count <= '0;
                         align_row <= 16'd0;
@@ -447,6 +477,61 @@ module npu_matrix_controller #(
                     end
                 end
                 LOAD_A, LOAD_B: begin
+                    align_buffer <= align_buffer_next;
+                    align_count <= count_after_emit +
+                        (beat_take ? beat_count : '0);
+                    if (beat_take)
+                        load_remaining <= beat_is_last ? '0 :
+                            load_remaining - IN_BYTES_FRAME;
+                    if (row_done) begin
+                        align_word <= 16'd0;
+                        align_row <= align_row + 16'd1;
+                        row_left <= row_length;
+                        rows_left <= rows_left - 16'd1;
+                    end else if (align_emit) begin
+                        // Not the row's last word, so a whole beat's worth.
+                        align_word <= align_word + 16'd1;
+                        row_left <= row_left - 16'(IN_BYTES);
+                    end
+                    // The whole frame was accepted before its last word,
+                    // so nothing else is in flight here.
+                    if (frame_done) begin
+                        align_row <= 16'd0;
+                        align_word <= 16'd0;
+                        if (load_state == LOAD_A) begin
+                            slot_a_loaded[load_ptr] <= 1'b1;
+                            load_remaining <= slot_b_bytes[load_ptr];
+                            rows_left <= load_k;
+                            row_left <= load_n;
+                            row_length <= load_n;
+                            load_state <= LOAD_B;
+                            // Hand to an idle exec engine on the same cycle,
+                            // so compute overlaps this job's own B frame.
+                            if ((exec_state == EXEC_IDLE) && (exec_ptr == load_ptr)) begin
+                                exec_state <= EXEC_CLEAR;
+                                active_m <= load_m;
+                                active_n <= load_n;
+                                active_k <= load_k;
+                                compute_step <= 32'd0;
+                            end
+                        end else begin
+                            slot_loaded[load_ptr] <= 1'b1;
+                            load_ptr <= ~load_ptr;
+                            // Open the queued job's A frame with no bubble.
+                            if (slot_valid[~load_ptr] && !slot_a_loaded[~load_ptr]) begin
+                                load_state <= LOAD_A;
+                                load_remaining <= slot_a_bytes[~load_ptr];
+                                rows_left <= slot_m[~load_ptr];
+                                row_left <= slot_k[~load_ptr];
+                                row_length <= slot_k[~load_ptr];
+                            end else begin
+                                load_state <= LOAD_IDLE;
+                            end
+                        end
+                    end
+                    // A malformed beat aborts the whole pipeline. It is
+                    // checked after the aligner update, not around it, so the
+                    // aligner's next state does not wait on the beat check.
                     if (s_axis_tvalid && s_axis_tready && !beat_ok) begin
                         status_done <= 1'b0;
                         if (!status_error) begin
@@ -469,50 +554,6 @@ module npu_matrix_controller #(
                         occupancy <= 2'd0;
                         cycles <= span_cycles + 64'd1;
                         span_cycles <= 64'd0;
-                    end else begin
-                        align_buffer <= align_buffer_next;
-                        align_count <= count_after_emit +
-                            (beat_take ? beat_count : '0);
-                        if (beat_take)
-                            load_remaining <= beat_is_last ? 32'd0 :
-                                load_remaining - IN_BYTES_U32;
-                        if (row_done) begin
-                            align_word <= 16'd0;
-                            align_row <= align_row + 16'd1;
-                        end else if (align_emit) begin
-                            align_word <= align_word + 16'd1;
-                        end
-                        // The whole frame was accepted before its last word,
-                        // so nothing else is in flight here.
-                        if (frame_done) begin
-                            align_row <= 16'd0;
-                            align_word <= 16'd0;
-                            if (load_state == LOAD_A) begin
-                                slot_a_loaded[load_ptr] <= 1'b1;
-                                load_remaining <= widen_u16(load_k) * widen_u16(load_n);
-                                load_state <= LOAD_B;
-                                // Hand to an idle exec engine on the same cycle,
-                                // so compute overlaps this job's own B frame.
-                                if ((exec_state == EXEC_IDLE) && (exec_ptr == load_ptr)) begin
-                                    exec_state <= EXEC_CLEAR;
-                                    active_m <= load_m;
-                                    active_n <= load_n;
-                                    active_k <= load_k;
-                                    compute_step <= 32'd0;
-                                end
-                            end else begin
-                                slot_loaded[load_ptr] <= 1'b1;
-                                load_ptr <= ~load_ptr;
-                                // Open the queued job's A frame with no bubble.
-                                if (slot_valid[~load_ptr] && !slot_a_loaded[~load_ptr]) begin
-                                    load_state <= LOAD_A;
-                                    load_remaining <= widen_u16(slot_m[~load_ptr]) *
-                                        widen_u16(slot_k[~load_ptr]);
-                                end else begin
-                                    load_state <= LOAD_IDLE;
-                                end
-                            end
-                        end
                     end
                 end
                 default: load_state <= LOAD_IDLE;
