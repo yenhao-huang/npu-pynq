@@ -11,6 +11,7 @@ module tb_npu_matrix_controller_pipeline;
     localparam integer ROWS = 2;
     localparam integer COLUMNS = 2;
     localparam integer MAX_K = 256;
+    localparam integer IN_BYTES = 8;
     localparam integer NUM_JOBS = 4;
     localparam integer MAX_JOB_K = 64;
     localparam integer JOB_TIMEOUT = 20000;
@@ -22,7 +23,8 @@ module tb_npu_matrix_controller_pipeline;
     logic [15:0] cfg_m = 0, cfg_n = 0, cfg_k = 0;
     logic [31:0] cfg_a_stride = 0, cfg_b_stride = 0, cfg_c_stride = 0;
     logic [31:0] cfg_timeout_cycles = 0;
-    logic [7:0] s_axis_tdata = 0;
+    logic [IN_BYTES*8-1:0] s_axis_tdata = 0;
+    logic [IN_BYTES-1:0] s_axis_tkeep = 0;
     logic s_axis_tvalid = 0, s_axis_tready, s_axis_tlast = 0;
     logic [31:0] m_axis_tdata;
     logic m_axis_tvalid, m_axis_tready = 0, m_axis_tlast;
@@ -30,8 +32,8 @@ module tb_npu_matrix_controller_pipeline;
     logic [7:0] error_code;
     logic [63:0] cycles;
 
-    npu_matrix_controller #(
-        .ROWS(ROWS), .COLUMNS(COLUMNS), .MAX_K(MAX_K)
+    npu_matrix_core #(
+        .ROWS(ROWS), .COLUMNS(COLUMNS), .MAX_K(MAX_K), .IN_BYTES(IN_BYTES)
     ) dut (.*);
 
     always #5 clk = ~clk;
@@ -41,6 +43,7 @@ module tb_npu_matrix_controller_pipeline;
     logic signed [7:0]  a_mem [0:NUM_JOBS*ROWS*MAX_JOB_K-1];
     logic signed [7:0]  b_mem [0:NUM_JOBS*MAX_JOB_K*COLUMNS-1];
     logic signed [31:0] c_mem [0:NUM_JOBS*ROWS*COLUMNS-1];
+    logic [7:0] frame_bytes [0:ROWS*MAX_JOB_K + MAX_JOB_K*COLUMNS - 1];
 
     integer accepted_count;
     integer job_index, row_index, column_index, step_index, beat_index;
@@ -61,8 +64,10 @@ module tb_npu_matrix_controller_pipeline;
     // or output phase, which is only reachable once the two banks are
     // independent. A job's own B frame overlapping its compute does not count.
     always @(posedge clk) begin
-        if (rst_n && (dut.load_state !== 2'd0) && (dut.load_ptr !== dut.exec_ptr) &&
-            ((dut.exec_state === 2'd2) || (dut.exec_state === 2'd3)))
+        if (rst_n && (dut.controller.load_state !== 2'd0) &&
+            (dut.controller.load_ptr !== dut.controller.exec_ptr) &&
+            ((dut.controller.exec_state === 2'd2) ||
+             (dut.controller.exec_state === 2'd3)))
             overlap_seen <= 1'b1;
     end
 
@@ -98,9 +103,10 @@ module tb_npu_matrix_controller_pipeline;
     endtask
 
     // Full-rate source: TVALID stays asserted across beats and frames, so the
-    // load engine sees one beat per cycle unless a stall is asked for.
+    // load engine sees one packed beat per cycle unless a stall is asked for.
     task automatic send_beat(
-        input integer signed value, input logic last, input integer stall_cycles
+        input logic [IN_BYTES*8-1:0] data, input logic [IN_BYTES-1:0] keep,
+        input logic last, input integer stall_cycles
     );
         integer idle_index;
         begin
@@ -112,7 +118,8 @@ module tb_npu_matrix_controller_pipeline;
                     @(negedge clk);
             end
             @(negedge clk);
-            s_axis_tdata = value[7:0];
+            s_axis_tdata = data;
+            s_axis_tkeep = keep;
             s_axis_tlast = last;
             s_axis_tvalid = 1'b1;
             while (!s_axis_tready) @(negedge clk);
@@ -124,32 +131,49 @@ module tb_npu_matrix_controller_pipeline;
             @(negedge clk);
             s_axis_tvalid = 1'b0;
             s_axis_tlast = 1'b0;
+            s_axis_tkeep = '0;
+        end
+    endtask
+
+    // Streams frame_bytes[0:count-1] as one DMA transfer: IN_BYTES bytes per
+    // beat, a partial final beat marked by TKEEP, TLAST on that beat, and a
+    // two-cycle stall before every stall_every-th beat.
+    task automatic send_frame(input integer count, input integer stall_every);
+        integer offset, lane, beat;
+        logic [IN_BYTES*8-1:0] data;
+        logic [IN_BYTES-1:0] keep;
+        begin
+            beat = 0;
+            for (offset = 0; offset < count; offset = offset + IN_BYTES) begin
+                data = '0;
+                keep = '0;
+                for (lane = 0; lane < IN_BYTES; lane = lane + 1)
+                    if (offset + lane < count) begin
+                        data[lane*8 +: 8] = frame_bytes[offset + lane];
+                        keep[lane] = 1'b1;
+                    end
+                send_beat(data, keep, offset + IN_BYTES >= count,
+                          ((stall_every > 0) && (beat % stall_every == stall_every-1))
+                              ? 2 : 0);
+                beat = beat + 1;
+            end
         end
     endtask
 
     // Streams one job's A frame then its B frame, stalling mid-frame so the
     // queued job cannot rely on an uninterrupted source.
     task automatic feed_job(input integer job, input integer stall_every);
-        integer r, c, kk, k_len, beats;
+        integer r, c, kk, k_len;
         begin
             k_len = job_k[job];
-            beats = 0;
             for (r = 0; r < ROWS; r = r + 1)
-                for (kk = 0; kk < k_len; kk = kk + 1) begin
-                    send_beat(a_mem[(job*ROWS + r)*MAX_JOB_K + kk],
-                              (r == ROWS-1) && (kk == k_len-1),
-                              ((stall_every > 0) && (beats % stall_every == stall_every-1))
-                                  ? 2 : 0);
-                    beats = beats + 1;
-                end
+                for (kk = 0; kk < k_len; kk = kk + 1)
+                    frame_bytes[r*k_len + kk] = a_mem[(job*ROWS + r)*MAX_JOB_K + kk];
+            send_frame(ROWS*k_len, stall_every);
             for (kk = 0; kk < k_len; kk = kk + 1)
-                for (c = 0; c < COLUMNS; c = c + 1) begin
-                    send_beat(b_mem[(job*MAX_JOB_K + kk)*COLUMNS + c],
-                              (kk == k_len-1) && (c == COLUMNS-1),
-                              ((stall_every > 0) && (beats % stall_every == stall_every-1))
-                                  ? 2 : 0);
-                    beats = beats + 1;
-                end
+                for (c = 0; c < COLUMNS; c = c + 1)
+                    frame_bytes[kk*COLUMNS + c] = b_mem[(job*MAX_JOB_K + kk)*COLUMNS + c];
+            send_frame(k_len*COLUMNS, stall_every);
             idle_input();
         end
     endtask
@@ -231,7 +255,7 @@ module tb_npu_matrix_controller_pipeline;
                     integer j;
                     for (j = 0; j < NUM_JOBS; j = j + 1) begin
                         while (accepted_count <= j) @(negedge clk);
-                        feed_job(j, (j == 1) ? 7 : 0);
+                        feed_job(j, (j == 1) ? 3 : 0);
                     end
                 end
                 begin : drainer
@@ -325,8 +349,8 @@ module tb_npu_matrix_controller_pipeline;
         pulse_start();
         configure(ROWS, COLUMNS, 16, JOB_TIMEOUT);
         pulse_start();
-        for (beat_index = 0; beat_index < 10; beat_index = beat_index + 1)
-            send_beat(beat_index, 1'b0, 0);
+        for (beat_index = 0; beat_index < 2; beat_index = beat_index + 1)
+            send_beat({IN_BYTES{8'(beat_index)}}, '1, 1'b0, 0);
         idle_input();
         pulse_soft_reset();
         @(posedge clk); #1;
@@ -340,7 +364,7 @@ module tb_npu_matrix_controller_pipeline;
         configure(ROWS, COLUMNS, 4, JOB_TIMEOUT);
         pulse_start();
         pulse_start();
-        send_beat(1, 1'b1, 0);
+        send_beat(1, 1, 1'b1, 0);
         idle_input();
         @(posedge clk); #1;
         if (!status_error || error_code !== 8'd4) fail("STREAM_LENGTH on queued pipeline");

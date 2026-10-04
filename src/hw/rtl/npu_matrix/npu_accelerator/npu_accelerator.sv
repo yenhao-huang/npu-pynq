@@ -1,9 +1,10 @@
 `timescale 1ns/1ps
 
-module npu_matrix_accelerator #(
+module npu_accelerator #(
     parameter integer ROWS = 2,
     parameter integer COLUMNS = 2,
     parameter integer MAX_K = 256,
+    parameter integer IN_BYTES = 8,
     parameter integer C_S_AXI_DATA_WIDTH = 32,
     parameter integer C_S_AXI_ADDR_WIDTH = 8
 ) (
@@ -33,7 +34,8 @@ module npu_matrix_accelerator #(
     output logic                              s_axi_rvalid,
     input  logic                              s_axi_rready,
 
-    input  logic [7:0]                        s_axis_tdata,
+    input  logic [IN_BYTES*8-1:0]             s_axis_tdata,
+    input  logic [IN_BYTES-1:0]               s_axis_tkeep,
     input  logic                              s_axis_tvalid,
     output logic                              s_axis_tready,
     input  logic                              s_axis_tlast,
@@ -75,10 +77,11 @@ module npu_matrix_accelerator #(
         .cfg_timeout_cycles(cfg_timeout_cycles)
     );
 
-    npu_matrix_controller #(
+    npu_matrix_core #(
         .ROWS(ROWS),
         .COLUMNS(COLUMNS),
-        .MAX_K(MAX_K)
+        .MAX_K(MAX_K),
+        .IN_BYTES(IN_BYTES)
     ) controller (
         .clk(s_axi_aclk),
         .rst_n(s_axi_aresetn),
@@ -92,6 +95,7 @@ module npu_matrix_accelerator #(
         .cfg_c_stride(cfg_c_stride),
         .cfg_timeout_cycles(cfg_timeout_cycles),
         .s_axis_tdata(s_axis_tdata),
+        .s_axis_tkeep(s_axis_tkeep),
         .s_axis_tvalid(s_axis_tvalid),
         .s_axis_tready(s_axis_tready),
         .s_axis_tlast(s_axis_tlast),

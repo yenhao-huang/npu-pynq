@@ -112,7 +112,7 @@ class NPURuntime:
         *,
         allocator: Callable[..., Any],
         monotonic: Callable[[], float] = time.monotonic,
-        accelerator_name: str = "npu_matrix_accelerator_0",
+        accelerator_name: str = "npu_accelerator_0",
         dma_name: str = "axi_dma_0",
     ) -> None:
         self.overlay = overlay

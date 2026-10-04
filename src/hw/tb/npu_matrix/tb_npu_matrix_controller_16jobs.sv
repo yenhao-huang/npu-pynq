@@ -7,16 +7,20 @@
 // an exact INT32 golden model, and the pass prints both wall-clock spans plus
 // the per-job CYCLES the controller reported.
 //
-// ROWS, COLUMNS, JOB_K and NUM_JOBS are parameters so the experiment can be
-// swept with `iverilog -P tb_npu_matrix_controller_16jobs.<name>=<value>`.
+// Operands arrive as packed IN_BYTES-byte beats, one DMA transfer per A and B
+// frame, exactly as npu_matrix_core expects them.
+//
+// ROWS, COLUMNS, JOB_K, NUM_JOBS and IN_BYTES are parameters so the experiment
+// can be swept with `iverilog -P tb_npu_matrix_controller_16jobs.<name>=<value>`.
 // Defining NPU_SERIAL_BASELINE drops the status_accept port and the pipelined
-// pass, so the serialized pass can also be run against the controller that
-// predates this change.
+// pass, so the serialized pass can also be run against the core that predates
+// this change.
 module tb_npu_matrix_controller_16jobs #(
     parameter integer ROWS = 8,
     parameter integer COLUMNS = 8,
     parameter integer JOB_K = 64,
-    parameter integer NUM_JOBS = 16
+    parameter integer NUM_JOBS = 16,
+    parameter integer IN_BYTES = 8
 );
     localparam integer MAX_K = 256;
     localparam integer JOB_TIMEOUT = 100000;
@@ -28,7 +32,8 @@ module tb_npu_matrix_controller_16jobs #(
     logic [15:0] cfg_m = 0, cfg_n = 0, cfg_k = 0;
     logic [31:0] cfg_a_stride = 0, cfg_b_stride = 0, cfg_c_stride = 0;
     logic [31:0] cfg_timeout_cycles = 0;
-    logic [7:0] s_axis_tdata = 0;
+    logic [IN_BYTES*8-1:0] s_axis_tdata = 0;
+    logic [IN_BYTES-1:0] s_axis_tkeep = 0;
     logic s_axis_tvalid = 0, s_axis_tready, s_axis_tlast = 0;
     logic [31:0] m_axis_tdata;
     logic m_axis_tvalid, m_axis_tready = 0, m_axis_tlast;
@@ -39,8 +44,8 @@ module tb_npu_matrix_controller_16jobs #(
     logic [7:0] error_code;
     logic [63:0] cycles;
 
-    npu_matrix_controller #(
-        .ROWS(ROWS), .COLUMNS(COLUMNS), .MAX_K(MAX_K)
+    npu_matrix_core #(
+        .ROWS(ROWS), .COLUMNS(COLUMNS), .MAX_K(MAX_K), .IN_BYTES(IN_BYTES)
     ) dut (.*);
 
     always #5 clk = ~clk;
@@ -49,6 +54,7 @@ module tb_npu_matrix_controller_16jobs #(
     logic signed [7:0]  b_mem [0:NUM_JOBS*JOB_K*COLUMNS-1];
     logic signed [31:0] c_mem [0:NUM_JOBS*ROWS*COLUMNS-1];
     logic [63:0] job_cycles [0:NUM_JOBS-1];
+    logic [7:0] frame_bytes [0:ROWS*JOB_K + JOB_K*COLUMNS - 1];
 
     integer accepted_count;
     integer job_index, row_index, column_index, step_index;
@@ -90,31 +96,44 @@ module tb_npu_matrix_controller_16jobs #(
         end
     endtask
 
-    task automatic send_beat(input integer signed value, input logic last);
+    // Streams frame_bytes[0:count-1] as one DMA transfer: IN_BYTES bytes per
+    // beat with TVALID held high, a partial final beat marked by TKEEP, and
+    // TLAST on that final beat.
+    task automatic send_frame(input integer count);
+        integer offset, lane;
         begin
-            @(negedge clk);
-            s_axis_tdata = value[7:0];
-            s_axis_tlast = last;
-            s_axis_tvalid = 1'b1;
-            while (!s_axis_tready) @(negedge clk);
+            for (offset = 0; offset < count; offset = offset + IN_BYTES) begin
+                @(negedge clk);
+                s_axis_tdata = '0;
+                s_axis_tkeep = '0;
+                for (lane = 0; lane < IN_BYTES; lane = lane + 1)
+                    if (offset + lane < count) begin
+                        s_axis_tdata[lane*8 +: 8] = frame_bytes[offset + lane];
+                        s_axis_tkeep[lane] = 1'b1;
+                    end
+                s_axis_tlast = (offset + IN_BYTES >= count);
+                s_axis_tvalid = 1'b1;
+                while (!s_axis_tready) @(negedge clk);
+            end
         end
     endtask
 
-    // A frame (row-major) then B frame (row-major), one byte per cycle.
+    // A frame (row-major) then B frame (row-major).
     task automatic feed_job(input integer job);
         integer r, c, kk;
         begin
             for (r = 0; r < ROWS; r = r + 1)
                 for (kk = 0; kk < JOB_K; kk = kk + 1)
-                    send_beat(a_mem[(job*ROWS + r)*JOB_K + kk],
-                              (r == ROWS-1) && (kk == JOB_K-1));
+                    frame_bytes[r*JOB_K + kk] = a_mem[(job*ROWS + r)*JOB_K + kk];
+            send_frame(ROWS*JOB_K);
             for (kk = 0; kk < JOB_K; kk = kk + 1)
                 for (c = 0; c < COLUMNS; c = c + 1)
-                    send_beat(b_mem[(job*JOB_K + kk)*COLUMNS + c],
-                              (kk == JOB_K-1) && (c == COLUMNS-1));
+                    frame_bytes[kk*COLUMNS + c] = b_mem[(job*JOB_K + kk)*COLUMNS + c];
+            send_frame(JOB_K*COLUMNS);
             @(negedge clk);
             s_axis_tvalid = 1'b0;
             s_axis_tlast = 1'b0;
+            s_axis_tkeep = '0;
         end
     endtask
 
@@ -231,15 +250,16 @@ module tb_npu_matrix_controller_16jobs #(
         pulse_soft_reset();
 
 `ifdef NPU_SERIAL_BASELINE
-        $display("PASS tb_npu_matrix_controller_16jobs baseline %0dx%0dx%0d jobs=%0d serial=%0d first=%0d steady=%0d",
-                 ROWS, COLUMNS, JOB_K, NUM_JOBS, serial_span, serial_first, serial_steady);
+        $display("PASS tb_npu_matrix_controller_16jobs baseline %0dx%0dx%0d in_bytes=%0d jobs=%0d serial=%0d first=%0d steady=%0d",
+                 ROWS, COLUMNS, JOB_K, IN_BYTES, NUM_JOBS, serial_span, serial_first,
+                 serial_steady);
 `else
         run_jobs(1'b1, pipelined_span, pipelined_first, pipelined_steady);
         if (pipelined_span >= serial_span) fail("pipelined run did not save cycles");
         pulse_soft_reset();
 
-        $display("PASS tb_npu_matrix_controller_16jobs %0dx%0dx%0d jobs=%0d serial=%0d pipelined=%0d saved=%0d serial_steady=%0d pipelined_steady=%0d first=%0d",
-                 ROWS, COLUMNS, JOB_K, NUM_JOBS, serial_span, pipelined_span,
+        $display("PASS tb_npu_matrix_controller_16jobs %0dx%0dx%0d in_bytes=%0d jobs=%0d serial=%0d pipelined=%0d saved=%0d serial_steady=%0d pipelined_steady=%0d first=%0d",
+                 ROWS, COLUMNS, JOB_K, IN_BYTES, NUM_JOBS, serial_span, pipelined_span,
                  serial_span - pipelined_span, serial_steady, pipelined_steady,
                  pipelined_first);
 `endif

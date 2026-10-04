@@ -77,7 +77,7 @@ For either agent, if you selected a custom `IC_MCP_CACHE`, also pass
 `--env IC_MCP_CACHE="$IC_MCP_CACHE"` to the registration command before `--`.
 This preserves the cache choice when the agent is launched from another shell.
 
-Ask the agent to call `lint` on `src/hw/rtl/systolic_array/npu_pe.sv`, top
+Ask the agent to call `lint` on `src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv`, top
 `npu_pe`. See the [tool acceptance guide](../../../../docs/goals/ic-design-tools/acceptance/reproduce.md)
 for more checks. Other MCP clients can launch the absolute `ic-tools` path with
 `serve --project /absolute/path/to/project` using stdio transport.
@@ -102,7 +102,7 @@ No MCP configuration or `ic-tools init pi` command is needed. npm installation
 prepares the runtime through `postinstall` and reuses completed caches.
 
 Inside pi, run `/ic` to inspect backends, then ask it to call `lint` on
-`src/hw/rtl/systolic_array/npu_pe.sv`, top `npu_pe`.
+`src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv`, top `npu_pe`.
 See [pi acceptance](../../../../docs/goals/ic-design-tools/acceptance/pi-agent.md) for all eight tools.
 
 ### Migrate an existing pi wrapper

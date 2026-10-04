@@ -12,67 +12,77 @@
 
 ## Implementation
 
-Branch `npu/issue64-b`, merged with `dev` after issue #59 (PR #60). The
-ping-pong buffer is built on top of #59's operand storage:
+Branch `npu/issue64-b`, merged with `dev` at bd63070. That `dev` includes:
+- #59: per-edge operand banks and in-job B-row overlap;
+- #94: eight INT8 operands per 64-bit input beat;
+- #62: the module split into controller, datapath and `npu_operand_buffer`.
 
-- **Storage (#59):** one synchronous-read BRAM per array edge (ROWS A banks,
-  COLUMNS B banks). The wavefront advances while the same job's B rows arrive.
-- **Ping-pong (#64):** each BRAM is `2*MAX_K` deep, and the address MSB selects
-  the ping-pong half. The load engine writes the half at `load_ptr`. The exec
-  engine reads the half at `exec_ptr`, so the next job's operands stream in
-  while the current job computes and drains.
-- **Exec start:** the exec engine starts once a job's A frame has landed, so it
-  keeps #59's in-job B-row overlap.
-- **Software interface:** STATUS bit 3 (ACCEPT) tells software a half is free.
+The ping-pong buffer is built on top of all three:
+
+- **Datapath:** every `npu_operand_buffer` is two halves deep. The controller's
+  `load_half` / `exec_half` outputs drive the address MSB of writes and reads.
+  The number of buffers is unchanged.
+- **Controller:** split into a load engine (row aligner, frame checks, writes
+  the half at `load_ptr`) and an exec engine (clear, wavefront, output, reads
+  the half at `exec_ptr`). The engines share a two-entry job queue.
+- **Exec start:** the exec engine starts once a job's A frame lands, so the
+  wavefront still advances as that job's B rows arrive (#59).
+- **Software interface:** STATUS bit 3 (ACCEPT) means a queue entry is free.
   CAPABILITIES bit 5 advertises PIPELINED_JOBS.
 
-A driver that waits for `!BUSY` keeps #59 behaviour, minus one cycle per job:
-the exec engine has no idle `STATE_CLEAR` cycle between `LOAD_B` and `COMPUTE`.
+A driver that waits for `!BUSY` runs one job at a time, one cycle faster than
+before: the idle `STATE_CLEAR` cycle between `LOAD_B` and `COMPUTE` is gone.
 
 ## Experiment: 16 matrix-multiply jobs
 
 Testbench: `src/hw/tb/npu_matrix/tb_npu_matrix_controller_16jobs.sv`.
-It runs 16 stall-free jobs (random INT8 operands, every output checked against
-an exact INT32 golden model). The input stream is one byte per cycle and the
-output is one INT32 per cycle with no backpressure. `span` is the wall-clock
-length of all 16 jobs. `steady` is the mean `CYCLES` of jobs 1..15.
+It drives `npu_matrix_core` with 16 stall-free jobs: random INT8 operands, 64-bit
+packed beats with TKEEP, and every output checked against an exact INT32 model.
+The output sink takes one INT32 per cycle with no backpressure. `span` is the
+wall-clock length of all 16 jobs. `steady` is the mean `CYCLES` of jobs 1..15.
 
-Three controllers, same testbench:
+- **dev**: `dev` at bd63070 (packed stream, single buffer), serialized
+  (`-DNPU_SERIAL_BASELINE`). This is the hardware this change replaces.
+- **ping-pong serial**: this branch, START on `!BUSY`.
+- **ping-pong pipelined**: this branch, START on `ACCEPT`.
 
-- **pre-#59**: `dev` at 667e072, serialized (`-DNPU_SERIAL_BASELINE`).
-- **#59**: current `dev` (49dc74a), serialized (`-DNPU_SERIAL_BASELINE`).
-  This is the hardware this change replaces.
-- **#59 + ping-pong**: this branch, run both serialized and pipelined
-  (START on `ACCEPT`).
-
-| shape (M x N x K) | pre-#59 span | #59 span | #59+pp serial | **#59+pp pipelined** | saved vs #59 | steady/job #59 -> pipelined | speedup vs #59 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 4x4x8    |  1616 |  1504 |  1488 |  **1068** | 29.0 % |   92 -> 65   | 1.41x |
-| 4x4x64   |  9680 |  8672 |  8656 |  **8236** |  5.0 % |  540 -> 513  | 1.05x |
-| 4x4x256  | 37328 | 33248 | 33232 | **32812** |  1.3 % | 2076 -> 2049 | 1.01x |
-| 8x8x8    |  3536 |  3424 |  3408 |  **2148** | 37.3 % |  212 -> 129  | 1.59x |
-| **8x8x64** (default) | 18768 | 17760 | 17744 | **16484** | **7.2 %** | **1108 -> 1025** | **1.08x** |
-| 8x8x256  | 70992 | 66912 | 66896 | **65636** |  1.9 % | 4180 -> 4097 | 1.02x |
-| 16x16x64 | 38480 | 37472 | 37456 | **33076** | 11.7 % | 2340 -> 2049 | 1.13x |
-
-At 8x8x64, 16 jobs drop from 17760 cycles on current `dev` to 16484 cycles.
-Against pre-#59 hardware (18768 cycles), #59 and ping-pong together save 12.2 %.
+| shape (M x N x K) | dev span | ping-pong serial | **ping-pong pipelined** | saved vs dev | steady/job dev -> pipelined | speedup |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4x4x8     |  704  |  688  |   **538** | 23.6 % |   42 -> 33   | 1.31x |
+| 4x4x64    |  2048 |  2032 |  **1597** | 22.0 % |  126 -> 98   | 1.28x |
+| 4x4x256   |  6656 |  6640 |  **6205** |  6.8 % |  414 -> 386  | 1.07x |
+| 8x8x8     |  1664 |  1648 |  **1438** | 13.6 % |  102 -> 89   | 1.16x |
+| **8x8x64** (default) | **3456** | **3440** | **2390** | **30.8 %** | **214 -> 145** | **1.45x** |
+| 8x8x256   |  9600 |  9584 |  **8309** | 13.4 % |  598 -> 514  | 1.16x |
+| 16x16x64  |  8832 |  8816 |  **5846** | 33.8 % |  550 -> 353  | 1.51x |
+| 16x16x256 | 21120 | 21104 | **16709** | 20.9 % | 1318 -> 1026 | 1.26x |
 
 ### Reading the numbers
 
-As expected, the drop is small at realistic K. Every pipelined job settles at
-exactly `M*K + K*N + 1` cycles, which is the time to stream the operands over
-the 8-bit `s_axis` (8x8x64: 1025). The two overlaps hide different parts:
+The first experiment (byte-wide stream, before #94) saved only 7 % at 8x8x64,
+because the 1024-cycle load dwarfed everything else. With 8 operands per beat
+the load at 8x8x64 is 130 cycles, so compute and output now matter. Ping-pong
+saves 30.8 % there and 33.8 % at 16x16x64.
 
-- #59 already hides most of the compute (K-1 steps) behind the job's own B frame.
-- Ping-pong hides what is left (the `M + N` wavefront tail and the `M*N` output
-  drain) behind the next job's load.
+The steady-state cost per job is whichever engine is slower. It matches every
+row above:
 
-So the saving per job is roughly `M + N + M*N`, against a load of
-`M*K + K*N` cycles. It is large when the output is large relative to the load
-(8x8x8: 37 %, 16x16x64: 12 %) and close to nothing at K = 256. Further speedup
-needs a wider or faster load path (for example a 32/64-bit `s_axis`, or reusing
-B across row tiles). More banking cannot provide it.
+```
+load = M*ceil(K/8) + K*ceil(N/8) + 2          (aligned words + 1 fill per frame)
+exec = 1 + (K + M + N - 1) + M*N              (clear, wavefront, output)
+cost = load if load >= exec, else exec + 1
+```
+
+- **Exec-bound** (8x8x64: exec 144 vs load 130 -> 145; 16x16x64: 352 vs 258 ->
+  353): the array is now the bottleneck. The next job cannot start its
+  wavefront until the `M*N` results have drained from the accumulators.
+- **Load-bound** (8x8x256: load 514; 16x16x256: load 1026): ping-pong hides
+  all of compute and output, and the 64-bit stream is the bound.
+
+The next steps differ by regime:
+- exec-bound shapes need output that does not stall the array (a result buffer
+  or double accumulators);
+- load-bound shapes need operand reuse across tiles.
 
 ### Reproduce
 
@@ -82,22 +92,32 @@ make -C src/test build/npu_matrix_controller_16jobs.ok   # default 8x8x64
 iverilog -g2012 -s tb_npu_matrix_controller_16jobs \
   -Ptb_npu_matrix_controller_16jobs.ROWS=16 -Ptb_npu_matrix_controller_16jobs.COLUMNS=16 \
   -Ptb_npu_matrix_controller_16jobs.JOB_K=64 -o /tmp/16jobs.vvp \
-  src/hw/rtl/npu_matrix/npu_matrix_controller.sv src/hw/rtl/systolic_array/*.sv \
+  $(find src/hw/rtl -name '*.sv') \
   src/hw/tb/npu_matrix/tb_npu_matrix_controller_16jobs.sv && vvp /tmp/16jobs.vvp
-# baselines: same command with -DNPU_SERIAL_BASELINE and the three RTL files
-# taken from `git show <commit>:<path>` (667e072 for pre-#59, 49dc74a for #59)
+# dev baseline: same command with -DNPU_SERIAL_BASELINE and the RTL files taken
+# from `git show bd63070:<path>`
 ```
+
+### History
+
+The first run of this experiment used the byte-wide stream. At 8x8x64, 16 jobs
+took:
+
+| version | cycles | saving |
+| --- | ---: | --- |
+| pre-#59, serial | 18768 | baseline |
+| ping-pong only | 16548 | -11.8 % |
+| #59 only | 17760 | |
+| #59 + ping-pong | 16484 | -7.2 % vs #59 |
 
 ### Validation and gaps
 
-- `make -C src/test lint sim` passes: all 12 testbenches. These include:
-  - the 16-job bench;
-  - #59's `tb_npu_matrix_scaling` (its exact-latency formula is now one cycle
-    lower);
-  - the unchanged 34-case 8x8 controller regression.
-- `tb_npu_matrix_scaling` also passes at SIZE = 4 and 16.
-- Not yet run: Vivado synthesis, timing, and BRAM/LUT usage. Board validation
-  is also outstanding. The doubled-depth memories should still map to one
-  BRAM18 each, but this is unverified.
-- `src/runtime/` still issues one job at a time. Software sees this speedup only
+- `make -C src/test lint sim` passes, with all 13 testbenches green.
+- `tb_npu_matrix_scaling` also passes at SIZE = 4 and 16. Its exact-latency
+  constant moved from +4 to +3.
+- `python -m unittest discover -s src/test/tests` passes (148 tests).
+- Not yet run: Vivado synthesis, timing and BRAM/LUT usage. Board validation is
+  also outstanding. The doubled-depth buffers (512 B at MAX_K = 256) should
+  still map to one BRAM18 each, but this is unverified.
+- `src/runtime/` still issues one job at a time. Software sees the speedup only
   after the runtime stages the next job on `ACCEPT`.

@@ -5,11 +5,14 @@
 module tb_npu_matrix_scaling;
     parameter integer SIZE = 8;
     parameter integer EXPECT_OVERLAP = 1;
+    localparam integer IN_BYTES = 8;
     logic clk = 0, rst_n = 0, start_pulse = 0, soft_reset_pulse = 0;
     logic [15:0] cfg_m = 0, cfg_n = 0, cfg_k = 0;
     logic [31:0] cfg_a_stride = 0, cfg_b_stride = 0, cfg_c_stride = 0;
     logic [31:0] cfg_timeout_cycles = 100000;
-    logic [7:0] s_axis_tdata = 0, error_code;
+    logic [IN_BYTES*8-1:0] s_axis_tdata = 0;
+    logic [IN_BYTES-1:0] s_axis_tkeep = 0;
+    logic [7:0] error_code;
     logic s_axis_tvalid = 0, s_axis_tready, s_axis_tlast = 0;
     logic [31:0] m_axis_tdata;
     logic m_axis_tvalid, m_axis_tready = 0, m_axis_tlast;
@@ -17,7 +20,9 @@ module tb_npu_matrix_scaling;
     logic [63:0] cycles;
     integer load_cycles, compute_cycles, output_cycles;
     integer signed av [0:SIZE*256-1], bv [0:256*SIZE-1];
-    npu_matrix_controller #(.ROWS(SIZE), .COLUMNS(SIZE), .MAX_K(256)) dut (.*);
+    npu_matrix_core #(
+        .ROWS(SIZE), .COLUMNS(SIZE), .MAX_K(256), .IN_BYTES(IN_BYTES)
+    ) dut (.*);
     always #5 clk = ~clk;
     always @(posedge clk) begin
         if (status_busy) begin
@@ -26,6 +31,41 @@ module tb_npu_matrix_scaling;
             else compute_cycles = compute_cycles + 1;
         end
     end
+
+    function automatic integer words(input integer rows, row_bytes);
+        words = rows * ((row_bytes + IN_BYTES - 1) / IN_BYTES);
+    endfunction
+
+    // Drive one operand frame as AXI DMA MM2S does: IN_BYTES bytes per beat,
+    // TKEEP on the partial final beat, TLAST on the final beat. TVALID is held
+    // until each beat is accepted; with stalls, every seventh beat is preceded
+    // by an idle cycle.
+    task automatic send_frame(input integer is_b, input integer count, input integer stalls);
+        integer beat, lane, index;
+        begin
+            for (beat = 0; beat*IN_BYTES < count; beat = beat + 1) begin
+                if (stalls && (beat % 7 == 0)) begin
+                    s_axis_tvalid = 0;
+                    @(negedge clk);
+                end
+                s_axis_tdata = 0; s_axis_tkeep = 0;
+                for (lane = 0; lane < IN_BYTES; lane = lane + 1) begin
+                    index = beat*IN_BYTES + lane;
+                    if (index < count) begin
+                        s_axis_tdata[lane*8 +: 8] = is_b ? bv[index][7:0] : av[index][7:0];
+                        s_axis_tkeep[lane] = 1;
+                    end
+                end
+                s_axis_tlast = ((beat+1)*IN_BYTES >= count);
+                s_axis_tvalid = 1;
+                #1;
+                while (!s_axis_tready) begin
+                    @(negedge clk); #1;
+                end
+                @(negedge clk);
+            end
+        end
+    endtask
 
     task automatic run_case(input integer m, n, k, stalls);
         integer i, j, q, out_index, tick;
@@ -41,18 +81,9 @@ module tb_npu_matrix_scaling;
             for (i=0; i<k*n; i=i+1) bv[i] = ((i*31 + n*7) % 256)-128;
             start_pulse = 1;
             @(negedge clk); start_pulse = 0;
-            for (i=0; i<m*k+k*n; i=i+1) begin
-                if (stalls && (i % 7 == 0)) begin
-                    s_axis_tvalid = 0;
-                    @(negedge clk);
-                end
-                s_axis_tvalid = 1;
-                s_axis_tdata = (i < m*k) ? av[i][7:0] : bv[i-m*k][7:0];
-                s_axis_tlast = (i == m*k-1 || i == m*k+k*n-1);
-                if (!s_axis_tready) $fatal(1, "FAIL input not ready");
-                @(negedge clk);
-            end
-            s_axis_tvalid = 0; s_axis_tlast = 0;
+            send_frame(0, m*k, stalls);
+            send_frame(1, k*n, stalls);
+            s_axis_tvalid = 0; s_axis_tlast = 0; s_axis_tkeep = 0;
             out_index = 0; tick = 0; held_valid = 0;
             while (!status_done && !status_error && tick < 100000) begin
                 m_axis_tready = !stalls || (tick % 5 >= 2);
@@ -78,11 +109,14 @@ module tb_npu_matrix_scaling;
                 $fatal(1, "FAIL incomplete transaction");
             if (cycles != load_cycles+compute_cycles+output_cycles)
                 $fatal(1, "FAIL cycle accounting");
-            // The overlapped controller hides k-1 compute steps behind the B
-            // frame, and the ping-pong exec engine also drops the idle cycle
-            // that the serialized controller spent between LOAD_B and COMPUTE.
-            if (!stalls && cycles != m*k+k*n+m*n+k+m+n+1 -
-                (EXPECT_OVERLAP ? k : 0))
+            // Stall-free: one cycle per aligned word of A and B (B overlapped
+            // with compute), the remaining drain and output, and one aligner
+            // fill cycle per frame. Byte-wide input took
+            // m*k + k*n + m*n + m + n + 2. The ping-pong exec engine also
+            // drops the idle CLEAR cycle between the B frame and the
+            // wavefront tail, so the constant is 3.
+            if (!stalls && EXPECT_OVERLAP &&
+                cycles != words(m, k) + words(k, n) + m*n + m + n + 3)
                 $fatal(1, "FAIL no-stall latency regression");
             $display("METRIC size=%0d m=%0d n=%0d k=%0d stalls=%0d cycles=%0d load=%0d compute=%0d output=%0d macs=%0d",
                      SIZE,m,n,k,stalls,cycles,load_cycles,compute_cycles,output_cycles,m*n*k);
@@ -99,13 +133,22 @@ module tb_npu_matrix_scaling;
             cfg_a_stride = 8; cfg_b_stride = SIZE; cfg_c_stride = 4*SIZE;
             start_pulse = 1;
             @(negedge clk); start_pulse = 0;
-            for (i=0; i<SIZE*8+SIZE*3; i=i+1) begin
-                s_axis_tvalid = 1; s_axis_tdata = 127;
-                s_axis_tlast = (i == SIZE*8-1) ||
-                    (malformed && i == SIZE*8+SIZE*3-1);
+            // A is SIZE rows of 8 bytes; then three of eight B rows, the
+            // last of them marked TLAST when malformed.
+            for (i=0; i<(SIZE*8+SIZE*3)/IN_BYTES; i=i+1) begin
+                s_axis_tvalid = 1; s_axis_tdata = {IN_BYTES{8'd127}};
+                s_axis_tkeep = '1;
+                s_axis_tlast = (i == SIZE*8/IN_BYTES-1) ||
+                    (malformed && i == (SIZE*8+SIZE*3)/IN_BYTES-1);
+                #1;
+                while (!s_axis_tready) begin
+                    @(negedge clk); #1;
+                end
                 @(negedge clk);
             end
-            s_axis_tvalid = 0; s_axis_tlast = 0;
+            s_axis_tvalid = 0; s_axis_tlast = 0; s_axis_tkeep = 0;
+            // Let the completed B rows advance the overlapped compute.
+            repeat (SIZE*2) @(negedge clk);
             if (malformed && (!status_error || error_code != 4 || status_busy))
                 $fatal(1, "FAIL malformed B accepted after overlapped compute");
             soft_reset_pulse = 1;
