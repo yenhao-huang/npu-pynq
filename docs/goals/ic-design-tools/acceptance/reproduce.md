@@ -81,7 +81,7 @@ only `synth --mode full` is unavailable, and it says so when asked (step 9).
 Clean RTL from the repository:
 
 ```bash
-ic lint --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe --compact
+ic lint --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --compact
 ```
 
 ```json
@@ -381,10 +381,10 @@ ic gc               # reclaims work/, keeps meta.json and artifacts/
 The claim the architecture rests on. Same request, three ways:
 
 ```bash
-ic lint --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe --compact
-IC_DAEMON_URL=http://localhost:8731 ic lint --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe --compact
+ic lint --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --compact
+IC_DAEMON_URL=http://localhost:8731 ic lint --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --compact
 curl -s -X POST localhost:8731/v1/tools/lint -H 'content-type: application/json' \
-  -d '{"files":["src/hw/rtl/systolic_array/npu_pe.sv"],"top":"npu_pe"}'
+  -d '{"files":["src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv"],"top":"npu_pe"}'
 ```
 
 All three return the same object apart from `run_id`.
@@ -443,7 +443,7 @@ async def main():
             await s.initialize()
             tools = await s.list_tools()
             print([t.name for t in tools.tools])
-            print((await s.call_tool("lint", {"files": ["src/hw/rtl/systolic_array/npu_pe.sv"], "top": "npu_pe"})).content[0].text)
+            print((await s.call_tool("lint", {"files": ["src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv"], "top": "npu_pe"})).content[0].text)
 
 asyncio.run(main())
 PY
@@ -535,7 +535,7 @@ and the call carries no PDK arguments at all:
 
 ```bash
 export IC_PDK_LIBERTY=/pdk/nangate45/NangateOpenCellLibrary_typical.lib
-ic ppa --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe \
+ic ppa --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe \
        --clock-port clk --clock-period-ns 5
 ```
 

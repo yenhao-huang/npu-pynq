@@ -42,7 +42,7 @@ async function call(name, params) {
 }
 const fixture = path.join(repo, 'tools/ic/tests/fixtures');
 assert.equal((await call('lint', {
-  files: [path.join(repo, 'src/hw/rtl/systolic_array/npu_pe.sv')], top: 'npu_pe',
+  files: [path.join(repo, 'src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv')], top: 'npu_pe',
 })).error_count, 0);
 const sim = await call('sim', {
   files: [path.join(fixture, 'counter.sv'), path.join(fixture, 'tb_counter.sv')], tb: 'tb_counter',

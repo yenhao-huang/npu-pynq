@@ -11,7 +11,7 @@ from src.runtime.verify_overlay import (
 
 HWH = """<?xml version="1.0" encoding="UTF-8"?>
 <SYSTEM>
-  <MODULE INSTANCE="npu_matrix_accelerator_0">
+  <MODULE INSTANCE="npu_accelerator_0">
     <PARAMETERS>
       <PARAMETER NAME="ROWS" VALUE="2"/>
       <PARAMETER NAME="COLUMNS" VALUE="2"/>
@@ -33,10 +33,10 @@ HWH = """<?xml version="1.0" encoding="UTF-8"?>
       <PARAMETER NAME="C_HIGHADDR" VALUE="0x4040FFFF"/>
     </PARAMETERS>
   </MODULE>
-  <PORT INSTANCE="npu_matrix_accelerator_0" PORT="s_axis_tdata"/>
-  <PORT INSTANCE="npu_matrix_accelerator_0" PORT="s_axis_tkeep"/>
-  <PORT INSTANCE="npu_matrix_accelerator_0" PORT="m_axis_tdata"/>
-  <PORT INSTANCE="npu_matrix_accelerator_0" PORT="irq"/>
+  <PORT INSTANCE="npu_accelerator_0" PORT="s_axis_tdata"/>
+  <PORT INSTANCE="npu_accelerator_0" PORT="s_axis_tkeep"/>
+  <PORT INSTANCE="npu_accelerator_0" PORT="m_axis_tdata"/>
+  <PORT INSTANCE="npu_accelerator_0" PORT="irq"/>
   <BUS SLAVEBUSINTERFACE="S_AXI_HP0"/>
   <CLOCK VALUE="100000000"/>
 </SYSTEM>
@@ -103,7 +103,7 @@ class OverlayProvenanceTests(unittest.TestCase):
             )
 
         no_tkeep = HWH.replace(
-            '  <PORT INSTANCE="npu_matrix_accelerator_0" PORT="s_axis_tkeep"/>\n', ""
+            '  <PORT INSTANCE="npu_accelerator_0" PORT="s_axis_tkeep"/>\n', ""
         )
         (self.artifact_dir / "npu_matrix.hwh").write_text(no_tkeep, encoding="utf-8")
         with self.assertRaises(OverlayVerificationError):

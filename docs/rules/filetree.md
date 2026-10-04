@@ -34,7 +34,11 @@ npu_repo_in_pynq/
 |   |-- hw/
 |   |   |-- rtl/
 |   |   |   `-- <design>/
-|   |   |       `-- *.sv
+|   |   |       |-- *.sv
+|   |   |       `-- <module>/
+|   |   |           |-- *.sv
+|   |   |           `-- <child-module>/
+|   |   |               `-- *.sv
 |   |   |-- tb/
 |   |   |   `-- <design>/
 |   |   |       `-- tb_*.sv
@@ -81,7 +85,7 @@ npu_repo_in_pynq/
 |               `-- *.html
 |-- docs/
 |   |-- assets/
-|   |   `-- *.png              versioned images embedded by documentation
+|   |   `-- *.png, *.svg       versioned images embedded by documentation
 |   |-- rules/
 |   |   |-- index.md
 |   |   |-- environment.md
@@ -247,8 +251,12 @@ the board and nothing is authored there.
 ## Rules
 
 One directory per design under `src/hw/rtl/`, `src/hw/tb/`, and
-`src/hw/vivado_tcl/`. The directory name is the design name and must match
-across all three.
+`src/hw/vivado_tcl/`. The design directory name must match across all three.
+RTL may be divided into nested module directories that follow the instance
+hierarchy. In `npu_matrix`, `npu_accelerator/` contains the top module,
+`dma_axi/`, and `npu_matrix_core/`; the core contains `controller/` and
+`npu_matrix_datapath/`, and the datapath contains `memory/` and
+`systolic_array/`. Testbenches remain in `src/hw/tb/<design>/`.
 
 A testbench is named `tb_<module>.sv` and lives in `src/hw/tb/<design>/`.
 `make sim` discovers tests by that pattern, so a testbench outside it never

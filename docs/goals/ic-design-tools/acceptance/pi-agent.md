@@ -52,7 +52,7 @@ Configure a model provider in pi before the live acceptance prompt below.
 
 ```text
 Use the eight native IC tools. Leave all source files unchanged.
-1. lint: files=["src/hw/rtl/systolic_array/npu_pe.sv"], top="npu_pe".
+1. lint: files=["src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv"], top="npu_pe".
 2. sim: files=["tools/ic/tests/fixtures/counter.sv",
    "tools/ic/tests/fixtures/tb_counter.sv"], tb="tb_counter".
 3. Use the returned wave handle for signals, pattern="*count*", then

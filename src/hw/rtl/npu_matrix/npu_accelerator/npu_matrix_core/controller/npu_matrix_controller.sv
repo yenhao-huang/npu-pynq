@@ -33,7 +33,19 @@ module npu_matrix_controller #(
     output logic        status_done,
     output logic        status_error,
     output logic [7:0]  error_code,
-    output logic [63:0] cycles
+    output logic [63:0] cycles,
+    output logic state_load_a,
+    output logic state_load_b,
+    output logic align_emit,
+    output logic [15:0] align_row,
+    output logic [15:0] align_word,
+    output logic [IN_BYTES*8-1:0] write_data,
+    output logic [31:0] compute_step,
+    output logic array_clear,
+    output logic array_enable,
+    output logic [ROWS-1:0] array_a_valid,
+    output logic [COLUMNS-1:0] array_b_valid,
+    input  logic signed [ROWS*COLUMNS*32-1:0] array_accumulators
 );
     localparam logic [7:0] ERR_INVALID_DIMENSION = 8'd1;
     localparam logic [7:0] ERR_INVALID_STRIDE = 8'd2;
@@ -64,12 +76,8 @@ module npu_matrix_controller #(
     // Bytes of the current frame not yet accepted from the stream.
     logic [31:0] load_remaining;
     logic [31:0] active_b_bytes;
-    logic [31:0] compute_step;
     logic [15:0] output_row_count;
     logic [15:0] output_column_count;
-    localparam integer K_ADDR_WIDTH = (MAX_K > 1) ? $clog2(MAX_K) : 1;
-    localparam integer WORD_ADDR_WIDTH =
-        (K_ADDR_WIDTH > LANE_BITS) ? K_ADDR_WIDTH - LANE_BITS : 1;
 
     // Row aligner. The stream is dense, so one beat can span a row boundary,
     // while each A bank holds one row and each B bank one column. The aligner
@@ -80,27 +88,19 @@ module npu_matrix_controller #(
     // bank locations the compute schedule never marks valid.
     logic [ALIGN_BYTES*8-1:0] align_buffer;
     logic [COUNT_BITS-1:0] align_count;
-    logic [15:0] align_row;   // completed rows of the current frame
-    logic [15:0] align_word;  // words already emitted from the current row
     logic [15:0] frame_rows, row_bytes;
     logic [31:0] row_left;
     logic [COUNT_BITS-1:0] align_need;
     logic [COUNT_BITS-1:0] count_after_emit;
-    logic loading, align_emit, row_done, frame_done;
+    logic loading, row_done, frame_done;
     logic beat_is_last, beat_ok, beat_take;
     logic [IN_BYTES-1:0] beat_expected_keep;
     logic [IN_BYTES*8-1:0] beat_bytes;
     logic [COUNT_BITS-1:0] beat_count;
     logic [ALIGN_BYTES*8-1:0] align_buffer_next;
 
-    logic array_clear, array_enable;
-    logic signed [ROWS*8-1:0] array_a;
-    logic [ROWS-1:0] array_a_valid;
-    logic signed [COLUMNS*8-1:0] array_b;
-    logic [COLUMNS-1:0] array_b_valid;
     logic [ROWS-1:0] scheduled_a_valid;
     logic [COLUMNS-1:0] scheduled_b_valid;
-    wire signed [ROWS*COLUMNS*32-1:0] array_accumulators;
 
     integer row_index;
     integer column_index;
@@ -114,29 +114,16 @@ module npu_matrix_controller #(
         end
     endfunction
 
-    npu_systolic_array #(
-        .ROWS(ROWS),
-        .COLUMNS(COLUMNS),
-        .DATA_WIDTH(8),
-        .ACC_WIDTH(32)
-    ) array (
-        .clk(clk),
-        .rst_n(rst_n),
-        .clear(array_clear),
-        .enable(array_enable),
-        .a_in(array_a),
-        .a_valid_in(array_a_valid),
-        .b_in(array_b),
-        .b_valid_in(array_b_valid),
-        .accumulators(array_accumulators)
-    );
-
     initial begin
         if (ROWS <= 0 || COLUMNS <= 0 || MAX_K <= 0 || IN_BYTES <= 0)
             $fatal(1, "npu_matrix_controller parameters must be positive");
         if ((IN_BYTES & (IN_BYTES - 1)) != 0 || (MAX_K % IN_BYTES) != 0)
             $fatal(1, "npu_matrix_controller IN_BYTES must be a power of two dividing MAX_K");
     end
+
+    assign write_data = align_buffer[IN_BYTES*8-1:0];
+    assign state_load_a = (state == STATE_LOAD_A);
+    assign state_load_b = (state == STATE_LOAD_B);
 
     always_comb begin
         loading = status_busy &&
@@ -391,48 +378,6 @@ module npu_matrix_controller #(
             end
         end
     end
-
-    // One single-write/synchronous-read bank per array edge. Flat memories
-    // require ROWS/COLUMNS independent read ports and dissolve into registers
-    // at larger sizes. No reset on memory or its data output: validity masks
-    // stale contents and permits native block-RAM inference.
-    //
-    // An A bank takes a whole aligned word per write and is read one byte at
-    // a time: the write-wide/read-narrow asymmetric RAM pattern. A B bank
-    // takes one lane of each word of its row.
-    genvar bank;
-    generate
-        for (bank = 0; bank < ROWS; bank = bank + 1) begin : gen_a_banks
-            (* ram_style = "block" *) logic [7:0] memory [0:MAX_K-1];
-            wire [K_ADDR_WIDTH-1:0] read_index = K_ADDR_WIDTH'(compute_step - bank);
-            always_ff @(posedge clk) begin : write_word
-                logic [LANE_BITS-1:0] lane;
-                for (int index = 0; index < IN_BYTES; index++) begin
-                    lane = LANE_BITS'(index);
-                    if (align_emit && (state == STATE_LOAD_A) &&
-                        (widen_u16(align_row) == bank))
-                        memory[{align_word[WORD_ADDR_WIDTH-1:0], lane}] <=
-                            align_buffer[index*8 +: 8];
-                end
-            end
-            always_ff @(posedge clk) begin
-                if (array_enable)
-                    array_a[bank*8 +: 8] <= memory[read_index];
-            end
-        end
-        for (bank = 0; bank < COLUMNS; bank = bank + 1) begin : gen_b_banks
-            (* ram_style = "block" *) logic [7:0] memory [0:MAX_K-1];
-            wire [K_ADDR_WIDTH-1:0] read_index = K_ADDR_WIDTH'(compute_step - bank);
-            always_ff @(posedge clk) begin
-                if (align_emit && (state == STATE_LOAD_B) &&
-                    (widen_u16(align_word) == (bank >> LANE_BITS)))
-                    memory[align_row[K_ADDR_WIDTH-1:0]] <=
-                        align_buffer[(bank % IN_BYTES)*8 +: 8];
-                if (array_enable)
-                    array_b[bank*8 +: 8] <= memory[read_index];
-            end
-        end
-    endgenerate
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin

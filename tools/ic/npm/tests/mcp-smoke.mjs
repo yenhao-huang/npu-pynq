@@ -57,10 +57,10 @@ try {
   child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
   const catalogue = await request('tools/list', {});
   assert.deepEqual(catalogue.tools.map(t => t.name).sort(), ['lint', 'sim', 'signals', 'first_mismatch', 'value_at', 'value_range', 'show_wave', 'synth', 'ppa'].sort());
-  const files = ['src/hw/rtl/systolic_array/npu_pe.sv', 'src/hw/rtl/systolic_array/npu_systolic_array.sv'];
+  const files = ['src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv', 'src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_systolic_array.sv'];
   const lint = await call('lint', { files, top: 'npu_systolic_array' });
   assert.equal(lint.error_count, 0);
-  const sim = await call('sim', { files: [...files, 'src/hw/tb/systolic_array/tb_npu_systolic_array.sv'], tb: 'tb_npu_systolic_array', top: 'npu_systolic_array', trace: true, timeout_s: 120 });
+  const sim = await call('sim', { files: [...files, 'src/hw/tb/npu_matrix/tb_npu_systolic_array.sv'], tb: 'tb_npu_systolic_array', top: 'npu_systolic_array', trace: true, timeout_s: 120 });
   assert.equal(sim.ok, true, JSON.stringify(sim));
   assert.ok(sim.wave);
   await call('signals', { wave: sim.wave, pattern: 'accumulators', limit: 10 });

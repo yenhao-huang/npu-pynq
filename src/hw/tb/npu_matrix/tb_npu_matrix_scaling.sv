@@ -20,7 +20,7 @@ module tb_npu_matrix_scaling;
     logic [63:0] cycles;
     integer load_cycles, compute_cycles, output_cycles;
     integer signed av [0:SIZE*256-1], bv [0:256*SIZE-1];
-    npu_matrix_controller #(
+    npu_matrix_core #(
         .ROWS(SIZE), .COLUMNS(SIZE), .MAX_K(256), .IN_BYTES(IN_BYTES)
     ) dut (.*);
     always #5 clk = ~clk;
