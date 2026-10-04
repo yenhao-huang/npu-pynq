@@ -10,7 +10,7 @@ from ic_core.registry import CATEGORIES, all_op_names, find_op, iter_ops, load_a
 
 def test_every_category_registers_backends():
     load_all()
-    assert set(CATEGORIES) == {"lint", "sim", "debug", "view", "synth", "ppa"}
+    assert set(CATEGORIES) == {"lint", "sim", "debug", "view", "synth", "ppa", "equiv"}
     for category in CATEGORIES.values():
         assert category.backends, f"{category.name} has no backend"
         assert category.default_backend in category.backends

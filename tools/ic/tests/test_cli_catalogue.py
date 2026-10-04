@@ -24,5 +24,5 @@ runpy.run_module('ic_cli.main', run_name='__main__')
     tools = json.loads(result.stdout)['tools']
     assert {tool['name'] for tool in tools} == {
         'lint', 'sim', 'signals', 'first_mismatch', 'value_at',
-        'value_range', 'show_wave', 'synth', 'ppa',
+        'value_range', 'show_wave', 'synth', 'ppa', 'equiv',
     }

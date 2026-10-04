@@ -142,6 +142,20 @@ class PpaIn(Backendable):
         return self
 
 
+class CriticalPath(BaseModel):
+    """The worst setup path, named in RTL terms where the netlist allows.
+
+    Register endpoints are named by the RTL signal their Q pin drives, so
+    `accumulator[16]` rather than a mapped instance like `_1553_`.
+    """
+
+    startpoint: str | None = None
+    endpoint: str | None = None
+    arrival_ns: float | None = Field(default=None, description="Data arrival time at the endpoint")
+    logic_levels: int | None = Field(default=None, description="Cells on the path, excluding the launching flop")
+    cells: list[str] = Field(default_factory=list, description="Cell types along the path, in order")
+
+
 class PpaOut(BaseModel):
     ok: bool
     mode: str
@@ -149,6 +163,17 @@ class PpaOut(BaseModel):
     area: Area
     power: Power
     timing: PpaTiming
+    adp: float | None = Field(
+        default=None,
+        description="Area-delay product, cell_area_um2 x 1000 / fmax_mhz (um^2 x ns). Lower is better.",
+    )
+    critical_path: CriticalPath | None = Field(
+        default=None, description="What limits fmax: the worst setup path"
+    )
+    area_by_cell: dict[str, float] = Field(
+        default_factory=dict,
+        description="Area (um^2) by cell type, largest first, top eight: what the area is spent on",
+    )
     liberty: list[str] = Field(
         default_factory=list, description="The libraries actually mapped onto"
     )
