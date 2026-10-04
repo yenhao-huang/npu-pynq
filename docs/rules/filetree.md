@@ -131,6 +131,8 @@ npu_repo_in_pynq/
 |   `-- extensions/
 |       `-- *.ts
 |-- .mcp.json
+|-- exp/
+|   `-- 0911_performance_optimization/  compact hardware and board results
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
@@ -279,6 +281,24 @@ Only versioned Markdown release records belong in top-level `changelog/`; do
 not add `unreleased.md`. Each file must pass the commit-boundary,
 roadmap-evidence, table ordering, five-row batching, link, and whitespace
 checks defined by `docs/rules/git/changelog.md`.
+
+## User-requested experiment campaigns
+
+`exp/0911_performance_optimization/` versions compact records from the 21-run
+hardware campaign: the overview, matrix results and CSV, initial-phase report,
+experiment plan, and selected full-board comparison. Every matrix row uses the
+same cold 16x16, K=256 transaction and functional reference. The 21 distinct
+configurations satisfy the user's revised count requirement independently of
+their cycle counts.
+
+The complete local archive also contains frozen RTL, experiment drivers,
+per-run records, Vivado output and raw board evidence. These larger files are
+not part of this Git snapshot. Generated `artifacts/`, `scratch/`, `sources/`,
+configs, results JSON, projects, logs, checkpoints, bitstreams and board
+payloads stay ignored. `hardware/README.md` records where the earlier issue-59
+archive moved; the archive itself remains local. The board summary reports
+experiments 09, 19 and 21, including complete-overlay resources and physical
+ResNet-18 times.
 
 ## Not in this repository
 
