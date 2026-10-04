@@ -27,12 +27,13 @@ module npu_matrix_core #(
     input  logic m_axis_tready,
     output logic m_axis_tlast,
     output logic status_busy,
+    output logic status_accept,
     output logic status_done,
     output logic status_error,
     output logic [7:0] error_code,
     output logic [63:0] cycles
 );
-    wire state_load_a, state_load_b, align_emit;
+    wire state_load_a, state_load_b, load_half, exec_half, align_emit;
     wire [15:0] align_row, align_word;
     wire [IN_BYTES*8-1:0] write_data;
     wire [31:0] compute_step;

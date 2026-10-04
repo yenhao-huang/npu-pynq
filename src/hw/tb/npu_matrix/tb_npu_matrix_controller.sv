@@ -15,7 +15,7 @@ module tb_npu_matrix_controller;
     logic s_axis_tvalid = 0, s_axis_tready, s_axis_tlast = 0;
     logic [31:0] m_axis_tdata;
     logic m_axis_tvalid, m_axis_tready = 0, m_axis_tlast;
-    logic status_busy, status_done, status_error;
+    logic status_busy, status_accept, status_done, status_error;
     logic [7:0] error_code;
     logic [63:0] cycles;
     logic signed [31:0] held_data;
@@ -135,12 +135,11 @@ module tb_npu_matrix_controller;
         end
     endtask
 
-    task automatic run_board_matrix(input logic inject_busy_start);
+    task automatic run_board_matrix;
         begin
             configure(2, 2, 2, 2, 2, 8, 200);
             pulse_start();
             if (!status_busy || !s_axis_tready) fail("valid start did not enter A frame");
-            if (inject_busy_start) pulse_start();
 
             send4(-128, 127, 7, -3);
             repeat (2) @(negedge clk);
@@ -168,12 +167,10 @@ module tb_npu_matrix_controller;
             end
             @(posedge clk); #1;
             m_axis_tready = 1'b0;
-            if (status_busy || !status_done || cycles == 0) fail("successful completion status");
-            if (inject_busy_start) begin
-                if (!status_error || error_code != 8'd3) fail("BUSY_START not sticky");
-            end else if (status_error || error_code != 0) begin
+            if (status_busy || !status_accept || !status_done || cycles == 0)
+                fail("successful completion status");
+            if (status_error || error_code != 0)
                 fail("unexpected successful-job error");
-            end
             held_cycles = cycles;
             repeat (3) @(posedge clk);
             if (cycles != held_cycles) fail("cycles not stable after DONE");
@@ -215,7 +212,7 @@ module tb_npu_matrix_controller;
         configure(1, 1, 1, 1, 1, 4, 3); pulse_start();
         expect_error(8'd5, "TIMEOUT"); pulse_soft_reset();
 
-        run_board_matrix(1'b0); pulse_soft_reset();
+        run_board_matrix(); pulse_soft_reset();
 
         configure(1, 2, 2, 2, 2, 8, 100); pulse_start();
         stream_bytes[0] = 2; stream_bytes[1] = -3; send_bytes(2);
@@ -261,8 +258,9 @@ module tb_npu_matrix_controller;
         if (!status_done || status_error) fail("multi-beat tail job status");
         pulse_soft_reset();
 
-        run_board_matrix(1'b1); pulse_soft_reset();
-        if (status_busy || status_done || status_error || error_code != 0 || cycles != 0)
+        run_board_matrix(); pulse_soft_reset();
+        if (status_busy || !status_accept || status_done || status_error ||
+            error_code != 0 || cycles != 0)
             fail("SOFT_RESET did not restore lifecycle state");
 
         $display("PASS tb_npu_matrix_controller");

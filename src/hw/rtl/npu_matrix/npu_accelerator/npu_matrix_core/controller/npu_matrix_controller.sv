@@ -1,5 +1,20 @@
 `timescale 1ns/1ps
 
+// Matrix job controller with an A/B ping-pong buffer.
+//
+// Two state machines share a two-entry job queue:
+//
+//   load engine : drains s_axis through the row aligner into the operand-bank
+//                 half named by load_ptr
+//   exec engine : clears, walks the systolic wavefront over the half named by
+//                 exec_ptr, and drains m_axis
+//
+// The datapath's operand banks are two halves deep; load_half and exec_half
+// select the half each engine touches, so the next job's operands stream in
+// while the current job computes and outputs. The exec engine starts as soon
+// as a job's A frame has landed and advances the wavefront while that job's B
+// rows still arrive. A job is accepted whenever a queue entry is free; START
+// with both entries occupied still raises ERR_BUSY_START.
 module npu_matrix_controller #(
     parameter integer ROWS = 2,
     parameter integer COLUMNS = 2,
@@ -30,12 +45,15 @@ module npu_matrix_controller #(
     input  logic        m_axis_tready,
     output logic        m_axis_tlast,
     output logic        status_busy,
+    output logic        status_accept,
     output logic        status_done,
     output logic        status_error,
     output logic [7:0]  error_code,
     output logic [63:0] cycles,
     output logic state_load_a,
     output logic state_load_b,
+    output logic load_half,
+    output logic exec_half,
     output logic align_emit,
     output logic [15:0] align_row,
     output logic [15:0] align_word,
@@ -61,23 +79,43 @@ module npu_matrix_controller #(
     localparam integer ALIGN_BYTES = 2 * IN_BYTES;
     localparam integer COUNT_BITS = $clog2(ALIGN_BYTES + 1);
 
-    typedef enum logic [2:0] {
-        STATE_IDLE,
-        STATE_LOAD_A,
-        STATE_LOAD_B,
-        STATE_CLEAR,
-        STATE_COMPUTE,
-        STATE_OUTPUT
-    } state_t;
+    typedef enum logic [1:0] {
+        LOAD_IDLE,
+        LOAD_A,
+        LOAD_B
+    } load_state_t;
 
-    state_t state;
+    typedef enum logic [1:0] {
+        EXEC_IDLE,
+        EXEC_CLEAR,
+        EXEC_COMPUTE,
+        EXEC_OUTPUT
+    } exec_state_t;
+
+    load_state_t load_state;
+    exec_state_t exec_state;
+
+    // Two-entry job queue. alloc_ptr takes accepted jobs, load_ptr owns the
+    // half being written, exec_ptr owns the half being read. slot_a_loaded
+    // lets the exec engine start; slot_loaded marks the whole B frame landed.
+    logic        slot_valid    [0:1];
+    logic        slot_a_loaded [0:1];
+    logic        slot_loaded   [0:1];
+    logic [15:0] slot_m [0:1];
+    logic [15:0] slot_n [0:1];
+    logic [15:0] slot_k [0:1];
+    logic [31:0] slot_timeout [0:1];
+    logic [63:0] slot_cycles [0:1];
+    logic        alloc_ptr, load_ptr, exec_ptr;
+    logic [1:0]  occupancy;
+
     logic [15:0] active_m, active_n, active_k;
-    logic [31:0] active_timeout;
+    logic [15:0] load_m, load_n, load_k;
     // Bytes of the current frame not yet accepted from the stream.
     logic [31:0] load_remaining;
-    logic [31:0] active_b_bytes;
     logic [15:0] output_row_count;
     logic [15:0] output_column_count;
+    logic [63:0] span_cycles;
 
     // Row aligner. The stream is dense, so one beat can span a row boundary,
     // while each A bank holds one row and each B bank one column. The aligner
@@ -102,6 +140,9 @@ module npu_matrix_controller #(
     logic [ROWS-1:0] scheduled_a_valid;
     logic [COLUMNS-1:0] scheduled_b_valid;
 
+    logic retire_now, timeout_hit, start_accepted, start_invalid;
+    logic exec_b_ready;
+
     integer row_index;
     integer column_index;
     integer reduction_index;
@@ -121,15 +162,21 @@ module npu_matrix_controller #(
             $fatal(1, "npu_matrix_controller IN_BYTES must be a power of two dividing MAX_K");
     end
 
+    assign load_m = slot_m[load_ptr];
+    assign load_n = slot_n[load_ptr];
+    assign load_k = slot_k[load_ptr];
+    assign status_busy = (occupancy != 2'd0);
+    assign status_accept = (occupancy != 2'd2);
     assign write_data = align_buffer[IN_BYTES*8-1:0];
-    assign state_load_a = (state == STATE_LOAD_A);
-    assign state_load_b = (state == STATE_LOAD_B);
+    assign state_load_a = (load_state == LOAD_A);
+    assign state_load_b = (load_state == LOAD_B);
+    assign load_half = load_ptr;
+    assign exec_half = exec_ptr;
 
     always_comb begin
-        loading = status_busy &&
-            ((state == STATE_LOAD_A) || (state == STATE_LOAD_B));
-        frame_rows = (state == STATE_LOAD_B) ? active_k : active_m;
-        row_bytes = (state == STATE_LOAD_B) ? active_n : active_k;
+        loading = (load_state == LOAD_A) || (load_state == LOAD_B);
+        frame_rows = (load_state == LOAD_B) ? load_k : load_m;
+        row_bytes = (load_state == LOAD_B) ? load_n : load_k;
         row_left = widen_u16(row_bytes) - (widen_u16(align_word) << LANE_BITS);
         align_need = (row_left >= IN_BYTES_U32) ?
             COUNT_BITS'(IN_BYTES) : COUNT_BITS'(row_left);
@@ -166,10 +213,10 @@ module npu_matrix_controller #(
     end
 
     always_comb begin
-        m_axis_tvalid = status_busy && (state == STATE_OUTPUT);
+        m_axis_tvalid = (exec_state == EXEC_OUTPUT);
         m_axis_tdata = 32'd0;
         m_axis_tlast = 1'b0;
-        if (state == STATE_OUTPUT) begin
+        if (exec_state == EXEC_OUTPUT) begin
             m_axis_tdata = array_accumulators[
                 (widen_u16(output_row_count) * COLUMNS +
                  widen_u16(output_column_count)) * 32 +: 32
@@ -178,16 +225,44 @@ module npu_matrix_controller #(
                 (output_column_count == active_n - 1);
         end
 
-        // A is complete before B loading begins. Advance the entire array only
-        // when the next complete B row is resident; holding enable also holds
-        // every PE and the registered boundary inputs across stream stalls.
-        array_clear = (state == STATE_LOAD_A);
-        array_enable = (state == STATE_COMPUTE) ||
-            ((state == STATE_LOAD_B) && (compute_step < widen_u16(align_row)));
+        retire_now = (exec_state == EXEC_OUTPUT) && m_axis_tvalid &&
+            m_axis_tready && m_axis_tlast;
+
+        // Every outstanding job runs its own timeout, including one that is
+        // still queued behind the array. The job retiring this cycle is exempt,
+        // matching the serialized behaviour on the final output beat.
+        timeout_hit =
+            (slot_valid[0] &&
+             ((slot_cycles[0] + 64'd1) >= {32'd0, slot_timeout[0]}) &&
+             !(retire_now && (exec_ptr == 1'b0))) ||
+            (slot_valid[1] &&
+             ((slot_cycles[1] + 64'd1) >= {32'd0, slot_timeout[1]}) &&
+             !(retire_now && (exec_ptr == 1'b1)));
+
+        start_invalid = (cfg_m < 1) || (widen_u16(cfg_m) > ROWS_U32) ||
+            (cfg_n < 1) || (widen_u16(cfg_n) > COLUMNS_U32) ||
+            (cfg_k < 1) || (widen_u16(cfg_k) > MAX_K_U32) ||
+            (cfg_a_stride != widen_u16(cfg_k)) ||
+            (cfg_b_stride != widen_u16(cfg_n)) ||
+            (cfg_c_stride != (32'd4 * widen_u16(cfg_n))) ||
+            (cfg_timeout_cycles == 32'd0);
+
+        start_accepted = start_pulse && status_accept && !start_invalid &&
+            !(status_busy && status_error);
+
+        // A is complete before the exec engine starts. While the same job's
+        // B frame is still loading, advance the whole array only once the next
+        // complete B row is resident; holding enable holds every PE and the
+        // registered boundary inputs across stream stalls.
+        exec_b_ready = slot_loaded[exec_ptr] ||
+            ((load_state == LOAD_B) && (load_ptr == exec_ptr) &&
+             (compute_step < widen_u16(align_row)));
+        array_clear = (exec_state == EXEC_CLEAR);
+        array_enable = (exec_state == EXEC_COMPUTE) && exec_b_ready;
         scheduled_a_valid = '0;
         scheduled_b_valid = '0;
         reduction_index = 0;
-        if ((state == STATE_LOAD_B) || (state == STATE_COMPUTE)) begin
+        if (exec_state == EXEC_COMPUTE) begin
             for (row_index = 0; row_index < ROWS; row_index = row_index + 1) begin
                 reduction_index = compute_step - row_index;
                 if ((row_index < active_m) &&
@@ -208,173 +283,331 @@ module npu_matrix_controller #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= STATE_IDLE;
-            active_m <= 0;
-            active_n <= 0;
-            active_k <= 0;
-            active_timeout <= 0;
-            load_remaining <= 0;
-            active_b_bytes <= 0;
+            load_state <= LOAD_IDLE;
+            exec_state <= EXEC_IDLE;
+            slot_valid[0] <= 1'b0;
+            slot_valid[1] <= 1'b0;
+            slot_a_loaded[0] <= 1'b0;
+            slot_a_loaded[1] <= 1'b0;
+            slot_loaded[0] <= 1'b0;
+            slot_loaded[1] <= 1'b0;
+            slot_m[0] <= 16'd0; slot_m[1] <= 16'd0;
+            slot_n[0] <= 16'd0; slot_n[1] <= 16'd0;
+            slot_k[0] <= 16'd0; slot_k[1] <= 16'd0;
+            slot_timeout[0] <= 32'd0; slot_timeout[1] <= 32'd0;
+            slot_cycles[0] <= 64'd0; slot_cycles[1] <= 64'd0;
+            alloc_ptr <= 1'b0;
+            load_ptr <= 1'b0;
+            exec_ptr <= 1'b0;
+            occupancy <= 2'd0;
+            active_m <= 16'd0;
+            active_n <= 16'd0;
+            active_k <= 16'd0;
+            load_remaining <= 32'd0;
             align_buffer <= '0;
-            align_count <= 0;
-            align_row <= 0;
-            align_word <= 0;
-            compute_step <= 0;
-            output_row_count <= 0;
-            output_column_count <= 0;
-            status_busy <= 1'b0;
+            align_count <= '0;
+            align_row <= 16'd0;
+            align_word <= 16'd0;
+            compute_step <= 32'd0;
+            output_row_count <= 16'd0;
+            output_column_count <= 16'd0;
+            span_cycles <= 64'd0;
             status_done <= 1'b0;
             status_error <= 1'b0;
-            error_code <= 0;
-            cycles <= 0;
+            error_code <= 8'd0;
+            cycles <= 64'd0;
         end else if (soft_reset_pulse) begin
-            state <= STATE_IDLE;
-            active_m <= 0;
-            active_n <= 0;
-            active_k <= 0;
-            active_timeout <= 0;
-            load_remaining <= 0;
-            active_b_bytes <= 0;
+            // SOFT_RESET discards both halves, the in-flight load, and the
+            // queue. Bank contents are left as-is; they are only read for a
+            // job whose A frame completed.
+            load_state <= LOAD_IDLE;
+            exec_state <= EXEC_IDLE;
+            slot_valid[0] <= 1'b0;
+            slot_valid[1] <= 1'b0;
+            slot_a_loaded[0] <= 1'b0;
+            slot_a_loaded[1] <= 1'b0;
+            slot_loaded[0] <= 1'b0;
+            slot_loaded[1] <= 1'b0;
+            slot_cycles[0] <= 64'd0;
+            slot_cycles[1] <= 64'd0;
+            alloc_ptr <= 1'b0;
+            load_ptr <= 1'b0;
+            exec_ptr <= 1'b0;
+            occupancy <= 2'd0;
+            active_m <= 16'd0;
+            active_n <= 16'd0;
+            active_k <= 16'd0;
+            load_remaining <= 32'd0;
             align_buffer <= '0;
-            align_count <= 0;
-            align_row <= 0;
-            align_word <= 0;
-            compute_step <= 0;
-            output_row_count <= 0;
-            output_column_count <= 0;
-            status_busy <= 1'b0;
+            align_count <= '0;
+            align_row <= 16'd0;
+            align_word <= 16'd0;
+            compute_step <= 32'd0;
+            output_row_count <= 16'd0;
+            output_column_count <= 16'd0;
+            span_cycles <= 64'd0;
             status_done <= 1'b0;
             status_error <= 1'b0;
-            error_code <= 0;
-            cycles <= 0;
-        end else if (status_busy) begin
-            if (start_pulse && !status_error) begin
-                status_error <= 1'b1;
-                error_code <= ERR_BUSY_START;
+            error_code <= 8'd0;
+            cycles <= 64'd0;
+        end else begin
+            // ---------------------------------------------------------------
+            // Per-job and span counters
+            // ---------------------------------------------------------------
+            if (status_busy) begin
+                span_cycles <= span_cycles + 64'd1;
+                if (slot_valid[0]) slot_cycles[0] <= slot_cycles[0] + 64'd1;
+                if (slot_valid[1]) slot_cycles[1] <= slot_cycles[1] + 64'd1;
             end
 
-            if (((cycles + 1) >= {32'd0, active_timeout}) &&
-                !((state == STATE_OUTPUT) && m_axis_tvalid &&
-                  m_axis_tready && m_axis_tlast)) begin
-                state <= STATE_IDLE;
-                status_busy <= 1'b0;
+            // ---------------------------------------------------------------
+            // START handling
+            // ---------------------------------------------------------------
+            if (start_pulse) begin
+                if (!status_accept) begin
+                    if (!status_error) begin
+                        status_error <= 1'b1;
+                        error_code <= ERR_BUSY_START;
+                    end
+                end else if (status_busy && status_error) begin
+                    // An error is latched and the pipeline is draining; ignore.
+                end else if (start_invalid) begin
+                    status_done <= 1'b0;
+                    status_error <= 1'b1;
+                    error_code <= (((cfg_m < 1) || (widen_u16(cfg_m) > ROWS_U32) ||
+                                    (cfg_n < 1) || (widen_u16(cfg_n) > COLUMNS_U32) ||
+                                    (cfg_k < 1) || (widen_u16(cfg_k) > MAX_K_U32))
+                                   ? ERR_INVALID_DIMENSION
+                                   : (((cfg_a_stride != widen_u16(cfg_k)) ||
+                                       (cfg_b_stride != widen_u16(cfg_n)) ||
+                                       (cfg_c_stride != (32'd4 * widen_u16(cfg_n))))
+                                      ? ERR_INVALID_STRIDE
+                                      : ERR_INVALID_TIMEOUT));
+                    // A rejected job quiesces whatever is in flight.
+                    load_state <= LOAD_IDLE;
+                    exec_state <= EXEC_IDLE;
+                    slot_valid[0] <= 1'b0;
+                    slot_valid[1] <= 1'b0;
+                    slot_a_loaded[0] <= 1'b0;
+                    slot_a_loaded[1] <= 1'b0;
+                    slot_loaded[0] <= 1'b0;
+                    slot_loaded[1] <= 1'b0;
+                    slot_cycles[0] <= 64'd0;
+                    slot_cycles[1] <= 64'd0;
+                    alloc_ptr <= 1'b0;
+                    load_ptr <= 1'b0;
+                    exec_ptr <= 1'b0;
+                    occupancy <= 2'd0;
+                    span_cycles <= 64'd0;
+                    cycles <= 64'd0;
+                end else begin
+                    if (!status_busy) begin
+                        // A fresh pipeline clears the previous outcome.
+                        status_done <= 1'b0;
+                        status_error <= 1'b0;
+                        error_code <= 8'd0;
+                        cycles <= 64'd0;
+                        span_cycles <= 64'd0;
+                    end
+                    slot_valid[alloc_ptr] <= 1'b1;
+                    slot_a_loaded[alloc_ptr] <= 1'b0;
+                    slot_loaded[alloc_ptr] <= 1'b0;
+                    slot_m[alloc_ptr] <= cfg_m;
+                    slot_n[alloc_ptr] <= cfg_n;
+                    slot_k[alloc_ptr] <= cfg_k;
+                    slot_timeout[alloc_ptr] <= cfg_timeout_cycles;
+                    slot_cycles[alloc_ptr] <= 64'd0;
+                    alloc_ptr <= ~alloc_ptr;
+                    occupancy <= occupancy + 2'd1;
+                    // Hand straight to an idle load engine so the A frame opens
+                    // on the cycle after START.
+                    if ((load_state == LOAD_IDLE) && (load_ptr == alloc_ptr)) begin
+                        load_state <= LOAD_A;
+                        load_remaining <= widen_u16(cfg_m) * widen_u16(cfg_k);
+                        align_buffer <= '0;
+                        align_count <= '0;
+                        align_row <= 16'd0;
+                        align_word <= 16'd0;
+                    end
+                end
+            end
+
+            // ---------------------------------------------------------------
+            // Load engine
+            // ---------------------------------------------------------------
+            case (load_state)
+                LOAD_IDLE: begin
+                    if (slot_valid[load_ptr] && !slot_a_loaded[load_ptr]) begin
+                        load_state <= LOAD_A;
+                        load_remaining <= widen_u16(load_m) * widen_u16(load_k);
+                        align_buffer <= '0;
+                        align_count <= '0;
+                        align_row <= 16'd0;
+                        align_word <= 16'd0;
+                    end
+                end
+                LOAD_A, LOAD_B: begin
+                    if (s_axis_tvalid && s_axis_tready && !beat_ok) begin
+                        status_done <= 1'b0;
+                        if (!status_error) begin
+                            status_error <= 1'b1;
+                            error_code <= ERR_STREAM_LENGTH;
+                        end
+                        load_state <= LOAD_IDLE;
+                        exec_state <= EXEC_IDLE;
+                        slot_valid[0] <= 1'b0;
+                        slot_valid[1] <= 1'b0;
+                        slot_a_loaded[0] <= 1'b0;
+                        slot_a_loaded[1] <= 1'b0;
+                        slot_loaded[0] <= 1'b0;
+                        slot_loaded[1] <= 1'b0;
+                        slot_cycles[0] <= 64'd0;
+                        slot_cycles[1] <= 64'd0;
+                        alloc_ptr <= 1'b0;
+                        load_ptr <= 1'b0;
+                        exec_ptr <= 1'b0;
+                        occupancy <= 2'd0;
+                        cycles <= span_cycles + 64'd1;
+                        span_cycles <= 64'd0;
+                    end else begin
+                        align_buffer <= align_buffer_next;
+                        align_count <= count_after_emit +
+                            (beat_take ? beat_count : '0);
+                        if (beat_take)
+                            load_remaining <= beat_is_last ? 32'd0 :
+                                load_remaining - IN_BYTES_U32;
+                        if (row_done) begin
+                            align_word <= 16'd0;
+                            align_row <= align_row + 16'd1;
+                        end else if (align_emit) begin
+                            align_word <= align_word + 16'd1;
+                        end
+                        // The whole frame was accepted before its last word,
+                        // so nothing else is in flight here.
+                        if (frame_done) begin
+                            align_row <= 16'd0;
+                            align_word <= 16'd0;
+                            if (load_state == LOAD_A) begin
+                                slot_a_loaded[load_ptr] <= 1'b1;
+                                load_remaining <= widen_u16(load_k) * widen_u16(load_n);
+                                load_state <= LOAD_B;
+                                // Hand to an idle exec engine on the same cycle,
+                                // so compute overlaps this job's own B frame.
+                                if ((exec_state == EXEC_IDLE) && (exec_ptr == load_ptr)) begin
+                                    exec_state <= EXEC_CLEAR;
+                                    active_m <= load_m;
+                                    active_n <= load_n;
+                                    active_k <= load_k;
+                                    compute_step <= 32'd0;
+                                end
+                            end else begin
+                                slot_loaded[load_ptr] <= 1'b1;
+                                load_ptr <= ~load_ptr;
+                                // Open the queued job's A frame with no bubble.
+                                if (slot_valid[~load_ptr] && !slot_a_loaded[~load_ptr]) begin
+                                    load_state <= LOAD_A;
+                                    load_remaining <= widen_u16(slot_m[~load_ptr]) *
+                                        widen_u16(slot_k[~load_ptr]);
+                                end else begin
+                                    load_state <= LOAD_IDLE;
+                                end
+                            end
+                        end
+                    end
+                end
+                default: load_state <= LOAD_IDLE;
+            endcase
+
+            // ---------------------------------------------------------------
+            // Exec engine
+            // ---------------------------------------------------------------
+            case (exec_state)
+                EXEC_IDLE: begin
+                    if (slot_valid[exec_ptr] && slot_a_loaded[exec_ptr]) begin
+                        exec_state <= EXEC_CLEAR;
+                        active_m <= slot_m[exec_ptr];
+                        active_n <= slot_n[exec_ptr];
+                        active_k <= slot_k[exec_ptr];
+                        compute_step <= 32'd0;
+                    end
+                end
+                EXEC_CLEAR: begin
+                    compute_step <= 32'd0;
+                    exec_state <= EXEC_COMPUTE;
+                end
+                EXEC_COMPUTE: begin
+                    if (compute_step >=
+                        (widen_u16(active_k) + widen_u16(active_m) +
+                         widen_u16(active_n) - 32'd1)) begin
+                        output_row_count <= 16'd0;
+                        output_column_count <= 16'd0;
+                        exec_state <= EXEC_OUTPUT;
+                    end else if (array_enable) begin
+                        compute_step <= compute_step + 32'd1;
+                    end
+                end
+                EXEC_OUTPUT: begin
+                    if (m_axis_tvalid && m_axis_tready) begin
+                        if (m_axis_tlast) begin
+                            slot_valid[exec_ptr] <= 1'b0;
+                            slot_a_loaded[exec_ptr] <= 1'b0;
+                            slot_loaded[exec_ptr] <= 1'b0;
+                            slot_cycles[exec_ptr] <= 64'd0;
+                            exec_ptr <= ~exec_ptr;
+                            occupancy <= start_accepted ? occupancy : (occupancy - 2'd1);
+                            status_done <= 1'b1;
+                            // `cycles` reports this job's issue interval: the
+                            // cycles since the previous retirement, or since the
+                            // pipeline went busy for the first job.
+                            cycles <= span_cycles + 64'd1;
+                            span_cycles <= 64'd0;
+                            // Chain straight into a job whose A frame already
+                            // landed, so back-to-back jobs cost no bubble.
+                            if (slot_valid[~exec_ptr] && slot_a_loaded[~exec_ptr]) begin
+                                exec_state <= EXEC_CLEAR;
+                                active_m <= slot_m[~exec_ptr];
+                                active_n <= slot_n[~exec_ptr];
+                                active_k <= slot_k[~exec_ptr];
+                                compute_step <= 32'd0;
+                            end else begin
+                                exec_state <= EXEC_IDLE;
+                            end
+                        end else if (output_column_count == active_n - 1) begin
+                            output_column_count <= 16'd0;
+                            output_row_count <= output_row_count + 16'd1;
+                        end else begin
+                            output_column_count <= output_column_count + 16'd1;
+                        end
+                    end
+                end
+                default: exec_state <= EXEC_IDLE;
+            endcase
+
+            // ---------------------------------------------------------------
+            // Timeout has the last word and drops every outstanding job.
+            // ---------------------------------------------------------------
+            if (status_busy && timeout_hit) begin
+                load_state <= LOAD_IDLE;
+                exec_state <= EXEC_IDLE;
+                slot_valid[0] <= 1'b0;
+                slot_valid[1] <= 1'b0;
+                slot_a_loaded[0] <= 1'b0;
+                slot_a_loaded[1] <= 1'b0;
+                slot_loaded[0] <= 1'b0;
+                slot_loaded[1] <= 1'b0;
+                slot_cycles[0] <= 64'd0;
+                slot_cycles[1] <= 64'd0;
+                alloc_ptr <= 1'b0;
+                load_ptr <= 1'b0;
+                exec_ptr <= 1'b0;
+                occupancy <= 2'd0;
                 status_done <= 1'b0;
                 if (!status_error) begin
                     status_error <= 1'b1;
                     error_code <= ERR_TIMEOUT;
                 end
-                cycles <= cycles + 1;
-            end else begin
-                cycles <= cycles + 1;
-                case (state)
-                    STATE_LOAD_A, STATE_LOAD_B: begin
-                        if ((state == STATE_LOAD_B) && array_enable)
-                            compute_step <= compute_step + 1;
-                        if (s_axis_tvalid && s_axis_tready && !beat_ok) begin
-                            state <= STATE_IDLE;
-                            status_busy <= 1'b0;
-                            status_done <= 1'b0;
-                            if (!status_error) begin
-                                status_error <= 1'b1;
-                                error_code <= ERR_STREAM_LENGTH;
-                            end
-                        end else begin
-                            align_buffer <= align_buffer_next;
-                            align_count <= count_after_emit +
-                                (beat_take ? beat_count : '0);
-                            if (beat_take)
-                                load_remaining <= beat_is_last ? 32'd0 :
-                                    load_remaining - IN_BYTES_U32;
-                            if (row_done) begin
-                                align_word <= 0;
-                                align_row <= align_row + 1;
-                            end else if (align_emit) begin
-                                align_word <= align_word + 1;
-                            end
-                            // The whole frame was accepted before its last
-                            // word, so nothing else is in flight here.
-                            if (frame_done) begin
-                                align_row <= 0;
-                                align_word <= 0;
-                                if (state == STATE_LOAD_A) begin
-                                    load_remaining <= active_b_bytes;
-                                    state <= STATE_LOAD_B;
-                                end else begin
-                                    state <= STATE_CLEAR;
-                                end
-                            end
-                        end
-                    end
-                    STATE_CLEAR: begin
-                        state <= STATE_COMPUTE;
-                    end
-                    STATE_COMPUTE: begin
-                        if (compute_step >=
-                            (widen_u16(active_k) + widen_u16(active_m) +
-                             widen_u16(active_n) - 32'd1)) begin
-                            output_row_count <= 0;
-                            output_column_count <= 0;
-                            state <= STATE_OUTPUT;
-                        end else begin
-                            compute_step <= compute_step + 1;
-                        end
-                    end
-                    STATE_OUTPUT: begin
-                        if (m_axis_tvalid && m_axis_tready) begin
-                            if (m_axis_tlast) begin
-                                state <= STATE_IDLE;
-                                status_busy <= 1'b0;
-                                status_done <= 1'b1;
-                            end else begin
-                                if (output_column_count == active_n - 1) begin
-                                    output_column_count <= 0;
-                                    output_row_count <= output_row_count + 1;
-                                end else begin
-                                    output_column_count <= output_column_count + 1;
-                                end
-                            end
-                        end
-                    end
-                    default: begin
-                        state <= STATE_IDLE;
-                        status_busy <= 1'b0;
-                    end
-                endcase
-            end
-        end else if (start_pulse) begin
-            status_done <= 1'b0;
-            status_error <= 1'b0;
-            error_code <= 0;
-            cycles <= 0;
-            load_remaining <= widen_u16(cfg_m) * widen_u16(cfg_k);
-            active_b_bytes <= widen_u16(cfg_k) * widen_u16(cfg_n);
-            align_buffer <= '0;
-            align_count <= 0;
-            align_row <= 0;
-            align_word <= 0;
-            compute_step <= 0;
-            output_row_count <= 0;
-            output_column_count <= 0;
-            if ((cfg_m < 1) || (widen_u16(cfg_m) > ROWS_U32) ||
-                (cfg_n < 1) || (widen_u16(cfg_n) > COLUMNS_U32) ||
-                (cfg_k < 1) || (widen_u16(cfg_k) > MAX_K_U32)) begin
-                status_error <= 1'b1;
-                error_code <= ERR_INVALID_DIMENSION;
-            end else if ((cfg_a_stride != widen_u16(cfg_k)) ||
-                         (cfg_b_stride != widen_u16(cfg_n)) ||
-                         (cfg_c_stride != (32'd4 * widen_u16(cfg_n)))) begin
-                status_error <= 1'b1;
-                error_code <= ERR_INVALID_STRIDE;
-            end else if (cfg_timeout_cycles == 0) begin
-                status_error <= 1'b1;
-                error_code <= ERR_INVALID_TIMEOUT;
-            end else begin
-                active_m <= cfg_m;
-                active_n <= cfg_n;
-                active_k <= cfg_k;
-                active_timeout <= cfg_timeout_cycles;
-                status_busy <= 1'b1;
-                state <= STATE_LOAD_A;
+                cycles <= span_cycles + 64'd1;
+                span_cycles <= 64'd0;
             end
         end
     end
@@ -383,8 +616,8 @@ module npu_matrix_controller #(
         if (!rst_n) begin
             array_a_valid <= '0;
             array_b_valid <= '0;
-        end else if (soft_reset_pulse || (state == STATE_IDLE) ||
-                     (state == STATE_LOAD_A)) begin
+        end else if (soft_reset_pulse || (exec_state == EXEC_IDLE) ||
+                     (exec_state == EXEC_CLEAR)) begin
             array_a_valid <= '0;
             array_b_valid <= '0;
         end else if (array_enable) begin

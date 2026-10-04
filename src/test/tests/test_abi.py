@@ -177,3 +177,28 @@ class BufferTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PipelinedJobAbiTest(unittest.TestCase):
+    def test_pipelined_jobs_is_advertised_not_required(self):
+        self.assertNotIn(Capability.PIPELINED_JOBS, MATRIX_REQUIRED_CAPABILITIES)
+        version = negotiate_abi(
+            magic=ABI_MAGIC,
+            version_word=AbiVersion(1, 0).encode(),
+            capabilities=int(MATRIX_REQUIRED_CAPABILITIES),
+        )
+        self.assertEqual(version, AbiVersion(1, 0))
+
+    def test_pipelined_device_still_negotiates(self):
+        version = negotiate_abi(
+            magic=ABI_MAGIC,
+            version_word=AbiVersion(1, 0).encode(),
+            capabilities=int(MATRIX_REQUIRED_CAPABILITIES | Capability.PIPELINED_JOBS),
+        )
+        self.assertEqual(version, AbiVersion(1, 0))
+
+    def test_accept_occupies_the_reserved_status_bit(self):
+        self.assertEqual(int(Status.ACCEPT), 1 << 3)
+        self.assertEqual(
+            int(Status.BUSY | Status.DONE | Status.ERROR | Status.ACCEPT), 0xF
+        )

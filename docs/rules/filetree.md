@@ -222,6 +222,8 @@ limitations. Package installation and demo instructions live under
 `tools/ic/docs/manual/` and ship with the npm package.
 `docs/goals/widen-input-width/` holds the packed operand stream's simulation
 report, design walkthrough, reproduction steps and recorded metrics (#93).
+`docs/goal/` holds one prompt file per hardware goal. Each file records the goal
+as given, the implementation, and the measured experiment that accepts it.
 
 `.ic/` is the run store written by `tools/ic`. It is machine-local and not
 tracked: `meta.json` records are kilobytes but the artifacts beside them are

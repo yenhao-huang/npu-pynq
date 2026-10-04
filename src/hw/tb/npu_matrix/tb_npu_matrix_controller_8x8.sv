@@ -18,7 +18,7 @@ module tb_npu_matrix_controller_8x8;
     logic s_axis_tvalid = 0, s_axis_tready, s_axis_tlast = 0;
     logic [31:0] m_axis_tdata;
     logic m_axis_tvalid, m_axis_tready = 0, m_axis_tlast;
-    logic status_busy, status_done, status_error;
+    logic status_busy, status_accept, status_done, status_error;
     logic [7:0] error_code;
     logic [63:0] cycles;
 
@@ -183,10 +183,11 @@ module tb_npu_matrix_controller_8x8;
             // Stall-free job length: one cycle per row-aligned word of A and
             // B, then drain and output, plus one aligner fill cycle per frame.
             // The extra cycle is the idle edge this testbench leaves after
-            // START.
+            // START. The ping-pong exec engine has no idle CLEAR cycle between
+            // the B frame and the wavefront tail, so the constant is 3, not 4.
             if (cycles != active_m * ((active_k + IN_BYTES - 1) / IN_BYTES) +
                           active_k * ((active_n + IN_BYTES - 1) / IN_BYTES) +
-                          active_m * active_n + active_m + active_n + 4 + 1) begin
+                          active_m * active_n + active_m + active_n + 3 + 1) begin
                 $display("FAIL tb_npu_matrix_controller_8x8: cycles %0d for %0dx%0dx%0d",
                          cycles, active_m, active_n, active_k);
                 $fatal(1);
