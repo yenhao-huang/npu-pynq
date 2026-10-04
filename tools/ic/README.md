@@ -20,7 +20,7 @@ Run from your RTL project root. Install the published package from the
 [official npm registry](https://www.npmjs.com/package/@jony2156/ai-eda-tools):
 
 ```bash
-npm install -g --foreground-scripts @jony2156/ai-eda-tools@0.1.0
+npm install -g --foreground-scripts @jony2156/ai-eda-tools@0.1.1
 ic-tools doctor
 ```
 
@@ -105,7 +105,7 @@ If install scripts were skipped, run `ic-tools setup` before starting the agent.
 Install version 0.1.0 from npm:
 
 ```bash
-npm install -g --foreground-scripts @jony2156/ai-eda-tools@0.1.0
+npm install -g --foreground-scripts @jony2156/ai-eda-tools@0.1.1
 ic-tools doctor
 ```
 
@@ -164,7 +164,7 @@ tools and returns their results. See the
 From the repository root, with pi already installed:
 
 ```bash
-pi install npm:@jony2156/ai-eda-tools@0.1.0 --local
+pi install npm:@jony2156/ai-eda-tools@0.1.1 --local
 pi
 ```
 

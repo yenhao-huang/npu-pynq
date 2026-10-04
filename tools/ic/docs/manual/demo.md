@@ -22,7 +22,7 @@ local registration when `pi list` shows `./tools/ic`:
 
 ```bash
 pi remove --local ./tools/ic
-pi install npm:@jony2156/ai-eda-tools@0.1.0 --local
+pi install npm:@jony2156/ai-eda-tools@0.1.1 --local
 pi
 ```
 
