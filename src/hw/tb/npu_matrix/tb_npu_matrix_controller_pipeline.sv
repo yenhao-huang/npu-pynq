@@ -57,10 +57,11 @@ module tb_npu_matrix_controller_pipeline;
 
     always @(posedge clk) cycle_counter <= cycle_counter + 64'd1;
 
-    // Direct evidence that a load shared the clock with a compute or output
-    // phase, which is only reachable once the two banks are independent.
+    // Direct evidence that another job's load shared the clock with a compute
+    // or output phase, which is only reachable once the two banks are
+    // independent. A job's own B frame overlapping its compute does not count.
     always @(posedge clk) begin
-        if (rst_n && (dut.load_state !== 2'd0) &&
+        if (rst_n && (dut.load_state !== 2'd0) && (dut.load_ptr !== dut.exec_ptr) &&
             ((dut.exec_state === 2'd2) || (dut.exec_state === 2'd3)))
             overlap_seen <= 1'b1;
     end

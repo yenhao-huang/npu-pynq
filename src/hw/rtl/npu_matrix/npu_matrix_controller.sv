@@ -8,11 +8,13 @@
 //   load engine : drains s_axis into the operand bank of the job it owns
 //   exec engine : clears, walks the systolic wavefront, and drains m_axis
 //
-// Each engine owns a different bank of a_buffer / b_buffer, so the next job's
-// operands stream in while the current job computes and outputs. A job is
-// accepted whenever a queue entry is free; START with both entries occupied
-// still raises ERR_BUSY_START. With only one job outstanding the cycle-by-cycle
-// behaviour is identical to the serialized implementation this replaces.
+// Operands live in one synchronous-read BRAM per array edge (ROWS A banks,
+// COLUMNS B banks). Each memory is 2*MAX_K deep; the address MSB selects the
+// ping-pong half, so the next job's operands stream into one half while the
+// current job computes and outputs from the other. The exec engine starts as
+// soon as a job's A frame has landed and advances the wavefront while that
+// job's B rows still arrive. A job is accepted whenever a queue entry is free;
+// START with both entries occupied still raises ERR_BUSY_START.
 module npu_matrix_controller #(
     parameter integer ROWS = 2,
     parameter integer COLUMNS = 2,
@@ -53,8 +55,7 @@ module npu_matrix_controller #(
     localparam logic [31:0] ROWS_U32 = ROWS;
     localparam logic [31:0] COLUMNS_U32 = COLUMNS;
     localparam logic [31:0] MAX_K_U32 = MAX_K;
-    localparam integer A_BANK_WORDS = ROWS * MAX_K;
-    localparam integer B_BANK_WORDS = MAX_K * COLUMNS;
+    localparam integer K_ADDR_WIDTH = (MAX_K > 1) ? $clog2(MAX_K) : 1;
 
     typedef enum logic [1:0] {
         LOAD_IDLE,
@@ -73,8 +74,10 @@ module npu_matrix_controller #(
     exec_state_t exec_state;
 
     // Two-entry job queue. alloc_ptr takes accepted jobs, load_ptr owns the
-    // bank being written, exec_ptr owns the bank being read.
+    // half being written, exec_ptr owns the half being read. slot_a_loaded
+    // lets the exec engine start; slot_loaded marks the whole B frame landed.
     logic        slot_valid  [0:1];
+    logic        slot_a_loaded [0:1];
     logic        slot_loaded [0:1];
     logic [15:0] slot_m [0:1];
     logic [15:0] slot_n [0:1];
@@ -93,29 +96,22 @@ module npu_matrix_controller #(
     logic [15:0] output_column_count;
     logic [63:0] span_cycles;
 
-    logic signed [7:0] a_buffer [0:2*A_BANK_WORDS-1];
-    logic signed [7:0] b_buffer [0:2*B_BANK_WORDS-1];
-
     logic array_clear, array_enable;
     logic signed [ROWS*8-1:0] array_a;
     logic [ROWS-1:0] array_a_valid;
     logic signed [COLUMNS*8-1:0] array_b;
     logic [COLUMNS-1:0] array_b_valid;
-    logic signed [ROWS*8-1:0] scheduled_a;
     logic [ROWS-1:0] scheduled_a_valid;
-    logic signed [COLUMNS*8-1:0] scheduled_b;
     logic [COLUMNS-1:0] scheduled_b_valid;
     wire signed [ROWS*COLUMNS*32-1:0] array_accumulators;
 
     logic load_a_last_beat, load_b_last_beat;
     logic retire_now, timeout_hit, start_accepted, start_invalid;
-    logic exec_bank_base_sel;
+    logic exec_b_ready;
 
     integer row_index;
     integer column_index;
     integer reduction_index;
-    integer exec_a_base;
-    integer exec_b_base;
 
     function automatic [31:0] widen_u16;
         input [15:0] value;
@@ -151,12 +147,8 @@ module npu_matrix_controller #(
     assign load_k = slot_k[load_ptr];
     assign status_busy = (occupancy != 2'd0);
     assign status_accept = (occupancy != 2'd2);
-    assign exec_bank_base_sel = exec_ptr;
 
     always_comb begin
-        exec_a_base = exec_bank_base_sel ? A_BANK_WORDS : 0;
-        exec_b_base = exec_bank_base_sel ? B_BANK_WORDS : 0;
-
         s_axis_tready = (load_state == LOAD_A) || (load_state == LOAD_B);
         m_axis_tvalid = (exec_state == EXEC_OUTPUT);
         m_axis_tdata = 32'd0;
@@ -200,11 +192,16 @@ module npu_matrix_controller #(
         start_accepted = start_pulse && status_accept && !start_invalid &&
             !(status_busy && status_error);
 
+        // A is complete before the exec engine starts. While the same job's
+        // B frame is still loading, advance the whole array only once the next
+        // complete B row is resident; holding enable holds every PE and the
+        // registered boundary inputs across stream stalls.
+        exec_b_ready = slot_loaded[exec_ptr] ||
+            ((load_state == LOAD_B) && (load_ptr == exec_ptr) &&
+             (compute_step < widen_u16(load_outer)));
         array_clear = (exec_state == EXEC_CLEAR);
-        array_enable = (exec_state == EXEC_COMPUTE);
-        scheduled_a = '0;
+        array_enable = (exec_state == EXEC_COMPUTE) && exec_b_ready;
         scheduled_a_valid = '0;
-        scheduled_b = '0;
         scheduled_b_valid = '0;
         reduction_index = 0;
         if (exec_state == EXEC_COMPUTE) begin
@@ -212,8 +209,6 @@ module npu_matrix_controller #(
                 reduction_index = compute_step - row_index;
                 if ((row_index < active_m) &&
                     (reduction_index >= 0) && (reduction_index < active_k)) begin
-                    scheduled_a[row_index*8 +: 8] =
-                        a_buffer[exec_a_base + row_index*MAX_K + reduction_index];
                     scheduled_a_valid[row_index] = 1'b1;
                 end
             end
@@ -222,8 +217,6 @@ module npu_matrix_controller #(
                 reduction_index = compute_step - column_index;
                 if ((column_index < active_n) &&
                     (reduction_index >= 0) && (reduction_index < active_k)) begin
-                    scheduled_b[column_index*8 +: 8] =
-                        b_buffer[exec_b_base + reduction_index*COLUMNS + column_index];
                     scheduled_b_valid[column_index] = 1'b1;
                 end
             end
@@ -236,6 +229,8 @@ module npu_matrix_controller #(
             exec_state <= EXEC_IDLE;
             slot_valid[0] <= 1'b0;
             slot_valid[1] <= 1'b0;
+            slot_a_loaded[0] <= 1'b0;
+            slot_a_loaded[1] <= 1'b0;
             slot_loaded[0] <= 1'b0;
             slot_loaded[1] <= 1'b0;
             slot_m[0] <= 16'd0; slot_m[1] <= 16'd0;
@@ -268,6 +263,8 @@ module npu_matrix_controller #(
             exec_state <= EXEC_IDLE;
             slot_valid[0] <= 1'b0;
             slot_valid[1] <= 1'b0;
+            slot_a_loaded[0] <= 1'b0;
+            slot_a_loaded[1] <= 1'b0;
             slot_loaded[0] <= 1'b0;
             slot_loaded[1] <= 1'b0;
             slot_cycles[0] <= 64'd0;
@@ -327,6 +324,8 @@ module npu_matrix_controller #(
                     exec_state <= EXEC_IDLE;
                     slot_valid[0] <= 1'b0;
                     slot_valid[1] <= 1'b0;
+                    slot_a_loaded[0] <= 1'b0;
+                    slot_a_loaded[1] <= 1'b0;
                     slot_loaded[0] <= 1'b0;
                     slot_loaded[1] <= 1'b0;
                     slot_cycles[0] <= 64'd0;
@@ -347,6 +346,7 @@ module npu_matrix_controller #(
                         span_cycles <= 64'd0;
                     end
                     slot_valid[alloc_ptr] <= 1'b1;
+                    slot_a_loaded[alloc_ptr] <= 1'b0;
                     slot_loaded[alloc_ptr] <= 1'b0;
                     slot_m[alloc_ptr] <= cfg_m;
                     slot_n[alloc_ptr] <= cfg_n;
@@ -388,6 +388,8 @@ module npu_matrix_controller #(
                             exec_state <= EXEC_IDLE;
                             slot_valid[0] <= 1'b0;
                             slot_valid[1] <= 1'b0;
+                            slot_a_loaded[0] <= 1'b0;
+                            slot_a_loaded[1] <= 1'b0;
                             slot_loaded[0] <= 1'b0;
                             slot_loaded[1] <= 1'b0;
                             slot_cycles[0] <= 64'd0;
@@ -399,9 +401,19 @@ module npu_matrix_controller #(
                             cycles <= span_cycles + 64'd1;
                             span_cycles <= 64'd0;
                         end else if (load_a_last_beat) begin
+                            slot_a_loaded[load_ptr] <= 1'b1;
                             load_outer <= 16'd0;
                             load_inner <= 16'd0;
                             load_state <= LOAD_B;
+                            // Hand to an idle exec engine on the same cycle, so
+                            // compute overlaps this job's own B frame.
+                            if ((exec_state == EXEC_IDLE) && (exec_ptr == load_ptr)) begin
+                                exec_state <= EXEC_CLEAR;
+                                active_m <= load_m;
+                                active_n <= load_n;
+                                active_k <= load_k;
+                                compute_step <= 32'd0;
+                            end
                         end else if (load_inner == load_k - 1) begin
                             load_outer <= load_outer + 16'd1;
                             load_inner <= 16'd0;
@@ -422,6 +434,8 @@ module npu_matrix_controller #(
                             exec_state <= EXEC_IDLE;
                             slot_valid[0] <= 1'b0;
                             slot_valid[1] <= 1'b0;
+                            slot_a_loaded[0] <= 1'b0;
+                            slot_a_loaded[1] <= 1'b0;
                             slot_loaded[0] <= 1'b0;
                             slot_loaded[1] <= 1'b0;
                             slot_cycles[0] <= 64'd0;
@@ -442,15 +456,6 @@ module npu_matrix_controller #(
                                 load_state <= LOAD_A;
                             else
                                 load_state <= LOAD_IDLE;
-                            // Hand to an idle exec engine on the same cycle, so
-                            // a lone job still reaches CLEAR without a bubble.
-                            if ((exec_state == EXEC_IDLE) && (exec_ptr == load_ptr)) begin
-                                exec_state <= EXEC_CLEAR;
-                                active_m <= load_m;
-                                active_n <= load_n;
-                                active_k <= load_k;
-                                compute_step <= 32'd0;
-                            end
                         end else if (load_inner == load_n - 1) begin
                             load_outer <= load_outer + 16'd1;
                             load_inner <= 16'd0;
@@ -467,7 +472,7 @@ module npu_matrix_controller #(
             // ---------------------------------------------------------------
             case (exec_state)
                 EXEC_IDLE: begin
-                    if (slot_valid[exec_ptr] && slot_loaded[exec_ptr]) begin
+                    if (slot_valid[exec_ptr] && slot_a_loaded[exec_ptr]) begin
                         exec_state <= EXEC_CLEAR;
                         active_m <= slot_m[exec_ptr];
                         active_n <= slot_n[exec_ptr];
@@ -486,7 +491,7 @@ module npu_matrix_controller #(
                         output_row_count <= 16'd0;
                         output_column_count <= 16'd0;
                         exec_state <= EXEC_OUTPUT;
-                    end else begin
+                    end else if (array_enable) begin
                         compute_step <= compute_step + 32'd1;
                     end
                 end
@@ -494,6 +499,7 @@ module npu_matrix_controller #(
                     if (m_axis_tvalid && m_axis_tready) begin
                         if (m_axis_tlast) begin
                             slot_valid[exec_ptr] <= 1'b0;
+                            slot_a_loaded[exec_ptr] <= 1'b0;
                             slot_loaded[exec_ptr] <= 1'b0;
                             slot_cycles[exec_ptr] <= 64'd0;
                             exec_ptr <= ~exec_ptr;
@@ -504,9 +510,9 @@ module npu_matrix_controller #(
                             // pipeline went busy for the first job.
                             cycles <= span_cycles + 64'd1;
                             span_cycles <= 64'd0;
-                            // Chain straight into a job whose operands already
+                            // Chain straight into a job whose A frame already
                             // landed, so back-to-back jobs cost no bubble.
-                            if (slot_valid[~exec_ptr] && slot_loaded[~exec_ptr]) begin
+                            if (slot_valid[~exec_ptr] && slot_a_loaded[~exec_ptr]) begin
                                 exec_state <= EXEC_CLEAR;
                                 active_m <= slot_m[~exec_ptr];
                                 active_n <= slot_n[~exec_ptr];
@@ -534,6 +540,8 @@ module npu_matrix_controller #(
                 exec_state <= EXEC_IDLE;
                 slot_valid[0] <= 1'b0;
                 slot_valid[1] <= 1'b0;
+                slot_a_loaded[0] <= 1'b0;
+                slot_a_loaded[1] <= 1'b0;
                 slot_loaded[0] <= 1'b0;
                 slot_loaded[1] <= 1'b0;
                 slot_cycles[0] <= 64'd0;
@@ -553,38 +561,49 @@ module npu_matrix_controller #(
         end
     end
 
-    // Operand banks. The load engine writes the bank named by load_ptr; the
-    // exec engine reads the bank named by exec_ptr.
-    always_ff @(posedge clk) begin
-        if ((load_state == LOAD_A) && s_axis_tvalid && s_axis_tready &&
-            (s_axis_tlast == load_a_last_beat)) begin
-            a_buffer[(load_ptr ? A_BANK_WORDS : 0) +
-                     widen_u16(load_outer) * MAX_K +
-                     widen_u16(load_inner)] <= s_axis_tdata;
+    // One single-write/synchronous-read bank per array edge, 2*MAX_K deep;
+    // the address MSB is the ping-pong half. Flat memories would need
+    // ROWS/COLUMNS independent read ports and dissolve into registers at larger
+    // sizes. No reset on memory or its data output: validity masks stale
+    // contents and permits native block-RAM inference.
+    genvar bank;
+    generate
+        for (bank = 0; bank < ROWS; bank = bank + 1) begin : gen_a_banks
+            (* ram_style = "block" *) logic [7:0] memory [0:2*MAX_K-1];
+            wire [K_ADDR_WIDTH-1:0] read_index = K_ADDR_WIDTH'(compute_step - bank);
+            always_ff @(posedge clk) begin
+                if ((load_state == LOAD_A) && s_axis_tvalid && s_axis_tready &&
+                    (widen_u16(load_outer) == bank) &&
+                    (s_axis_tlast == load_a_last_beat))
+                    memory[{load_ptr, load_inner[K_ADDR_WIDTH-1:0]}] <= s_axis_tdata;
+                if (array_enable)
+                    array_a[bank*8 +: 8] <= memory[{exec_ptr, read_index}];
+            end
         end
-        if ((load_state == LOAD_B) && s_axis_tvalid && s_axis_tready &&
-            (s_axis_tlast == load_b_last_beat)) begin
-            b_buffer[(load_ptr ? B_BANK_WORDS : 0) +
-                     widen_u16(load_outer) * COLUMNS +
-                     widen_u16(load_inner)] <= s_axis_tdata;
+        for (bank = 0; bank < COLUMNS; bank = bank + 1) begin : gen_b_banks
+            (* ram_style = "block" *) logic [7:0] memory [0:2*MAX_K-1];
+            wire [K_ADDR_WIDTH-1:0] read_index = K_ADDR_WIDTH'(compute_step - bank);
+            always_ff @(posedge clk) begin
+                if ((load_state == LOAD_B) && s_axis_tvalid && s_axis_tready &&
+                    (widen_u16(load_inner) == bank) &&
+                    (s_axis_tlast == load_b_last_beat))
+                    memory[{load_ptr, load_outer[K_ADDR_WIDTH-1:0]}] <= s_axis_tdata;
+                if (array_enable)
+                    array_b[bank*8 +: 8] <= memory[{exec_ptr, read_index}];
+            end
         end
-    end
+    endgenerate
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            array_a <= '0;
             array_a_valid <= '0;
-            array_b <= '0;
             array_b_valid <= '0;
-        end else if (soft_reset_pulse || (exec_state != EXEC_COMPUTE)) begin
-            array_a <= '0;
+        end else if (soft_reset_pulse || (exec_state == EXEC_IDLE) ||
+                     (exec_state == EXEC_CLEAR)) begin
             array_a_valid <= '0;
-            array_b <= '0;
             array_b_valid <= '0;
-        end else begin
-            array_a <= scheduled_a;
+        end else if (array_enable) begin
             array_a_valid <= scheduled_a_valid;
-            array_b <= scheduled_b;
             array_b_valid <= scheduled_b_valid;
         end
     end
