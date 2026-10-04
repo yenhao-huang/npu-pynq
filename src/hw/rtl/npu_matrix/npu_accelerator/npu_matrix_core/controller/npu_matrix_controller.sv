@@ -74,10 +74,15 @@ module npu_matrix_controller #(
     localparam logic [31:0] ROWS_U32 = ROWS;
     localparam logic [31:0] COLUMNS_U32 = COLUMNS;
     localparam logic [31:0] MAX_K_U32 = MAX_K;
-    localparam logic [31:0] IN_BYTES_U32 = IN_BYTES;
-    localparam integer LANE_BITS = (IN_BYTES > 1) ? $clog2(IN_BYTES) : 1;
     localparam integer ALIGN_BYTES = 2 * IN_BYTES;
     localparam integer COUNT_BITS = $clog2(ALIGN_BYTES + 1);
+    localparam integer FRAME_CAPACITY = MAX_K * ((ROWS > COLUMNS) ? ROWS : COLUMNS);
+    localparam integer FRAME_BITS = (FRAME_CAPACITY > 1) ? $clog2(FRAME_CAPACITY + 1) : 1;
+    localparam integer ROW_BITS = (ROWS > 1) ? $clog2(ROWS + 1) : 1;
+    localparam integer COLUMN_BITS = (COLUMNS > 1) ? $clog2(COLUMNS + 1) : 1;
+    localparam integer K_BITS = (MAX_K > 1) ? $clog2(MAX_K + 1) : 1;
+    localparam integer FRAME_ROW_BITS = ((ROWS > MAX_K) ? ROW_BITS : K_BITS);
+    localparam integer ROW_BYTE_BITS = ((COLUMNS > MAX_K) ? COLUMN_BITS : K_BITS);
 
     typedef enum logic [1:0] {
         LOAD_IDLE,
@@ -104,6 +109,8 @@ module npu_matrix_controller #(
     logic [15:0] slot_m [0:1];
     logic [15:0] slot_n [0:1];
     logic [15:0] slot_k [0:1];
+    logic [FRAME_BITS-1:0] slot_a_bytes [0:1];
+    logic [FRAME_BITS-1:0] slot_b_bytes [0:1];
     logic [31:0] slot_timeout [0:1];
     logic [63:0] slot_cycles [0:1];
     logic        alloc_ptr, load_ptr, exec_ptr;
@@ -112,7 +119,11 @@ module npu_matrix_controller #(
     logic [15:0] active_m, active_n, active_k;
     logic [15:0] load_m, load_n, load_k;
     // Bytes of the current frame not yet accepted from the stream.
-    logic [31:0] load_remaining;
+    logic [FRAME_BITS-1:0] load_remaining;
+    wire [FRAME_BITS-1:0] cfg_a_bytes =
+        FRAME_BITS'(cfg_m[ROW_BITS-1:0] * cfg_k[K_BITS-1:0]);
+    wire [FRAME_BITS-1:0] cfg_b_bytes =
+        FRAME_BITS'(cfg_k[K_BITS-1:0] * cfg_n[COLUMN_BITS-1:0]);
     logic [15:0] output_row_count;
     logic [15:0] output_column_count;
     logic [63:0] span_cycles;
@@ -126,8 +137,11 @@ module npu_matrix_controller #(
     // bank locations the compute schedule never marks valid.
     logic [ALIGN_BYTES*8-1:0] align_buffer;
     logic [COUNT_BITS-1:0] align_count;
-    logic [15:0] frame_rows, row_bytes;
-    logic [31:0] row_left;
+    // Latch the current frame geometry when its state opens. Otherwise the
+    // load-pointer mux sits in the stream-ready-to-aligner critical path.
+    logic [FRAME_ROW_BITS-1:0] frame_rows;
+    logic [ROW_BYTE_BITS-1:0] row_bytes;
+    logic [ROW_BYTE_BITS-1:0] row_left;
     logic [COUNT_BITS-1:0] align_need;
     logic [COUNT_BITS-1:0] count_after_emit;
     logic loading, row_done, frame_done;
@@ -175,15 +189,12 @@ module npu_matrix_controller #(
 
     always_comb begin
         loading = (load_state == LOAD_A) || (load_state == LOAD_B);
-        frame_rows = (load_state == LOAD_B) ? load_k : load_m;
-        row_bytes = (load_state == LOAD_B) ? load_n : load_k;
-        row_left = widen_u16(row_bytes) - (widen_u16(align_word) << LANE_BITS);
-        align_need = (row_left >= IN_BYTES_U32) ?
+        align_need = (row_left >= ROW_BYTE_BITS'(IN_BYTES)) ?
             COUNT_BITS'(IN_BYTES) : COUNT_BITS'(row_left);
-        align_emit = loading && (align_row < frame_rows) &&
+        align_emit = loading && (align_row < 16'(frame_rows)) &&
             (align_count >= align_need);
-        row_done = align_emit && (widen_u16({{(16-COUNT_BITS){1'b0}}, align_need}) == row_left);
-        frame_done = row_done && (align_row == frame_rows - 1);
+        row_done = align_emit && (ROW_BYTE_BITS'(align_need) == row_left);
+        frame_done = row_done && (align_row == (16'(frame_rows) - 16'd1));
         count_after_emit = align_count - (align_emit ? align_need : '0);
 
         // A beat is accepted only when TLAST and TKEEP match the bytes the
@@ -192,7 +203,7 @@ module npu_matrix_controller #(
         // aligner lacks room for a whole beat.
         s_axis_tready = loading && (load_remaining != 0) &&
             (count_after_emit <= COUNT_BITS'(IN_BYTES));
-        beat_is_last = (load_remaining <= IN_BYTES_U32);
+        beat_is_last = (load_remaining <= FRAME_BITS'(IN_BYTES));
         for (lane_index = 0; lane_index < IN_BYTES; lane_index = lane_index + 1) begin
             beat_expected_keep[lane_index] = (lane_index < load_remaining);
             beat_bytes[lane_index*8 +: 8] = s_axis_tkeep[lane_index] ?
@@ -294,6 +305,8 @@ module npu_matrix_controller #(
             slot_m[0] <= 16'd0; slot_m[1] <= 16'd0;
             slot_n[0] <= 16'd0; slot_n[1] <= 16'd0;
             slot_k[0] <= 16'd0; slot_k[1] <= 16'd0;
+            slot_a_bytes[0] <= '0; slot_a_bytes[1] <= '0;
+            slot_b_bytes[0] <= '0; slot_b_bytes[1] <= '0;
             slot_timeout[0] <= 32'd0; slot_timeout[1] <= 32'd0;
             slot_cycles[0] <= 64'd0; slot_cycles[1] <= 64'd0;
             alloc_ptr <= 1'b0;
@@ -303,7 +316,10 @@ module npu_matrix_controller #(
             active_m <= 16'd0;
             active_n <= 16'd0;
             active_k <= 16'd0;
-            load_remaining <= 32'd0;
+            frame_rows <= '0;
+            row_bytes <= '0;
+            row_left <= '0;
+            load_remaining <= '0;
             align_buffer <= '0;
             align_count <= '0;
             align_row <= 16'd0;
@@ -337,7 +353,10 @@ module npu_matrix_controller #(
             active_m <= 16'd0;
             active_n <= 16'd0;
             active_k <= 16'd0;
-            load_remaining <= 32'd0;
+            frame_rows <= '0;
+            row_bytes <= '0;
+            row_left <= '0;
+            load_remaining <= '0;
             align_buffer <= '0;
             align_count <= '0;
             align_row <= 16'd0;
@@ -415,6 +434,10 @@ module npu_matrix_controller #(
                     slot_m[alloc_ptr] <= cfg_m;
                     slot_n[alloc_ptr] <= cfg_n;
                     slot_k[alloc_ptr] <= cfg_k;
+                    // Frame lengths are captured with the job, avoiding a
+                    // multiplier on the load-pointer-to-stream-control path.
+                    slot_a_bytes[alloc_ptr] <= cfg_a_bytes;
+                    slot_b_bytes[alloc_ptr] <= cfg_b_bytes;
                     slot_timeout[alloc_ptr] <= cfg_timeout_cycles;
                     slot_cycles[alloc_ptr] <= 64'd0;
                     alloc_ptr <= ~alloc_ptr;
@@ -423,7 +446,10 @@ module npu_matrix_controller #(
                     // on the cycle after START.
                     if ((load_state == LOAD_IDLE) && (load_ptr == alloc_ptr)) begin
                         load_state <= LOAD_A;
-                        load_remaining <= widen_u16(cfg_m) * widen_u16(cfg_k);
+                        frame_rows <= FRAME_ROW_BITS'(cfg_m);
+                        row_bytes <= ROW_BYTE_BITS'(cfg_k);
+                        row_left <= ROW_BYTE_BITS'(cfg_k);
+                        load_remaining <= cfg_a_bytes;
                         align_buffer <= '0;
                         align_count <= '0;
                         align_row <= 16'd0;
@@ -439,7 +465,10 @@ module npu_matrix_controller #(
                 LOAD_IDLE: begin
                     if (slot_valid[load_ptr] && !slot_a_loaded[load_ptr]) begin
                         load_state <= LOAD_A;
-                        load_remaining <= widen_u16(load_m) * widen_u16(load_k);
+                        frame_rows <= FRAME_ROW_BITS'(load_m);
+                        row_bytes <= ROW_BYTE_BITS'(load_k);
+                        row_left <= ROW_BYTE_BITS'(load_k);
+                        load_remaining <= slot_a_bytes[load_ptr];
                         align_buffer <= '0;
                         align_count <= '0;
                         align_row <= 16'd0;
@@ -474,13 +503,15 @@ module npu_matrix_controller #(
                         align_count <= count_after_emit +
                             (beat_take ? beat_count : '0);
                         if (beat_take)
-                            load_remaining <= beat_is_last ? 32'd0 :
-                                load_remaining - IN_BYTES_U32;
+                            load_remaining <= beat_is_last ? '0 :
+                                load_remaining - FRAME_BITS'(IN_BYTES);
                         if (row_done) begin
                             align_word <= 16'd0;
                             align_row <= align_row + 16'd1;
+                            row_left <= row_bytes;
                         end else if (align_emit) begin
                             align_word <= align_word + 16'd1;
+                            row_left <= row_left - ROW_BYTE_BITS'(align_need);
                         end
                         // The whole frame was accepted before its last word,
                         // so nothing else is in flight here.
@@ -489,7 +520,10 @@ module npu_matrix_controller #(
                             align_word <= 16'd0;
                             if (load_state == LOAD_A) begin
                                 slot_a_loaded[load_ptr] <= 1'b1;
-                                load_remaining <= widen_u16(load_k) * widen_u16(load_n);
+                                frame_rows <= FRAME_ROW_BITS'(load_k);
+                                row_bytes <= ROW_BYTE_BITS'(load_n);
+                                row_left <= ROW_BYTE_BITS'(load_n);
+                                load_remaining <= slot_b_bytes[load_ptr];
                                 load_state <= LOAD_B;
                                 // Hand to an idle exec engine on the same cycle,
                                 // so compute overlaps this job's own B frame.
@@ -506,8 +540,10 @@ module npu_matrix_controller #(
                                 // Open the queued job's A frame with no bubble.
                                 if (slot_valid[~load_ptr] && !slot_a_loaded[~load_ptr]) begin
                                     load_state <= LOAD_A;
-                                    load_remaining <= widen_u16(slot_m[~load_ptr]) *
-                                        widen_u16(slot_k[~load_ptr]);
+                                    frame_rows <= FRAME_ROW_BITS'(slot_m[~load_ptr]);
+                                    row_bytes <= ROW_BYTE_BITS'(slot_k[~load_ptr]);
+                                    row_left <= ROW_BYTE_BITS'(slot_k[~load_ptr]);
+                                    load_remaining <= slot_a_bytes[~load_ptr];
                                 end else begin
                                     load_state <= LOAD_IDLE;
                                 end
