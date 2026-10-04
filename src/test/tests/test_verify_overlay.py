@@ -80,6 +80,23 @@ class OverlayProvenanceTests(unittest.TestCase):
         manifest = verify_artifacts(self.artifact_dir)
         self.assertEqual(manifest["array_size"], 8)
 
+    def test_16x16_pair_round_trips_and_records_target(self):
+        hwh_16x16 = HWH.replace('NAME="ROWS" VALUE="2"', 'NAME="ROWS" VALUE="16"')
+        hwh_16x16 = hwh_16x16.replace(
+            'NAME="COLUMNS" VALUE="2"', 'NAME="COLUMNS" VALUE="16"'
+        )
+        (self.artifact_dir / "npu_matrix.hwh").write_text(
+            hwh_16x16, encoding="utf-8"
+        )
+        write_manifest(
+            self.artifact_dir,
+            source_commit="f" * 40,
+            vivado_version="2026.1",
+            array_size=16,
+        )
+        manifest = verify_artifacts(self.artifact_dir)
+        self.assertEqual(manifest["array_size"], 16)
+
     def test_target_mismatch_is_rejected(self):
         with self.assertRaises(OverlayVerificationError):
             write_manifest(
