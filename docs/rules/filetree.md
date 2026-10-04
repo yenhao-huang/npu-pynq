@@ -133,6 +133,7 @@ npu_repo_in_pynq/
 |-- .mcp.json
 |-- exp/
 |   `-- 0911_performance_optimization/  compact hardware and board results
+|   `-- tpu_gen/                  TPU-Gen OpenROAD proof of concept
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
@@ -299,6 +300,17 @@ payloads stay ignored. `hardware/README.md` records where the earlier issue-59
 archive moved; the archive itself remains local. The board summary reports
 experiments 09, 19 and 21, including complete-overlay resources and physical
 ResNet-18 times.
+
+`exp/tpu_gen/` holds the TPU-Gen OpenROAD proof of concept: its notebook,
+runner, Python library, tests, plan, configuration analysis, and a compact
+summary of selected measured runs. The 5,000-row
+`docs/observed-header-combinations.csv` is a versioned study artifact so the
+parameter analysis remains inspectable without downloading the upstream
+dataset. Validate it against the pinned upstream data when updating it.
+The upstream `src_code/` checkout, Python environment, and generated `runs/`
+including GDSII, logs, and detailed state remain ignored. The experiment
+README pins the upstream commit and describes asset restoration. Its Nangate45
+ASIC measurements are separate from PYNQ FPGA results.
 
 ## Not in this repository
 
