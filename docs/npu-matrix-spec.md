@@ -46,8 +46,9 @@ Vivado timing/resource evidence or physical-board validation.
 A and B reach the accelerator as two AXI4-Stream frames from AXI DMA MM2S,
 eight INT8 operands per 64-bit beat in row-major byte order. A frame whose
 length is not a multiple of eight ends with one partial beat marked by TKEEP.
-Software still sends `M*K` and `K*N` byte transfers. A stall-free physical job
-takes `ceil(M*K/8) + ceil(K*N/8) + M*N + K + M + N + 1` cycles.
+Software still sends `M*K` and `K*N` byte transfers. A row aligner writes one
+row-aligned word per cycle into the operand banks, so a stall-free physical job
+takes `M*ceil(K/8) + K*ceil(N/8) + M*N + M + N + 4` cycles.
 
 ## 8x8 implementation evidence
 

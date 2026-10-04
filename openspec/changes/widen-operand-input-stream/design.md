@@ -1,33 +1,42 @@
 ## Context
 
-`npu_matrix_controller` stored A at byte `r*MAX_K + k` and B at `k*COLUMNS + c`
-and wrote one byte per handshake. A packed beat can straddle a row boundary
-whenever K or N is not a multiple of `IN_BYTES`, so that layout would need
-`IN_BYTES` independent write addresses per cycle. The 8x8 build met 100 MHz
-with only 0.079 ns of setup slack, so the compute read path must not get
-deeper.
+Since #60, `npu_matrix_controller` stores A in one synchronous bank per row and
+B in one bank per column, and lets compute advance during B loading once each
+B row is complete. A dense packed beat can span a row boundary (whenever K or
+N is not a multiple of `IN_BYTES`), so a beat does not map onto one bank
+write.
 
 ## Decisions
 
-- **Stream-order storage.** A and B are stored exactly as streamed, in
-  `IN_BYTES`-byte words: A element `(r, k)` at byte `r*K + k`, B element
-  `(k, c)` at byte `k*N + c`. Each accepted beat writes one word at a
-  sequential address, so each buffer keeps a single write port.
-- **No variable multiplier on the read path.** Per-row bases
-  `a_row_base[r] = r*(K-1)` and per-column offsets `b_column_offset[c] =
-  c*(N-1)` are registered when START is accepted, and `compute_step * N` is
-  kept as a running sum. The A address is then one add
-  (`a_row_base[r] + step`) and the B address one subtract
-  (`step*N - b_column_offset[c]`), the same depth as the previous
-  `step - r` index, followed by a word read and a lane select.
+- **Dense stream, hardware realignment.** Software keeps sending dense byte
+  buffers; the DMA packs them. A 2*`IN_BYTES`-byte row aligner sits between
+  the stream and the banks and emits one row-aligned word per cycle: the next
+  `IN_BYTES` bytes of the current row, or the rest of the row. Lanes past the
+  end of a row carry the next row's bytes and land in bank locations that the
+  compute schedule never marks valid, so no byte enables are needed. This is
+  the realignment a DMA data-realignment engine performs, applied per row.
+- **Bank writes.** An A bank takes the whole word in one write and is read a
+  byte at a time, the write-wide/read-narrow asymmetric RAM pattern in UG901.
+  B bank `c` takes lane `c % IN_BYTES` of word `c / IN_BYTES` of each B row,
+  so every bank keeps one write port. The compute read path is #60's,
+  unchanged.
+- **Backpressure.** TREADY drops while the aligner cannot take a whole beat
+  after this cycle's emission, and once a frame is fully accepted. A B row
+  counts as resident only after its last word is written, which preserves
+  #60's overlap invariant.
 - **Strict beat checking.** Each beat must match the bytes the frame still
-  owes: full TKEEP before the end, and TLAST plus a low-lane TKEEP mask of the
-  remainder on the final beat. AXI DMA MM2S without DRE, reading from an
-  aligned buffer, produces exactly this shape.
-- **Transport only.** Software keeps sending byte buffers; packing happens in
-  the DMA. Runtime, export and the numeric model are untouched.
+  owes: full TKEEP before the end, then TLAST and a low-lane TKEEP mask of the
+  remainder. AXI DMA MM2S without DRE, reading from an aligned buffer,
+  produces exactly this shape.
+
+## Cost
+
+A frame of R rows of L bytes loads in R*ceil(L/IN_BYTES) cycles, not
+ceil(R*L/IN_BYTES). The two are equal when L is a multiple of `IN_BYTES`,
+which holds for the full 8x8 tiles and for most ResNet-18 reductions; the
+worst case, L = 1, is no slower than the byte-wide stream.
 
 ## Risks
 
-- Timing and resource use at 100 MHz must be confirmed by Vivado on the
-  self-hosted runner; open-source simulation cannot show them.
+- Timing and resource use at 100 MHz, and whether Vivado infers the
+  asymmetric BRAM, must be confirmed by Vivado on the self-hosted runner.

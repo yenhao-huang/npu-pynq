@@ -18,6 +18,8 @@ arrays through interfaces as wide as a row of operands, not one element.
   byte order; a frame whose length is not a multiple of `IN_BYTES` ends with
   one partial beat whose TKEEP marks the remaining low lanes, exactly as AXI
   DMA MM2S emits an unaligned-length transfer.
+- A row aligner turns the dense packed stream into row-aligned words for
+  #60's per-row A and per-column B banks, one word per cycle.
 - The controller validates TLAST and TKEEP per beat and reports any mismatch as
   `STREAM_LENGTH`, as it already does for TLAST.
 - The overlay configures AXI DMA MM2S with a 64-bit memory-map and stream
@@ -37,7 +39,8 @@ arrays through interfaces as wide as a row of operands, not one element.
 
 ## Impact
 
-Stall-free physical job length drops from
-`M*K + K*N + M*N + K + M + N + 1` cycles to
-`ceil(M*K/8) + ceil(K*N/8) + M*N + K + M + N + 1`. A BIT/HWH pair built before
+With #60's banks and B/compute overlap, stall-free physical job length drops
+from `M*K + K*N + M*N + M + N + 2` cycles to
+`M*ceil(K/8) + K*ceil(N/8) + M*N + M + N + 4`; an 8x8x256 job goes from 4,178
+to 596 cycles. A BIT/HWH pair built before
 this change no longer verifies and must be rebuilt.
