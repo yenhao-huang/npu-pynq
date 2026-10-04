@@ -1,0 +1,14 @@
+.venv/
+build/
+__pycache__/
+*.pyc
+runs/*
+!runs/[0-9][0-9][0-9]_*/
+runs/[0-9][0-9][0-9]_*/*
+!runs/[0-9][0-9][0-9]_*/design.sv
+!runs/[0-9][0-9][0-9]_*/metrics.json
+!runs/[0-9][0-9][0-9]_*/simulation.log
+!runs/[0-9][0-9][0-9]_*/gate_simulation.log
+!runs/[0-9][0-9][0-9]_*/synthesis.log
+!runs/[0-9][0-9][0-9]_*/sta.log
+replay_verification.json

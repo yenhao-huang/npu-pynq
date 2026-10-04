@@ -1,0 +1,16 @@
+{
+  "name": "003_compact",
+  "mode": "compact",
+  "mul": "operator",
+  "lzd": "priority",
+  "target_delay_ps": 1200,
+  "status": "failed",
+  "started": "2026-09-25T19:23:53+0800",
+  "image": "openroad/orfs:latest",
+  "metric": "post-mapping zero-wire-load ASAP7 RVT TT",
+  "exhaustive": true,
+  "rtl_sha256": "56d0f1cfd5c93c590ea483b089716ddfae73b5928229f4db6be9ece9beb3031a",
+  "lib_sha256": "98aeba91e3a2cff74b1a98a93414b868f57da69cb9c3c9628963359853e779a8",
+  "error": "exit=1: C:\\Users\\User\\Desktop\\agent_workspace\\npu\\npu_repo_in_pynq\\exp\\fp32_multipier\\runs\\003_compact\\simulation.log",
+  "finished": "2026-09-25T19:24:06+0800"
+}

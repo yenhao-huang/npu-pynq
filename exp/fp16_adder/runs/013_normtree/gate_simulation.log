@@ -1,0 +1,2 @@
+["docker", "exec", "-w", "/workspace/npu/worktrees/npu-issue77-a/exp/fp16_adder", "codex-sandbox-agent-workspace", "/workspace/npu/worktrees/npu-issue77-a/exp/fp16_adder/runs/013_normtree/gate_obj/Vfpadd_fp16"]
+PASS checks=3359296

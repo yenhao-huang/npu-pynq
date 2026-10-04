@@ -1,0 +1,2 @@
+["docker", "exec", "-w", "/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier", "codex-sandbox-agent-workspace", "/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/026_parallel_exp/obj/Vfp12_mul", "--exhaustive"]
+PASS checks=16777216
