@@ -19,7 +19,7 @@ const spec = { key: 'linux-x64', name: 'fixture.tgz', size: bytes.length,
   sha256: createHash('sha256').update(bytes).digest('hex'), url: 'https://example.test/suite.tgz' };
 
 test('platform selection fails before download and gives Windows guidance', () => {
-  assert.match(platformSpec('linux', 'arm64').url, /linux-arm64-20260923/);
+  assert.match(platformSpec('linux', 'arm64').url, /linux-arm64-20261004/);
   assert.match(platformSpec('darwin', 'arm64').url, /darwin-arm64/);
   assert.throws(() => platformSpec('win32', 'x64'), /WSL/);
   assert.throws(() => platformSpec('linux', 'ia32'), /Unsupported/);

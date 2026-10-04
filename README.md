@@ -171,7 +171,7 @@ linting, simulation, waveform debugging and synthesis. Install in Linux/WSL
 or macOS with Node.js 20.11+:
 
 ```bash
-npm install -g --foreground-scripts @jony2156/ai-eda-tools@0.1.0
+npm install -g --foreground-scripts @jony2156/ai-eda-tools@0.1.1
 ic-tools doctor
 ```
 
