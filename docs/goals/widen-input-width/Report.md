@@ -105,19 +105,29 @@ MACs / (array size x cycles).
 
 ### Packing efficiency
 
-A frame of R rows of L bytes takes `R*ceil(L/8)` words. The ideal is
-`ceil(R*L/8)` beats.
+A frame of R rows of L bytes arrives as `ceil(R*L/8)` beats, but the
+aligner needs `R*ceil(L/8)` words, because each row is rounded up on its own.
+Each row loses at most 7/8 of a word, so the excess is bounded:
 
-| Row length L | Bytes per word | Notes |
-| ---: | ---: | --- |
-| multiple of 8 | 8 | No waste. Includes full 8x8 tiles (N = 8) and K = 32, 256. |
-| 13 | 6.5 | Two words per row. |
-| 9 | 4.5 | The worst case for L > 8. |
-| 1 | 1 | Same as the byte-wide stream; never slower. |
+```text
+R*ceil(L/8) - ceil(R*L/8)  <=  R - ceil(R/8)  <  R
+```
 
-Most ResNet-18 reductions are multiples of 8. The first convolution,
-K = 3 x 7 x 7 = 147, takes 19 words per row against 18.4 ideal (7.7 bytes
-per word).
+The bound is reached when `L mod 8 = 1`, where every row ends with one byte
+that costs a whole word. For a whole job, A loses fewer than M cycles and B
+fewer than K cycles against an ideal packed stream.
+
+| R (rows) | L (row bytes) | Beats `ceil(R*L/8)` | Words `R*ceil(L/8)` | Excess |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | 256 | 256 | 256 | 0 |
+| 2 | 13 | 4 | 4 | 0 |
+| 8 | 147 | 147 | 152 | 5 |
+| 8 | 9 | 9 | 16 | 7 (the bound) |
+| 8 | 1 | 1 | 8 | 7; same as the byte-wide stream, never slower |
+
+There is no excess whenever L is a multiple of 8. That includes full 8x8 B
+tiles (N = 8) and most ResNet-18 reductions. The first convolution,
+K = 3 x 7 x 7 = 147, loses 5 cycles per 8-row A tile.
 
 ## Correctness
 
