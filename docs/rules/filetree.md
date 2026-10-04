@@ -173,7 +173,29 @@ Do not create a directory that duplicates an existing role. Changes beneath
 `.codex/skills/` must preserve the `dev/`, `deploy/`, and `custom/ic_design/`
 classification contract.
 
+## User-requested experiment campaigns
+
+`exp/0911_performance_optimization/<exp_name>/` holds the September 11 hardware
+performance campaign, explicitly requested by the user. Keep each experiment's
+design/configuration, hypothesis and results together. Version reproducible
+drivers, RTL/testbench variants and concise records; ignore generated files
+under each experiment's `artifacts/` and `scratch/`. Temporary compiler, simulator
+and Vivado files must stay inside the corresponding experiment directory.
+`hardware/` archives the preceding issue-59 experiments and is ignored except
+for its relocation manifest. Validate every candidate against the same cold
+16x16, K=256 transaction and functional reference. The revised user objective
+requires more than 20 experiments (at least 21), even after cycles reach 2,000;
+do not count a smaller workload or preloaded operands as a qualifying result.
+
 ## Not in this repository
+
+The same campaign's `board/` directory contains the shared experimental DMA
+wrapper/testbench, runtime adapter, build and notebook execution drivers for
+the three-design full ResNet-18 comparison. `board_exp09/`, `board_exp19/`, and
+`board_exp21/` contain per-design configuration and concise records. Generated
+projects, artifacts, executed notebooks, progress and logs stay in ignored
+`artifacts/` or `scratch/` directories. Validate tails/stalls in simulation,
+complete-overlay timing/resources, and every notebook cell on the board.
 
 Do not add a top-level `skills/`, `scripts/`, `sim/`, `sw/`, `configs/`,
 `logs/`, `core/`, `test/`, or `tools/`. Simulation entry points belong in

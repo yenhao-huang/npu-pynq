@@ -1,5 +1,15 @@
 # Hardware scaling investigation (#59)
 
+Archive relocation (2026-09-11): the previous `build/issue59/` artifacts now
+live in [`exp/0911_performance_optimization/hardware/`](../../exp/0911_performance_optimization/hardware/README.md).
+Historical commands and raw logs below retain their original paths. The
+[subsequent packed-input campaign](../../exp/0911_performance_optimization/README.md)
+first reached 1,314 cold-transaction cycles with a 100 MHz setup violation,
+then expanded at the user's request to 21 experiments with a lowest RTL result
+of 579 cycles. Consult that campaign's results for physical validation and
+interface limits; these do not change the earlier timing results for the
+legacy 8-bit interface documented here.
+
 Baseline: `c1c643e` on `dev`. Target: `xc7z020clg400-1` (PYNQ-Z1).
 Tools: local Vivado 2026.1, Icarus Verilog 13.0, Verilator 5.050, Python 3.12.
 Source change: `openspec/changes/optimize-larger-hardware/`.

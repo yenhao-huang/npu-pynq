@@ -1,0 +1,189 @@
+[
+  {
+    "name": "exp05_ingress128",
+    "design": "design_v2",
+    "lanes": 16,
+    "out_lanes": 1,
+    "boundary_reg": 0,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "128-bit input halves loading to 512 cycles; predict 802 total; test the cost of 136 BRAM tiles and wider A selection."
+  },
+  {
+    "name": "exp06_no_overlap64",
+    "design": "design_v2",
+    "lanes": 8,
+    "out_lanes": 1,
+    "boundary_reg": 0,
+    "overlap": 0,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Disable B-load/compute overlap at 64 bits to isolate its contribution; predict 1569 cycles, 255 more than experiment 04."
+  },
+  {
+    "name": "exp07_no_overlap128",
+    "design": "design_v2",
+    "lanes": 16,
+    "out_lanes": 1,
+    "boundary_reg": 0,
+    "overlap": 0,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Disable overlap at 128 bits; predict 1057 cycles and measure its greater relative importance when loading is faster."
+  },
+  {
+    "name": "exp08_no_overlap32",
+    "design": "design_v2",
+    "lanes": 4,
+    "out_lanes": 1,
+    "boundary_reg": 0,
+    "overlap": 0,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Disable overlap at 32 bits; predict 2593 cycles to check whether the 255-cycle overlap saving is independent of bandwidth."
+  },
+  {
+    "name": "exp09_boundary64",
+    "design": "design_v2",
+    "lanes": 8,
+    "out_lanes": 1,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Register both operand boundaries and matching valid signals after A bank selection; predict 1315 cycles and split the failing BRAM-MUX-DSP path."
+  },
+  {
+    "name": "exp10_boundary128",
+    "design": "design_v2",
+    "lanes": 16,
+    "out_lanes": 1,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Test the same boundary register with twice the A-bank count; predict 803 cycles and assess the near-capacity BRAM configuration."
+  },
+  {
+    "name": "exp11_boundary32",
+    "design": "design_v2",
+    "lanes": 4,
+    "out_lanes": 1,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Boundary pipeline at 32-bit ingress should add one cycle, giving 2339; it should not fix a bandwidth-limited cycle target by itself."
+  },
+  {
+    "name": "exp12_output64",
+    "design": "design_v2",
+    "lanes": 8,
+    "out_lanes": 2,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Two INT32 outputs per beat should halve output serialization to 128 cycles; predict 1187 without changing the matrix work."
+  },
+  {
+    "name": "exp13_output128",
+    "design": "design_v2",
+    "lanes": 8,
+    "out_lanes": 4,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Four outputs per beat should reduce output cycles to 64 and total to 1123; compare output benefit with unchanged 1024-cycle loading."
+  },
+  {
+    "name": "exp14_output256",
+    "design": "design_v2",
+    "lanes": 8,
+    "out_lanes": 8,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Eight outputs per beat should reduce output to 32 cycles and total to 1091; test diminishing returns and partial-row masks."
+  },
+  {
+    "name": "exp15_output512",
+    "design": "design_v2",
+    "lanes": 8,
+    "out_lanes": 16,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "One full row per output beat should reach 1075 cycles; test the output parallelism limit while 64-bit loading remains dominant."
+  },
+  {
+    "name": "exp16_in128_out64",
+    "design": "design_v2",
+    "lanes": 16,
+    "out_lanes": 2,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Combine 128-bit ingress with two outputs per beat; predict 675 cycles, isolating the same output saving under faster loading."
+  },
+  {
+    "name": "exp17_in128_out128",
+    "design": "design_v2",
+    "lanes": 16,
+    "out_lanes": 4,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "Symmetric 128-bit transport should reach 611 cycles; compare a balanced port width against the one-word output control."
+  },
+  {
+    "name": "exp18_in128_out256",
+    "design": "design_v2",
+    "lanes": 16,
+    "out_lanes": 8,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 0,
+    "hypothesis": "128-bit ingress and 256-bit egress should reach 579 cycles; route this candidate to check whether cycle gains survive resource and timing constraints."
+  },
+  {
+    "name": "exp19_distributed_a",
+    "design": "design_v2",
+    "lanes": 8,
+    "out_lanes": 4,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 192,
+    "a_distributed": 1,
+    "hypothesis": "Use distributed RAM for small striped A banks while B remains BRAM; predict unchanged 1123 cycles, fewer BRAM tiles and a LUT/timing tradeoff versus experiment 13."
+  },
+  {
+    "name": "exp20_dsp128",
+    "design": "design_v2",
+    "lanes": 8,
+    "out_lanes": 4,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 128,
+    "a_distributed": 0,
+    "hypothesis": "Reduce DSP budget to 128 with the same transport and pipeline; predict 1123 cycles and quantify the LUT cost of reserving more DSPs."
+  },
+  {
+    "name": "exp21_dsp220",
+    "design": "design_v2",
+    "lanes": 8,
+    "out_lanes": 4,
+    "boundary_reg": 1,
+    "overlap": 1,
+    "dsp_budget": 220,
+    "a_distributed": 0,
+    "hypothesis": "Use the full 220-DSP budget with the same transport and pipeline; predict 1123 cycles and quantify LUT savings and timing versus the 192-DSP configuration."
+  }
+]
