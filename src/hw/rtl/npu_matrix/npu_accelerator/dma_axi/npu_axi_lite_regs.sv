@@ -31,6 +31,7 @@ module npu_axi_lite_regs #(
     input  logic                              s_axi_rready,
 
     input  logic                              status_busy,
+    input  logic                              status_accept,
     input  logic                              status_done,
     input  logic                              status_error,
     input  logic [7:0]                        error_code,
@@ -47,7 +48,7 @@ module npu_axi_lite_regs #(
 );
     localparam logic [31:0] ABI_MAGIC = 32'h3155504e;
     localparam logic [31:0] ABI_VERSION = 32'h00010000;
-    localparam logic [31:0] ABI_CAPABILITIES = 32'h0000001b;
+    localparam logic [31:0] ABI_CAPABILITIES = 32'h0000003b;
 
     localparam logic [7:0] REG_MAGIC = 8'h00;
     localparam logic [7:0] REG_VERSION = 8'h04;
@@ -107,7 +108,8 @@ module npu_axi_lite_regs #(
                 REG_VERSION:        read_word = ABI_VERSION;
                 REG_CAPABILITIES:   read_word = ABI_CAPABILITIES;
                 REG_CONTROL:        read_word = 32'd0;
-                REG_STATUS:         read_word = {29'd0, status_error, status_done, status_busy};
+                REG_STATUS:         read_word = {28'd0, status_accept, status_error,
+                                                status_done, status_busy};
                 REG_ERROR:          read_word = {24'd0, error_code};
                 REG_M:              read_word = {16'd0, cfg_m};
                 REG_N:              read_word = {16'd0, cfg_n};
@@ -190,31 +192,31 @@ module npu_axi_lite_regs #(
                         end
                     end
                     REG_M: begin
-                        if (!status_busy)
+                        if (status_accept)
                             cfg_m <= merge_wstrb16(cfg_m, w_hold_data, w_hold_strb);
                     end
                     REG_N: begin
-                        if (!status_busy)
+                        if (status_accept)
                             cfg_n <= merge_wstrb16(cfg_n, w_hold_data, w_hold_strb);
                     end
                     REG_K: begin
-                        if (!status_busy)
+                        if (status_accept)
                             cfg_k <= merge_wstrb16(cfg_k, w_hold_data, w_hold_strb);
                     end
                     REG_A_STRIDE: begin
-                        if (!status_busy)
+                        if (status_accept)
                             cfg_a_stride <= merge_wstrb(cfg_a_stride, w_hold_data, w_hold_strb);
                     end
                     REG_B_STRIDE: begin
-                        if (!status_busy)
+                        if (status_accept)
                             cfg_b_stride <= merge_wstrb(cfg_b_stride, w_hold_data, w_hold_strb);
                     end
                     REG_C_STRIDE: begin
-                        if (!status_busy)
+                        if (status_accept)
                             cfg_c_stride <= merge_wstrb(cfg_c_stride, w_hold_data, w_hold_strb);
                     end
                     REG_TIMEOUT_CYCLES: begin
-                        if (!status_busy)
+                        if (status_accept)
                             cfg_timeout_cycles <= merge_wstrb(
                                 cfg_timeout_cycles, w_hold_data, w_hold_strb
                             );

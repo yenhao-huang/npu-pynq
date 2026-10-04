@@ -16,11 +16,11 @@ module tb_npu_matrix_scaling;
     logic s_axis_tvalid = 0, s_axis_tready, s_axis_tlast = 0;
     logic [31:0] m_axis_tdata;
     logic m_axis_tvalid, m_axis_tready = 0, m_axis_tlast;
-    logic status_busy, status_done, status_error;
+    logic status_busy, status_accept, status_done, status_error;
     logic [63:0] cycles;
     integer load_cycles, compute_cycles, output_cycles;
     integer signed av [0:SIZE*256-1], bv [0:256*SIZE-1];
-    npu_matrix_controller #(
+    npu_matrix_core #(
         .ROWS(SIZE), .COLUMNS(SIZE), .MAX_K(256), .IN_BYTES(IN_BYTES)
     ) dut (.*);
     always #5 clk = ~clk;
@@ -112,9 +112,11 @@ module tb_npu_matrix_scaling;
             // Stall-free: one cycle per aligned word of A and B (B overlapped
             // with compute), the remaining drain and output, and one aligner
             // fill cycle per frame. Byte-wide input took
-            // m*k + k*n + m*n + m + n + 2.
+            // m*k + k*n + m*n + m + n + 2. The ping-pong exec engine also
+            // drops the idle CLEAR cycle between the B frame and the
+            // wavefront tail, so the constant is 3.
             if (!stalls && EXPECT_OVERLAP &&
-                cycles != words(m, k) + words(k, n) + m*n + m + n + 4)
+                cycles != words(m, k) + words(k, n) + m*n + m + n + 3)
                 $fatal(1, "FAIL no-stall latency regression");
             $display("METRIC size=%0d m=%0d n=%0d k=%0d stalls=%0d cycles=%0d load=%0d compute=%0d output=%0d macs=%0d",
                      SIZE,m,n,k,stalls,cycles,load_cycles,compute_cycles,output_cycles,m*n*k);

@@ -34,7 +34,11 @@ npu_repo_in_pynq/
 |   |-- hw/
 |   |   |-- rtl/
 |   |   |   `-- <design>/
-|   |   |       `-- *.sv
+|   |   |       |-- *.sv
+|   |   |       `-- <module>/
+|   |   |           |-- *.sv
+|   |   |           `-- <child-module>/
+|   |   |               `-- *.sv
 |   |   |-- tb/
 |   |   |   `-- <design>/
 |   |   |       `-- tb_*.sv
@@ -81,7 +85,7 @@ npu_repo_in_pynq/
 |               `-- *.html
 |-- docs/
 |   |-- assets/
-|   |   `-- *.png              versioned images embedded by documentation
+|   |   `-- *.png, *.svg       versioned images embedded by documentation
 |   |-- rules/
 |   |   |-- index.md
 |   |   |-- environment.md
@@ -216,6 +220,10 @@ Claude Code and Codex alike.
 reproduction procedures, including commands, recorded outputs and validation
 limitations. Package installation and demo instructions live under
 `tools/ic/docs/manual/` and ship with the npm package.
+`docs/goals/widen-input-width/` holds the packed operand stream's simulation
+report, design walkthrough, reproduction steps and recorded metrics (#93).
+`docs/goal/` holds one prompt file per hardware goal. Each file records the goal
+as given, the implementation, and the measured experiment that accepts it.
 
 `.ic/` is the run store written by `tools/ic`. It is machine-local and not
 tracked: `meta.json` records are kilobytes but the artifacts beside them are
@@ -247,8 +255,12 @@ the board and nothing is authored there.
 ## Rules
 
 One directory per design under `src/hw/rtl/`, `src/hw/tb/`, and
-`src/hw/vivado_tcl/`. The directory name is the design name and must match
-across all three.
+`src/hw/vivado_tcl/`. The design directory name must match across all three.
+RTL may be divided into nested module directories that follow the instance
+hierarchy. In `npu_matrix`, `npu_accelerator/` contains the top module,
+`dma_axi/`, and `npu_matrix_core/`; the core contains `controller/` and
+`npu_matrix_datapath/`, and the datapath contains `memory/` and
+`systolic_array/`. Testbenches remain in `src/hw/tb/<design>/`.
 
 A testbench is named `tb_<module>.sv` and lives in `src/hw/tb/<design>/`.
 `make sim` discovers tests by that pattern, so a testbench outside it never

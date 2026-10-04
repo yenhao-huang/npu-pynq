@@ -14,6 +14,12 @@ Types include `feat`, `fix`, `perf`, `test`, `refactor`, `docs`, `build`, `ci`,
 `chore`, and `revert`. Use a design name as scope for focused hardware work;
 otherwise use `hw`, `test`, `export`, `runtime`, `examples`, `docs`, or `ci`.
 
+`perf` is reserved for a fix that gains performance (latency, throughput,
+timing, or resource use) without changing what the design or code does or
+exposes. A change that adds a capability or touches an interface to reach that
+performance, such as a new register bit, status flag, or operating mode, is a
+`feat`, even if speed is its motivation.
+
 The subject is imperative, present tense, has no trailing period, and stays
 under 72 characters. The body explains why, numeric or interface consequences,
 measured timing/resource impact when available, and which tests cover the

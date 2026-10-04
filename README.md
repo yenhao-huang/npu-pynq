@@ -125,12 +125,12 @@ import from examples.
 
 ## Hardware Architecture
 
-![PYNQ-Z1 NPU hardware architecture](docs/assets/npu-hardware-architecture.png)
+![PYNQ-Z1 NPU hardware architecture](docs/assets/npu-hardware-architecture.svg)
 
-The diagram is limited to the physical hardware path: the Zynq processing
-system reaches the programmable logic through its AXI control and memory
-ports, while AXI DMA streams operands through the matrix controller and the
-2 x 2 systolic array.
+The diagram groups the hardware by function: the Zynq processing system uses
+DMA and AXI to move data and control the accelerator. The accelerator contains
+the controller, operand memory, and systolic array. The overlay defaults to an
+8 x 8 array and also supports a 2 x 2 build.
 
 ## Supported target and contracts
 
