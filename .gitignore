@@ -21,6 +21,18 @@ build/
 *.bit
 *.bin
 *.dcp
+*.vvp
+
+# User-requested experiment archives and per-experiment generated output.
+exp/0911_performance_optimization/hardware/**
+!exp/0911_performance_optimization/hardware/README.md
+exp/0911_performance_optimization/*/artifacts/
+exp/0911_performance_optimization/*/scratch/
+exp/0911_performance_optimization/*/sources/
+exp/0911_performance_optimization/*/attempts/
+exp/0911_performance_optimization/*/config.json
+exp/0911_performance_optimization/*/results.json
+exp/0911_performance_optimization/campaign.json
 *.ltx
 *.xsa
 
