@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module tb_npu_matrix_accelerator;
+module tb_npu_accelerator;
     logic s_axi_aclk = 0, s_axi_aresetn = 0;
     logic [7:0] s_axi_awaddr = 0, s_axi_araddr = 0;
     logic [2:0] s_axi_awprot = 0, s_axi_arprot = 0;
@@ -20,14 +20,14 @@ module tb_npu_matrix_accelerator;
     logic [31:0] read_value, held_data;
     logic held_last;
 
-    npu_matrix_accelerator #(
+    npu_accelerator #(
         .ROWS(2), .COLUMNS(2), .MAX_K(256), .IN_BYTES(8)
     ) dut (.*);
     always #5 s_axi_aclk = ~s_axi_aclk;
 
     task automatic fail(input string message);
         begin
-            $display("FAIL tb_npu_matrix_accelerator: %s", message);
+            $display("FAIL tb_npu_accelerator: %s", message);
             $fatal(1);
         end
     endtask
@@ -130,7 +130,7 @@ module tb_npu_matrix_accelerator;
         axi_read(8'h34, read_value);
         if (read_value != held_data) fail("cycle count changed after completion");
 
-        $display("PASS tb_npu_matrix_accelerator");
+        $display("PASS tb_npu_accelerator");
         $finish;
     end
 endmodule

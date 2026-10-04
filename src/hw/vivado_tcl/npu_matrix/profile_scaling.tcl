@@ -1,4 +1,4 @@
-# Isolated controller implementation: no PS/DMA or board-performance claim.
+# Isolated matrix core implementation: no PS/DMA or board-performance claim.
 # vivado -mode batch -source .../profile_scaling.tcl -tclargs ROOT OUTPUT SIZE
 if {[llength $argv] != 3} { error "expected ROOT OUTPUT SIZE" }
 lassign $argv source_root output_root size
@@ -9,10 +9,30 @@ file mkdir $output_root
 cd $output_root
 set_param general.maxThreads 4
 create_project -in_memory -part xc7z020clg400-1
-foreach path {systolic_array/npu_pe.sv systolic_array/npu_systolic_array.sv npu_matrix/npu_matrix_controller.sv} {
+set modular_paths {
+    npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv
+    npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_systolic_array.sv
+    npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/memory/npu_operand_buffer.sv
+    npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/npu_matrix_datapath.sv
+    npu_matrix/npu_accelerator/npu_matrix_core/controller/npu_matrix_controller.sv
+    npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_core.sv
+}
+set baseline_paths {
+    systolic_array/npu_pe.sv
+    systolic_array/npu_systolic_array.sv
+    npu_matrix/npu_matrix_controller.sv
+}
+if {[file isfile [file join $source_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_core.sv]]} {
+    set source_paths $modular_paths
+    set synthesis_top npu_matrix_core
+} else {
+    set source_paths $baseline_paths
+    set synthesis_top npu_matrix_controller
+}
+foreach path $source_paths {
     read_verilog -sv [file join $source_root src hw rtl $path]
 }
-synth_design -top npu_matrix_controller -mode out_of_context -part xc7z020clg400-1 \
+synth_design -top $synthesis_top -mode out_of_context -part xc7z020clg400-1 \
     -generic ROWS=$size -generic COLUMNS=$size -generic MAX_K=256
 create_clock -period 10.000 [get_ports clk]
 report_utilization -file [file join $output_root synth_utilization.rpt]

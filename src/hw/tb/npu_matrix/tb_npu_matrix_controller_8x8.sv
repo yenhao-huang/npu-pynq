@@ -28,7 +28,7 @@ module tb_npu_matrix_controller_8x8;
     logic [7:0] stream_bytes [0:ROWS*MAX_K + MAX_K*COLUMNS - 1];
     integer input_beats;
 
-    npu_matrix_controller #(
+    npu_matrix_core #(
         .ROWS(ROWS),
         .COLUMNS(COLUMNS),
         .MAX_K(MAX_K),

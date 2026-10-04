@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module npu_matrix_accelerator #(
+module npu_accelerator #(
     parameter integer ROWS = 2,
     parameter integer COLUMNS = 2,
     parameter integer MAX_K = 256,
@@ -76,7 +76,7 @@ module npu_matrix_accelerator #(
         .cfg_timeout_cycles(cfg_timeout_cycles)
     );
 
-    npu_matrix_controller #(
+    npu_matrix_core #(
         .ROWS(ROWS),
         .COLUMNS(COLUMNS),
         .MAX_K(MAX_K),

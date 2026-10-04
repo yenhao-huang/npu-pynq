@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 
 EXPECTED_METADATA = {
     "accelerator": {
-        "instance": "npu_matrix_accelerator_0",
+        "instance": "npu_accelerator_0",
         "parameters": {
             "ROWS": "2",
             "COLUMNS": "2",
@@ -100,10 +100,10 @@ def inspect_hwh(hwh_path: Path, *, array_size: int = 2) -> dict[str, object]:
                 )
         observed[role] = {"instance": instance, "parameters": expected_parameters}
     required_connections = (
-        'INSTANCE="npu_matrix_accelerator_0" PORT="s_axis_tdata"',
-        'INSTANCE="npu_matrix_accelerator_0" PORT="s_axis_tkeep"',
-        'INSTANCE="npu_matrix_accelerator_0" PORT="m_axis_tdata"',
-        'INSTANCE="npu_matrix_accelerator_0" PORT="irq"',
+        'INSTANCE="npu_accelerator_0" PORT="s_axis_tdata"',
+        'INSTANCE="npu_accelerator_0" PORT="s_axis_tkeep"',
+        'INSTANCE="npu_accelerator_0" PORT="m_axis_tdata"',
+        'INSTANCE="npu_accelerator_0" PORT="irq"',
         'SLAVEBUSINTERFACE="S_AXI_HP0"',
         'VALUE="100000000"',
     )

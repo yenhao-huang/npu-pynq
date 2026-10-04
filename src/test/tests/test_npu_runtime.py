@@ -116,12 +116,12 @@ class FakeOverlay:
         self.events = []
         params = parameters or {"ROWS": "2", "COLUMNS": "2", "MAX_K": "256"}
         self.ip_dict = {
-            "npu_matrix_accelerator_0": {
+            "npu_accelerator_0": {
                 "phys_addr": 0x43C00000, "addr_range": 0x10000, "parameters": params
             },
             "axi_dma_0": {"phys_addr": 0x40400000, "addr_range": 0x10000},
         }
-        self.npu_matrix_accelerator_0 = FakeMMIO(self.events, magic, version, caps)
+        self.npu_accelerator_0 = FakeMMIO(self.events, magic, version, caps)
         self.axi_dma_0 = FakeDMA(self.events, send_idle, recv_idle, reset_stuck)
 
 
@@ -264,7 +264,7 @@ class NPURuntimeTests(unittest.TestCase):
 
     def test_success_exposes_stable_cycle_metrics_across_rollover(self):
         overlay = FakeOverlay()
-        mmio = overlay.npu_matrix_accelerator_0
+        mmio = overlay.npu_accelerator_0
         high_values = iter((1, 2, 2, 2))
         low_values = iter((0xFFFFFFFE, 3))
         original_read = mmio.read
@@ -291,8 +291,8 @@ class NPURuntimeTests(unittest.TestCase):
         overlay = FakeOverlay()
         runtime = self.make_runtime(overlay=overlay)
         runtime.last_metrics = SimpleNamespace(cycles=123)
-        overlay.npu_matrix_accelerator_0.registers[0x10] = 4
-        overlay.npu_matrix_accelerator_0.registers[0x14] = 4
+        overlay.npu_accelerator_0.registers[0x10] = 4
+        overlay.npu_accelerator_0.registers[0x14] = 4
         with self.assertRaises(self.runtime_module.HardwareError):
             runtime.run(
                 np.ones((1, 1), dtype=np.int8),
@@ -302,7 +302,7 @@ class NPURuntimeTests(unittest.TestCase):
 
     def test_cycle_rollover_timeout_recovers_without_metrics(self):
         overlay = FakeOverlay()
-        mmio = overlay.npu_matrix_accelerator_0
+        mmio = overlay.npu_accelerator_0
         original_read = mmio.read
         high = 0
 
@@ -335,8 +335,8 @@ class NPURuntimeTests(unittest.TestCase):
 
     def test_hardware_error_is_typed_and_recovers(self):
         overlay = FakeOverlay()
-        overlay.npu_matrix_accelerator_0.registers[0x10] = 4
-        overlay.npu_matrix_accelerator_0.registers[0x14] = 4
+        overlay.npu_accelerator_0.registers[0x10] = 4
+        overlay.npu_accelerator_0.registers[0x14] = 4
         runtime = self.make_runtime(overlay=overlay)
         with self.assertRaises(self.runtime_module.HardwareError) as raised:
             runtime.run(np.ones((1, 1), dtype=np.int8), np.ones((1, 1), dtype=np.int8))

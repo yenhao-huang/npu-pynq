@@ -5,7 +5,7 @@
 # TESTS lists testbench basenames without the tb_ prefix; each must exist as
 #       ../hw/tb/<design>/tb_<name>.sv.
 
-RTL    := $(wildcard ../hw/rtl/*/*.sv)
+RTL    := $(shell find ../hw/rtl -type f -name '*.sv' -print)
 TB_DIR := ../hw/tb
 BUILD  := build
 TOP    ?=

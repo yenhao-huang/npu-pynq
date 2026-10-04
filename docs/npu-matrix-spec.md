@@ -3,6 +3,36 @@
 The PYNQ-Z1 matrix overlay supports source-controlled 2x2 and 8x8 systolic
 array configurations. The 8x8 target is the default. Explicit 2x2 builds remain supported.
 
+## RTL boundaries
+
+The RTL directory follows the instance hierarchy. Under the design directory
+`src/hw/rtl/npu_matrix/`, `npu_accelerator/` contains its top-level
+module, `dma_axi/`, and `npu_matrix_core/`. The core directory contains its
+module, `controller/`, and `npu_matrix_datapath/`; the datapath directory
+contains its module, `memory/`, and `systolic_array/`. The DMA engine remains
+a Xilinx IP in the Vivado design.
+
+- **DMA and AXI:** Vivado instantiates the Xilinx AXI DMA IP and connects its
+  AXI-Stream ports to `npu_accelerator`. The separate
+  `npu_axi_lite_regs` RTL module owns the accelerator's control/status register
+  interface. The refactor does not replace the DMA IP or change the register map.
+- **Controller:** `npu_matrix_controller` owns job validation, load/compute/output
+  sequencing, stream handshakes, buffer addresses and enables, timeout/error
+  handling, and the output selection. It does not store operands or instantiate
+  processing elements.
+- **Memory:** `npu_matrix_datapath` instantiates one `npu_operand_buffer` bank
+  per array row for A and per column for B. A banks accept row-aligned words;
+  B banks accept one byte per emitted row. Each bank has a synchronous read
+  port, and disabled reads hold their prior output. This preserves the
+  block-RAM-friendly schedule used by the 64-bit input stream.
+- **Systolic array:** `npu_systolic_array` owns the processing elements and
+  accumulators. `npu_matrix_core` wires it and the operand memories to the
+  controller; `npu_accelerator` wires that core to AXI-Lite and streams.
+
+The external AXI-Lite/AXI-Stream interfaces, matrix results, and controller
+cycle behavior remain unchanged. This design still uses a single A/B buffer
+pair; overlapping a later load with compute is tracked separately in issue #64.
+
 ## Select a configuration
 
 Run Vivado from the repository root. Select the 8x8 target with:

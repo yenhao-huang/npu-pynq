@@ -26,7 +26,7 @@ module tb_npu_matrix_controller;
     integer signed tail_b [0:12][0:1];
     integer signed tail_expected [0:1][0:1];
 
-    npu_matrix_controller #(
+    npu_matrix_core #(
         .ROWS(2), .COLUMNS(2), .MAX_K(256), .IN_BYTES(IN_BYTES)
     ) dut (.*);
 

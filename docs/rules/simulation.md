@@ -9,8 +9,9 @@ available simulator. It must expose:
 
 Rules:
 
-- Synthesizable RTL lives under `src/hw/rtl/<design>/`; testbench RTL lives
-  under `src/hw/tb/<design>/` and is never synthesized.
+- Synthesizable RTL lives under `src/hw/rtl/<design>/`, including its functional
+  subdirectories; testbench RTL lives under `src/hw/tb/<design>/` and is never
+  synthesized.
 - Testbenches are named `tb_<module>.sv` so the Makefile and CI can discover
   them.
 - Every RTL behavior change requires corresponding test coverage or an explicit

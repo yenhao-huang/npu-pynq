@@ -21,11 +21,25 @@ def main() -> None:
     if args.clock_mhz <= 0 or any(s < 3 for s in args.sizes):
         parser.error("clock must be positive and sizes >= 3 for partial-tile tests")
     args.output.mkdir(parents=True, exist_ok=True)
-    rtl = [args.rtl_root.resolve() / "src/hw/rtl" / p for p in (
-        "systolic_array/npu_pe.sv", "systolic_array/npu_systolic_array.sv",
+    rtl_root = args.rtl_root.resolve() / "src/hw/rtl"
+    modular_paths = (
+        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv",
+        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_systolic_array.sv",
+        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/memory/npu_operand_buffer.sv",
+        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/npu_matrix_datapath.sv",
+        "npu_matrix/npu_accelerator/npu_matrix_core/controller/npu_matrix_controller.sv",
+        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_core.sv",
+    )
+    baseline_paths = (
+        "systolic_array/npu_pe.sv",
+        "systolic_array/npu_systolic_array.sv",
         "npu_matrix/npu_matrix_controller.sv",
-    )]
-    tb = repo / "src/hw/tb/npu_matrix/tb_npu_matrix_scaling.sv"
+    )
+    if (rtl_root / modular_paths[-1]).is_file():
+        rtl = [rtl_root / path for path in modular_paths]
+    else:
+        rtl = [rtl_root / path for path in baseline_paths]
+    tb = args.rtl_root.resolve() / "src/hw/tb/npu_matrix/tb_npu_matrix_scaling.sv"
     evidence = {
         "scope": "RTL simulation; assumed clock, excludes host/DMA setup and DDR stalls",
         "clock_mhz": args.clock_mhz,
