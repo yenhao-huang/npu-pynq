@@ -93,14 +93,16 @@ set_property -dict [list \
     CONFIG.c_include_sg {0} \
     CONFIG.c_include_mm2s {1} \
     CONFIG.c_include_s2mm {1} \
-    CONFIG.c_m_axis_mm2s_tdata_width {8} \
+    CONFIG.c_m_axi_mm2s_data_width {64} \
+    CONFIG.c_m_axis_mm2s_tdata_width {64} \
     CONFIG.c_s_axis_s2mm_tdata_width {32} \
     CONFIG.c_sg_length_width {23}] $dma
 set accelerator [create_bd_cell -type module -reference npu_matrix_accelerator npu_matrix_accelerator_0]
 set_property -dict [list \
     CONFIG.ROWS $array_size \
     CONFIG.COLUMNS $array_size \
-    CONFIG.MAX_K {256}] $accelerator
+    CONFIG.MAX_K {256} \
+    CONFIG.IN_BYTES {8}] $accelerator
 set irq_concat [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:* irq_concat]
 set_property CONFIG.NUM_PORTS {3} $irq_concat
 

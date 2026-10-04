@@ -3,7 +3,10 @@
 module npu_matrix_controller #(
     parameter integer ROWS = 2,
     parameter integer COLUMNS = 2,
-    parameter integer MAX_K = 256
+    parameter integer MAX_K = 256,
+    // Bytes per input AXI-Stream beat. Operands keep their row-major byte
+    // order; each beat carries IN_BYTES consecutive bytes, lowest byte in lane 0.
+    parameter integer IN_BYTES = 8
 ) (
     input  logic        clk,
     input  logic        rst_n,
@@ -16,7 +19,8 @@ module npu_matrix_controller #(
     input  logic [31:0] cfg_b_stride,
     input  logic [31:0] cfg_c_stride,
     input  logic [31:0] cfg_timeout_cycles,
-    input  logic [7:0]  s_axis_tdata,
+    input  logic [IN_BYTES*8-1:0] s_axis_tdata,
+    input  logic [IN_BYTES-1:0]   s_axis_tkeep,
     input  logic        s_axis_tvalid,
     output logic        s_axis_tready,
     input  logic        s_axis_tlast,
@@ -39,6 +43,12 @@ module npu_matrix_controller #(
     localparam logic [31:0] ROWS_U32 = ROWS;
     localparam logic [31:0] COLUMNS_U32 = COLUMNS;
     localparam logic [31:0] MAX_K_U32 = MAX_K;
+    localparam logic [31:0] IN_BYTES_U32 = IN_BYTES;
+    localparam integer LANE_BITS = (IN_BYTES > 1) ? $clog2(IN_BYTES) : 1;
+    localparam integer A_WORDS = (ROWS*MAX_K + IN_BYTES - 1) / IN_BYTES;
+    localparam integer B_WORDS = (MAX_K*COLUMNS + IN_BYTES - 1) / IN_BYTES;
+    localparam integer A_WORD_BITS = (A_WORDS > 1) ? $clog2(A_WORDS) : 1;
+    localparam integer B_WORD_BITS = (B_WORDS > 1) ? $clog2(B_WORDS) : 1;
 
     typedef enum logic [2:0] {
         STATE_IDLE,
@@ -52,13 +62,30 @@ module npu_matrix_controller #(
     state_t state;
     logic [15:0] active_m, active_n, active_k;
     logic [31:0] active_timeout;
-    logic [15:0] load_outer;
-    logic [15:0] load_inner;
+    // Operand stream position: the next buffer word to write and the bytes of
+    // the current operand not yet received.
+    logic [15:0] load_beat;
+    logic [31:0] load_remaining;
+    logic [31:0] active_b_bytes;
     logic [31:0] compute_step;
+    // compute_step * active_n, kept incrementally so that B addressing needs no
+    // variable multiplier on the compute read path.
+    logic [31:0] compute_step_n;
     logic [15:0] output_row_count;
     logic [15:0] output_column_count;
-    logic signed [7:0] a_buffer [0:ROWS*MAX_K-1];
-    logic signed [7:0] b_buffer [0:MAX_K*COLUMNS-1];
+    // A and B are stored in stream order, IN_BYTES bytes per word: A element
+    // (r, k) at byte r*active_k + k, B element (k, c) at byte k*active_n + c.
+    logic [IN_BYTES*8-1:0] a_buffer [0:A_WORDS-1];
+    logic [IN_BYTES*8-1:0] b_buffer [0:B_WORDS-1];
+    // Per-row and per-column address offsets, fixed for a job:
+    // A byte = a_row_base[r] + compute_step, B byte = compute_step_n - b_column_offset[c].
+    logic [31:0] a_row_base [0:ROWS-1];
+    logic [31:0] b_column_offset [0:COLUMNS-1];
+    logic beat_is_last;
+    logic [IN_BYTES-1:0] beat_expected_keep;
+    logic beat_ok;
+    logic [31:0] a_address;
+    logic [31:0] b_address;
 
     logic array_clear, array_enable;
     logic signed [ROWS*8-1:0] array_a;
@@ -74,6 +101,7 @@ module npu_matrix_controller #(
     integer row_index;
     integer column_index;
     integer reduction_index;
+    integer lane_index;
 
     function automatic [31:0] widen_u16;
         input [15:0] value;
@@ -100,8 +128,21 @@ module npu_matrix_controller #(
     );
 
     initial begin
-        if (ROWS <= 0 || COLUMNS <= 0 || MAX_K <= 0)
+        if (ROWS <= 0 || COLUMNS <= 0 || MAX_K <= 0 || IN_BYTES <= 0)
             $fatal(1, "npu_matrix_controller parameters must be positive");
+        if ((IN_BYTES & (IN_BYTES - 1)) != 0)
+            $fatal(1, "npu_matrix_controller IN_BYTES must be a power of two");
+    end
+
+    // A beat is accepted only when TLAST and TKEEP match the bytes the current
+    // operand still owes: full beats before the end, then one final beat whose
+    // low lanes hold the remaining bytes.
+    always_comb begin
+        beat_is_last = (load_remaining <= IN_BYTES_U32);
+        for (lane_index = 0; lane_index < IN_BYTES; lane_index = lane_index + 1)
+            beat_expected_keep[lane_index] = (lane_index < load_remaining);
+        beat_ok = (s_axis_tlast == beat_is_last) &&
+            (s_axis_tkeep == beat_expected_keep);
     end
 
     always_comb begin
@@ -126,13 +167,17 @@ module npu_matrix_controller #(
         scheduled_b = '0;
         scheduled_b_valid = '0;
         reduction_index = 0;
+        a_address = 0;
+        b_address = 0;
         if (state == STATE_COMPUTE) begin
             for (row_index = 0; row_index < ROWS; row_index = row_index + 1) begin
                 reduction_index = compute_step - row_index;
                 if ((row_index < active_m) &&
                     (reduction_index >= 0) && (reduction_index < active_k)) begin
+                    a_address = a_row_base[row_index] + compute_step;
                     scheduled_a[row_index*8 +: 8] =
-                        a_buffer[row_index*MAX_K + reduction_index];
+                        a_buffer[a_address >> LANE_BITS][
+                            a_address[LANE_BITS-1:0]*8 +: 8];
                     scheduled_a_valid[row_index] = 1'b1;
                 end
             end
@@ -141,8 +186,10 @@ module npu_matrix_controller #(
                 reduction_index = compute_step - column_index;
                 if ((column_index < active_n) &&
                     (reduction_index >= 0) && (reduction_index < active_k)) begin
+                    b_address = compute_step_n - b_column_offset[column_index];
                     scheduled_b[column_index*8 +: 8] =
-                        b_buffer[reduction_index*COLUMNS + column_index];
+                        b_buffer[b_address >> LANE_BITS][
+                            b_address[LANE_BITS-1:0]*8 +: 8];
                     scheduled_b_valid[column_index] = 1'b1;
                 end
             end
@@ -156,9 +203,11 @@ module npu_matrix_controller #(
             active_n <= 0;
             active_k <= 0;
             active_timeout <= 0;
-            load_outer <= 0;
-            load_inner <= 0;
+            load_beat <= 0;
+            load_remaining <= 0;
+            active_b_bytes <= 0;
             compute_step <= 0;
+            compute_step_n <= 0;
             output_row_count <= 0;
             output_column_count <= 0;
             status_busy <= 1'b0;
@@ -172,9 +221,11 @@ module npu_matrix_controller #(
             active_n <= 0;
             active_k <= 0;
             active_timeout <= 0;
-            load_outer <= 0;
-            load_inner <= 0;
+            load_beat <= 0;
+            load_remaining <= 0;
+            active_b_bytes <= 0;
             compute_step <= 0;
+            compute_step_n <= 0;
             output_row_count <= 0;
             output_column_count <= 0;
             status_busy <= 1'b0;
@@ -204,9 +255,7 @@ module npu_matrix_controller #(
                 case (state)
                     STATE_LOAD_A: begin
                         if (s_axis_tvalid && s_axis_tready) begin
-                            if (s_axis_tlast !=
-                                ((load_outer == active_m - 1) &&
-                                 (load_inner == active_k - 1))) begin
+                            if (!beat_ok) begin
                                 state <= STATE_IDLE;
                                 status_busy <= 1'b0;
                                 status_done <= 1'b0;
@@ -214,26 +263,19 @@ module npu_matrix_controller #(
                                     status_error <= 1'b1;
                                     error_code <= ERR_STREAM_LENGTH;
                                 end
+                            end else if (beat_is_last) begin
+                                load_beat <= 0;
+                                load_remaining <= active_b_bytes;
+                                state <= STATE_LOAD_B;
                             end else begin
-                                if ((load_outer == active_m - 1) &&
-                                    (load_inner == active_k - 1)) begin
-                                    load_outer <= 0;
-                                    load_inner <= 0;
-                                    state <= STATE_LOAD_B;
-                                end else if (load_inner == active_k - 1) begin
-                                    load_outer <= load_outer + 1;
-                                    load_inner <= 0;
-                                end else begin
-                                    load_inner <= load_inner + 1;
-                                end
+                                load_beat <= load_beat + 1;
+                                load_remaining <= load_remaining - IN_BYTES_U32;
                             end
                         end
                     end
                     STATE_LOAD_B: begin
                         if (s_axis_tvalid && s_axis_tready) begin
-                            if (s_axis_tlast !=
-                                ((load_outer == active_k - 1) &&
-                                 (load_inner == active_n - 1))) begin
+                            if (!beat_ok) begin
                                 state <= STATE_IDLE;
                                 status_busy <= 1'b0;
                                 status_done <= 1'b0;
@@ -241,24 +283,21 @@ module npu_matrix_controller #(
                                     status_error <= 1'b1;
                                     error_code <= ERR_STREAM_LENGTH;
                                 end
+                            end else if (beat_is_last) begin
+                                load_beat <= 0;
+                                load_remaining <= 0;
+                                compute_step <= 0;
+                                compute_step_n <= 0;
+                                state <= STATE_CLEAR;
                             end else begin
-                                if ((load_outer == active_k - 1) &&
-                                    (load_inner == active_n - 1)) begin
-                                    load_outer <= 0;
-                                    load_inner <= 0;
-                                    compute_step <= 0;
-                                    state <= STATE_CLEAR;
-                                end else if (load_inner == active_n - 1) begin
-                                    load_outer <= load_outer + 1;
-                                    load_inner <= 0;
-                                end else begin
-                                    load_inner <= load_inner + 1;
-                                end
+                                load_beat <= load_beat + 1;
+                                load_remaining <= load_remaining - IN_BYTES_U32;
                             end
                         end
                     end
                     STATE_CLEAR: begin
                         compute_step <= 0;
+                        compute_step_n <= 0;
                         state <= STATE_COMPUTE;
                     end
                     STATE_COMPUTE: begin
@@ -270,6 +309,7 @@ module npu_matrix_controller #(
                             state <= STATE_OUTPUT;
                         end else begin
                             compute_step <= compute_step + 1;
+                            compute_step_n <= compute_step_n + widen_u16(active_n);
                         end
                     end
                     STATE_OUTPUT: begin
@@ -299,9 +339,11 @@ module npu_matrix_controller #(
             status_error <= 1'b0;
             error_code <= 0;
             cycles <= 0;
-            load_outer <= 0;
-            load_inner <= 0;
+            load_beat <= 0;
+            load_remaining <= widen_u16(cfg_m) * widen_u16(cfg_k);
+            active_b_bytes <= widen_u16(cfg_k) * widen_u16(cfg_n);
             compute_step <= 0;
+            compute_step_n <= 0;
             output_row_count <= 0;
             output_column_count <= 0;
             if ((cfg_m < 1) || (widen_u16(cfg_m) > ROWS_U32) ||
@@ -328,20 +370,27 @@ module npu_matrix_controller #(
         end
     end
 
+    // Whole words are written; lanes past the end of an operand hold
+    // don't-care bytes that the compute schedule never addresses.
     always_ff @(posedge clk) begin
         if (status_busy && (state == STATE_LOAD_A) &&
-            s_axis_tvalid && s_axis_tready &&
-            (s_axis_tlast == ((load_outer == active_m - 1) &&
-                              (load_inner == active_k - 1)))) begin
-            a_buffer[widen_u16(load_outer) * MAX_K +
-                     widen_u16(load_inner)] <= s_axis_tdata;
+            s_axis_tvalid && s_axis_tready && beat_ok) begin
+            a_buffer[load_beat[A_WORD_BITS-1:0]] <= s_axis_tdata;
         end
         if (status_busy && (state == STATE_LOAD_B) &&
-            s_axis_tvalid && s_axis_tready &&
-            (s_axis_tlast == ((load_outer == active_k - 1) &&
-                              (load_inner == active_n - 1)))) begin
-            b_buffer[widen_u16(load_outer) * COLUMNS +
-                     widen_u16(load_inner)] <= s_axis_tdata;
+            s_axis_tvalid && s_axis_tready && beat_ok) begin
+            b_buffer[load_beat[B_WORD_BITS-1:0]] <= s_axis_tdata;
+        end
+    end
+
+    // Address offsets are fixed when a job starts, off the compute read path.
+    always_ff @(posedge clk) begin
+        if (!status_busy && start_pulse) begin
+            for (int row = 0; row < ROWS; row++)
+                a_row_base[row] <= row * (widen_u16(cfg_k) - 32'd1);
+            for (int column = 0; column < COLUMNS; column++)
+                b_column_offset[column] <=
+                    column * (widen_u16(cfg_n) - 32'd1);
         end
     end
 
