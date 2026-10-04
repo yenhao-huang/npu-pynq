@@ -47,32 +47,37 @@ waiting for the array, and software must size it accordingly.
 
 ## 4. Datapath and operand banks
 
-`a_buffer` and `b_buffer` each hold **two banks**:
+Operands are stored as one synchronous-read memory per array edge, the layout
+introduced by issue #59: `gen_a_banks[r]` holds row `r` of `A`, and
+`gen_b_banks[c]` holds column `c` of `B`. Each memory has one write port, fed
+by `s_axis`, and one read port, feeding the array's boundary register. This
+lets them map to block RAM.
+
+Issue #64 makes each memory `2*MAX_K` deep. The address MSB selects the
+ping-pong half:
 
 ```
-a_buffer [0 : 2*ROWS*MAX_K - 1]      bank b occupies [b*ROWS*MAX_K    ...]
-b_buffer [0 : 2*MAX_K*COLUMNS - 1]   bank b occupies [b*MAX_K*COLUMNS ...]
+A bank r : memory[{half, k}]  =  A[r][k]   of the job in that half
+B bank c : memory[{half, k}]  =  B[k][c]   of the job in that half
 ```
 
-Three one-bit pointers name the banks:
+Three one-bit pointers name the halves:
 
 | Pointer | Owner | Advances on |
 | --- | --- | --- |
 | `alloc_ptr` | job admission | an accepted `START` |
-| `load_ptr` | load engine, writes its bank | the end of a B frame |
-| `exec_ptr` | exec engine, reads its bank | a retired job |
+| `load_ptr` | load engine, writes its half | the end of a B frame |
+| `exec_ptr` | exec engine, reads its half | a retired job |
 
-Because the pointers are independent, the load engine writes one bank while the
+Because the pointers are independent, the load engine writes one half while the
 exec engine reads the other. `occupancy` counts outstanding jobs and drives
 `status_busy` (`occupancy != 0`) and `status_accept` (`occupancy != 2`).
 
-Element layout inside a bank is unchanged: `A` is row-major with stride
-`MAX_K`, `B` is row-major with stride `COLUMNS`, and the compute schedule reads
-`a_buffer[base + row*MAX_K + k]` and `b_buffer[base + k*COLUMNS + column]`.
-
-Doubling the banks doubles operand storage. For the 8x8 target with
-`MAX_K = 256` that is 2 x 8 x 256 bytes for `A` and 2 x 256 x 8 bytes for `B`,
-4 KiB each. See section 10 for the measured implementation cost.
+The number of memories is unchanged: `ROWS` for A and `COLUMNS` for B, at
+`2*MAX_K` bytes each, which is 512 bytes at `MAX_K = 256`. Doubling the depth
+still fits one 18 Kb block RAM per memory, so the block RAM count need not
+grow. This is an expectation only; section 10 notes that no Vivado run has
+confirmed it.
 
 ## 5. State machines
 
@@ -89,23 +94,29 @@ LOAD_B --(B frame TLAST)--> LOAD_IDLE, or straight to LOAD_A if another
 `s_axis_tready` is asserted in `LOAD_A` and `LOAD_B` only. A beat whose `TLAST`
 does not match the frame's last element raises `ERR_STREAM_LENGTH`.
 
-**Exec engine** — owns the array and `m_axis`, and reads the bank at
+**Exec engine** — owns the array and `m_axis`, and reads the half at
 `exec_ptr`:
 
 ```
-EXEC_IDLE --(entry loaded)--> EXEC_CLEAR --> EXEC_COMPUTE --> EXEC_OUTPUT
+EXEC_IDLE --(entry's A frame landed)--> EXEC_CLEAR --> EXEC_COMPUTE --> EXEC_OUTPUT
 EXEC_OUTPUT --(TLAST accepted)--> EXEC_IDLE, or straight to EXEC_CLEAR if the
-                                  other bank is already loaded
+                                  other entry's A frame has landed
 ```
 
-`EXEC_COMPUTE` runs for `K + M + N - 1` steps, unchanged. `EXEC_OUTPUT` emits
-`M*N` beats, unchanged.
+`EXEC_CLEAR` zeroes the accumulators for one cycle. `EXEC_COMPUTE` walks
+`K + M + N - 1` wavefront steps. While the same job's B frame is still loading,
+a step is taken only if its B row is resident (`compute_step < load_outer`).
+Otherwise the array, and every boundary register, holds. This is the in-job
+overlap from issue #59. `EXEC_OUTPUT` emits `M*N` beats.
 
-Two same-cycle handoffs keep a lone job at its previous latency: an accepted
-`START` puts an idle load engine straight into `LOAD_A`, and the end of a B
-frame puts an idle exec engine straight into `EXEC_CLEAR`. A job that arrives
-alone therefore spends exactly as many cycles in the controller as it did
-before issue #64.
+Two same-cycle handoffs keep a lone job free of bubbles:
+- An accepted `START` puts an idle load engine straight into `LOAD_A`.
+- The end of an A frame puts an idle exec engine straight into `EXEC_CLEAR`,
+  which runs during the first B beat.
+
+A lone job therefore costs one cycle less than under issue #59 alone. The
+serialized controller spent an idle `STATE_CLEAR` cycle between `LOAD_B` and
+`COMPUTE`, and the exec engine has no such cycle.
 
 ## 6. Errors
 
@@ -132,8 +143,9 @@ whose load frame completed, so stale bytes are never observable.
 number of cycles since the previous retirement, or since the engine went busy
 for the first job in a burst.
 
-- For a single, isolated job this is bit-identical to the pre-#64 counter,
-  which is what keeps records comparable against the issue #63 baseline.
+- For a single, isolated job this is the same busy-cycle count the pre-#64
+  counter reported. The value itself is one cycle lower than under issue #59
+  alone (section 5).
 - For a burst, the per-job values sum to the burst's wall-clock length, so
   overlap shows up as smaller per-job numbers rather than as a separate metric.
 
@@ -141,58 +153,66 @@ On an error the counter holds the count accrued up to the abort and then stops.
 
 ## 9. Pipelining boundaries
 
-What overlaps, after issue #64:
+What overlaps:
 
-- the next job's `LOAD_A` / `LOAD_B` with the current job's `EXEC_COMPUTE` and
-  `EXEC_OUTPUT`, through the A/B banks;
+- **within a job** (issue #59): the wavefront advances as each B row lands;
+- **across jobs** (issue #64): the next job's `LOAD_A` / `LOAD_B` with the
+  current job's `EXEC_COMPUTE` and `EXEC_OUTPUT`, through the two halves;
 - back-to-back jobs with no bubble between them, in either engine.
 
 What still does not overlap:
 
-- **more than two jobs.** The queue is two deep because there are two banks.
-- **within a single job.** `LOAD_A`, `LOAD_B`, `EXEC_COMPUTE` and `EXEC_OUTPUT`
-  remain sequential for the job that owns them; `COMPUTE` does not begin on
-  partially loaded operands.
+- **more than two jobs.** The queue is two deep because there are two halves.
+- **compute with the A frame.** The exec engine starts only once A is
+  complete.
 - **output with compute of the same job.** Results are read from the
   accumulators after the wavefront drains.
 - **the load itself.** `s_axis` is 8 bits wide and accepts one element per
   cycle, so a job still costs `M*K + K*N` cycles of loading.
 
-That last point sets the ceiling. Per job the serialized cost is
+That last point sets the ceiling. For a lone job the cost is
 
 ```
-M*K + K*N   (load)  +  1 + K + M + N - 1   (clear and compute)  +  M*N (output)
+1 + M*K + K*N   (start and load)  +  M + N   (wavefront tail)  +  M*N   (output)
 ```
 
-and the pipelined steady-state cost is the larger of the load term and the
-compute-plus-output term. Because the byte-wide stream makes the load term
-dominate at every shape this design targets, ping-pong buffering hides the
-compute and output tail behind the next load, and cannot hide the load itself.
-Going further requires a wider input stream, or keeping an operand resident
-across tiles, not a third bank.
+At steady state the load engine never idles, so a pipelined job costs exactly
+`M*K + K*N + 1` cycles. That holds whenever the previous job's tail and output
+fit inside the next job's A frame. Ping-pong buffering hides the tail and the
+output; it cannot hide the load. Going further needs a wider input stream, or
+keeping an operand resident across tiles, not a third half.
 
 ## 10. Measured behaviour
 
-From `src/hw/tb/npu_matrix/tb_npu_matrix_controller_pipeline_8x8.sv`, which
-runs stall-free 8x8x64 physical jobs, first serialized and then pipelined:
+`src/hw/tb/npu_matrix/tb_npu_matrix_controller_16jobs.sv` runs 16 stall-free
+jobs twice: serialized (`START` waits for `!BUSY`), then pipelined (`START`
+waits for `ACCEPT`). Every output is checked against an exact INT32 model. The
+"#59 only" column runs the serialized pass against the controller on `dev`
+before this change, with `-DNPU_SERIAL_BASELINE`.
 
-| Measurement | Cycles |
-| --- | --- |
-| single 8x8x64 job, serialized | 1171 |
-| three jobs, serialized | 3519 |
-| three jobs, pipelined | 3223 |
-| saved | 296 |
+| shape | #59 only, 16 jobs | this change, pipelined | saved | per job, steady |
+| --- | ---: | ---: | ---: | --- |
+| 8x8x8    |  3424 |  2148 | 37.3 % |  212 -> 129 |
+| 8x8x64   | 17760 | 16484 |  7.2 % | 1108 -> 1025 |
+| 8x8x256  | 66912 | 65636 |  1.9 % | 4180 -> 4097 |
+| 16x16x64 | 37472 | 33076 | 11.7 % | 2340 -> 2049 |
 
-The single-job figure reproduces the 1169-cycle baseline recorded by issue #63,
-which is what makes the two columns comparable. The saving is 148 cycles for
-each job that has a predecessor to hide behind — `1 + K + M + N - 1 + M*N`
-with `K = 64`, `M = N = 8` — so steady-state cost per job falls from 1173 to
-1025 cycles, a 12.6 % reduction, approaching the 1024-cycle load bound.
+`docs/goal/ping-pong-buffer-prompt.md` has the full sweep, including 4x4 and
+the controller from before issue #59.
 
-`tb_npu_matrix_controller_pipeline.sv` covers the same mechanism at 2x2 with
-input stalls and output backpressure injected, and additionally checks bank
-swapping, `SOFT_RESET` with a load in flight, `BUSY_START` on a full queue,
-`STREAM_LENGTH` on a queued pipeline, and a queued job's own timeout.
+`tb_npu_matrix_controller_pipeline.sv` (2x2) and `_pipeline_8x8.sv` cover the
+same mechanism with input stalls and output backpressure injected. They also
+check:
+- half swapping;
+- `SOFT_RESET` with a load in flight;
+- `BUSY_START` on a full queue;
+- `STREAM_LENGTH` on a queued pipeline;
+- a queued job's own timeout.
 
-Synthesis and timing numbers for the doubled banks are recorded in
-`docs/exp/`.
+`tb_npu_matrix_scaling.sv` keeps the issue #59 checks at 4, 8 and 16:
+- exact no-stall latency;
+- stalled and partial tiles;
+- B aborted after overlapped compute.
+
+No Vivado run has been made for the doubled-depth memories. Block RAM, LUT
+and timing numbers belong in `docs/exp/` once measured.
