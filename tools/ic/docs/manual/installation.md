@@ -42,7 +42,7 @@ Install the published package from the
 [official npm registry](https://www.npmjs.com/package/@jony2156/ai-eda-tools):
 
 ```bash
-npm install -g --foreground-scripts @jony2156/ai-eda-tools@0.1.0
+npm install -g --foreground-scripts @jony2156/ai-eda-tools@0.1.1
 ic-tools doctor
 ```
 
@@ -90,7 +90,7 @@ Before installing, handle any [existing wrapper](#migrate-an-existing-pi-wrapper
 Install the package from npm:
 
 ```bash
-pi install npm:@jony2156/ai-eda-tools@0.1.0 --local
+pi install npm:@jony2156/ai-eda-tools@0.1.1 --local
 pi
 ```
 
@@ -177,7 +177,7 @@ Remove the integration you installed:
 
 ```bash
 # pi registry installation; run from the same project root.
-pi remove npm:@jony2156/ai-eda-tools@0.1.0 --local
+pi remove npm:@jony2156/ai-eda-tools@0.1.1 --local
 
 # Separately installed global CLI; use the same Node/NVM environment.
 npm uninstall -g @jony2156/ai-eda-tools
