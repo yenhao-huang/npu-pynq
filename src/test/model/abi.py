@@ -18,8 +18,11 @@ class Capability(IntFlag):
     REQUANT_INT8 = 1 << 2
     STREAM_TLAST = 1 << 3
     CYCLE_COUNTER = 1 << 4
+    PIPELINED_JOBS = 1 << 5
 
 
+#: PIPELINED_JOBS is advertised, not required: a device without it still
+#: satisfies this ABI, it simply runs one job at a time.
 MATRIX_REQUIRED_CAPABILITIES = (
     Capability.MATRIX_INT8
     | Capability.SATURATING_ACCUM_INT32
@@ -55,6 +58,10 @@ class Status(IntFlag):
     BUSY = 1 << 0
     DONE = 1 << 1
     ERROR = 1 << 2
+    #: The job queue has a free entry, so CONTROL.START is admitted and the
+    #: configuration registers are writable. Devices without
+    #: Capability.PIPELINED_JOBS never report it.
+    ACCEPT = 1 << 3
 
 
 class ErrorCode(IntEnum):

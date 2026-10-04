@@ -59,7 +59,7 @@ to the board, and the published Release carried only the matrix example.
   procedure.
 - `examples/resnet18/` packaging, board entry points, notebook root detection,
   and tests; `examples/matrix-multiplication/` workflow contract tests.
-- `docs/rules/ci-cd.md`, the root README, and the v0.1.5 changelog.
+- `docs/rules/ci-cd.md`, the root README, and the v1.0.6 changelog.
 - Repository configuration a person must apply: branch protection on `main`
   with `lint-and-simulate` and `release-readiness` required, a
   `pynq-z1-production` environment for the board runner, and a

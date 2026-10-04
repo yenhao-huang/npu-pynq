@@ -229,3 +229,68 @@ class GalleryPublicationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GalleryRequestPolicyTests(unittest.TestCase):
+    """Wikimedia refuses generic clients and rate-limits bursts."""
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        path = Path(__file__).resolve().parents[1] / "scripts" / "download_gallery.py"
+        spec = importlib.util.spec_from_file_location("gallery_policy", path)
+        cls.module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = cls.module  # dataclasses resolve their module
+        spec.loader.exec_module(cls.module)
+
+    def test_user_agent_carries_contact_information(self):
+        self.assertIn("https://github.com/yenhao-huang/npu-pynq", self.module.USER_AGENT)
+
+    def test_rate_limit_is_retried_then_succeeds(self):
+        from email.message import Message
+        from urllib.error import HTTPError
+        from urllib.request import Request
+
+        headers = Message()
+        headers["Retry-After"] = "1"
+        answers = [HTTPError("u", 429, "Too Many Requests", headers, None), "opened"]
+        slept = []
+
+        def fake_urlopen(request, timeout):
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+        original = self.module.urlopen
+        self.module.urlopen = fake_urlopen
+        try:
+            result = self.module._open_with_retry(
+                Request("https://upload.wikimedia.org/x.jpg"), sleep=slept.append
+            )
+        finally:
+            self.module.urlopen = original
+        self.assertEqual(result, "opened")
+        self.assertEqual(slept, [1.0])
+
+    def test_forbidden_is_reported_not_retried(self):
+        from urllib.error import HTTPError
+        from urllib.request import Request
+
+        calls = []
+
+        def fake_urlopen(request, timeout):
+            calls.append(request)
+            raise HTTPError("u", 403, "Forbidden", None, None)
+
+        original = self.module.urlopen
+        self.module.urlopen = fake_urlopen
+        try:
+            with self.assertRaisesRegex(self.module.GalleryAssetError, "HTTP 403"):
+                self.module._open_with_retry(
+                    Request("https://upload.wikimedia.org/x.jpg"), sleep=lambda _s: None
+                )
+        finally:
+            self.module.urlopen = original
+        self.assertEqual(len(calls), 1)

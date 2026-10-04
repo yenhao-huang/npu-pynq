@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 930" role="img" aria-labelledby="title desc">
+  <title id="title">PYNQ-Z1 NPU hardware architecture</title>
+  <desc id="desc">High-level diagram showing the processing system, programmable logic, npu_accelerator, dma_axi, npu_matrix_core, controller, memory, and systolic_array functions.</desc>
+  <defs>
+    <radialGradient id="background"><stop offset="0" stop-color="#101c28"/><stop offset="1" stop-color="#071019"/></radialGradient>
+    <linearGradient id="silver" x2="1" y2="1"><stop offset="0" stop-color="#dddddd"/><stop offset="1" stop-color="#adb3ba"/></linearGradient>
+    <linearGradient id="steel" x2="1" y2="1"><stop offset="0" stop-color="#7893af"/><stop offset="1" stop-color="#526d8e"/></linearGradient>
+    <linearGradient id="yellow" x2="1" y2="1"><stop offset="0" stop-color="#fff5a0"/><stop offset="1" stop-color="#ffe774"/></linearGradient>
+    <linearGradient id="turquoise" x2="1" y2="1"><stop offset="0" stop-color="#8ae6de"/><stop offset="1" stop-color="#64cfca"/></linearGradient>
+    <linearGradient id="rose" x2="1" y2="1"><stop offset="0" stop-color="#f3adc1"/><stop offset="1" stop-color="#dd8da9"/></linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5 0 10Z" fill="#ffffff"/></marker>
+    <style>
+      .bg { fill:url(#background) }
+      .panel { fill:none; stroke-width:4 }
+      .card { stroke:#ffffff; stroke-width:2 }
+      .silver { fill:url(#silver) }
+      .steel { fill:url(#steel) }
+      .yellow { fill:url(#yellow) }
+      .turquoise { fill:url(#turquoise) }
+      .rose { fill:url(#rose) }
+      .title { fill:#ffffff; font:700 40px Consolas,"Courier New",monospace }
+      .section { font:700 26px Consolas,"Courier New",monospace }
+      .module { fill:#080c10; font:700 25px Consolas,"Courier New",monospace }
+      .detail { fill:#080c10; font:600 17px Consolas,"Courier New",monospace }
+      .label { fill:#ffffff; font:700 16px Consolas,"Courier New",monospace }
+      .flow { fill:none; stroke:#ffffff; stroke-width:4; stroke-linejoin:round; marker-end:url(#arrow) }
+      .both { marker-start:url(#arrow) }
+    </style>
+  </defs>
+  <rect class="bg" width="1600" height="930"/>
+  <text class="title" x="800" y="66" text-anchor="middle">PYNQ-Z1 / Zynq-7020</text>
+
+  <rect class="panel" x="28" y="115" width="350" height="715" stroke="#60e535"/>
+  <text class="section" x="203" y="162" text-anchor="middle" fill="#60e535">Processing System (PS)</text>
+  <rect class="card silver" x="70" y="240" width="265" height="140"/>
+  <text class="module" x="202" y="305" text-anchor="middle">ARM Cortex-A9</text>
+  <text class="detail" x="202" y="340" text-anchor="middle">software control</text>
+  <rect class="card steel" x="70" y="545" width="265" height="140"/>
+  <text class="module" x="202" y="611" text-anchor="middle">DDR Memory</text>
+  <text class="detail" x="202" y="645" text-anchor="middle">operands / results</text>
+
+  <rect class="panel" x="405" y="115" width="1167" height="715" stroke="#ef367c"/>
+  <text class="section" x="988" y="162" text-anchor="middle" fill="#ef367c">Programmable Logic (PL)</text>
+  <rect class="panel" x="430" y="190" width="1115" height="560" stroke="#ffffff"/>
+  <text class="section" x="592" y="229" text-anchor="middle" fill="#ffffff">npu_accelerator</text>
+  <rect class="card steel" x="455" y="260" width="275" height="425"/>
+  <text class="module" x="592" y="400" text-anchor="middle">dma_axi</text>
+  <text class="detail" x="592" y="438" text-anchor="middle">AXI-Lite registers</text>
+  <text class="detail" x="592" y="477" text-anchor="middle">stream I/O</text>
+
+  <rect class="panel" x="790" y="220" width="735" height="505" stroke="#70e3d4"/>
+  <text class="section" x="1157" y="263" text-anchor="middle" fill="#70e3d4">npu_matrix_core</text>
+  <rect class="card turquoise" x="830" y="305" width="270" height="145"/>
+  <text class="module" x="965" y="367" text-anchor="middle">controller</text>
+  <text class="detail" x="965" y="405" text-anchor="middle">jobs + registers</text>
+  <rect class="card yellow" x="830" y="505" width="270" height="175"/>
+  <text class="module" x="965" y="571" text-anchor="middle">memory</text>
+  <text class="detail" x="965" y="609" text-anchor="middle">A / B operand buffers</text>
+  <rect class="card rose" x="1170" y="330" width="305" height="315"/>
+  <text class="module" x="1322" y="438" text-anchor="middle">systolic_array</text>
+  <text class="detail" x="1322" y="485" text-anchor="middle">8 × 8 default</text>
+  <text class="detail" x="1322" y="520" text-anchor="middle">2 × 2 supported</text>
+
+  <path class="flow both" d="M335 310H455"/>
+  <text class="label" x="395" y="297" text-anchor="middle">control</text>
+  <path class="flow both" d="M335 615H455"/>
+  <text class="label" x="395" y="602" text-anchor="middle">data</text>
+  <path class="flow both" d="M730 365H830"/>
+  <text class="label" x="780" y="347" text-anchor="middle">control</text>
+  <path class="flow" d="M730 575H830"/>
+  <text class="label" x="780" y="555" text-anchor="middle">operands</text>
+  <path class="flow" d="M965 450V505"/>
+  <path class="flow both" d="M1100 385H1170"/>
+  <path class="flow" d="M1100 585H1170"/>
+  <text class="label" x="1135" y="567" text-anchor="middle">A / B</text>
+
+  <text class="label" x="800" y="875" text-anchor="middle">PS ↔ dma_axi ↔ NPU  ·  Control above, operand data below</text>
+</svg>

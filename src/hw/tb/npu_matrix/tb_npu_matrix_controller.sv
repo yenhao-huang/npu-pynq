@@ -1,6 +1,8 @@
 `timescale 1ns/1ps
 
 module tb_npu_matrix_controller;
+    localparam integer IN_BYTES = 8;
+
     logic clk = 1'b0;
     logic rst_n = 1'b0;
     logic start_pulse = 1'b0;
@@ -8,18 +10,25 @@ module tb_npu_matrix_controller;
     logic [15:0] cfg_m = 0, cfg_n = 0, cfg_k = 0;
     logic [31:0] cfg_a_stride = 0, cfg_b_stride = 0, cfg_c_stride = 0;
     logic [31:0] cfg_timeout_cycles = 0;
-    logic [7:0] s_axis_tdata = 0;
+    logic [IN_BYTES*8-1:0] s_axis_tdata = 0;
+    logic [IN_BYTES-1:0] s_axis_tkeep = 0;
     logic s_axis_tvalid = 0, s_axis_tready, s_axis_tlast = 0;
     logic [31:0] m_axis_tdata;
     logic m_axis_tvalid, m_axis_tready = 0, m_axis_tlast;
-    logic status_busy, status_done, status_error;
+    logic status_busy, status_accept, status_done, status_error;
     logic [7:0] error_code;
     logic [63:0] cycles;
     logic signed [31:0] held_data;
     logic held_last;
     logic [63:0] held_cycles;
+    logic [7:0] stream_bytes [0:255];
+    integer signed tail_a [0:1][0:12];
+    integer signed tail_b [0:12][0:1];
+    integer signed tail_expected [0:1][0:1];
 
-    npu_matrix_controller #(.ROWS(2), .COLUMNS(2), .MAX_K(256)) dut (.*);
+    npu_matrix_core #(
+        .ROWS(2), .COLUMNS(2), .MAX_K(256), .IN_BYTES(IN_BYTES)
+    ) dut (.*);
 
     always #5 clk = ~clk;
 
@@ -56,16 +65,55 @@ module tb_npu_matrix_controller;
         end
     endtask
 
-    task automatic send_beat(input integer signed value, input logic last);
+    // One raw beat, for driving malformed TKEEP/TLAST combinations.
+    task automatic send_beat(
+        input logic [IN_BYTES*8-1:0] data, input logic [IN_BYTES-1:0] keep,
+        input logic last
+    );
         begin
             @(negedge clk);
-            s_axis_tdata = value[7:0];
+            s_axis_tdata = data;
+            s_axis_tkeep = keep;
             s_axis_tlast = last;
             s_axis_tvalid = 1'b1;
             while (!s_axis_tready) @(negedge clk);
             @(negedge clk);
             s_axis_tvalid = 1'b0;
             s_axis_tlast = 1'b0;
+            s_axis_tkeep = 0;
+        end
+    endtask
+
+    // Send stream_bytes[0:count-1] the way AXI DMA MM2S does: IN_BYTES bytes
+    // per beat, lowest byte in lane 0, and a final beat whose TKEEP marks only
+    // the remaining bytes.
+    task automatic send_bytes(input integer count);
+        integer offset, lane;
+        logic [IN_BYTES*8-1:0] data;
+        logic [IN_BYTES-1:0] keep;
+        begin
+            for (offset = 0; offset < count; offset = offset + IN_BYTES) begin
+                data = 0;
+                keep = 0;
+                for (lane = 0; lane < IN_BYTES; lane = lane + 1) begin
+                    if (offset + lane < count) begin
+                        data[lane*8 +: 8] = stream_bytes[offset + lane];
+                        keep[lane] = 1'b1;
+                    end
+                end
+                send_beat(data, keep, offset + IN_BYTES >= count);
+            end
+        end
+    endtask
+
+    task automatic send4(
+        input integer signed b0, input integer signed b1,
+        input integer signed b2, input integer signed b3
+    );
+        begin
+            stream_bytes[0] = b0[7:0]; stream_bytes[1] = b1[7:0];
+            stream_bytes[2] = b2[7:0]; stream_bytes[3] = b3[7:0];
+            send_bytes(4);
         end
     endtask
 
@@ -87,19 +135,15 @@ module tb_npu_matrix_controller;
         end
     endtask
 
-    task automatic run_board_matrix(input logic inject_busy_start);
+    task automatic run_board_matrix;
         begin
             configure(2, 2, 2, 2, 2, 8, 200);
             pulse_start();
             if (!status_busy || !s_axis_tready) fail("valid start did not enter A frame");
-            if (inject_busy_start) pulse_start();
 
-            send_beat(-128, 0); send_beat(127, 0);
+            send4(-128, 127, 7, -3);
             repeat (2) @(negedge clk);
-            send_beat(7, 0); send_beat(-3, 1);
-            send_beat(-1, 0); send_beat(2, 0);
-            repeat (2) @(negedge clk);
-            send_beat(4, 0); send_beat(-5, 1);
+            send4(-1, 2, 4, -5);
 
             m_axis_tready = 1'b0;
             wait (m_axis_tvalid);
@@ -123,12 +167,10 @@ module tb_npu_matrix_controller;
             end
             @(posedge clk); #1;
             m_axis_tready = 1'b0;
-            if (status_busy || !status_done || cycles == 0) fail("successful completion status");
-            if (inject_busy_start) begin
-                if (!status_error || error_code != 8'd3) fail("BUSY_START not sticky");
-            end else if (status_error || error_code != 0) begin
+            if (status_busy || !status_accept || !status_done || cycles == 0)
+                fail("successful completion status");
+            if (status_error || error_code != 0)
                 fail("unexpected successful-job error");
-            end
             held_cycles = cycles;
             repeat (3) @(posedge clk);
             if (cycles != held_cycles) fail("cycles not stable after DONE");
@@ -148,20 +190,33 @@ module tb_npu_matrix_controller;
         configure(2, 2, 2, 2, 2, 8, 0); pulse_start();
         expect_error(8'd6, "INVALID_TIMEOUT"); pulse_soft_reset();
 
-        configure(1, 1, 2, 2, 1, 4, 50); pulse_start();
-        send_beat(2, 1); expect_error(8'd4, "early A TLAST"); pulse_soft_reset();
+        configure(2, 1, 8, 8, 1, 4, 50); pulse_start();
+        send_beat('1, '1, 1); expect_error(8'd4, "early A TLAST"); pulse_soft_reset();
 
         configure(1, 1, 1, 1, 1, 4, 50); pulse_start();
-        send_beat(2, 0); expect_error(8'd4, "missing A TLAST"); pulse_soft_reset();
+        send_beat(2, 'h01, 0); expect_error(8'd4, "missing A TLAST"); pulse_soft_reset();
+
+        configure(1, 1, 2, 2, 1, 4, 50); pulse_start();
+        send_beat(2, 'h01, 1); expect_error(8'd4, "short final A TKEEP"); pulse_soft_reset();
+
+        configure(1, 1, 2, 2, 1, 4, 50); pulse_start();
+        send_beat(2, 'h07, 1); expect_error(8'd4, "long final A TKEEP"); pulse_soft_reset();
+
+        configure(2, 1, 8, 8, 1, 4, 50); pulse_start();
+        send_beat('1, 'h7f, 0); expect_error(8'd4, "partial A TKEEP mid-frame"); pulse_soft_reset();
+
+        configure(1, 1, 1, 1, 1, 4, 50); pulse_start();
+        send_beat(2, 'h01, 1); send_beat(3, 'h01, 0);
+        expect_error(8'd4, "missing B TLAST"); pulse_soft_reset();
 
         configure(1, 1, 1, 1, 1, 4, 3); pulse_start();
         expect_error(8'd5, "TIMEOUT"); pulse_soft_reset();
 
-        run_board_matrix(1'b0); pulse_soft_reset();
+        run_board_matrix(); pulse_soft_reset();
 
         configure(1, 2, 2, 2, 2, 8, 100); pulse_start();
-        send_beat(2, 0); send_beat(-3, 1);
-        send_beat(4, 0); send_beat(6, 0); send_beat(5, 0); send_beat(-7, 1);
+        stream_bytes[0] = 2; stream_bytes[1] = -3; send_bytes(2);
+        send4(4, 6, 5, -7);
         m_axis_tready = 1'b1;
         wait (m_axis_tvalid);
         if ($signed(m_axis_tdata) != -7 || m_axis_tlast) fail("masked C[0,0]");
@@ -171,8 +226,41 @@ module tb_npu_matrix_controller;
         if (!status_done || status_error) fail("masked job status");
         pulse_soft_reset();
 
-        run_board_matrix(1'b1); pulse_soft_reset();
-        if (status_busy || status_done || status_error || error_code != 0 || cycles != 0)
+        // K = 13 spans four beats per operand, each ending in a partial beat.
+        for (int row = 0; row < 2; row++)
+            for (int reduction = 0; reduction < 13; reduction++)
+                tail_a[row][reduction] = ((row * 53 + reduction * 19 + 11) % 255) - 127;
+        for (int reduction = 0; reduction < 13; reduction++)
+            for (int column = 0; column < 2; column++)
+                tail_b[reduction][column] = ((reduction * 37 + column * 71 + 5) % 255) - 127;
+        for (int row = 0; row < 2; row++)
+            for (int column = 0; column < 2; column++) begin
+                tail_expected[row][column] = 0;
+                for (int reduction = 0; reduction < 13; reduction++)
+                    tail_expected[row][column] += tail_a[row][reduction] * tail_b[reduction][column];
+            end
+        configure(2, 2, 13, 13, 2, 8, 200); pulse_start();
+        for (int index = 0; index < 26; index++)
+            stream_bytes[index] = tail_a[index / 13][index % 13];
+        send_bytes(26);
+        for (int index = 0; index < 26; index++)
+            stream_bytes[index] = tail_b[index / 2][index % 2];
+        send_bytes(26);
+        m_axis_tready = 1'b1;
+        wait (m_axis_tvalid);
+        for (int index = 0; index < 4; index++) begin
+            if ($signed(m_axis_tdata) != tail_expected[index / 2][index % 2] ||
+                m_axis_tlast != (index == 3))
+                fail("multi-beat tail job result");
+            @(posedge clk); #1;
+        end
+        m_axis_tready = 1'b0;
+        if (!status_done || status_error) fail("multi-beat tail job status");
+        pulse_soft_reset();
+
+        run_board_matrix(); pulse_soft_reset();
+        if (status_busy || !status_accept || status_done || status_error ||
+            error_code != 0 || cycles != 0)
             fail("SOFT_RESET did not restore lifecycle state");
 
         $display("PASS tb_npu_matrix_controller");

@@ -35,6 +35,7 @@ CONTROL_SOFT_RESET = 2
 STATUS_BUSY = 1
 STATUS_DONE = 2
 STATUS_ERROR = 4
+STATUS_ACCEPT = 8
 
 DMA_CONTROL_RUN = 0x0001
 DMA_CONTROL_RESET = 0x0004
@@ -111,7 +112,7 @@ class NPURuntime:
         *,
         allocator: Callable[..., Any],
         monotonic: Callable[[], float] = time.monotonic,
-        accelerator_name: str = "npu_matrix_accelerator_0",
+        accelerator_name: str = "npu_accelerator_0",
         dma_name: str = "axi_dma_0",
     ) -> None:
         self.overlay = overlay

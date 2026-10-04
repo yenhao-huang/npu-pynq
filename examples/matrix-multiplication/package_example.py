@@ -116,8 +116,13 @@ def build_package(
     output_dir: Path,
     release_tag: str,
     source_commit: str,
+    overlay_commit: str | None = None,
 ) -> dict[str, object]:
-    """Build one complete package or fail without publishing a partial output."""
+    """Build one complete package or fail without publishing a partial output.
+
+    ``overlay_commit`` names the commit the overlay was built from when a
+    release reuses an earlier build of identical hardware sources.
+    """
 
     repository_root = repository_root.resolve()
     artifact_dir = artifact_dir.resolve()
@@ -127,9 +132,16 @@ def build_package(
     if output_dir.exists():
         raise PackageError(f"output directory already exists: {output_dir}")
 
+    hardware_commit = (
+        commit if overlay_commit is None else _validated_commit(overlay_commit)
+    )
     overlay_manifest = verify_artifacts(artifact_dir)
-    if str(overlay_manifest.get("source_commit", "")).lower() != commit:
-        raise PackageError("overlay manifest source commit differs from release commit")
+    if str(overlay_manifest.get("source_commit", "")).lower() != hardware_commit:
+        raise PackageError(
+            "overlay manifest source commit differs from release commit"
+            if overlay_commit is None
+            else "overlay manifest source commit differs from --overlay-commit"
+        )
     files = _required_files(repository_root, artifact_dir)
 
     output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -142,6 +154,7 @@ def build_package(
             "schema_version": 1,
             "release_tag": tag,
             "source_commit": commit,
+            "overlay_source_commit": hardware_commit,
             "target_part": overlay_manifest["target_part"],
             "files": records,
         }
@@ -164,6 +177,10 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--release-tag")
     parser.add_argument("--source-commit")
+    parser.add_argument(
+        "--overlay-commit",
+        help="the overlay was built from this earlier commit (reused build)",
+    )
     arguments = parser.parse_args()
 
     repository_root = arguments.repository_root.resolve()
@@ -185,6 +202,7 @@ def main() -> int:
         output_dir=output_dir,
         release_tag=release_tag,
         source_commit=source_commit,
+        overlay_commit=arguments.overlay_commit,
     )
     print(f"PASS: standalone matrix example package at {output_dir}")
     return 0

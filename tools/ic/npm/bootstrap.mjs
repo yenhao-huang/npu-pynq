@@ -273,8 +273,11 @@ async function installRuntime(stage, root, spec, openroad) {
   const env = runtimeEnvironment(stage);
   const python = pythonPath(stage);
   log('Installing hash-locked Python dependencies');
+  // The lock pins the full dependency closure, so pip must not re-resolve dependency specifiers:
+  // the bundled pip 23.2 treats an extra such as mcp's pyjwt[crypto] as unpinned and fetches the
+  // newest release, which --require-hashes then rejects.
   await checked(python, ['-m', 'pip', '--isolated', '--disable-pip-version-check', 'install', '--no-user',
-    '--require-hashes', '--only-binary=:all:', '--target', path.join(stage, 'python-packages'),
+    '--require-hashes', '--no-deps', '--only-binary=:all:', '--target', path.join(stage, 'python-packages'),
     '-r', path.join(packageRoot, 'npm', 'requirements.lock')], { env });
   await checked(python, ['-c', 'import mcp, pydantic; from ic_mcp.server import build_server; build_server()'], { env });
   await checked(python, ['-m', 'ic_cli.main', 'doctor'], { env });

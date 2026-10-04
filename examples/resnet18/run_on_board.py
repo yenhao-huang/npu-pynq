@@ -124,8 +124,11 @@ def run_board(
     allow_source_mismatch: bool,
     evidence_path: Path,
     software_timeout: float,
+    require_checkpoint: bool = True,
 ) -> dict[str, object]:
-    validate_workspace(model_dir, source_metadata_path)
+    validate_workspace(
+        model_dir, source_metadata_path, require_checkpoint=require_checkpoint
+    )
     model_dir = model_dir.resolve()
     artifact_dir = artifact_dir.resolve()
     overlay = verify_artifacts(artifact_dir)
@@ -200,6 +203,7 @@ GENERATED_PACKAGE_FILES = frozenset(
     }
 )
 RECOVERY_PROBE_KIND = "physical-accelerator-timeout"
+VERIFY_PASS_MARKER = "PASS: deployed package matches the published archive"
 
 
 class BoardAcceptanceError(RuntimeError):
@@ -212,7 +216,7 @@ class VerifiedPackage:
 
     root: Path
     manifest: dict[str, object]
-    descriptor_path: Path
+    descriptor_path: Path | None
     artifact_dir: Path
     reports: tuple[dict[str, object], ...]
     archive_sha256: str
@@ -235,10 +239,12 @@ def _package_json(path: Path, label: str) -> dict[str, object]:
 
 
 def _relative_entries(root: Path) -> set[str]:
+    # Importing this very module writes __pycache__ beside the package sources
+    # before any check can run, so bytecode caches are not package content.
     return {
         path.relative_to(root).as_posix()
         for path in root.rglob("*")
-        if path.is_file()
+        if path.is_file() and "__pycache__" not in path.relative_to(root).parts
     }
 
 
@@ -320,9 +326,14 @@ def verify_package_tree(
         if _digest_or_fail(report, "build report") != record.get("sha256"):
             raise BoardAcceptanceError(f"build report was modified: {record['path']}")
 
-    descriptor_path = root / "acceptance" / "acceptance.json"
-    if not descriptor_path.is_file():
-        raise BoardAcceptanceError("acceptance descriptor is missing")
+    # A package is accepted from an external bundle when it carries one, and
+    # otherwise from its model workspace. It must carry one or the other.
+    bundle = root / "acceptance" / "acceptance.json"
+    descriptor_path = bundle if bundle.is_file() else None
+    if descriptor_path is None and not (root / "model" / "acceptance.json").is_file():
+        raise BoardAcceptanceError(
+            "package carries neither an acceptance bundle nor a model workspace"
+        )
 
     return VerifiedPackage(
         root=root,
@@ -346,6 +357,8 @@ def execute_board_acceptance(
 
     if not isinstance(verified, VerifiedPackage):
         raise TypeError("verified must come from verify_package_tree")
+    if verified.descriptor_path is None:
+        raise BoardAcceptanceError("this package carries no acceptance bundle")
     bundle = load_acceptance_bundle(verified.descriptor_path)
     model = load_model_package(bundle.model_manifest_path)
     runtime = NPUModelRuntime(matrix_runtime, model)
@@ -418,17 +431,45 @@ def _accept_package(arguments: argparse.Namespace) -> int:
             raise BoardAcceptanceError(
                 "package manifest names another release tag"
             )
-        physical = load_pynq_runtime(verified.artifact_dir / "npu_matrix.bit")
-        if not isinstance(physical, NPURuntime):
-            raise BoardAcceptanceError(
-                "physical evidence requires the public NPURuntime"
+        if arguments.verify_only:
+            # Deployment check only: the tree is exactly the published archive.
+            # The physical run is a separate step (accept_image_on_board.py).
+            print(VERIFY_PASS_MARKER)
+            return 0
+        if verified.descriptor_path is None:
+            # The real release: accept the model workspace the package carries.
+            # verify_package_tree has already proved every file digest. A
+            # release may reuse an overlay built from an earlier commit with
+            # identical hardware sources, so bind to the overlay's own commit.
+            overlay_record = verified.manifest.get("overlay")
+            commit = str(
+                overlay_record.get("source_commit", "")
+                if isinstance(overlay_record, dict)
+                else ""
             )
-        execute_board_acceptance(
-            verified,
-            physical,
-            evidence_path=arguments.evidence,
-            software_timeout=arguments.software_timeout,
-        )
+            run_board(
+                model_dir=verified.root / "model",
+                source_metadata_path=verified.root / "model-source.json",
+                artifact_dir=verified.artifact_dir,
+                expected_source_commit=commit,
+                deployed_source_commit=commit,
+                allow_source_mismatch=False,
+                evidence_path=arguments.evidence,
+                software_timeout=arguments.software_timeout,
+                require_checkpoint=False,
+            )
+        else:
+            physical = load_pynq_runtime(verified.artifact_dir / "npu_matrix.bit")
+            if not isinstance(physical, NPURuntime):
+                raise BoardAcceptanceError(
+                    "physical evidence requires the public NPURuntime"
+                )
+            execute_board_acceptance(
+                verified,
+                physical,
+                evidence_path=arguments.evidence,
+                software_timeout=arguments.software_timeout,
+            )
     except Exception as error:
         print(f"standalone package acceptance failed: {error}", file=sys.stderr)
         return 1
@@ -447,7 +488,7 @@ def main() -> int:
     parser.add_argument("--expected-source-commit")
     parser.add_argument("--deployed-source-commit")
     parser.add_argument("--allow-source-mismatch", action="store_true")
-    parser.add_argument("--evidence", type=Path, required=True)
+    parser.add_argument("--evidence", type=Path)
     parser.add_argument("--software-timeout", type=float, default=86400.0)
     parser.add_argument(
         "--package-root",
@@ -457,7 +498,16 @@ def main() -> int:
     parser.add_argument("--package-archive", type=Path)
     parser.add_argument("--archive-sha256")
     parser.add_argument("--release-tag")
+    parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="with --package-root: prove the deployed tree, run nothing",
+    )
     arguments = parser.parse_args()
+    if arguments.verify_only and arguments.package_root is None:
+        parser.error("--verify-only requires --package-root")
+    if arguments.evidence is None and not arguments.verify_only:
+        parser.error("--evidence is required")
     if arguments.package_root is not None:
         return _accept_package(arguments)
     missing = [

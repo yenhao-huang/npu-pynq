@@ -11,8 +11,11 @@ Before creating or modifying an issue:
 3. Read the existing issue before editing it.
 4. Preserve unrelated body sections and metadata.
 
-Issue titles are specific, actionable, and under 72 characters. A useful
-hardware issue records what is known about:
+Issue titles use `<type>(<scope>): <actionable description>` and stay under 72
+characters, for example `feat(hw): bank matrix operands` or
+`fix(export): correct INT8 calibration`. Choose a type and scope that describe
+the issue's work, using the same type and scope conventions as
+[`commit.md`](commit.md). A useful hardware issue records what is known about:
 
 - design, source commit, branch, or tag;
 - simulation-only, board-only, or shared reproduction;

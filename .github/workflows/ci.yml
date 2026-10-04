@@ -80,7 +80,7 @@ jobs:
           if not any(str(pattern).startswith("release/") for pattern in branches):
               sys.exit("cd.yml must run on release/* branches")
           draft = cd["jobs"]["publish-draft"]
-          required = {"validate-source", "host-checks", "build-overlay", "board-validation"}
+          required = {"validate-source", "host-checks", "build-model", "build-overlay", "board-validation"}
           if not required.issubset(set(draft["needs"])):
               sys.exit("publish-draft must depend on every validation job")
           for name, job in cd["jobs"].items():

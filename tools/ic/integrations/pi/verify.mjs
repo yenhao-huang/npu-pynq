@@ -49,7 +49,7 @@ if (!lint) {
 console.log("lint schema required:", JSON.stringify(lint.parameters?.required ?? null));
 
 const result = await lint.execute("verify-1", {
-  files: ["src/hw/rtl/systolic_array/npu_pe.sv"],
+  files: ["src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv"],
   top: "npu_pe",
 }, new AbortController().signal, () => {});
 const text = result.content.find((c) => c.type === "text")?.text ?? "";

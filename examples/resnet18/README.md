@@ -301,12 +301,12 @@ deployment, and it runs the same code:
    declares and that the version is not already tagged.
 2. Host checks and the Vivado build run, and this example is packaged into
    `npu-resnet18-<tag>.zip` with a checksum file.
-3. `.github/cd/resnet18_deploy_and_accept.ps1` copies exactly that archive to
-   the board, where `run_on_board.py --package-root` proves the extracted tree
-   against the archive digest and the package manifest before programming the
-   overlay, runs the acceptance corpus, and writes `board-evidence.json`.
+3. `.github/cd/resnet18_deploy.ps1` copies exactly that archive to the board,
+   where `run_on_board.py --package-root ... --verify-only` proves the extracted
+   tree against the archive digest and the package manifest, without touching
+   the FPGA, before the deployment is promoted.
 4. `.github/cd/resnet18_accept_image.ps1` then runs
-   `accept_image_on_board.py`, which classifies the pinned photograph on the
+   `accept_image_on_board.py` detached on the board and polls it; it classifies the pinned photograph on the
    physical overlay, compares every capture against the host record, and writes
    `image-acceptance.json` naming the release tag, the source commit, the
    overlay digests, the input image, the top-5, and the verdict.
