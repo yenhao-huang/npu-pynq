@@ -1,7 +1,7 @@
-# ResNet-18 8 x 8 NPU demo
+# ResNet-18 NPU demo
 
-The default demo uses an 8 x 8 systolic array (64 processing elements), with
-`MAX_K=256`. The notebook rejects other overlay dimensions.
+The default demo uses a 16 x 16 systolic array (256 processing elements), with
+`MAX_K=256`. The notebook also accepts an explicit 8 x 8 overlay.
 
 This example downloads one pinned official TorchVision ResNet-18, converts it
 to the repository's Phase 2A signed-INT8 format, checks a real
@@ -136,11 +136,11 @@ artifacts:
 vivado -mode batch -nojournal -nolog `
   -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
 python -m src.runtime.verify_overlay `
-  build/vivado/npu_matrix_8x8/artifacts
+  build/vivado/npu_matrix_16x16/artifacts
 ```
 
-The notebook and deployment wrapper use `build/vivado/npu_matrix_8x8/artifacts`.
-The wrapper validates model assets and the 8 x 8 overlay before any transfer.
+The notebook and deployment wrapper use `build/vivado/npu_matrix_16x16/artifacts`.
+The wrapper validates model assets and the 16 x 16 overlay before any transfer.
 
 Stop unless the verification marker says the BIT/HWH provenance and metadata
 passed and the artifact manifest identifies the intended source commit.
@@ -164,8 +164,8 @@ overlay, and the Vivado build reports:
 ```powershell
 python examples/resnet18/package_example.py `
   --repository-root . `
-  --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
-  --report-dir build/vivado/npu_matrix_8x8/reports `
+  --artifact-dir build/vivado/npu_matrix_16x16/artifacts `
+  --report-dir build/vivado/npu_matrix_16x16/reports `
   --descriptor examples/resnet18/acceptance/acceptance.json `
   --output-archive mount/resnet18/npu-resnet18-local.zip
 ```
@@ -217,8 +217,8 @@ layout without editing.
 
 Select the board's PYNQ Python kernel and run one cell at a time.
 
-Step 2 programs the FPGA and prints the runtime class, the 8 x 8 array, the 64
-processing elements, and the bitstream path. Step 3 offers a dropdown of five
+Step 2 programs the FPGA and prints the runtime class, the array dimensions,
+the processing element count, and the bitstream path. Step 3 offers a dropdown of five
 bundled photographs beside an upload widget; an upload overrides the dropdown.
 Step 4 preprocesses the chosen picture on the board and shows it next to the
 exact dequantized INT8 tensor the NPU receives, so you see the input before any
@@ -228,8 +228,8 @@ host simulation. Step 6 prints the top-5 ImageNet labels with a bar chart, the
 predicted class, and `CORRECT` or `INCORRECT` for a bundled picture whose class
 is declared. An uploaded picture has no ground truth, so you judge it yourself.
 
-One forward pass is 1,814,073,344 MACs and takes roughly an hour on the 8 x 8
-overlay, so this is a start-it-and-talk demo rather than an interactive one.
+One forward pass is 1,814,073,344 MACs. The earlier 8 x 8 overlay took roughly
+an hour; the 16 x 16 board result is determined by release CD.
 
 Fetch the bundled pictures once, on the conversion host, into the ignored model
 workspace:
@@ -265,7 +265,7 @@ source /etc/profile.d/pynq_venv.sh
 cd /home/xilinx/jupyter_notebooks/npu_resnet18/releases/<deployment-id>
 sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 \
   examples/resnet18/run_on_board.py \
-  --artifact-dir build/vivado/npu_matrix_8x8/artifacts \
+  --artifact-dir build/vivado/npu_matrix_16x16/artifacts \
   --expected-source-commit <40-character-artifact-commit> \
   --deployed-source-commit <40-character-deployed-commit> \
   --evidence board-evidence.json

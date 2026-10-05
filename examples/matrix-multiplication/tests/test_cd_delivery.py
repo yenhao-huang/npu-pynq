@@ -418,8 +418,8 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             "runs-on: [self-hosted, vivado]",
             "runs-on: [self-hosted, pynq-z1]",
             "environment: pynq-z1-production",
-            "build/vivado/npu_matrix_8x8/artifacts",
-            "build/vivado/npu_matrix_8x8/reports/build_evidence.txt",
+            "build/vivado/npu_matrix_16x16/artifacts",
+            "build/vivado/npu_matrix_16x16/reports/build_evidence.txt",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.cd)
@@ -619,7 +619,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
                 self.assertIn(package, requirements)
 
     def test_publish_finds_overlay_files_the_upload_nested(self) -> None:
-        # upload-artifact roots the overlay artifact at npu_matrix_8x8/, so it
+        # upload-artifact roots the overlay artifact at npu_matrix_16x16/, so it
         # keeps artifacts/ and reports/ folders the draft must flatten.
         import yaml
 

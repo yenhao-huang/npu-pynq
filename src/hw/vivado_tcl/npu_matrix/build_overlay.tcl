@@ -1,10 +1,10 @@
 # Recreate and optionally implement the PYNQ-Z1 NPU matrix overlay.
 # Usage: vivado -mode batch -source build_overlay.tcl -tclargs
-#        ?--array-size 2|8? ?--elaborate-only? ?--allow-dirty?
+#        ?--array-size 2|8|16? ?--elaborate-only? ?--allow-dirty?
 
 set script_dir [file normalize [file dirname [info script]]]
 set repo_root [file normalize [file join $script_dir .. .. .. ..]]
-set array_size 8
+set array_size 16
 set elaborate_only 0
 set allow_dirty 0
 for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_index} {
@@ -13,11 +13,11 @@ for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_in
         --array-size {
             incr argument_index
             if {$argument_index >= [llength $argv]} {
-                error "--array-size requires 2 or 8"
+                error "--array-size requires 2, 8, or 16"
             }
             set array_size [lindex $argv $argument_index]
-            if {$array_size ni {2 8}} {
-                error "unsupported array size '$array_size': expected 2 or 8"
+            if {$array_size ni {2 8 16}} {
+                error "unsupported array size '$array_size': expected 2, 8, or 16"
             }
         }
         --elaborate-only { set elaborate_only 1 }

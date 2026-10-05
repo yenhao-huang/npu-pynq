@@ -45,9 +45,9 @@ class OverlayVerificationError(RuntimeError):
 
 
 def _expected_metadata(array_size: int) -> dict[str, object]:
-    if array_size not in (2, 8):
+    if array_size not in (2, 8, 16):
         raise OverlayVerificationError(
-            f"unsupported array size {array_size}: expected 2 or 8"
+            f"unsupported array size {array_size}: expected 2, 8, or 16"
         )
     expected = copy.deepcopy(EXPECTED_METADATA)
     parameters = expected["accelerator"]["parameters"]
@@ -176,7 +176,7 @@ def verify_artifacts(artifact_dir: Path) -> dict[str, object]:
             raise OverlayVerificationError(f"{label} hash does not match manifest")
     array_size = manifest.get("array_size", 2)
     if isinstance(array_size, bool) or not isinstance(array_size, int):
-        raise OverlayVerificationError("manifest array_size must be 2 or 8")
+        raise OverlayVerificationError("manifest array_size must be 2, 8, or 16")
     observed = inspect_hwh(hwh_path, array_size=array_size)
     if manifest.get("metadata") != observed:
         raise OverlayVerificationError("HWH metadata differs from the build manifest")
@@ -198,7 +198,7 @@ def main() -> int:
     parser.add_argument("--write-manifest", action="store_true")
     parser.add_argument("--source-commit", default=_default_commit())
     parser.add_argument("--vivado-version", default="unknown")
-    parser.add_argument("--array-size", type=int, choices=(2, 8), default=8)
+    parser.add_argument("--array-size", type=int, choices=(2, 8, 16), default=16)
     arguments = parser.parse_args()
     artifact_dir = arguments.artifact_dir.resolve()
     if arguments.write_manifest:
