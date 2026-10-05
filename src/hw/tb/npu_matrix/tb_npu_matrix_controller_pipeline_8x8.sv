@@ -11,12 +11,13 @@
 // the pre-pipelined controller behaved, once with the queue kept full -- and
 // requires the overlapped run to finish in strictly fewer cycles.
 module tb_npu_matrix_controller_pipeline_8x8;
-    localparam integer ROWS = 8;
-    localparam integer COLUMNS = 8;
+    parameter integer SIZE = 8;
+    localparam integer ROWS = SIZE;
+    localparam integer COLUMNS = SIZE;
     localparam integer MAX_K = 256;
     localparam integer IN_BYTES = 8;
     localparam integer NUM_JOBS = 3;
-    localparam integer MAX_JOB_K = 64;
+    localparam integer MAX_JOB_K = (SIZE == 16) ? 256 : 64;
     localparam integer JOB_TIMEOUT = 20000;
 
     logic clk = 1'b0;
@@ -283,7 +284,7 @@ module tb_npu_matrix_controller_pipeline_8x8;
 
         // Golden model: C = A * B in exact INT32, no requantization.
         for (job_index = 0; job_index < NUM_JOBS; job_index = job_index + 1) begin
-            job_k[job_index] = 64;
+            job_k[job_index] = MAX_JOB_K;
             for (row_index = 0; row_index < ROWS; row_index = row_index + 1)
                 for (step_index = 0; step_index < job_k[job_index];
                      step_index = step_index + 1)

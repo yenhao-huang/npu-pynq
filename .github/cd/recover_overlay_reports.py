@@ -14,8 +14,8 @@ caller builds the overlay instead.
 
     python .github/cd/recover_overlay_reports.py \\
         --package-zip build/candidate/npu-resnet18-vX.Y.Z.zip \\
-        --artifact-dir build/vivado/npu_matrix_8x8/artifacts \\
-        --report-dir build/vivado/npu_matrix_8x8/reports
+        --artifact-dir build/vivado/npu_matrix_16x16/artifacts \\
+        --report-dir build/vivado/npu_matrix_16x16/reports
 """
 
 from __future__ import annotations

@@ -404,3 +404,68 @@ def test_ppa_measures_power_area_and_fmax_on_a_real_library(store, tmp_path):
     # Handles, not contents: the log stays on disk like every other tool's.
     assert out["netlist"].endswith("netlist.v") and out["report"].endswith("ppa.log")
     assert "not placed or routed" in out["note"]
+
+
+# -- equiv ---------------------------------------------------------------
+
+ADDER = "module add8(input [7:0] a, b, input cin, output [7:0] s, output co);\n  assign {co, s} = %s;\nendmodule\n"
+
+
+@needs("yosys")
+def test_equiv_proves_a_combinational_rewrite(store, tmp_path):
+    ref, dut = tmp_path / "ref.v", tmp_path / "dut.v"
+    ref.write_text(ADDER % "a + b + cin")
+    dut.write_text(ADDER % "{1'b0, a} + {1'b0, b} + {8'b0, cin}")
+    out = dispatch("equiv", {"ref_files": [str(ref)], "dut_files": [str(dut)], "top": "add8"}, cwd=tmp_path)
+    assert out["method"] == "sat-proof" and out["equivalent"] is True
+
+
+@needs("yosys")
+def test_equiv_gives_a_counterexample(store, tmp_path):
+    ref, dut = tmp_path / "ref.v", tmp_path / "dut.v"
+    ref.write_text(ADDER % "a + b + cin")
+    dut.write_text(ADDER % "a + b")
+    out = dispatch("equiv", {"ref_files": [str(ref)], "dut_files": [str(dut)], "top": "add8"}, cwd=tmp_path)
+    assert out["equivalent"] is False
+    assert out["counterexample"].get("cin") == "1", "only cin=1 distinguishes the two"
+
+
+@needs("iverilog")
+def test_equiv_simulates_sequential_designs_and_finds_the_cycle(store, tmp_path):
+    ref, dut = tmp_path / "ref.v", tmp_path / "dut.v"
+    counter = ("module cnt(input clk, rst_n, output reg [3:0] q);\n"
+               "  always @(posedge clk or negedge rst_n)\n"
+               "    if (!rst_n) q <= 0; else q <= (q == %d) ? 0 : q + 1;\nendmodule\n")
+    ref.write_text(counter % 11)
+    dut.write_text(counter % 11)
+    same = dispatch("equiv", {"ref_files": [str(ref)], "dut_files": [str(dut)], "top": "cnt"}, cwd=tmp_path)
+    assert same["method"] == "random-sim" and same["equivalent"] is True
+    dut.write_text(counter % 10)
+    diff = dispatch("equiv", {"ref_files": [str(ref)], "dut_files": [str(dut)], "top": "cnt"}, cwd=tmp_path)
+    assert diff["equivalent"] is False and diff["mismatches"][0]["port"] == "q"
+
+
+@needs("yosys")
+def test_equiv_rejects_different_ports(store, tmp_path):
+    ref, dut = tmp_path / "ref.v", tmp_path / "dut.v"
+    ref.write_text(ADDER % "a + b + cin")
+    dut.write_text(ADDER.replace("output co", "output c") % "a + b + cin")
+    with pytest.raises(InvalidInput):
+        dispatch("equiv", {"ref_files": [str(ref)], "dut_files": [str(dut)], "top": "add8"}, cwd=tmp_path)
+
+
+@needs("yosys")
+def test_equiv_elaborates_parameterised_submodules(store, tmp_path):
+    # A rewrite into parameterised blocks used to be flattened with the
+    # blocks' default parameters, which produced a false counterexample.
+    ref, dut = tmp_path / "ref.v", tmp_path / "dut.v"
+    ref.write_text("module add16(input [15:0] a, b, output [16:0] s);\n  assign s = a + b;\nendmodule\n")
+    dut.write_text(
+        "module blk #(parameter N = 8)(input [N-1:0] a, b, input ci, output [N-1:0] s, output co);\n"
+        "  assign {co, s} = a + b + ci;\nendmodule\n"
+        "module add16(input [15:0] a, b, output [16:0] s);\n"
+        "  wire c;\n"
+        "  blk #(6)  lo(.a(a[5:0]),  .b(b[5:0]),  .ci(1'b0), .s(s[5:0]),  .co(c));\n"
+        "  blk #(10) hi(.a(a[15:6]), .b(b[15:6]), .ci(c),    .s(s[15:6]), .co(s[16]));\nendmodule\n")
+    out = dispatch("equiv", {"ref_files": [str(ref)], "dut_files": [str(dut)], "top": "add16"}, cwd=tmp_path)
+    assert out["method"] == "sat-proof" and out["equivalent"] is True, out["counterexample"]

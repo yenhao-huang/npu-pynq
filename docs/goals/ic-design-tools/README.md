@@ -31,6 +31,7 @@ Implements [`docs/plans/2026-0921-001-ic-design-tools-architecture.md`](../../pl
 | `value_range` | How did this signal get to that value? | one pass |
 | `show_wave` | Open the waveform for a **person**, signals preselected. | opens a window |
 | `synth` | LUTs, FFs, DSPs, and — in `full` mode — real timing. | 2 s (Yosys) / minutes (Vivado) |
+| `equiv` | Does this rewrite still behave like the verified reference? A SAT proof for combinational designs, random differential simulation for sequential ones. | seconds |
 
 The central rule: **nothing large is ever returned**. A simulation writes a
 184 MB waveform and a 12 MB log to disk and hands back
