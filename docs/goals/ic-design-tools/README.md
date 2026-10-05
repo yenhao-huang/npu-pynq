@@ -31,6 +31,7 @@ Implements [`docs/plans/2026-0921-001-ic-design-tools-architecture.md`](../../pl
 | `value_range` | How did this signal get to that value? | one pass |
 | `show_wave` | Open the waveform for a **person**, signals preselected. | opens a window |
 | `synth` | LUTs, FFs, DSPs, and — in `full` mode — real timing. | 2 s (Yosys) / minutes (Vivado) |
+| `equiv` | Does this rewrite still behave like the verified reference? A SAT proof for combinational designs, random differential simulation for sequential ones. | seconds |
 
 The central rule: **nothing large is ever returned**. A simulation writes a
 184 MB waveform and a 12 MB log to disk and hands back
@@ -136,8 +137,8 @@ configured to, and the CLI path below always works regardless.
 The CLI is the universal fallback and needs no integration at all:
 
 ```bash
-ic lint --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe
-ic sim  --files src/hw/rtl/systolic_array/npu_pe.sv src/hw/tb/systolic_array/tb_npu_pe.sv --tb tb_npu_pe
+ic lint --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe
+ic sim  --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv src/hw/tb/npu_matrix/tb_npu_pe.sv --tb tb_npu_pe
 ic first_mismatch --wave 166d08/wave.fst --ref expected --dut accumulator
 ```
 
@@ -265,7 +266,7 @@ Long-running ops submit a job and long-poll. A run that finishes inside the
 window answers inline; a longer one returns `{"job_id": ...}`:
 
 ```bash
-ic synth --files src/hw/rtl/... --top npu_matrix_accelerator --mode full
+ic synth --files src/hw/rtl/... --top npu_accelerator --mode full
 ic job 46daf65c --poll-s 240
 ```
 

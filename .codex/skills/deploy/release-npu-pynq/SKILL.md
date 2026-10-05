@@ -107,33 +107,7 @@ environment fails immediately: `pynq-z1-production` for the board job, and
 `pynq-z1-release` with required reviewers for publishing. They are repository
 settings and a person creates them.
 
-## 3. Rehearse, when the delivery path changed
-
-If this release changes packaging, the board scripts, `cd.yml`, or the model
-code, rehearse before pushing. A CD run spends two to three hours in Vivado
-before any of that code executes, so a defect there costs a whole run.
-
-```bash
-# a model workspace from the last build-model run, or one built locally
-gh run download <run-id> -n resnet18-model-vX.Y.Z -D build/resnet18-model
-python .codex/skills/deploy/release-npu-pynq/references/scripts/rehearse_release.py \
-    --model-dir build/resnet18-model --release-tag vX.Y.Z
-```
-
-It builds the real package with placeholder overlay artifacts, extracts it the
-way the board does, and runs CD's two board steps from inside the package (the
-deploy check `run_on_board.py --verify-only`, then the real-image inference)
-against a NumPy 8 x 8 NPU with the overlay's tile limits. All three lines must
-print PASS; the job count should be 135,290. Only the FPGA is not exercised.
-It takes about three minutes.
-
-The v1.0.6 release found three defects this way while Vivado was already
-running: the board rejecting its own `__pycache__`, the draft looking for
-overlay files the artifact had nested, and `unzip` possibly missing on the
-board. Cancel a run that is doomed rather than let it finish: the concurrency
-group queues a new run behind it instead of replacing it.
-
-## 4. Cut the release branch
+## 3. Cut the release branch
 
 ```bash
 git fetch origin dev
@@ -145,7 +119,7 @@ The push starts `cd.yml`. Because a push event uses the workflow file from the
 branch it ran on, this validates the workflow itself as well as the release;
 `main` does not have to be touched first.
 
-## 5. Watch the CD run
+## 4. Watch the CD run
 
 Its jobs, in order: `validate-source`; then `host-checks`, `build-model`,
 `preflight-vivado` and `preflight-board` in parallel; then `build-overlay`
@@ -190,12 +164,16 @@ Read `docs/rules/ci-cd.md` before diagnosing anything else. Common causes:
 - `validate-source` rejects the branch — the branch name and the declared
   version disagree.
 
+CD is the validation; there is no separate rehearsal. When a run is certain to
+fail (a defect is already known), cancel it rather than let it finish: the
+concurrency group queues a new run behind it instead of replacing it.
+
 Fix on `dev`, then bring the release branch up to the new `dev` and push again.
 Prefer a fast-forward (or a merge) over a force-push: an earlier overlay is
 reused only from an ancestor of the new release commit, so a rewritten branch
 pays for Vivado again. The run recreates the draft, so a retry is safe.
 
-## 6. Prepare the promotion pull request
+## 5. Prepare the promotion pull request
 
 Only after the CD run is green. Base `main`, head `release/vX.Y.Z`. The body
 states the integrated `dev` commit, the issues and pull requests in the upload,
@@ -207,7 +185,7 @@ issue and pull request, following `docs/rules/git/changelog.md`.
 
 Stop here and hand the pull request to a person.
 
-## 7. Publish
+## 6. Publish
 
 After the pull request is merged with a merge commit:
 

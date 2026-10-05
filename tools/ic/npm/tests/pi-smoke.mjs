@@ -30,7 +30,7 @@ const { session } = await createAgentSession({
 });
 const tools = session.agent.state.tools;
 assert.deepEqual(tools.map(t => t.name).sort(),
-  ['first_mismatch', 'lint', 'show_wave', 'signals', 'sim', 'synth', 'value_at', 'value_range']);
+  ['first_mismatch', 'lint', 'ppa', 'show_wave', 'signals', 'sim', 'synth', 'value_at', 'value_range']);
 const transcript = [];
 async function call(name, params) {
   const result = await tools.find(t => t.name === name).execute(
@@ -42,7 +42,7 @@ async function call(name, params) {
 }
 const fixture = path.join(repo, 'tools/ic/tests/fixtures');
 assert.equal((await call('lint', {
-  files: [path.join(repo, 'src/hw/rtl/systolic_array/npu_pe.sv')], top: 'npu_pe',
+  files: [path.join(repo, 'src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv')], top: 'npu_pe',
 })).error_count, 0);
 const sim = await call('sim', {
   files: [path.join(fixture, 'counter.sv'), path.join(fixture, 'tb_counter.sv')], tb: 'tb_counter',
@@ -65,5 +65,5 @@ assert.equal(view.launched, false);
 assert.ok(view.savefile);
 assert.equal((await call('synth', { files: [path.join(fixture, 'counter.sv')], top: 'counter_ref', mode: 'estimate' })).ok, true);
 await writeFile(path.join(project, 'evidence.json'), JSON.stringify(transcript, null, 2));
-console.log(`PASS: installed pi extension registered and executed all eight tools; evidence ${project}`);
+console.log(`PASS: installed pi extension registered and executed all nine tools; evidence ${project}`);
 process.exit(0);

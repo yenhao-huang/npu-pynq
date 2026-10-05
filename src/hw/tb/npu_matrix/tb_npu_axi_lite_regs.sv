@@ -27,6 +27,7 @@ module tb_npu_axi_lite_regs;
     logic                     rready = 1'b0;
 
     logic                     status_busy = 1'b0;
+    logic                     status_accept = 1'b1;
     logic                     status_done = 1'b0;
     logic                     status_error = 1'b0;
     logic [7:0]               error_code = 8'd0;
@@ -79,6 +80,7 @@ module tb_npu_axi_lite_regs;
         .s_axi_rvalid(rvalid),
         .s_axi_rready(rready),
         .status_busy(status_busy),
+        .status_accept(status_accept),
         .status_done(status_done),
         .status_error(status_error),
         .error_code(error_code),
@@ -198,7 +200,7 @@ module tb_npu_axi_lite_regs;
         axi_read(8'h04, 0, read_value);
         expect_word(read_value, 32'h00010000, "VERSION");
         axi_read(8'h08, 0, read_value);
-        expect_word(read_value, 32'h0000001b, "CAPABILITIES");
+        expect_word(read_value, 32'h0000003b, "CAPABILITIES");
         axi_read(8'h3c, 0, read_value);
         expect_word(read_value, 32'h00000000, "RESERVED");
 
@@ -224,7 +226,7 @@ module tb_npu_axi_lite_regs;
         error_code = 8'd3;
         cycles = 64'h1122334455667788;
         axi_read(8'h10, 2, read_value);
-        expect_word(read_value, 32'h00000007, "STATUS");
+        expect_word(read_value, 32'h0000000f, "STATUS with ACCEPT");
         axi_read(8'h14, 0, read_value);
         expect_word(read_value, 32'h00000003, "ERROR");
         axi_read(8'h34, 0, read_value);
@@ -232,8 +234,21 @@ module tb_npu_axi_lite_regs;
         axi_read(8'h38, 0, read_value);
         expect_word(read_value, 32'h11223344, "CYCLES_HI");
 
+        // A busy engine that can still admit a job stages the next one's
+        // configuration; only a full queue freezes the configuration window.
         axi_write(8'h1c, 32'd1, 4'b1111, 0, 0, 0);
-        expect_word({16'd0, cfg_n}, 32'd2, "busy config ignored");
+        expect_word({16'd0, cfg_n}, 32'd1, "busy-but-accepting config staged");
+        axi_write(8'h1c, 32'd2, 4'b1111, 0, 0, 0);
+        expect_word({16'd0, cfg_n}, 32'd2, "busy-but-accepting config restored");
+
+        status_accept = 1'b0;
+        axi_read(8'h10, 0, read_value);
+        expect_word(read_value, 32'h00000007, "STATUS without ACCEPT");
+        axi_write(8'h1c, 32'd1, 4'b1111, 0, 0, 0);
+        expect_word({16'd0, cfg_n}, 32'd2, "full-queue config ignored");
+        axi_write(8'h30, 32'd7, 4'b1111, 0, 0, 0);
+        expect_word(cfg_timeout_cycles, 32'd1000, "full-queue timeout ignored");
+        status_accept = 1'b1;
 
         prior_start_count = start_count;
         axi_write(8'h0c, 32'h00000001, 4'b0001, 2, 0, 0);

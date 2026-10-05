@@ -14,11 +14,12 @@ import xml.etree.ElementTree as ET
 
 EXPECTED_METADATA = {
     "accelerator": {
-        "instance": "npu_matrix_accelerator_0",
+        "instance": "npu_accelerator_0",
         "parameters": {
             "ROWS": "2",
             "COLUMNS": "2",
             "MAX_K": "256",
+            "IN_BYTES": "8",
             "C_BASEADDR": "0x43C00000",
             "C_HIGHADDR": "0x43C0FFFF",
         },
@@ -29,7 +30,8 @@ EXPECTED_METADATA = {
             "C_INCLUDE_SG": "0",
             "C_INCLUDE_MM2S": "1",
             "C_INCLUDE_S2MM": "1",
-            "C_M_AXIS_MM2S_TDATA_WIDTH": "8",
+            "C_M_AXI_MM2S_DATA_WIDTH": "64",
+            "C_M_AXIS_MM2S_TDATA_WIDTH": "64",
             "C_S_AXIS_S2MM_TDATA_WIDTH": "32",
             "C_BASEADDR": "0x40400000",
             "C_HIGHADDR": "0x4040FFFF",
@@ -43,9 +45,9 @@ class OverlayVerificationError(RuntimeError):
 
 
 def _expected_metadata(array_size: int) -> dict[str, object]:
-    if array_size not in (2, 8):
+    if array_size not in (2, 8, 16):
         raise OverlayVerificationError(
-            f"unsupported array size {array_size}: expected 2 or 8"
+            f"unsupported array size {array_size}: expected 2, 8, or 16"
         )
     expected = copy.deepcopy(EXPECTED_METADATA)
     parameters = expected["accelerator"]["parameters"]
@@ -98,9 +100,10 @@ def inspect_hwh(hwh_path: Path, *, array_size: int = 2) -> dict[str, object]:
                 )
         observed[role] = {"instance": instance, "parameters": expected_parameters}
     required_connections = (
-        'INSTANCE="npu_matrix_accelerator_0" PORT="s_axis_tdata"',
-        'INSTANCE="npu_matrix_accelerator_0" PORT="m_axis_tdata"',
-        'INSTANCE="npu_matrix_accelerator_0" PORT="irq"',
+        'INSTANCE="npu_accelerator_0" PORT="s_axis_tdata"',
+        'INSTANCE="npu_accelerator_0" PORT="s_axis_tkeep"',
+        'INSTANCE="npu_accelerator_0" PORT="m_axis_tdata"',
+        'INSTANCE="npu_accelerator_0" PORT="irq"',
         'SLAVEBUSINTERFACE="S_AXI_HP0"',
         'VALUE="100000000"',
     )
@@ -173,7 +176,7 @@ def verify_artifacts(artifact_dir: Path) -> dict[str, object]:
             raise OverlayVerificationError(f"{label} hash does not match manifest")
     array_size = manifest.get("array_size", 2)
     if isinstance(array_size, bool) or not isinstance(array_size, int):
-        raise OverlayVerificationError("manifest array_size must be 2 or 8")
+        raise OverlayVerificationError("manifest array_size must be 2, 8, or 16")
     observed = inspect_hwh(hwh_path, array_size=array_size)
     if manifest.get("metadata") != observed:
         raise OverlayVerificationError("HWH metadata differs from the build manifest")
@@ -195,7 +198,7 @@ def main() -> int:
     parser.add_argument("--write-manifest", action="store_true")
     parser.add_argument("--source-commit", default=_default_commit())
     parser.add_argument("--vivado-version", default="unknown")
-    parser.add_argument("--array-size", type=int, choices=(2, 8), default=8)
+    parser.add_argument("--array-size", type=int, choices=(2, 8, 16), default=16)
     arguments = parser.parse_args()
     artifact_dir = arguments.artifact_dir.resolve()
     if arguments.write_manifest:

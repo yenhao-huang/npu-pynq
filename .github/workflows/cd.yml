@@ -351,7 +351,7 @@ jobs:
           name: npu-build-${{ needs.validate-source.outputs.release_tag }}
           run-id: ${{ steps.previous-overlay.outputs.run_id }}
           github-token: ${{ github.token }}
-          path: build/vivado/npu_matrix_8x8
+          path: build/vivado/npu_matrix_16x16
 
       # Older npu-build artifacts held only build_evidence.txt; that run's
       # ResNet-18 package carries the other reports with their digests.
@@ -372,7 +372,7 @@ jobs:
         if: steps.previous-overlay.outputs.run_id != ''
         shell: pwsh
         run: |
-          $root = 'build/vivado/npu_matrix_8x8'
+          $root = 'build/vivado/npu_matrix_16x16'
           $release = '${{ needs.validate-source.outputs.release_commit }}'
           $reason = $null
           if (-not (Test-Path -LiteralPath "$root/reports/build_evidence.txt" -PathType Leaf)) {
@@ -423,7 +423,7 @@ jobs:
         shell: pwsh
         run: |
           python src/runtime/verify_overlay.py `
-            build/vivado/npu_matrix_8x8/artifacts
+            build/vivado/npu_matrix_16x16/artifacts
           if ($LASTEXITCODE -ne 0) {
             throw "overlay verification failed with exit code $LASTEXITCODE"
           }
@@ -431,7 +431,7 @@ jobs:
       - name: Verify build evidence exists
         shell: pwsh
         run: |
-          $evidence = 'build/vivado/npu_matrix_8x8/reports/build_evidence.txt'
+          $evidence = 'build/vivado/npu_matrix_16x16/reports/build_evidence.txt'
           if (-not (Test-Path -LiteralPath $evidence -PathType Leaf)) {
             throw "missing build evidence: $evidence"
           }
@@ -444,7 +444,7 @@ jobs:
         id: overlay-source
         shell: pwsh
         run: |
-          $manifest = Get-Content -Raw 'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json' | ConvertFrom-Json
+          $manifest = Get-Content -Raw 'build/vivado/npu_matrix_16x16/artifacts/npu_matrix.manifest.json' | ConvertFrom-Json
           $built = "$($manifest.source_commit)".ToLowerInvariant()
           $release = '${{ needs.validate-source.outputs.release_commit }}'
           if ($built -eq $release) {
@@ -475,7 +475,7 @@ jobs:
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
           $output = python examples/matrix-multiplication/package_example.py `
             --repository-root . `
-            --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
+            --artifact-dir build/vivado/npu_matrix_16x16/artifacts `
             --output-dir $package `
             --release-tag $tag `
             --source-commit $commit @reuse 2>&1
@@ -501,8 +501,8 @@ jobs:
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
           $output = python examples/resnet18/package_example.py `
             --repository-root . `
-            --artifact-dir build/vivado/npu_matrix_8x8/artifacts `
-            --report-dir build/vivado/npu_matrix_8x8/reports `
+            --artifact-dir build/vivado/npu_matrix_16x16/artifacts `
+            --report-dir build/vivado/npu_matrix_16x16/reports `
             --model-dir $env:RESNET18_MODEL_DIR `
             --output-archive "build/cd/npu-resnet18-$tag.zip" `
             --release-tag $tag `
@@ -519,10 +519,10 @@ jobs:
         run: |
           $tag = '${{ needs.validate-source.outputs.release_tag }}'
           $files = @(
-            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit',
-            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.hwh',
-            'build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json',
-            'build/vivado/npu_matrix_8x8/reports/build_evidence.txt',
+            'build/vivado/npu_matrix_16x16/artifacts/npu_matrix.bit',
+            'build/vivado/npu_matrix_16x16/artifacts/npu_matrix.hwh',
+            'build/vivado/npu_matrix_16x16/artifacts/npu_matrix.manifest.json',
+            'build/vivado/npu_matrix_16x16/reports/build_evidence.txt',
             "build/cd/npu-matrix-$tag.tar.gz",
             "build/cd/npu-resnet18-$tag.zip"
           )
@@ -538,11 +538,11 @@ jobs:
           name: npu-build-${{ needs.validate-source.outputs.release_tag }}
           if-no-files-found: error
           path: |
-            build/vivado/npu_matrix_8x8/artifacts/npu_matrix.bit
-            build/vivado/npu_matrix_8x8/artifacts/npu_matrix.hwh
-            build/vivado/npu_matrix_8x8/artifacts/npu_matrix.manifest.json
-            build/vivado/npu_matrix_8x8/reports/build_evidence.txt
-            build/vivado/npu_matrix_8x8/reports/*.rpt
+            build/vivado/npu_matrix_16x16/artifacts/npu_matrix.bit
+            build/vivado/npu_matrix_16x16/artifacts/npu_matrix.hwh
+            build/vivado/npu_matrix_16x16/artifacts/npu_matrix.manifest.json
+            build/vivado/npu_matrix_16x16/reports/build_evidence.txt
+            build/vivado/npu_matrix_16x16/reports/*.rpt
 
       - name: Retain standalone deployment packages
         uses: actions/upload-artifact@v4
@@ -686,7 +686,7 @@ jobs:
           name: npu-packages-${{ needs.validate-source.outputs.release_tag }}
           path: build/release
 
-      # Uploaded from build/vivado/npu_matrix_8x8/{artifacts,reports}, so the
+      # Uploaded from build/vivado/npu_matrix_16x16/{artifacts,reports}, so the
       # artifact keeps those two folders; flatten them beside the packages.
       - name: Download overlay artifacts
         uses: actions/download-artifact@v4

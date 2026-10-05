@@ -1,6 +1,6 @@
 ---
 name: ic-design-tools
-description: Lint, simulate, debug waveforms, view and synthesize the RTL in this repository. Use when changing anything under src/hw/, when a testbench fails, when you need to find the cycle where a signal diverges from its reference, or when you need LUT/FF/timing numbers. Provides lint, sim, signals, first_mismatch, value_at, value_range, show_wave and synth.
+description: Lint, simulate, debug waveforms, view and synthesize the RTL in this repository. Use when changing anything under src/hw/, when a testbench fails, when you need to find the cycle where a signal diverges from its reference, when you need LUT/FF/timing numbers, or when you need to compare two implementations by power, area and fmax. Provides lint, sim, signals, first_mismatch, value_at, value_range, show_wave, synth, ppa and equiv.
 ---
 
 # IC design tools
@@ -28,13 +28,13 @@ pip install -e tools/ic
 diagnostic in full.
 
 ```bash
-ic lint --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe
+ic lint --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe
 ```
 
 **2. Simulate to get a verdict and a waveform handle.**
 
 ```bash
-ic sim --files src/hw/rtl/systolic_array/npu_pe.sv src/hw/tb/systolic_array/tb_npu_pe.sv --tb tb_npu_pe --top npu_pe
+ic sim --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv src/hw/tb/npu_matrix/tb_npu_pe.sv --tb tb_npu_pe --top npu_pe
 ```
 
 Returns `ok`, a few log lines explaining the verdict, and
@@ -71,7 +71,12 @@ loop. `full` (Vivado) takes minutes and is the only trustworthy source of
 timing for the Zynq-7020.
 
 ```bash
-ic synth --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe --mode estimate
+ic synth --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --mode estimate
+
+# Power, area and fmax against a standard-cell library, for ranking two
+# implementations. Needs OpenROAD and IC_PDK_LIBERTY; says nothing about the
+# Zynq-7020, which is what `synth` is for.
+ic ppa --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --clock-port clk --clock-period-ns 5
 ```
 
 **7. To hand a problem to a person**, open the waveform for them with the

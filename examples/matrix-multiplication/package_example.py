@@ -186,7 +186,7 @@ def main() -> int:
     repository_root = arguments.repository_root.resolve()
     artifact_dir = (
         arguments.artifact_dir
-        or repository_root / "build" / "vivado" / "npu_matrix_8x8" / "artifacts"
+        or repository_root / "build" / "vivado" / "npu_matrix_16x16" / "artifacts"
     ).resolve()
     overlay_manifest = verify_artifacts(artifact_dir)
     source_commit = arguments.source_commit or str(overlay_manifest["source_commit"])

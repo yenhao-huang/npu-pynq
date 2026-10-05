@@ -9,8 +9,8 @@ or built on the board, and no development host is required.
 
 - A PYNQ-Z1 board running the PYNQ image, reachable over the network.
 - The board's Jupyter interface, usually `http://192.168.2.99:9090/`.
-- About 1.5 hours: one forward pass is 1,814,073,344 MACs on the 8 x 8 systolic
-  array and takes roughly an hour.
+- Allow time for one 1,814,073,344-MAC forward pass. The previous 8 x 8 overlay
+  took roughly an hour; the 16 x 16 board runtime is reported by release CD.
 - Nothing else. No Vivado, no PyTorch, no internet access on the board.
 
 ## Three steps
@@ -41,7 +41,6 @@ release tag, source commit, and overlay digests.
 - The bundled pictures are five Creative Commons photographs, not ImageNet
   dataset images, so a correct prediction is a demonstration and not an
   accuracy measurement.
-- The notebook requires the 8 x 8 overlay with `MAX_K=256` and rejects other
-  array dimensions.
+- The notebook accepts 8 x 8 or 16 x 16 overlays with `MAX_K=256`.
 - The pinned TorchVision checkpoint is not redistributed in this package; the
   exported INT8 model is.

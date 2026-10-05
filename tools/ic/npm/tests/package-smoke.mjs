@@ -31,14 +31,14 @@ try {
   assert.deepEqual(extensionsResult.errors, []);
   const tools = session.agent.state.tools;
   assert.deepEqual(tools.map(t => t.name).sort(),
-    ['first_mismatch', 'lint', 'show_wave', 'signals', 'sim', 'synth', 'value_at', 'value_range']);
+    ['first_mismatch', 'lint', 'ppa', 'show_wave', 'signals', 'sim', 'synth', 'value_at', 'value_range']);
   const result = await tools.find(t => t.name === 'lint').execute('package-smoke', {
-    files: [path.join(repo, 'src/hw/rtl/systolic_array/npu_pe.sv')], top: 'npu_pe',
+    files: [path.join(repo, 'src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv')], top: 'npu_pe',
   }, new AbortController().signal, () => {});
   const value = JSON.parse(result.content.find(c => c.type === 'text').text);
   assert.equal(value.ok, true);
   assert.equal(value.error_count, 0);
-  console.log(`PASS: pi install discovered eight tools and executed lint without a wrapper; ${project}`);
+  console.log(`PASS: pi install discovered nine tools and executed lint without a wrapper; ${project}`);
 } finally {
   session.dispose();
 }

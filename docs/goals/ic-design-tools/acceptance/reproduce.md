@@ -21,6 +21,7 @@ Icarus Verilog 11.0, GTKWave 3.3.118, Python 3.11, Node 20.20.2, pi 0.74.2.
 - [12. pi-agent](#12-pi-agent)
 - [13. MCP](#13-mcp)
 - [14. The test suite](#14-the-test-suite)
+- [15. ppa — power, area and fmax](#15-ppa--power-area-and-fmax)
 - [What was not verified here](#what-was-not-verified-here)
 
 ## 0. Setup
@@ -80,7 +81,7 @@ only `synth --mode full` is unavailable, and it says so when asked (step 9).
 Clean RTL from the repository:
 
 ```bash
-ic lint --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe --compact
+ic lint --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --compact
 ```
 
 ```json
@@ -380,10 +381,10 @@ ic gc               # reclaims work/, keeps meta.json and artifacts/
 The claim the architecture rests on. Same request, three ways:
 
 ```bash
-ic lint --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe --compact
-IC_DAEMON_URL=http://localhost:8731 ic lint --files src/hw/rtl/systolic_array/npu_pe.sv --top npu_pe --compact
+ic lint --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --compact
+IC_DAEMON_URL=http://localhost:8731 ic lint --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --compact
 curl -s -X POST localhost:8731/v1/tools/lint -H 'content-type: application/json' \
-  -d '{"files":["src/hw/rtl/systolic_array/npu_pe.sv"],"top":"npu_pe"}'
+  -d '{"files":["src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv"],"top":"npu_pe"}'
 ```
 
 All three return the same object apart from `run_id`.
@@ -442,7 +443,7 @@ async def main():
             await s.initialize()
             tools = await s.list_tools()
             print([t.name for t in tools.tools])
-            print((await s.call_tool("lint", {"files": ["src/hw/rtl/systolic_array/npu_pe.sv"], "top": "npu_pe"})).content[0].text)
+            print((await s.call_tool("lint", {"files": ["src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv"], "top": "npu_pe"})).content[0].text)
 
 asyncio.run(main())
 PY
@@ -469,10 +470,100 @@ python3 -m pytest tools/ic/tests -q
 
 Tests whose backend is missing skip rather than fail, so the suite is useful
 on a machine with only part of the toolchain — which is the normal case, since
-Vivado is on almost none of them.
+Vivado is on almost none of them. On 2026-09-28, with `ppa` added, the same
+command reported `61 passed, 1 skipped`; the skip is the standard-cell flow,
+which needs a PDK.
+
+## 15. ppa — power, area and fmax
+
+Added 2026-09-28; this section was run on the same machine, which has Yosys but
+neither OpenROAD nor a standard-cell PDK. What is reproduced here is therefore
+the surface and the error paths, not a measurement. OpenROAD later became a
+required npm dependency: current setup prefers `openroad` on PATH and otherwise
+pulls a pinned official `openroad/orfs` image when Docker is available.
+
+Without OpenROAD the tool is reachable and says exactly what is missing, the
+same way `synth --mode full` does without Vivado:
+
+```bash
+ic ppa --files tools/ic/tests/fixtures/counter.sv --top counter_ref --compact
+```
+
+```json
+{"error": {"code": "backend_unavailable",
+           "message": "ppa backend 'openroad' needs 'openroad' on PATH",
+           "details": {"backend": "openroad", "requires": "openroad"}}}
+```
+
+Current `ic doctor` reports `{"ok": false}` with that backend listed as a
+blocking dependency. A PDK is still supplied at execution time and is not an
+npm installation prerequisite:
+
+```json
+{"category": "ppa", "backend": "openroad", "default": true,
+ "requires": "openroad", "available": false, "version": null}
+```
+
+With OpenROAD present but no library named, the technology is resolved from the
+environment and every missing piece is reported at once rather than one per
+round trip:
+
+```bash
+ic ppa --files tools/ic/tests/fixtures/counter.sv --top counter_ref --mode placed --compact
+```
+
+```json
+{"error": {"code": "invalid_input",
+           "message": "ppa mode='placed' needs a standard-cell technology",
+           "details": {"missing": ["liberty (or IC_PDK_LIBERTY)",
+                                   "tech_lef (or IC_PDK_TECH_LEF)",
+                                   "lef (or IC_PDK_LEF)",
+                                   "site (or IC_PDK_SITE)",
+                                   "hor_layer (or IC_PDK_HOR_LAYER)",
+                                   "ver_layer (or IC_PDK_VER_LAYER)"]}}}
+```
+
+A library that is named but absent is caught before anything runs:
+
+```json
+{"error": {"code": "invalid_input", "message": "ppa technology files do not exist",
+           "details": {"missing": ["/no/such.lib"]}}}
+```
+
+On a machine with OpenROAD and a PDK, point the environment at the library once
+and the call carries no PDK arguments at all:
+
+```bash
+export IC_PDK_LIBERTY=/pdk/nangate45/NangateOpenCellLibrary_typical.lib
+ic ppa --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe \
+       --clock-port clk --clock-period-ns 5
+```
+
+```json
+{
+  "ok": true, "mode": "estimate", "top": "npu_pe",
+  "area": {"cell_area_um2": ..., "die_area_um2": null, "utilization_pct": null,
+           "cells": ..., "sequential_cells": ...},
+  "power": {"total_w": ..., "internal_w": ..., "switching_w": ..., "leakage_w": ...},
+  "timing": {"clock_period_ns": 5.0, "wns_ns": ..., "met": ..., "fmax_mhz": ...},
+  "netlist": "…/netlist.v", "report": "…/ppa.log", "backend": "openroad"
+}
+```
+
+The values are elided because this machine cannot produce them. The shape is
+asserted by `test_ppa_measures_power_area_and_fmax_on_a_real_library`, which
+skips unless `IC_PDK_LIBERTY` is set — run the suite on the PDK machine to
+close this gap.
 
 ## What was not verified here
 
+- **`ppa` against a real library.** Neither OpenROAD nor a PDK is installed
+  here. The report parsers are covered by `tests/test_parsers.py` against
+  captured report text, and the generated Yosys and OpenROAD scripts by
+  `tests/test_tools.py`; the two programs have not been run. In particular
+  whether OpenROAD's `read_verilog` accepts a netlist with no LEF in
+  `estimate` mode is untested — if it does not, the result says so and names
+  `tech_lef` rather than failing opaquely.
 - **`synth --mode full`.** Vivado is not installed on this machine. The
   backend-selection logic, the unavailable-backend error and the job path it
   uses are all covered; the Vivado invocation and its report parsing are not.

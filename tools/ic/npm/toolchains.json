@@ -1,10 +1,15 @@
 {
-  "release": "2026-09-23",
+  "release": "2026-10-04",
   "source": "https://github.com/YosysHQ/oss-cad-suite-build",
+  "openroad": {
+    "tag": "openroad/orfs:26Q1-534-g510137693",
+    "image": "openroad/orfs@sha256:c950756157f7cd1b99229e1258586a270758d3f1778e0d4478e7287d4b450445",
+    "platform": "linux/amd64"
+  },
   "platforms": {
-    "linux-x64": { "sha256": "29b8b8cce17120508f8accae838d56c702c290a583559295966c059756694302", "size": 742080145 },
-    "linux-arm64": { "sha256": "6b3b8bafaf4a5e635610d3bce91992ada1736808e9cb058bb1c4fc65809bb8f1", "size": 679496478 },
-    "darwin-x64": { "sha256": "4376e8f174469b945b072b91df0dbb2037d56a1b04e73305e4508d015cef9e1d", "size": 503472402 },
-    "darwin-arm64": { "sha256": "71fe371f2d9cf91df2967765e19b7bbfd898b35dbad134b9238d6329051ffa7a", "size": 521250283 }
+    "linux-x64": { "sha256": "8a4708629b0f0afd5a1835aca8b44d224fec5f6e544c5fd22a060ea5514f83c9", "size": 746444540 },
+    "linux-arm64": { "sha256": "1680a47bc4aa16648462915ad79fb11bd54dc097520d8c79a98bf98729552305", "size": 684668013 },
+    "darwin-x64": { "sha256": "a936ea29861ed44acaf67d4f4271d3d7a5fa81f97e7dca69073b3c547e24405f", "size": 507235199 },
+    "darwin-arm64": { "sha256": "140dc2fc9c58e61e1746b96bce1ce8e073fd3e470e9bb4f7d445b92bdb8b11c9", "size": 524785066 }
   }
 }

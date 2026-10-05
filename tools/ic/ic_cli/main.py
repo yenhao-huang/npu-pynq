@@ -237,7 +237,7 @@ def cmd_doctor() -> dict:
                 "available": ok,
                 "version": entry.version() if ok else None,
             })
-            if not ok and name == category.default_backend:
+            if not ok and name == category.default_backend and not category.optional:
                 missing.append(f"{category.name}: default backend {name!r} needs {entry.requires!r}")
     return {
         "ops": [o.name for _, o in iter_ops()],

@@ -22,7 +22,7 @@ local registration when `pi list` shows `./tools/ic`:
 
 ```bash
 pi remove --local ./tools/ic
-pi install npm:@jony2156/ai-eda-tools@0.1.0 --local
+pi install npm:@jony2156/ai-eda-tools@0.1.1 --local
 pi
 ```
 
@@ -47,7 +47,7 @@ Paste this prompt into pi:
 
 ```text
 Actually call the native lint tool on
-src/hw/rtl/systolic_array/npu_pe.sv, with top=npu_pe.
+src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv, with top=npu_pe.
 Leave the source unchanged. Report ok, error_count, and warning_count from
 the returned result. Explain any warnings. Do not replace the tool with Bash.
 ```
@@ -65,7 +65,7 @@ Paste this prompt into pi:
 
 ```text
 Use all eight native IC tools and leave all source files unchanged.
-1. lint: files=["src/hw/rtl/systolic_array/npu_pe.sv"], top="npu_pe".
+1. lint: files=["src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv"], top="npu_pe".
 2. sim: files=["tools/ic/tests/fixtures/counter.sv",
    "tools/ic/tests/fixtures/tb_counter.sv"], tb="tb_counter".
 3. Use the wave handle returned by this sim for every waveform tool below.

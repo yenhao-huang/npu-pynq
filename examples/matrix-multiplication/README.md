@@ -1,6 +1,6 @@
 # Matrix multiplication deployment
 
-This example defaults to an 8 x 8 systolic array. It builds the NPU overlay,
+This example defaults to a 16 x 16 systolic array. It builds the NPU overlay,
 deploys it to PYNQ-Z1, runs three matrix tests, and downloads JSON evidence. Run all PowerShell commands from the
 repository root.
 
@@ -83,10 +83,10 @@ Get-Content build/board/local-evidence.json
 a reviewed non-interactive sudo policy before GitHub Actions CD can pass. Never
 store a password or private key in this repository.
 
-## 8 x 8 notebook handoff
+## 16 x 16 notebook handoff
 
 The default build publishes matching BIT/HWH/manifest files under
-`build/vivado/npu_matrix_8x8/artifacts/`. Explicit `--array-size 2` builds
+`build/vivado/npu_matrix_16x16/artifacts/`. Explicit `--array-size 2` builds
 remain under `build/vivado/npu_matrix/`; pass that artifact directory to
 `package_example.py --artifact-dir` when packaging a 2 x 2 demo.
 
@@ -98,7 +98,7 @@ command in section 3 for this handoff.
 
 Open `matrix_multiplication.ipynb` in the board's existing PYNQ Python kernel.
 The notebook verifies artifact hashes before loading the overlay and prints
-the physical limits; the default is `(8, 8, 256)`. It checks a full 8 x 8
-output tile, a 9 x 9 output using four physical tiles, and a repeated job
+the physical limits; the default is `(16, 16, 256)`. It checks an 8 x 8
+output tile, a 9 x 9 output tile, and a repeated job
 against NumPy. Notebook execution programs the FPGA. Use a PYNQ kernel with
 the board's existing MMIO/DMA permissions.

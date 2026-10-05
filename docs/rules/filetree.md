@@ -34,7 +34,11 @@ npu_repo_in_pynq/
 |   |-- hw/
 |   |   |-- rtl/
 |   |   |   `-- <design>/
-|   |   |       `-- *.sv
+|   |   |       |-- *.sv
+|   |   |       `-- <module>/
+|   |   |           |-- *.sv
+|   |   |           `-- <child-module>/
+|   |   |               `-- *.sv
 |   |   |-- tb/
 |   |   |   `-- <design>/
 |   |   |       `-- tb_*.sv
@@ -81,7 +85,7 @@ npu_repo_in_pynq/
 |               `-- *.html
 |-- docs/
 |   |-- assets/
-|   |   `-- *.png              versioned images embedded by documentation
+|   |   `-- *.png, *.svg       versioned images embedded by documentation
 |   |-- rules/
 |   |   |-- index.md
 |   |   |-- environment.md
@@ -131,6 +135,8 @@ npu_repo_in_pynq/
 |   `-- extensions/
 |       `-- *.ts
 |-- .mcp.json
+|-- exp/
+|   `-- 0911_performance_optimization/  compact hardware and board results
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
@@ -214,6 +220,10 @@ Claude Code and Codex alike.
 reproduction procedures, including commands, recorded outputs and validation
 limitations. Package installation and demo instructions live under
 `tools/ic/docs/manual/` and ship with the npm package.
+`docs/goals/widen-input-width/` holds the packed operand stream's simulation
+report, design walkthrough, reproduction steps and recorded metrics (#93).
+`docs/goal/` holds one prompt file per hardware goal. Each file records the goal
+as given, the implementation, and the measured experiment that accepts it.
 
 `.ic/` is the run store written by `tools/ic`. It is machine-local and not
 tracked: `meta.json` records are kilobytes but the artifacts beside them are
@@ -245,8 +255,12 @@ the board and nothing is authored there.
 ## Rules
 
 One directory per design under `src/hw/rtl/`, `src/hw/tb/`, and
-`src/hw/vivado_tcl/`. The directory name is the design name and must match
-across all three.
+`src/hw/vivado_tcl/`. The design directory name must match across all three.
+RTL may be divided into nested module directories that follow the instance
+hierarchy. In `npu_matrix`, `npu_accelerator/` contains the top module,
+`dma_axi/`, and `npu_matrix_core/`; the core contains `controller/` and
+`npu_matrix_datapath/`, and the datapath contains `memory/` and
+`systolic_array/`. Testbenches remain in `src/hw/tb/<design>/`.
 
 A testbench is named `tb_<module>.sv` and lives in `src/hw/tb/<design>/`.
 `make sim` discovers tests by that pattern, so a testbench outside it never
@@ -279,6 +293,24 @@ Only versioned Markdown release records belong in top-level `changelog/`; do
 not add `unreleased.md`. Each file must pass the commit-boundary,
 roadmap-evidence, table ordering, five-row batching, link, and whitespace
 checks defined by `docs/rules/git/changelog.md`.
+
+## User-requested experiment campaigns
+
+`exp/0911_performance_optimization/` versions compact records from the 21-run
+hardware campaign: the overview, matrix results and CSV, initial-phase report,
+experiment plan, and selected full-board comparison. Every matrix row uses the
+same cold 16x16, K=256 transaction and functional reference. The 21 distinct
+configurations satisfy the user's revised count requirement independently of
+their cycle counts.
+
+The complete local archive also contains frozen RTL, experiment drivers,
+per-run records, Vivado output and raw board evidence. These larger files are
+not part of this Git snapshot. Generated `artifacts/`, `scratch/`, `sources/`,
+configs, results JSON, projects, logs, checkpoints, bitstreams and board
+payloads stay ignored. `hardware/README.md` records where the earlier issue-59
+archive moved; the archive itself remains local. The board summary reports
+experiments 09, 19 and 21, including complete-overlay resources and physical
+ResNet-18 times.
 
 ## Not in this repository
 

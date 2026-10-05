@@ -1,6 +1,6 @@
 {
   "name": "@jony2156/ai-eda-tools",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "IC design MCP server with automatic open-source toolchain setup",
   "type": "module",
   "license": "Apache-2.0",
