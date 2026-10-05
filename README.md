@@ -105,8 +105,8 @@ import from examples.
 
 The diagram groups the hardware by function: the Zynq processing system uses
 DMA and AXI to move data and control the accelerator. The accelerator contains
-the controller, operand memory, and systolic array. The overlay defaults to an
-8 x 8 array and also supports a 2 x 2 build.
+the controller, operand memory, and systolic array. The overlay defaults to a
+16 x 16 array and also supports 8 x 8 and 2 x 2 builds.
 
 ## Supported target and contracts
 
