@@ -99,9 +99,15 @@ module npu_accelerator #(
     logic [15:0] fe_m, fe_n, fe_k;
     logic [IN_BYTES*8-1:0] core_s_tdata;
     logic [IN_BYTES-1:0] core_s_tkeep;
-    logic core_s_tvalid, core_s_tready, core_s_tlast;
+    logic core_s_tvalid, core_s_tlast;
     logic [31:0] core_m_tdata;
-    logic core_m_tvalid, core_m_tready, core_m_tlast;
+    logic core_m_tvalid, core_m_tlast;
+    // The controller computes TVALID and TREADY in one always_comb, so
+    // block-level analysis (Verilator < 5.03x) sees a loop through the front
+    // end. Signal by signal, TVALID never depends on TREADY.
+    /* verilator lint_off UNOPTFLAT */
+    logic core_s_tready, core_m_tready;
+    /* verilator lint_on UNOPTFLAT */
     logic [63:0] fe_s_tdata;
     logic [7:0] fe_s_tkeep;
     logic fe_s_tvalid, fe_s_tlast, fe_m_tready;
