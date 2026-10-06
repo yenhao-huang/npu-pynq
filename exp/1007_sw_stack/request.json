@@ -1,0 +1,5 @@
+{
+  "id": "001-board-probe",
+  "overlay": {"mode": "none"},
+  "board": {"script": "exp/1007_sw_stack/board/probe.sh", "timeout_minutes": 20}
+}
