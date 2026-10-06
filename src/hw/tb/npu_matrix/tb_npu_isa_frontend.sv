@@ -58,6 +58,7 @@ module tb_npu_isa_frontend;
     logic [7:0] aw_q_len [0:QDEPTH-1];
     integer aw_head = 0, aw_tail = 0, w_beat = 0, b_pending = 0;
     integer reads = 0, writes = 0;
+    integer index, lane;
 
     task automatic fail(input string message);
         begin
@@ -111,7 +112,6 @@ module tb_npu_isa_frontend;
             writes <= writes + 1;
         end
         if (m_axi_wvalid && m_axi_wready) begin
-            integer index, lane;
             if (aw_head == aw_tail) fail("write data before its address");
             index = (aw_q_addr[aw_head % QDEPTH] >> 3) + w_beat;
             for (lane = 0; lane < 8; lane = lane + 1)
@@ -181,10 +181,9 @@ module tb_npu_isa_frontend;
         if (value != 32'd1) fail("ISA_VERSION is not 1");
 
         cases = 0;
-        forever begin
-            status_code = $fscanf(file, "%s %d %d %d %d %d %s\n", name, words, prog_len,
-                                  data_base, want_error, want_jobs, name);
-            if (words == 0) break;
+        status_code = $fscanf(file, "%s %d %d %d %d %d %s\n", name, words, prog_len,
+                              data_base, want_error, want_jobs, name);
+        while (words != 0) begin
             for (i = 0; i < MEM_WORDS; i = i + 1) begin
                 mem[i] = 64'd0;
                 expected[i] = 64'd0;
@@ -235,6 +234,8 @@ module tb_npu_isa_frontend;
             axi_read(8'h60, value);
             $display("case %0s: %0d jobs, %0d cycles, %0d reads, %0d writes", name, want_jobs, value, reads, writes);
             cases = cases + 1;
+            status_code = $fscanf(file, "%s %d %d %d %d %d %s\n", name, words, prog_len,
+                                  data_base, want_error, want_jobs, name);
         end
         if (cases != 7) fail("unexpected case count");
         $display("PASS tb_npu_isa_frontend: %0d programs", cases);
