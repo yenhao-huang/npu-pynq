@@ -11,10 +11,6 @@ on:
     branches: ['npu/issue119-*', 'npu/issue12*-*']
     paths: ['exp/1007_sw_stack/request.json']
 
-concurrency:
-  group: exp-board
-  cancel-in-progress: false
-
 permissions:
   contents: read
   actions: read
@@ -87,6 +83,10 @@ jobs:
     if: needs.plan.outputs.overlay_mode == 'build'
     runs-on: [self-hosted, vivado]
     timeout-minutes: 240
+    # Only the self-hosted jobs queue behind one another; the hosted export runs at once.
+    concurrency:
+      group: exp-board-vivado
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,6 +121,9 @@ jobs:
       (needs.build-overlay.result == 'success' || needs.build-overlay.result == 'skipped')
     runs-on: [self-hosted, pynq-z1]
     timeout-minutes: 600
+    concurrency:
+      group: exp-board-board
+      cancel-in-progress: false
     env:
       PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
       PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}
