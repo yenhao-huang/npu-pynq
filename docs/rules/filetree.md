@@ -145,7 +145,8 @@ npu_repo_in_pynq/
 |-- .mcp.json
 |-- exp/
 |   |-- 0911_performance_optimization/  compact hardware and board results
-|   `-- 1007_sw_stack/          software-stack goal (#119) requests and board scripts
+|   `-- 1007_sw_stack/          software-stack goal (#119): exp-board request, export
+|                               and board scripts, host evaluation scripts and results
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
@@ -242,6 +243,9 @@ Claude Code and Codex alike.
 reproduction procedures, including commands, recorded outputs and validation
 limitations. Package installation and demo instructions live under
 `tools/ic/docs/manual/` and ship with the npm package.
+`docs/goals/sw_optimal/` holds the software-stack goal (#119): the goal as
+given, `Results.md` (key results), `Reproduce.md`, and `details/` (hardware
+ISA, compiler, inference framework, quantization, board runs).
 `docs/goals/widen-input-width/` holds the packed operand stream's simulation
 report, design walkthrough, reproduction steps and recorded metrics (#93).
 `docs/goal/` holds one prompt file per hardware goal. Each file records the goal
