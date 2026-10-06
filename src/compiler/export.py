@@ -55,6 +55,10 @@ def pack_weights(graph: ModelGraph, report: dict, limits: isa.Limits) -> tuple[b
         prev = npu_layout.setdefault(task["weight"], key)
         if prev != key:
             raise ValueError(f"weight {task['weight']} used by NPU tasks with different tiling")
+    for name, (k, n, tk) in graph.meta.get("require_npu_layout", {}).items():
+        if npu_layout.get(name) != (k, n, tk):
+            raise ValueError(f"{name} is read in NPU layout (k={k}, n={n}, tk={tk}) but the partition "
+                             f"stores it as {npu_layout.get(name, 'dense')}")
     chunks: list[bytes] = []
     offsets: dict[str, int] = {}
     layouts: dict[str, str] = {}
