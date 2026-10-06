@@ -18,6 +18,7 @@ npu_repo_in_pynq/
 |   `-- workflows/
 |       |-- cd.yml
 |       |-- ci.yml
+|       |-- exp-board.yml       issue-119 experiment runs on the self-hosted runners
 |       `-- release-publish.yml
 |-- .codex/
 |   `-- skills/
@@ -55,6 +56,8 @@ npu_repo_in_pynq/
 |   |   |   `-- test_*.py
 |   |   |-- vectors/
 |   |   `-- waves/
+|   |-- isa/                     NPU instruction set: spec, layout, simulator
+|   |   `-- *.py
 |   |-- export/
 |   |   `-- *.py
 |   `-- runtime/
@@ -136,7 +139,8 @@ npu_repo_in_pynq/
 |       `-- *.ts
 |-- .mcp.json
 |-- exp/
-|   `-- 0911_performance_optimization/  compact hardware and board results
+|   |-- 0911_performance_optimization/  compact hardware and board results
+|   `-- 1007_sw_stack/          software-stack goal (#119) requests and board scripts
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
@@ -152,6 +156,12 @@ npu_repo_in_pynq/
 `src/test/` verifies that the hardware computes the right answer. `model/` is
 the numpy golden reference, `cocotb/` are the Python tests that compare RTL
 against it, and `Makefile` is what CI invokes.
+
+`src/isa/` is the single definition of the NPU instruction set: `isa.py`
+encodes and decodes it, `layout.py` fixes how a tiled GEMM maps onto DDR, and
+`sim.py` is the bit-accurate simulator the RTL, runtimes and compiler are
+checked against. RTL opcodes must match it; `src/test/tests/test_isa.py`
+enforces that.
 
 `src/export/` turns a trained model into whatever format the NPU executes.
 

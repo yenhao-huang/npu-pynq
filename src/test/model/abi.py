@@ -5,7 +5,7 @@ from enum import IntEnum, IntFlag
 
 ABI_MAGIC = 0x3155504E
 ABI_MAJOR = 1
-ABI_MINOR = 0
+ABI_MINOR = 1
 ABI_WINDOW_BYTES = 0x100
 DMA_ALIGNMENT_BYTES = 64
 PHYSICAL_ADDRESS_LIMIT = 1 << 32
@@ -19,6 +19,9 @@ class Capability(IntFlag):
     STREAM_TLAST = 1 << 3
     CYCLE_COUNTER = 1 << 4
     PIPELINED_JOBS = 1 << 5
+    #: ABI 1.1: the NPU fetches and decodes an instruction stream (src/isa)
+    #: from DDR through its own AXI4 master; see IsaRegister.
+    ISA_FRONTEND = 1 << 6
 
 
 #: PIPELINED_JOBS is advertised, not required: a device without it still
@@ -47,6 +50,29 @@ class Register(IntEnum):
     TIMEOUT_CYCLES = 0x30
     CYCLES_LO = 0x34
     CYCLES_HI = 0x38
+
+
+class IsaRegister(IntEnum):
+    """Instruction-stream front end registers (ABI 1.1, ISA_FRONTEND)."""
+
+    CONTROL = 0x40
+    STATUS = 0x44
+    PROG_ADDR = 0x48
+    PROG_LEN = 0x4C
+    DATA_BASE = 0x50
+    ERROR = 0x54
+    PC = 0x58
+    JOBS = 0x5C
+    CYCLES = 0x60
+    INSTRUCTIONS = 0x64
+    VERSION = 0x68
+
+
+class IsaStatus(IntFlag):
+    RUNNING = 1 << 0
+    DONE = 1 << 1
+    ERROR = 1 << 2
+    BUSY = 1 << 3
 
 
 class Control(IntFlag):

@@ -62,6 +62,11 @@ set rtl_files [list \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core controller npu_matrix_controller.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath npu_matrix_datapath.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_core.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_fifo.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_fetch.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_decode.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_lsu.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_frontend.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_accelerator.sv]]
 foreach rtl_file $rtl_files {
     if {![file isfile $rtl_file]} {
@@ -90,7 +95,7 @@ set_property -dict [list CONFIG.C_OPERATION {not} CONFIG.C_SIZE {1}] $reset_inve
 set control_ic [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:* control_ic]
 set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {2}] $control_ic
 set memory_ic [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:* memory_ic]
-set_property -dict [list CONFIG.NUM_SI {2} CONFIG.NUM_MI {1}] $memory_ic
+set_property -dict [list CONFIG.NUM_SI {3} CONFIG.NUM_MI {1}] $memory_ic
 set dma [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:* axi_dma_0]
 set_property -dict [list \
     CONFIG.c_include_sg {0} \
@@ -114,6 +119,7 @@ connect_bd_intf_net [get_bd_intf_pins control_ic/M00_AXI] [get_bd_intf_pins npu_
 connect_bd_intf_net [get_bd_intf_pins control_ic/M01_AXI] [get_bd_intf_pins axi_dma_0/S_AXI_LITE]
 connect_bd_intf_net [get_bd_intf_pins axi_dma_0/M_AXI_MM2S] [get_bd_intf_pins memory_ic/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins axi_dma_0/M_AXI_S2MM] [get_bd_intf_pins memory_ic/S01_AXI]
+connect_bd_intf_net [get_bd_intf_pins npu_accelerator_0/m_axi] [get_bd_intf_pins memory_ic/S02_AXI]
 connect_bd_intf_net [get_bd_intf_pins memory_ic/M00_AXI] [get_bd_intf_pins ps7/S_AXI_HP0]
 connect_bd_intf_net [get_bd_intf_pins axi_dma_0/M_AXIS_MM2S] [get_bd_intf_pins npu_accelerator_0/s_axis]
 connect_bd_intf_net [get_bd_intf_pins npu_accelerator_0/m_axis] [get_bd_intf_pins axi_dma_0/S_AXIS_S2MM]
@@ -123,7 +129,8 @@ connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
     [get_bd_pins control_ic/ACLK] [get_bd_pins control_ic/S00_ACLK] \
     [get_bd_pins control_ic/M00_ACLK] [get_bd_pins control_ic/M01_ACLK] \
     [get_bd_pins memory_ic/ACLK] [get_bd_pins memory_ic/S00_ACLK] \
-    [get_bd_pins memory_ic/S01_ACLK] [get_bd_pins memory_ic/M00_ACLK] \
+    [get_bd_pins memory_ic/S01_ACLK] [get_bd_pins memory_ic/S02_ACLK] \
+    [get_bd_pins memory_ic/M00_ACLK] \
     [get_bd_pins ps7/M_AXI_GP0_ACLK] [get_bd_pins ps7/S_AXI_HP0_ACLK] \
     [get_bd_pins axi_dma_0/s_axi_lite_aclk] \
     [get_bd_pins axi_dma_0/m_axi_mm2s_aclk] \
@@ -135,7 +142,8 @@ connect_bd_net [get_bd_pins reset0/interconnect_aresetn] \
     [get_bd_pins control_ic/ARESETN] [get_bd_pins control_ic/S00_ARESETN] \
     [get_bd_pins control_ic/M00_ARESETN] [get_bd_pins control_ic/M01_ARESETN] \
     [get_bd_pins memory_ic/ARESETN] [get_bd_pins memory_ic/S00_ARESETN] \
-    [get_bd_pins memory_ic/S01_ARESETN] [get_bd_pins memory_ic/M00_ARESETN]
+    [get_bd_pins memory_ic/S01_ARESETN] [get_bd_pins memory_ic/S02_ARESETN] \
+    [get_bd_pins memory_ic/M00_ARESETN]
 connect_bd_net [get_bd_pins reset0/peripheral_aresetn] \
     [get_bd_pins axi_dma_0/axi_resetn] \
     [get_bd_pins npu_accelerator_0/s_axi_aresetn]
