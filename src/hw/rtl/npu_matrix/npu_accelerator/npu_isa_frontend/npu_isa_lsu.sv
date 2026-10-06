@@ -114,18 +114,16 @@ module npu_isa_lsu #(
         .pop(rd_meta_pop), .head(rd_meta_head), .empty(rd_meta_empty)
     );
 
-    always_comb begin
-        rd_frame_end = rd_meta_head[9];
-        rd_burst_last = (rd_beat == rd_meta_head[4:0] - 5'd1);
-        s_axis_tdata = r_data;
-        s_axis_tvalid = r_valid && !rd_meta_empty;
-        r_ready = s_axis_tready && !rd_meta_empty;
-        s_axis_tlast = rd_frame_end && rd_burst_last;
-        s_axis_tkeep = 8'hFF;
-        if (s_axis_tlast)
-            s_axis_tkeep = 8'hFF >> (4'd8 - rd_meta_head[8:5]);
-        rd_meta_pop = r_valid && r_ready && rd_burst_last;
-    end
+    // Stream handshakes as one assign each: the controller's TREADY feeds
+    // R's RREADY while TVALID never depends on TREADY.
+    assign rd_frame_end = rd_meta_head[9];
+    assign rd_burst_last = (rd_beat == rd_meta_head[4:0] - 5'd1);
+    assign s_axis_tdata = r_data;
+    assign s_axis_tvalid = r_valid && !rd_meta_empty;
+    assign r_ready = s_axis_tready && !rd_meta_empty;
+    assign s_axis_tlast = rd_frame_end && rd_burst_last;
+    assign s_axis_tkeep = s_axis_tlast ? (8'hFF >> (4'd8 - rd_meta_head[8:5])) : 8'hFF;
+    assign rd_meta_pop = r_valid && r_ready && rd_burst_last;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -190,22 +188,22 @@ module npu_isa_lsu #(
         wr_burst = 5'd16 - {1'b0, wseg_addr[6:3]};
         if ({4'd0, wr_burst} > wseg_beats)
             wr_burst = wseg_beats[4:0];
-        aw_valid = wseg_active && !wmeta_full && !bmeta_full;
-        aw_addr = wseg_addr;
-        aw_len = {3'd0, wr_burst - 5'd1};
-        st_ready = !wseg_active;
-
-        // Pack result words two to a beat, low address first.
-        take_low = m_axis_tvalid && !have_low && !m_axis_tlast;
-        w_valid = !wmeta_empty && m_axis_tvalid && !take_low;
-        w_data = have_low ? {m_axis_tdata, low_word} : {32'd0, m_axis_tdata};
-        w_strb = have_low ? 8'hFF : 8'h0F;
-        w_last = (wr_beat == wmeta_head[4:0] - 5'd1);
-        send_beat = w_valid && w_ready;
-        m_axis_tready = take_low || send_beat;
-        wmeta_pop = send_beat && w_last;
-        b_ready = !bmeta_empty;
     end
+
+    assign aw_valid = wseg_active && !wmeta_full && !bmeta_full;
+    assign aw_addr = wseg_addr;
+    assign aw_len = {3'd0, wr_burst - 5'd1};
+    assign st_ready = !wseg_active;
+    // Pack result words two to a beat, low address first.
+    assign take_low = m_axis_tvalid && !have_low && !m_axis_tlast;
+    assign w_valid = !wmeta_empty && m_axis_tvalid && !take_low;
+    assign w_data = have_low ? {m_axis_tdata, low_word} : {32'd0, m_axis_tdata};
+    assign w_strb = have_low ? 8'hFF : 8'h0F;
+    assign w_last = (wr_beat == wmeta_head[4:0] - 5'd1);
+    assign send_beat = w_valid && w_ready;
+    assign m_axis_tready = take_low || send_beat;
+    assign wmeta_pop = send_beat && w_last;
+    assign b_ready = !bmeta_empty;
 
     npu_isa_fifo #(.WIDTH(5), .DEPTH(META_DEPTH)) wmeta (
         .clk(clk), .rst_n(rst_n), .clear(1'b0),
