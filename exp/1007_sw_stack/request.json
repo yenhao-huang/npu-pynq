@@ -1,5 +1,6 @@
 {
-  "id": "002-isa-frontend",
-  "overlay": {"mode": "build"},
-  "board": {"script": "exp/1007_sw_stack/board/isa_gemm.sh", "timeout_minutes": 30}
+  "id": "003-models-on-board",
+  "overlay": {"mode": "run", "run_id": "37498314897"},
+  "export": {"cmd": "bash exp/1007_sw_stack/export_all.sh build/exp-payload"},
+  "board": {"script": "exp/1007_sw_stack/board/run_models.sh", "timeout_minutes": 300}
 }

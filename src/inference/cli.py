@@ -28,7 +28,9 @@ def cmd_export(args) -> int:
     kwargs = {}
     if args.source:
         kwargs["source"] = args.source
-    if hasattr(module, "LLM") or args.model != "resnet18":
+    if args.model == "resnet18":
+        kwargs["opts"] = module.ResNetOptions(bits=args.bits)
+    else:
         kwargs["opts"] = _options(args)
     graph, _ = module.build(**kwargs)
     built = time.monotonic() - t
