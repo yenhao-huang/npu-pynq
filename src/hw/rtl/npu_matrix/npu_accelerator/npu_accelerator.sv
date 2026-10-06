@@ -108,43 +108,25 @@ module npu_accelerator #(
 
     assign irq = status_done | status_error | isa_done | isa_error;
 
-    always_comb begin
-        if (isa_busy) begin
-            ctl_start = fe_start;
-            ctl_m = fe_m;
-            ctl_n = fe_n;
-            ctl_k = fe_k;
-            ctl_a_stride = {16'd0, fe_k};
-            ctl_b_stride = {16'd0, fe_n};
-            ctl_c_stride = {14'd0, fe_n, 2'b00};
-            ctl_timeout = 32'hffff_ffff;
-            core_s_tdata = fe_s_tdata[IN_BYTES*8-1:0];
-            core_s_tkeep = fe_s_tkeep[IN_BYTES-1:0];
-            core_s_tvalid = fe_s_tvalid;
-            core_s_tlast = fe_s_tlast;
-            core_m_tready = fe_m_tready;
-            s_axis_tready = 1'b0;
-            m_axis_tvalid = 1'b0;
-        end else begin
-            ctl_start = start_pulse;
-            ctl_m = cfg_m;
-            ctl_n = cfg_n;
-            ctl_k = cfg_k;
-            ctl_a_stride = cfg_a_stride;
-            ctl_b_stride = cfg_b_stride;
-            ctl_c_stride = cfg_c_stride;
-            ctl_timeout = cfg_timeout_cycles;
-            core_s_tdata = s_axis_tdata;
-            core_s_tkeep = s_axis_tkeep;
-            core_s_tvalid = s_axis_tvalid;
-            core_s_tlast = s_axis_tlast;
-            core_m_tready = m_axis_tready;
-            s_axis_tready = core_s_tready;
-            m_axis_tvalid = core_m_tvalid;
-        end
-        m_axis_tdata = core_m_tdata;
-        m_axis_tlast = core_m_tlast;
-    end
+    // One assign per signal: the stream readies loop back through the
+    // controller, and a shared always_comb would look circular to Verilator.
+    assign ctl_start = isa_busy ? fe_start : start_pulse;
+    assign ctl_m = isa_busy ? fe_m : cfg_m;
+    assign ctl_n = isa_busy ? fe_n : cfg_n;
+    assign ctl_k = isa_busy ? fe_k : cfg_k;
+    assign ctl_a_stride = isa_busy ? {16'd0, fe_k} : cfg_a_stride;
+    assign ctl_b_stride = isa_busy ? {16'd0, fe_n} : cfg_b_stride;
+    assign ctl_c_stride = isa_busy ? {14'd0, fe_n, 2'b00} : cfg_c_stride;
+    assign ctl_timeout = isa_busy ? 32'hffff_ffff : cfg_timeout_cycles;
+    assign core_s_tdata = isa_busy ? fe_s_tdata[IN_BYTES*8-1:0] : s_axis_tdata;
+    assign core_s_tkeep = isa_busy ? fe_s_tkeep[IN_BYTES-1:0] : s_axis_tkeep;
+    assign core_s_tvalid = isa_busy ? fe_s_tvalid : s_axis_tvalid;
+    assign core_s_tlast = isa_busy ? fe_s_tlast : s_axis_tlast;
+    assign core_m_tready = isa_busy ? fe_m_tready : m_axis_tready;
+    assign s_axis_tready = isa_busy ? 1'b0 : core_s_tready;
+    assign m_axis_tvalid = isa_busy ? 1'b0 : core_m_tvalid;
+    assign m_axis_tdata = core_m_tdata;
+    assign m_axis_tlast = core_m_tlast;
 
     npu_isa_frontend #(
         .ROWS(ROWS),
