@@ -116,6 +116,8 @@ def linear(ctx: Ctx, x: Value, name: str, w: QuantizedWeight, bias: np.ndarray |
 
     g = w.group
     groups = k // g
+    # INT4 values are stored two per byte; the runtime widens them on the way to the NPU.
+    ctx.graph.meta.setdefault("packed_int4", []).append(f"{name}.q")
     acc = b.fill(0, [groups, m, n], "i32")
     # C[c, m, n] = sum_j X[m, c, j] * W[c, j, n] on (c, m, n, j).
     x3 = b.reshape(xq, [m, groups, g])

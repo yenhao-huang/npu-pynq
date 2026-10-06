@@ -8,10 +8,13 @@ A logical ``C[M, N] = A[M, K] @ B[K, N]`` (INT8 x INT8 -> INT32) is split into
 ``B``  ``b_base + b_offset(kc, ni)``, ``k_c x n_i`` bytes
 ``C``  ``c_base + c_offset(kc, mi, ni)``, ``m_i x n_i`` INT32 partial sums
 
-Every block starts 8-byte aligned. B blocks of one K chunk share a stride so a
-REPEATed GEMM with post-increment walks them; C keeps one partial plane per K
-chunk and the CPU reduces the planes (and applies per-chunk scales, which is
-how group-wise INT4 weights stay exact on an INT8 array).
+Every block starts 8-byte aligned. B is stored column-tile-major: column tile
+``ni`` is one contiguous panel holding its K chunks in order, so any range of
+output columns is one contiguous block of the weight (a *segment* that can be
+streamed into a small DMA window), and a REPEATed GEMM with post-increment
+walks the tiles of one K chunk by stepping one panel. C keeps one partial
+plane per K chunk and the CPU reduces the planes (and applies per-chunk
+scales, which is how group-wise INT4 weights stay exact on an INT8 array).
 """
 
 from __future__ import annotations
@@ -74,12 +77,22 @@ class GemmPlan:
     def b_tile_stride(self, kc: int) -> int:
         return isa.align(self.k_c(kc) * self.tn)
 
+    @property
+    def b_panel(self) -> int:
+        """Bytes of one column tile's panel (all K chunks)."""
+        return (self.kt - 1) * isa.align(self.tk * self.tn) + self.b_tile_stride(self.kt - 1)
+
     def b_offset(self, kc: int, ni: int) -> int:
-        return kc * self.nt * isa.align(self.tk * self.tn) + ni * self.b_tile_stride(kc)
+        return ni * self.b_panel + kc * isa.align(self.tk * self.tn)
 
     @property
     def b_bytes(self) -> int:
-        return self.b_offset(self.kt - 1, self.nt - 1) + self.b_tile_stride(self.kt - 1)
+        return self.nt * self.b_panel
+
+    def segments(self, limit: int) -> list[tuple[int, int]]:
+        """Column-tile ranges whose B blocks are at most ``limit`` bytes (>= 1 tile)."""
+        per = max(1, limit // self.b_panel)
+        return [(lo, min(lo + per, self.nt)) for lo in range(0, self.nt, per)]
 
     # -- C ----------------------------------------------------------------
     def c_tile_stride(self, mi: int) -> int:
@@ -147,22 +160,28 @@ def unpack_c(plan: GemmPlan, buffer: np.ndarray) -> np.ndarray:
     return out
 
 
-def encode(plan: GemmPlan, a_base: int, b_base: int, c_base: int) -> list[int]:
-    """Instruction words (without END) computing every job of ``plan``."""
+def encode(plan: GemmPlan, a_base: int, b_base: int, c_base: int,
+           ni_lo: int = 0, ni_hi: int | None = None) -> list[int]:
+    """Instruction words (without END) for column tiles [ni_lo, ni_hi).
+
+    ``b_base`` is where tile ``ni_lo``'s panel sits, so a segment's weights
+    can be placed anywhere."""
+    ni_hi = plan.nt if ni_hi is None else ni_hi
+    narrow_last = ni_hi == plan.nt and plan.n_i(plan.nt - 1) < plan.tn
+    full = ni_hi - ni_lo - (1 if narrow_last else 0)
     words: list[int] = []
     for mi in range(plan.mt):
         for kc in range(plan.kt):
-            full = plan.nt if plan.n_i(plan.nt - 1) == plan.tn else plan.nt - 1
             words.append(isa.addr_a(a_base + plan.a_offset(mi, kc)))
             words.append(isa.addr_b(b_base + plan.b_offset(kc, 0)))
-            words.append(isa.addr_c(c_base + plan.c_offset(kc, mi, 0)))
-            words.append(isa.incr(0, plan.b_tile_stride(kc), plan.c_tile_stride(mi)))
+            words.append(isa.addr_c(c_base + plan.c_offset(kc, mi, ni_lo)))
+            words.append(isa.incr(0, plan.b_panel, plan.c_tile_stride(mi)))
             if full:
                 words.append(isa.shape(plan.m_i(mi), plan.tn, plan.k_c(kc)))
                 if full > 1:
                     words.append(isa.repeat(full))
                 words.append(isa.gemm(isa.GEMM_INC_B | isa.GEMM_INC_C))
-            if full < plan.nt:
+            if narrow_last:
                 words.append(isa.shape(plan.m_i(mi), plan.n_i(plan.nt - 1), plan.k_c(kc)))
-                words.append(isa.gemm(0))
+                words.append(isa.gemm(isa.GEMM_INC_B | isa.GEMM_INC_C))
     return words

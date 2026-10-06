@@ -166,9 +166,10 @@ def partition(module: Path, out: Path, report: Path, max_k: int = 256) -> None:
 
 
 def lower(module: Path, out: Path, weights: Path, programs: Path, rows: int = 16,
-          columns: int = 16, max_k: int = 256) -> None:
+          columns: int = 16, max_k: int = 256, segment_bytes: int = 4 << 20) -> None:
     run([npu_opt(), str(module),
-         f"--npu-lower=weights={weights} programs={programs} rows={rows} columns={columns} max-k={max_k}",
+         f"--npu-lower=weights={weights} programs={programs} rows={rows} columns={columns} max-k={max_k}"
+         f" segment-bytes={segment_bytes}",
          "--canonicalize", "-o", str(out)], "npu-lower")
 
 

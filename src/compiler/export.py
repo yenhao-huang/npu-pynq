@@ -59,6 +59,7 @@ def pack_weights(graph: ModelGraph, report: dict, limits: isa.Limits) -> tuple[b
         if npu_layout.get(name) != (k, n, tk):
             raise ValueError(f"{name} is read in NPU layout (k={k}, n={n}, tk={tk}) but the partition "
                              f"stores it as {npu_layout.get(name, 'dense')}")
+    packed = set(graph.meta.get("packed_int4", []))
     chunks: list[bytes] = []
     offsets: dict[str, int] = {}
     layouts: dict[str, str] = {}
@@ -69,8 +70,16 @@ def pack_weights(graph: ModelGraph, report: dict, limits: isa.Limits) -> tuple[b
             if array.shape != (k, n) or array.dtype != np.int8:
                 raise ValueError(f"NPU weight {name} must be int8 {k}x{n}, got {array.dtype} {array.shape}")
             plan = layout.plan_gemm(1, n, k, limits, tk)
-            data = layout.pack_b(plan, array).tobytes()
-            layouts[name] = f"npu_b(k={k},n={n},tk={tk})"
+            tiles = layout.pack_b(plan, array)
+            if name in packed:
+                if tiles.min() < -8 or tiles.max() > 7:
+                    raise ValueError(f"{name} is marked INT4 but holds values outside [-8, 7]")
+                u = tiles.view(np.uint8) & 0x0F
+                data = (u[0::2] | (u[1::2] << 4)).astype(np.uint8).tobytes()
+                layouts[name] = f"npu_b4(k={k},n={n},tk={tk})"
+            else:
+                data = tiles.tobytes()
+                layouts[name] = f"npu_b(k={k},n={n},tk={tk})"
         else:
             data = np.ascontiguousarray(array).tobytes()
             layouts[name] = f"dense({array.dtype},{'x'.join(map(str, array.shape))})"
@@ -84,7 +93,7 @@ def pack_weights(graph: ModelGraph, report: dict, limits: isa.Limits) -> tuple[b
 
 
 def export(graph: ModelGraph, out: str | Path, targets: Sequence[str] = ("host", "pynq"),
-           limits: isa.Limits = isa.Limits(), keep_ir: bool = True) -> Path:
+           limits: isa.Limits = isa.Limits(), keep_ir: bool = True, segment_bytes: int = 4 << 20) -> Path:
     out = Path(out)
     if out.exists():
         shutil.rmtree(out)
@@ -110,7 +119,8 @@ def export(graph: ModelGraph, out: str | Path, targets: Sequence[str] = ("host",
 
     t = time.monotonic()
     lowered = work / "lowered.mlir"
-    toolchain.lower(parted, lowered, table, out / "programs", limits.rows, limits.columns, limits.max_k)
+    toolchain.lower(parted, lowered, table, out / "programs", limits.rows, limits.columns, limits.max_k,
+                    segment_bytes)
     timings["npu_lower"] = time.monotonic() - t
 
     libraries = {}
@@ -136,9 +146,10 @@ def export(graph: ModelGraph, out: str | Path, targets: Sequence[str] = ("host",
         "weights": {"file": "weights.bin", "bytes": len(blob), "count": len(offsets)},
         "weight_layouts": layouts,
         "weight_offsets": offsets,
-        "npu": {"tasks": len(programs["programs"]),
+        "npu": {"tasks": len(programs["tasks"]),
+                "segments": sum(len(t["segments"]) for t in programs["tasks"]),
                 "program_words": programs["words"],
-                "jobs_per_call_total": sum(p["jobs"] for p in programs["programs"])},
+                "jobs_total": sum(t["jobs"] for t in programs["tasks"])},
         "cpu_linalg_ops": report["cpu_linalg_ops"],
         "limits": {"rows": limits.rows, "columns": limits.columns, "max_k": limits.max_k},
         "compile_seconds": timings,

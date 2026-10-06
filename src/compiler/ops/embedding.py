@@ -30,14 +30,15 @@ def tied_lookup(ctx: Ctx, tokens: Value, name: str, w: QuantizedWeight, limits: 
 
         out = b.empty([tokens.shape[0], hidden], "f32")
         return b.generic([], [out], [identity_map(2)], ["parallel", "parallel"], lambda r: [column(r)])[0]
-    plan = layout.plan_gemm(1, vocab, hidden, limits, min(hidden, limits.max_k))
-    flat = ctx.weight(f"{name}.q", w.q, shape=[plan.b_bytes], dtype="i8")
+    tk = w.group if w.bits == 4 else min(hidden, limits.max_k)
+    plan = layout.plan_gemm(1, vocab, hidden, limits, tk)
+    packed = w.bits == 4
+    flat = ctx.weight(f"{name}.q", w.q, shape=[plan.b_bytes // 2 if packed else plan.b_bytes], dtype="i8")
     scales = ctx.weight(f"{name}.s", w.scale)
     # The exporter checks the weight really is stored with this tiling.
     ctx.graph.meta.setdefault("require_npu_layout", {})[f"{name}.q"] = [hidden, vocab, plan.tk]
     t_count = tokens.shape[0]
-    tk, tn, nt = plan.tk, plan.tn, plan.nt
-    tile_kn = isa.align(tk * tn)
+    tn, nt = plan.tn, plan.nt
     last_width = plan.n_i(nt - 1)
 
     def body(r: Region) -> Value:
@@ -49,21 +50,24 @@ def tied_lookup(ctx: Ctx, tokens: Value, name: str, w: QuantizedWeight, limits: 
         def op(name: str, x: Value, y: Value) -> Value:
             return r.op(f"arith.{name} {x}, {y} : index", "index")
 
-        kc = op("divui", h, idx(tk))
-        hk = op("remui", h, idx(tk))
-        ni = op("divui", tok, idx(tn))
-        vn = op("remui", tok, idx(tn))
-        # Chunk kc holds k_c = min(tk, hidden - kc*tk) rows; tile stride is
-        # align8(k_c * tn); the last column tile is last_width wide.
-        kc_rows = op("minui", idx(tk), op("subi", idx(hidden), op("muli", kc, idx(tk))))
-        stride = op("andi", op("addi", op("muli", kc_rows, idx(tn)), idx(7)), idx(-8))
+        # B tiles are column panels: offset = ni*panel + kc*align8(tk*tn) + hk*width + vn.
+        kc, hk = op("divui", h, idx(plan.tk)), op("remui", h, idx(plan.tk))
+        ni, vn = op("divui", tok, idx(tn)), op("remui", tok, idx(tn))
         width = r.select(r.cmpi("eq", ni, idx(nt - 1)), idx(last_width), idx(tn))
-        off = op("muli", kc, idx(nt * tile_kn))
-        off = op("addi", off, op("muli", ni, stride))
+        off = op("muli", ni, idx(plan.b_panel))
+        off = op("addi", off, op("muli", kc, idx(isa.align(plan.tk * tn))))
         off = op("addi", off, op("muli", hk, width))
         off = op("addi", off, vn)
-        q = r.extract(flat, [off])
-        s = r.extract(scales, [tok])
+        if packed:
+            byte = r.extract(flat, [op("shrui", off, idx(1))])
+            odd = r.cmpi("eq", op("andi", off, idx(1)), idx(1))
+            lo = r.op(f"arith.shrsi {r.op(f'arith.shli {byte}, {r.const(4, 'i8')} : i8', 'i8')}, {r.const(4, 'i8')} : i8", "i8")
+            hi = r.op(f"arith.shrsi {byte}, {r.const(4, 'i8')} : i8", "i8")
+            q = r.select(odd, hi, lo)
+            s = r.extract(scales, [op("divui", h, idx(w.group)), tok])
+        else:
+            q = r.extract(flat, [off])
+            s = r.extract(scales, [tok])
         return r.mulf(r.sitofp(q), s)
 
     out = b.empty([t_count, hidden], "f32")

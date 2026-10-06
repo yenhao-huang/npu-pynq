@@ -1,0 +1,96 @@
+{
+  "package": "build/pkg/qwen3_w4",
+  "options": {
+    "chunk": 16,
+    "max_seq": 512,
+    "bits": 4,
+    "group": 128,
+    "embed_bits": 4,
+    "kv": "f32",
+    "attention": "online",
+    "awq": true,
+    "layers": null,
+    "limits": {
+      "rows": 16,
+      "columns": 16,
+      "max_k": 256
+    }
+  },
+  "prompts": [
+    {
+      "prompt": "The capital of France is",
+      "tokens": 5,
+      "prefill_cosine": 0.8849760293960571,
+      "decode_cosine": 0.8849760293960571,
+      "prefill_vs_decode_max_abs": 0.0,
+      "top1_match_every_position": 0.6,
+      "greedy_tokens_agreeing_with_hf": "0/20",
+      "ours": " the capital of France, and the capital of France is the capital of France. The capital of France",
+      "hf": " Paris. The capital of Italy is Rome. The capital of Spain is Madrid. The capital of China",
+      "stats": {
+        "prompt_tokens": 5,
+        "generated_tokens": 20,
+        "prefill_seconds": 2.5346,
+        "decode_seconds": 6.3077,
+        "prefill_tok_per_s": 1.973,
+        "decode_tok_per_s": 3.171,
+        "npu": {
+          "calls": 2373,
+          "jobs": 6111168,
+          "cycles": 0,
+          "macs": 19121700864
+        }
+      }
+    },
+    {
+      "prompt": "def fibonacci(n):\n    ",
+      "tokens": 5,
+      "prefill_cosine": 0.9198840260505676,
+      "decode_cosine": 0.9198840260505676,
+      "prefill_vs_decode_max_abs": 0.0,
+      "top1_match_every_position": 0.6,
+      "greedy_tokens_agreeing_with_hf": "20/20",
+      "ours": " if n == 0:\n         return 0\n     elif n == 1:\n         return",
+      "hf": " if n == 0:\n         return 0\n     elif n == 1:\n         return",
+      "stats": {
+        "prompt_tokens": 5,
+        "generated_tokens": 20,
+        "prefill_seconds": 2.5278,
+        "decode_seconds": 6.3129,
+        "prefill_tok_per_s": 1.978,
+        "decode_tok_per_s": 3.168,
+        "npu": {
+          "calls": 2373,
+          "jobs": 6111168,
+          "cycles": 0,
+          "macs": 19121700864
+        }
+      }
+    },
+    {
+      "prompt": "In a distant galaxy, scientists discovered",
+      "tokens": 7,
+      "prefill_cosine": 0.9625770449638367,
+      "decode_cosine": 0.9625770449638367,
+      "prefill_vs_decode_max_abs": 0.0,
+      "top1_match_every_position": 0.5714285714285714,
+      "greedy_tokens_agreeing_with_hf": "4/20",
+      "ours": " a new type of galaxy, called Galaxy X. The galaxy X has a total of 10",
+      "hf": " a new type of star called the \"Eclipse Star\" which has a unique property. The E",
+      "stats": {
+        "prompt_tokens": 7,
+        "generated_tokens": 20,
+        "prefill_seconds": 2.5325,
+        "decode_seconds": 6.315,
+        "prefill_tok_per_s": 2.764,
+        "decode_tok_per_s": 3.167,
+        "npu": {
+          "calls": 2373,
+          "jobs": 6111168,
+          "cycles": 0,
+          "macs": 19121700864
+        }
+      }
+    }
+  ]
+}

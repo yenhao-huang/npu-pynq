@@ -50,6 +50,27 @@ class SimulatorTest(unittest.TestCase):
                 self.assertEqual(trace.jobs, plan.jobs)
                 self.assertEqual(trace.macs, m * n * k)
 
+    def test_column_segments_compose(self):
+        rng = np.random.default_rng(5)
+        m, n, k = 7, 100, 300
+        a = rng.integers(-128, 128, (m, k), dtype=np.int8)
+        b = rng.integers(-128, 128, (k, n), dtype=np.int8)
+        plan = layout.plan_gemm(m, n, k)
+        b_packed = layout.pack_b(plan, b)
+        b_base = isa.align(plan.a_bytes, 64)
+        c_base = b_base + isa.align(plan.b_bytes, 64)
+        memory = np.zeros(c_base + plan.c_bytes, np.uint8)
+        memory[:plan.a_bytes] = layout.pack_a(plan, a).view(np.uint8)
+        memory[b_base:b_base + plan.b_bytes] = b_packed.view(np.uint8)
+        segments = plan.segments(2 * plan.b_panel + 1)
+        self.assertEqual(len(segments), 4)
+        for lo, hi in segments:
+            # Each segment's weights are one contiguous slice of B.
+            words = layout.encode(plan, 0, b_base + lo * plan.b_panel, c_base, lo, hi) + [isa.end()]
+            sim.run(words, memory)
+        partial = layout.unpack_c(plan, memory[c_base:])
+        np.testing.assert_array_equal(partial.sum(0), a.astype(np.int32) @ b.astype(np.int32))
+
     def test_small_array_limits(self):
         limits = isa.Limits(rows=2, columns=2, max_k=8)
         a, b, plan, trace, partial = run_gemm(5, 7, 20, limits)
