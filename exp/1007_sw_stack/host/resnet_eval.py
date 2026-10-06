@@ -10,6 +10,7 @@ import hashlib
 import json
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -28,9 +29,17 @@ def gallery(cache: Path) -> list[tuple[str, Path]]:
     out = []
     for item in spec["images"]:
         path = cache / item["filename"]
-        if not path.exists():
-            req = urllib.request.Request(item["url"], headers={"User-Agent": "npu-pynq-exp/1.0"})
-            path.write_bytes(urllib.request.urlopen(req, timeout=60).read())
+        for attempt in range(6):
+            if path.exists():
+                break
+            try:
+                req = urllib.request.Request(item["url"], headers={"User-Agent": "npu-pynq-exp/1.0 (research)"})
+                path.write_bytes(urllib.request.urlopen(req, timeout=60).read())
+            except urllib.error.HTTPError as error:  # Wikimedia rate-limits bursts (429)
+                if error.code != 429 or attempt == 5:
+                    raise
+                time.sleep(float(error.headers.get("Retry-After") or 10 * 2 ** attempt))
+        time.sleep(2)
         if hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]:
             raise RuntimeError(f"{path} does not match its pinned SHA-256")
         out.append((item["expected_class"], path))
