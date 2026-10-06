@@ -70,6 +70,21 @@ def tied_lookup(ctx: Ctx, tokens: Value, name: str, w: QuantizedWeight, limits: 
     return b.generic([], [out], [identity_map(2)], ["parallel", "parallel"], lambda r: [body(r)])[0]
 
 
+def dense_lookup(ctx: Ctx, tokens: Value, name: str, w: QuantizedWeight) -> Value:
+    """Untied embedding: rows of an INT8 [vocab, hidden] table with per-row scales."""
+    b = ctx.b
+    table = ctx.weight(f"{name}.rows", np.ascontiguousarray(w.q.T))
+    scales = ctx.weight(f"{name}.s", w.scale)
+
+    def body(r: Region) -> Value:
+        tok = r.index_cast(r.extract(tokens, [r.index(0)]), "index")
+        q = r.extract(table, [tok, r.index(1)])
+        return r.mulf(r.sitofp(q) if w.bits != 32 else q, r.extract(scales, [tok]))
+
+    out = b.empty([tokens.shape[0], w.k], "f32")
+    return b.generic([], [out], [identity_map(2)], ["parallel", "parallel"], lambda r: [body(r)])[0]
+
+
 def rope_tables(max_seq: int, rotary_dim: int, theta: float) -> tuple[np.ndarray, np.ndarray]:
     inv_freq = 1.0 / (theta ** (np.arange(0, rotary_dim, 2, dtype=np.float64) / rotary_dim))
     angles = np.arange(max_seq, dtype=np.float64)[:, None] * inv_freq[None, :]

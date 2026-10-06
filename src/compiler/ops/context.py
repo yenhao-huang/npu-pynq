@@ -30,3 +30,18 @@ class Ctx:
         if key not in self.cache:
             self.cache[key] = self.b.weight(self.arena, name, shape, dtype)
         return self.cache[key]
+
+    def if_(self, cond: Value, result_types, then_fn, else_fn):
+        """scf.if whose branches may reference weights (cached per branch)."""
+        saved = dict(self.cache)
+
+        def scoped(fn):
+            def run():
+                self.cache = dict(saved)
+                return fn()
+            return run
+
+        try:
+            return self.b.if_(cond, result_types, scoped(then_fn), scoped(else_fn))
+        finally:
+            self.cache = saved

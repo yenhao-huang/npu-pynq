@@ -193,5 +193,44 @@ class FrameworkTest(unittest.TestCase):
                 sys.modules["regex"] = saved
 
 
+@unittest.skipUnless(HAVE_LLVM, "LLVM 22 with MLIR is not installed")
+class LinearAttentionTest(unittest.TestCase):
+    def test_gated_delta_rule_with_carried_state(self):
+        from src.compiler.mlir_builder import memref_type
+        from src.compiler.ops import linear_attention as G
+
+        for tokens in (1, 3):
+            with self.subTest(tokens=tokens):
+                cfg = G.DeltaConfig(tokens, 2, 4, 8, 6, 4, 2)
+                C, HV = cfg.channels, cfg.v_heads
+                shapes = cfg.state_shapes()
+                rng = np.random.default_rng(tokens)
+                conv_w = rng.normal(size=(C, 4)).astype(np.float32) * 0.5
+                args = [("x", memref_type([tokens, C], "f32")), ("g", memref_type([tokens, HV], "f32")),
+                        ("beta", memref_type([tokens, HV], "f32")),
+                        ("conv", memref_type(*shapes["conv"])), ("rec", memref_type(*shapes["rec"])),
+                        ("out", memref_type([tokens, HV, cfg.dv], "f32")), ("layer", "index")]
+
+                def build(ctx, v):
+                    b = ctx.b
+                    o = G.gated_delta(ctx, cfg, b.to_tensor(v["x"]), ctx.weight("cw", conv_w), b.to_tensor(v["g"]),
+                                      b.to_tensor(v["beta"]), {"conv": v["conv"], "rec": v["rec"]}, v["layer"])
+                    b.store(o, v["out"])
+
+                with tempfile.TemporaryDirectory() as tmp:
+                    model = compile_host(build, args, tmp)
+                    state = {n: np.zeros(s, np.float32) for n, (s, _) in shapes.items()}
+                    ref_state = {n: np.zeros(s, np.float32) for n, (s, _) in shapes.items()}
+                    for layer in (0, 1, 0, 0):
+                        x = rng.normal(size=(tokens, C)).astype(np.float32)
+                        g = -np.abs(rng.normal(size=(tokens, HV))).astype(np.float32)
+                        beta = rng.uniform(size=(tokens, HV)).astype(np.float32)
+                        out = np.zeros((tokens, HV, cfg.dv), np.float32)
+                        model.call("forward", "weights", x, g, beta, state["conv"], state["rec"], out, layer)
+                        ref = G.ref_gated_delta(cfg, x, conv_w, g, beta, ref_state, layer)
+                        np.testing.assert_allclose(out, ref, rtol=1e-4, atol=1e-5)
+                        np.testing.assert_allclose(state["rec"], ref_state["rec"], rtol=1e-4, atol=1e-5)
+
+
 if __name__ == "__main__":
     unittest.main()
