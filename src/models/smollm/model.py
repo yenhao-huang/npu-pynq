@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from src.compiler.ops import attention as A, core, embedding as E, linear as L
-from src.inference.graph import LLMOptions, StateSpec, build_entry_points, new_graph
+from src.inference.graph import LLMOptions, StateSpec, build_entry_points, choose_group, new_graph
 from src.inference.weights import SafeTensors, resolve_hf
 
 DEFAULT_SOURCE = "HuggingFaceTB/SmolLM2-135M-Instruct"
@@ -68,6 +68,7 @@ def build(source: str = DEFAULT_SOURCE, opts: LLMOptions | None = None, awq=None
     cos, sin = E.rope_tables(opts.max_seq, D, cfg.theta)
     if opts.layers:
         cfg.layers = opts.layers
+    opts.group = choose_group(opts.group, [cfg.hidden, cfg.inter, cfg.heads * cfg.head_dim])
     if opts.awq and awq is None:
         from src.inference.quant import awq as AWQ
         awq = AWQ.hook_for(root, AWQ.calibration_ids(root), awq_spec(cfg), cfg.layers, opts.bits, opts.group)
