@@ -160,7 +160,8 @@ module tb_npu_isa_frontend;
 
     integer file, words, prog_len, data_base, want_error, want_jobs, i, cases, status_code;
     integer polls;
-    string name;
+    reg [8*64-1:0] name;
+    reg [8*256-1:0] header;
     logic [31:0] value;
     logic [63:0] word;
 
@@ -169,7 +170,7 @@ module tb_npu_isa_frontend;
         if (file == 0)
             file = $fopen("src/test/vectors/isa_frontend_16x16.txt", "r");
         if (file == 0) fail("cannot open isa_frontend_16x16.txt");
-        status_code = $fgets(name, file);  // header comment
+        status_code = $fgets(header, file);  // header comment
 
         repeat (5) @(posedge s_axi_aclk);
         s_axi_aresetn = 1;
@@ -205,31 +206,31 @@ module tb_npu_isa_frontend;
             do begin
                 axi_read(8'h44, value);
                 polls = polls + 1;
-                if (polls > 200000) fail({name, ": program did not finish"});
+                if (polls > 200000) begin $display("case %0s", name); fail("program did not finish"); end;
             end while (value[3] || value[0]); // BUSY or RUNNING
 
             axi_read(8'h54, value);
             if (want_error == 0) begin
                 axi_read(8'h44, value);
-                if (value[1] !== 1'b1 || value[2] !== 1'b0) fail({name, ": not DONE without error"});
+                if (value[1] !== 1'b1 || value[2] !== 1'b0) begin $display("case %0s", name); fail("not DONE without error"); end;
             end else begin
                 axi_read(8'h44, value);
-                if (value[2] !== 1'b1) fail({name, ": expected an error"});
+                if (value[2] !== 1'b1) begin $display("case %0s", name); fail("expected an error"); end;
                 axi_read(8'h54, value);
                 if (value[7:0] != want_error[7:0]) begin
                     $display("ISA_ERROR=0x%02x expected 0x%02x", value[7:0], want_error[7:0]);
-                    fail({name, ": wrong error code"});
+                    begin $display("case %0s", name); fail("wrong error code"); end;
                 end
             end
             axi_read(8'h5c, value);
             if (value != want_jobs) begin
                 $display("ISA_JOBS=%0d expected %0d", value, want_jobs);
-                fail({name, ": wrong job count"});
+                begin $display("case %0s", name); fail("wrong job count"); end;
             end
             for (i = 0; i < MEM_WORDS; i = i + 1)
                 if (mem[i] !== expected[i]) begin
                     $display("word %0d (byte 0x%0x): got %016x expected %016x", i, i * 8, mem[i], expected[i]);
-                    fail({name, ": memory mismatch"});
+                    begin $display("case %0s", name); fail("memory mismatch"); end;
                 end
             axi_read(8'h60, value);
             $display("case %0s: %0d jobs, %0d cycles, %0d reads, %0d writes", name, want_jobs, value, reads, writes);
