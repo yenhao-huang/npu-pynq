@@ -1,5 +1,5 @@
 {
-  "id": "001-board-probe",
-  "overlay": {"mode": "none"},
-  "board": {"script": "exp/1007_sw_stack/board/probe.sh", "timeout_minutes": 20}
+  "id": "002-isa-frontend",
+  "overlay": {"mode": "build"},
+  "board": {"script": "exp/1007_sw_stack/board/isa_gemm.sh", "timeout_minutes": 30}
 }

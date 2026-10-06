@@ -1,14 +1,14 @@
 name: exp-board
 
 # Experiment runs for the software-stack goal (#119). A push to an issue-119
-# branch that changes exp/1007_sw_stack/request.json runs the stages that
+# branch (or one of its sub-issue branches, #12x) that changes exp/1007_sw_stack/request.json runs the stages that
 # request names: a hosted export, a Vivado overlay build on the self-hosted
 # runner, and a script on the physical PYNQ-Z1. Nothing here tags, publishes a
 # Release, or touches main or dev; results come back as workflow artifacts.
 
 on:
   push:
-    branches: ['npu/issue119-*']
+    branches: ['npu/issue119-*', 'npu/issue12*-*']
     paths: ['exp/1007_sw_stack/request.json']
 
 concurrency:
