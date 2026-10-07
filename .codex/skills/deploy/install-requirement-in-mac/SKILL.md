@@ -41,9 +41,10 @@ mac_npu.sh deploy ARGS         deploy-pynq-macos: preflight | overlay | run | al
 | Models, AWQ, references | numpy, torch, torchvision, transformers, safetensors, huggingface_hub, pillow, regex, pyyaml | venv (`references/requirements-mac.txt`) |
 | Deployment | ssh, scp, tar, `gh` (artifacts and Releases) | macOS, Homebrew (`gh`) |
 
-Vivado does not run on macOS. Bitstreams come from the self-hosted Windows
-runner (`DESKTOP-54U632L`, Vivado 2026.1) as exp-board artifacts, or from a
-GitHub Release.
+Vivado has no macOS build. `mac_npu.sh vivado ...` runs the Linux build in
+Docker under Rosetta with the GUI in Screen Sharing (see the `vivado-on-mac`
+skill); otherwise bitstreams come from the self-hosted Windows runner
+(`DESKTOP-54U632L`, Vivado 2026.1) or a GitHub Release.
 
 ## Guardrails
 

@@ -10,9 +10,8 @@
 #                                acceptance (exports and runs SmolLM2, Qwen3, ResNet-18)
 #   mac_npu.sh export [DIR]      build the three PYNQ packages (default build/deploy/export)
 #   mac_npu.sh deploy ARGS...    pynq_deploy.sh ARGS (preflight | overlay | run | all)
-#
-# Vivado is not available for macOS: bitstreams come from the self-hosted
-# Windows runner (exp-board artifacts) or a GitHub Release.
+#   mac_npu.sh vivado ARGS...    vivado_mac.sh ARGS: Linux Vivado in Docker (Rosetta),
+#                                GUI through Screen Sharing (check | install-gui | gui | build | deploy)
 set -euo pipefail
 
 REPO=$(cd "$(dirname "$0")/../../../../../.." && pwd)
@@ -79,7 +78,7 @@ PY
     done
     if command -v gh >/dev/null && gh auth status >/dev/null 2>&1; then ok "gh auth" "logged in"; else miss "gh auth" "gh auth login"; fi
     if ls ~/.ssh/id_* >/dev/null 2>&1; then ok "ssh key" "$(ls ~/.ssh/id_*.pub 2>/dev/null | head -1)"; else miss "ssh key" "ssh-keygen -t ed25519; ssh-copy-id xilinx@192.168.2.99"; fi
-    echo "not on macOS: Vivado (bitstreams come from the self-hosted runner or a Release)"
+    echo "Vivado: no macOS build; run it in Docker with: mac_npu.sh vivado check"
     if [ "$MISSING" -eq 0 ]; then echo "PASS: doctor"; else echo "$MISSING missing; run: mac_npu.sh install"; return 1; fi
 }
 
@@ -122,6 +121,10 @@ cmd_export() {
     (cd "$REPO" && PATH="$(dirname "$py"):$PATH" bash exp/1007_sw_stack/export_all.sh "$out")
 }
 
+cmd_vivado() {
+    "$REPO/.codex/skills/deploy/vivado-on-mac/references/scripts/vivado_mac.sh" "$@"
+}
+
 cmd_deploy() {
     [ -x "$DEPLOY" ] || die "missing $DEPLOY"
     PATH="$VENV/bin:$PATH" NPU_LLVM_BIN="$LLVM_BIN" "$DEPLOY" "$@"
@@ -130,7 +133,7 @@ cmd_deploy() {
 [ $# -gt 0 ] || { sed -n '2,18p' "$0"; exit 2; }
 command=$1; shift
 case "$command" in
-    doctor|install|hw|sw|export|deploy) "cmd_$command" "$@" ;;
+    doctor|install|hw|sw|export|deploy|vivado) "cmd_$command" "$@" ;;
     -h|--help) sed -n '2,18p' "$0" ;;
     *) die "unknown command $command" ;;
 esac
