@@ -45,12 +45,20 @@ namespace {
 
 constexpr StringLiteral kGemmFn = "npu_rt_gemm";
 
+// One ISA program: the column tiles [niLo, niHi) of a task, whose weights are
+// the contiguous block [weightOffset, weightOffset + bBytes).
+struct Segment {
+  int64_t wordOffset, length, niLo, niHi, weightOffset, bBytes;
+  std::vector<int64_t> relocations;
+};
+
+// One NPU task (one npu.matmul); the runtime runs its segments in turn.
 struct Program {
-  int64_t id, wordOffset, length;
+  int64_t id;
   GemmPlan plan;
   std::string weight;
   int64_t weightOffset;
-  std::vector<int64_t> relocations;
+  std::vector<Segment> segments;
 };
 
 struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
@@ -75,6 +83,10 @@ struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
   Option<int64_t> rows{*this, "rows", llvm::cl::init(16)};
   Option<int64_t> columns{*this, "columns", llvm::cl::init(16)};
   Option<int64_t> maxK{*this, "max-k", llvm::cl::init(256)};
+  Option<int64_t> segmentBytes{
+      *this, "segment-bytes",
+      llvm::cl::desc("Largest weight block one program may read"),
+      llvm::cl::init(4 << 20)};
 
   std::map<std::string, int64_t> offsets;
 
@@ -145,19 +157,21 @@ struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
         return signalPassFailure();
       }
       int64_t cBase = align(plan.aBytes(), 64);
-      Program program{static_cast<int64_t>(table.size()),
-                      static_cast<int64_t>(words.size()),
-                      0,
-                      plan,
-                      name,
-                      found->second,
-                      {}};
-      std::vector<int64_t> bWords;
-      encodeGemm(plan, 0, 0, cBase, words, bWords);
-      words.push_back(encodeEnd());
-      program.length = static_cast<int64_t>(words.size()) - program.wordOffset;
-      for (int64_t w : bWords)
-        program.relocations.push_back(w - program.wordOffset);
+      Program program{static_cast<int64_t>(table.size()), plan, name,
+                      found->second, {}};
+      int64_t perSegment = std::max<int64_t>(1, segmentBytes / plan.bPanel());
+      for (int64_t lo = 0; lo < plan.nt(); lo += perSegment) {
+        int64_t hi = std::min(plan.nt(), lo + perSegment);
+        Segment seg{static_cast<int64_t>(words.size()), 0, lo, hi,
+                    found->second + lo * plan.bPanel(), (hi - lo) * plan.bPanel(), {}};
+        std::vector<int64_t> bWords;
+        encodeGemm(plan, 0, 0, cBase, lo, hi, words, bWords);
+        words.push_back(encodeEnd());
+        seg.length = static_cast<int64_t>(words.size()) - seg.wordOffset;
+        for (int64_t w : bWords)
+          seg.relocations.push_back(w - seg.wordOffset);
+        program.segments.push_back(seg);
+      }
       table.push_back(program);
 
       OpBuilder b(op);
@@ -241,12 +255,11 @@ struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
       j.attribute("columns", static_cast<int64_t>(columns));
       j.attribute("max_k", static_cast<int64_t>(maxK));
       j.attribute("words", static_cast<int64_t>(words.size()));
-      j.attributeArray("programs", [&] {
+      j.attribute("segment_bytes", static_cast<int64_t>(segmentBytes));
+      j.attributeArray("tasks", [&] {
         for (const Program &p : table)
           j.object([&] {
             j.attribute("id", p.id);
-            j.attribute("word_offset", p.wordOffset);
-            j.attribute("length", p.length);
             j.attribute("m", p.plan.m);
             j.attribute("n", p.plan.n);
             j.attribute("k", p.plan.k);
@@ -260,9 +273,20 @@ struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
             j.attribute("c_bytes", p.plan.cBytes());
             j.attribute("weight", p.weight);
             j.attribute("weight_offset", p.weightOffset);
-            j.attributeArray("relocations", [&] {
-              for (int64_t r : p.relocations)
-                j.value(r);
+            j.attributeArray("segments", [&] {
+              for (const Segment &s : p.segments)
+                j.object([&] {
+                  j.attribute("word_offset", s.wordOffset);
+                  j.attribute("length", s.length);
+                  j.attribute("ni_lo", s.niLo);
+                  j.attribute("ni_hi", s.niHi);
+                  j.attribute("weight_offset", s.weightOffset);
+                  j.attribute("b_bytes", s.bBytes);
+                  j.attributeArray("relocations", [&] {
+                    for (int64_t r : s.relocations)
+                      j.value(r);
+                  });
+                });
             });
           });
       });

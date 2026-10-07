@@ -147,9 +147,9 @@ def cpu_pipeline(index_bits: int) -> list[str]:
         "--buffer-deallocation-pipeline",
         "--convert-bufferization-to-memref",
         "--convert-linalg-to-loops",
+        "--expand-strided-metadata",
         "--lower-affine",
         "--convert-scf-to-cf",
-        "--expand-strided-metadata",
         f"--finalize-memref-to-llvm={ib}",
         "--convert-math-to-llvm",
         f"--convert-arith-to-llvm={ib}",
@@ -166,9 +166,10 @@ def partition(module: Path, out: Path, report: Path, max_k: int = 256) -> None:
 
 
 def lower(module: Path, out: Path, weights: Path, programs: Path, rows: int = 16,
-          columns: int = 16, max_k: int = 256) -> None:
+          columns: int = 16, max_k: int = 256, segment_bytes: int = 4 << 20) -> None:
     run([npu_opt(), str(module),
-         f"--npu-lower=weights={weights} programs={programs} rows={rows} columns={columns} max-k={max_k}",
+         f"--npu-lower=weights={weights} programs={programs} rows={rows} columns={columns} max-k={max_k}"
+         f" segment-bytes={segment_bytes}",
          "--canonicalize", "-o", str(out)], "npu-lower")
 
 

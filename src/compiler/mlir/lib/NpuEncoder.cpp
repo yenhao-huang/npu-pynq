@@ -36,12 +36,13 @@ int64_t GemmPlan::aBytes() const {
   return aOffset(last, kt() - 1) + align(mI(last) * kC(kt() - 1));
 }
 int64_t GemmPlan::bTileStride(int64_t kc) const { return align(kC(kc) * tn); }
+int64_t GemmPlan::bPanel() const {
+  return (kt() - 1) * align(tk * tn) + bTileStride(kt() - 1);
+}
 int64_t GemmPlan::bOffset(int64_t kc, int64_t ni) const {
-  return kc * nt() * align(tk * tn) + ni * bTileStride(kc);
+  return ni * bPanel() + kc * align(tk * tn);
 }
-int64_t GemmPlan::bBytes() const {
-  return bOffset(kt() - 1, nt() - 1) + bTileStride(kt() - 1);
-}
+int64_t GemmPlan::bBytes() const { return nt() * bPanel(); }
 int64_t GemmPlan::cTileStride(int64_t mi) const { return align(4 * mI(mi) * tn); }
 int64_t GemmPlan::cPlaneBytes() const {
   int64_t total = 0;
@@ -58,33 +59,34 @@ int64_t GemmPlan::cOffset(int64_t kc, int64_t mi, int64_t ni) const {
 int64_t GemmPlan::cBytes() const { return kt() * cPlaneBytes(); }
 
 void encodeGemm(const GemmPlan &p, int64_t aBase, int64_t bBase,
-                int64_t cBase, std::vector<uint64_t> &words,
-                std::vector<int64_t> &bWords) {
+                int64_t cBase, int64_t niLo, int64_t niHi,
+                std::vector<uint64_t> &words, std::vector<int64_t> &bWords) {
   auto u32 = [](int64_t v) { return static_cast<uint64_t>(v) & 0xffffffffu; };
+  auto shape = [](int64_t m, int64_t n, int64_t k) {
+    return word(OP_SHAPE, (static_cast<uint64_t>(m) << 24) |
+                              (static_cast<uint64_t>(n) << 16) |
+                              static_cast<uint64_t>(k));
+  };
+  bool narrowLast = niHi == p.nt() && p.nI(p.nt() - 1) < p.tn;
+  int64_t full = niHi - niLo - (narrowLast ? 1 : 0);
   for (int64_t mi = 0; mi < p.mt(); ++mi) {
     for (int64_t kc = 0; kc < p.kt(); ++kc) {
-      int64_t full = p.nI(p.nt() - 1) == p.tn ? p.nt() : p.nt() - 1;
       words.push_back(word(OP_ADDR_A, u32(aBase + p.aOffset(mi, kc))));
       bWords.push_back(static_cast<int64_t>(words.size()));
       words.push_back(word(OP_ADDR_B, u32(bBase + p.bOffset(kc, 0))));
-      words.push_back(word(OP_ADDR_C, u32(cBase + p.cOffset(kc, mi, 0))));
-      uint64_t bInc = static_cast<uint64_t>(p.bTileStride(kc) / 8);
+      words.push_back(word(OP_ADDR_C, u32(cBase + p.cOffset(kc, mi, niLo))));
+      uint64_t bInc = static_cast<uint64_t>(p.bPanel() / 8);
       uint64_t cInc = static_cast<uint64_t>(p.cTileStride(mi) / 8);
       words.push_back(word(OP_INCR, (bInc << 16) | (cInc << 32)));
-      auto shape = [&](int64_t m, int64_t n, int64_t k) {
-        return word(OP_SHAPE, (static_cast<uint64_t>(m) << 24) |
-                                  (static_cast<uint64_t>(n) << 16) |
-                                  static_cast<uint64_t>(k));
-      };
       if (full) {
         words.push_back(shape(p.mI(mi), p.tn, p.kC(kc)));
         if (full > 1)
           words.push_back(word(OP_REPEAT, static_cast<uint64_t>(full)));
         words.push_back(word(OP_GEMM, INC_B | INC_C));
       }
-      if (full < p.nt()) {
+      if (narrowLast) {
         words.push_back(shape(p.mI(mi), p.nI(p.nt() - 1), p.kC(kc)));
-        words.push_back(word(OP_GEMM, 0));
+        words.push_back(word(OP_GEMM, INC_B | INC_C));
       }
     }
   }

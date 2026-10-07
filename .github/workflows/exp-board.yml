@@ -11,10 +11,6 @@ on:
     branches: ['npu/issue119-*', 'npu/issue12*-*']
     paths: ['exp/1007_sw_stack/request.json']
 
-concurrency:
-  group: exp-board
-  cancel-in-progress: false
-
 permissions:
   contents: read
   actions: read
@@ -64,7 +60,7 @@ jobs:
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
           echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" | sudo tee /etc/apt/sources.list.d/llvm22.list
           sudo apt-get update -q
-          sudo apt-get install -y -q llvm-22 mlir-22-tools lld-22 clang-22
+          sudo apt-get install -y -q llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22
           echo "/usr/lib/llvm-22/bin" >> "$GITHUB_PATH"
       - name: Install Python dependencies
         run: python -m pip install -r exp/1007_sw_stack/requirements-export.txt
@@ -87,6 +83,10 @@ jobs:
     if: needs.plan.outputs.overlay_mode == 'build'
     runs-on: [self-hosted, vivado]
     timeout-minutes: 240
+    # Only the self-hosted jobs queue behind one another; the hosted export runs at once.
+    concurrency:
+      group: exp-board-vivado
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -125,6 +125,9 @@ jobs:
       (needs.build-overlay.result == 'success' || needs.build-overlay.result == 'skipped')
     runs-on: [self-hosted, pynq-z1]
     timeout-minutes: 600
+    concurrency:
+      group: exp-board-board
+      cancel-in-progress: false
     env:
       PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
       PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}

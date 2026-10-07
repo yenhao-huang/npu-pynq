@@ -29,6 +29,7 @@ struct GemmPlan {
   int64_t aOffset(int64_t mi, int64_t kc) const;
   int64_t aBytes() const;
   int64_t bTileStride(int64_t kc) const;
+  int64_t bPanel() const;
   int64_t bOffset(int64_t kc, int64_t ni) const;
   int64_t bBytes() const;
   int64_t cTileStride(int64_t mi) const;
@@ -40,12 +41,12 @@ struct GemmPlan {
 
 int64_t align(int64_t value, int64_t to = 8);
 
-// Appends the program for `plan` (without END). ADDR_B words are emitted
-// relative to bBase and their indices recorded in `bWords` so a loader can
-// relocate them.
+// Appends the program for column tiles [niLo, niHi) of `plan` (without END).
+// bBase is where tile niLo's panel sits; ADDR_B word indices are recorded in
+// `bWords` so a loader can relocate them.
 void encodeGemm(const GemmPlan &plan, int64_t aBase, int64_t bBase,
-                int64_t cBase, std::vector<uint64_t> &words,
-                std::vector<int64_t> &bWords);
+                int64_t cBase, int64_t niLo, int64_t niHi,
+                std::vector<uint64_t> &words, std::vector<int64_t> &bWords);
 
 uint64_t encodeEnd();
 

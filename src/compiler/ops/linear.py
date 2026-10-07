@@ -36,6 +36,8 @@ class QuantizedWeight:
         return self.q.shape[1]
 
     def dequantize(self) -> np.ndarray:
+        if self.bits == 32:
+            return self.q
         if self.bits == 8:
             return self.q.astype(np.float32) * self.scale[None, :]
         g = self.group
@@ -45,6 +47,9 @@ class QuantizedWeight:
 def quantize_weight(w_out_in: np.ndarray, bits: int = 8, group: int = 128) -> QuantizedWeight:
     """Symmetric quantization of a torch-layout [out, in] weight."""
     w = np.asarray(w_out_in, np.float32).T.copy()  # [K, N]
+    if bits == 32:
+        # Unquantized reference path: FP32 weights, contraction on the CPU.
+        return QuantizedWeight(w, np.ones(w.shape[1], np.float32), 32, 0)
     if bits == 8:
         scale = np.maximum(np.abs(w).max(0), EPS) / 127.0
         q = np.clip(np.round(w / scale), -127, 127).astype(np.int8)
@@ -86,6 +91,14 @@ def linear(ctx: Ctx, x: Value, name: str, w: QuantizedWeight, bias: np.ndarray |
     if k != w.k:
         raise ValueError(f"{name}: x has K={k}, weight K={w.k}")
     n = w.n
+    if w.bits == 32:
+        wf = ctx.weight(f"{name}.w", w.q)
+        y = b.matmul(x, wf, b.fill(0.0, [m, n], "f32"))
+        if bias is None:
+            return y
+        bv = ctx.weight(f"{name}.b", np.asarray(bias, np.float32))
+        return b.elementwise([y, bv], "f32", lambda r: r.addf(r.args[0], r.args[1]),
+                             maps=[identity_map(2), map_of(2, ["d1"])])
     xq, xs = quantize_rows(ctx, x)
     wq = ctx.weight(f"{name}.q", w.q)
     ws = ctx.weight(f"{name}.s", w.scale)
@@ -103,6 +116,8 @@ def linear(ctx: Ctx, x: Value, name: str, w: QuantizedWeight, bias: np.ndarray |
 
     g = w.group
     groups = k // g
+    # INT4 values are stored two per byte; the runtime widens them on the way to the NPU.
+    ctx.graph.meta.setdefault("packed_int4", []).append(f"{name}.q")
     acc = b.fill(0, [groups, m, n], "i32")
     # C[c, m, n] = sum_j X[m, c, j] * W[c, j, n] on (c, m, n, j).
     x3 = b.reshape(xq, [m, groups, g])
@@ -142,6 +157,9 @@ def ref_quantize_rows(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def ref_linear(x: np.ndarray, w: QuantizedWeight, bias: np.ndarray | None = None) -> np.ndarray:
+    if w.bits == 32:
+        y = x.astype(np.float32) @ w.q
+        return (y + bias[None, :] if bias is not None else y).astype(np.float32)
     xq, xs = ref_quantize_rows(x.astype(np.float32))
     if w.bits == 8:
         acc = xq.astype(np.int32) @ w.q.astype(np.int32)

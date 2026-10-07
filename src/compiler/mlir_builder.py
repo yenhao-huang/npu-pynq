@@ -311,6 +311,28 @@ class FuncBuilder:
             return [self.op(text, results[0])]
         return self.ops(text, results)
 
+    def if_(self, cond: Value, result_types: Sequence[str], then_fn: Callable[[], Sequence[Value]],
+            else_fn: Callable[[], Sequence[Value]]) -> list[Value]:
+        """scf.if with tensor results. Constants made inside a branch stay there."""
+        saved_lines, saved_consts = self.lines, dict(self._consts)
+        bodies = []
+        for fn in (then_fn, else_fn):
+            self.lines = []
+            self._consts = dict(saved_consts)
+            vals = fn()
+            bodies.append((self.lines, vals))
+        self.lines, self._consts = saved_lines, saved_consts
+        types = ", ".join(result_types)
+
+        def block(lines, vals):
+            inner = "".join(f"  {line}\n".replace("\n", "\n  ").rstrip(" ") for line in lines)
+            return inner + f"  scf.yield {', '.join(str(v) for v in vals)} : {types}\n"
+
+        text = f"scf.if {cond} -> ({types}) {{\n{block(*bodies[0])}}} else {{\n{block(*bodies[1])}}}"
+        if len(result_types) == 1:
+            return [self.op(text, result_types[0])]
+        return self.ops(text, result_types)
+
     def render(self) -> str:
         args = ", ".join(f"{a}: {a.type}" for a in self.args)
         res = f" -> ({', '.join(self.results)})" if self.results else ""

@@ -27,15 +27,23 @@ void *memset(void *dst, int c, size_t n);
 
 enum { NPU_RT_SIM = 0, NPU_RT_PYNQ = 1 };
 
-/* One program record per NPU task, filled by the loader from programs.json. */
+/* One NPU task (one npu.matmul), filled by the loader from programs.json.
+ * Its output columns are split into segments, each its own program whose
+ * weights are one contiguous block. */
 typedef struct {
-  int32_t word_offset, length;
   int32_t m, n, k, tm, tn, tk;
-  int32_t a_bytes, c_base, c_bytes, b_bytes;
-  /* Weight streaming: when stage_src is set the task's weight block is copied
-   * from it into the stage window before the program runs. */
-  const uint8_t *stage_src;
+  int32_t a_bytes, c_base, c_bytes;
+  int32_t first_segment, segments;
 } npu_program;
+
+typedef struct {
+  int32_t word_offset, length, b_bytes;
+  /* Weight streaming: when stage_src is set the segment's weights are copied
+   * from it into the stage window before the program runs; packed blocks
+   * hold two INT4 values per byte (low nibble first) and are widened. */
+  int32_t packed;
+  const uint8_t *stage_src;
+} npu_segment;
 
 typedef struct {
   uint32_t phys;
@@ -53,6 +61,8 @@ typedef struct {
   uint8_t *stage;
   const npu_program *programs;
   int32_t count;
+  const npu_segment *segments;
+  int32_t nsegments;
   npu_region regions[4];
   int32_t nregions;
   /* Telemetry, read back by the engine. */
@@ -198,7 +208,7 @@ static int32_t sim_run(const uint64_t *words, int32_t length, uint32_t data_base
 }
 
 /* --- PYNQ backend ------------------------------------------------------- */
-static int32_t pynq_run(const npu_program *p) {
+static int32_t pynq_run(const npu_segment *p) {
   volatile uint32_t *r = rt.mmio;
   barrier();
   r[REG_PROG_ADDR / 4] = rt.words_phys + 8u * (uint32_t)p->word_offset;
@@ -214,7 +224,6 @@ static int32_t pynq_run(const npu_program *p) {
   barrier();
   rt.cycles += r[REG_ISA_CYCLES / 4];
   rt.jobs += r[REG_ISA_JOBS / 4];
-  rt.macs += (int64_t)p->m * p->n * p->k;
   if ((status & 0x4) || !(status & 0x2))
     return (int32_t)(r[REG_ISA_ERROR / 4] ? r[REG_ISA_ERROR / 4] : 0xff);
   return 0;
@@ -224,7 +233,8 @@ static int32_t pynq_run(const npu_program *p) {
 int32_t npu_rt_init(int32_t backend, volatile uint32_t *mmio, uint8_t *io,
                     uint32_t io_phys, uint32_t io_size, const uint64_t *words,
                     uint32_t words_phys, uint8_t *stage,
-                    const npu_program *programs, int32_t count) {
+                    const npu_program *programs, int32_t count,
+                    const npu_segment *segments, int32_t nsegments) {
   memset(&rt, 0, sizeof(rt));
   rt.backend = backend;
   rt.mmio = mmio;
@@ -236,6 +246,8 @@ int32_t npu_rt_init(int32_t backend, volatile uint32_t *mmio, uint8_t *io,
   rt.stage = stage;
   rt.programs = programs;
   rt.count = count;
+  rt.segments = segments;
+  rt.nsegments = nsegments;
   rt.error_program = -1;
   rt.regions[rt.nregions++] = (npu_region){io_phys, io, io_size};
   return 0;
@@ -251,23 +263,86 @@ int32_t npu_rt_add_region(uint32_t phys, uint8_t *host, uint32_t size) {
 
 npu_rt_state *npu_rt_stats(void) { return &rt; }
 
+static void stage_weights(const npu_segment *g) {
+  if (!g->packed) {
+    memcpy(rt.stage, g->stage_src, (size_t)g->b_bytes);
+    return;
+  }
+  const uint8_t *src = g->stage_src;
+  int8_t *dst = (int8_t *)rt.stage;
+  for (int32_t i = 0; i < g->b_bytes / 2; ++i) {
+    uint8_t v = src[i];
+    dst[2 * i] = (int8_t)(uint8_t)(v << 4) >> 4;
+    dst[2 * i + 1] = (int8_t)v >> 4;
+  }
+}
+
 void _mlir_ciface_npu_rt_gemm(int32_t id, memref_i8 *a, memref_i32 *c) {
   if (rt.error || id < 0 || id >= rt.count) {
     if (!rt.error) { rt.error = 0xfe; rt.error_program = id; }
     return;
   }
   const npu_program *p = &rt.programs[id];
-  if (p->stage_src)
-    memcpy(rt.stage, p->stage_src, (size_t)p->b_bytes);
   pack_a(p, a->aligned + a->offset, rt.io);
-  int32_t status = rt.backend == NPU_RT_PYNQ
-                       ? pynq_run(p)
-                       : sim_run(rt.words + p->word_offset, p->length, rt.io_phys);
+  for (int32_t s = 0; s < p->segments; ++s) {
+    const npu_segment *g = &rt.segments[p->first_segment + s];
+    if (g->stage_src)
+      stage_weights(g);
+    int32_t status = rt.backend == NPU_RT_PYNQ
+                         ? pynq_run(g)
+                         : sim_run(rt.words + g->word_offset, g->length, rt.io_phys);
+    if (status) {
+      rt.error = status;
+      rt.error_program = id;
+      return;
+    }
+  }
   rt.calls += 1;
-  if (status) {
-    rt.error = status;
-    rt.error_program = id;
+  if (rt.backend == NPU_RT_PYNQ)
+    rt.macs += (int64_t)p->m * p->n * p->k;
+  unpack_c(p, rt.io + p->c_base, c->aligned + c->offset);
+}
+
+/* --- MLIR runtime support ----------------------------------------------- */
+/* memref.copy between non-contiguous memrefs lowers to a call of this
+ * function (normally provided by MLIR's c_runner_utils). Descriptors use the
+ * index width of the target, which is intptr_t on both of ours. */
+typedef struct {
+  intptr_t rank;
+  void *descriptor;
+} unranked_memref;
+
+void memrefCopy(intptr_t elem_size, unranked_memref *src, unranked_memref *dst) {
+  intptr_t rank = src->rank;
+  char *s_base = ((char **)src->descriptor)[1];
+  char *d_base = ((char **)dst->descriptor)[1];
+  intptr_t *s_meta = (intptr_t *)((char **)src->descriptor + 2);
+  intptr_t *d_meta = (intptr_t *)((char **)dst->descriptor + 2);
+  intptr_t s_off = s_meta[0], d_off = d_meta[0];
+  intptr_t *sizes = s_meta + 1, *s_strides = s_meta + 1 + rank, *d_strides = d_meta + 1 + rank;
+  if (rank == 0) {
+    memcpy(d_base + d_off * elem_size, s_base + s_off * elem_size, (size_t)elem_size);
     return;
   }
-  unpack_c(p, rt.io + p->c_base, c->aligned + c->offset);
+  for (intptr_t i = 0; i < rank; ++i)
+    if (sizes[i] == 0) return;
+  intptr_t index[8] = {0};
+  if (rank > 8) return;
+  /* Copy innermost runs with memcpy when they are contiguous on both sides. */
+  int contiguous = s_strides[rank - 1] == 1 && d_strides[rank - 1] == 1;
+  intptr_t run = contiguous ? sizes[rank - 1] : 1;
+  for (;;) {
+    intptr_t so = s_off, d = d_off;
+    for (intptr_t i = 0; i < rank; ++i) {
+      so += index[i] * s_strides[i];
+      d += index[i] * d_strides[i];
+    }
+    memcpy(d_base + d * elem_size, s_base + so * elem_size, (size_t)(run * elem_size));
+    intptr_t axis = contiguous ? rank - 2 : rank - 1;
+    for (; axis >= 0; --axis) {
+      if (++index[axis] < sizes[axis]) break;
+      index[axis] = 0;
+    }
+    if (axis < 0) return;
+  }
 }

@@ -78,15 +78,44 @@ class CompilerTest(unittest.TestCase):
                 self.assertEqual([t["weight"] for t in report["npu_tasks"]], ["fc1.q", "fc2.q"])
                 self.assertEqual(report["npu_tasks"][1]["source"], "grouped" if bits == 4 else "linalg.matmul")
 
+    def test_streamed_segments_and_packed_int4(self):
+        from src.compiler.export import export
+        from src.runtime.compiled import CompiledModel
+
+        rng = np.random.default_rng(11)
+        m, k, h, n = 3, 300, 64, 200
+        graph, reference = build_mlp(m, k, h, n, 4, 32, rng)
+        pkg = export(graph, self.root / "streamed", targets=("host",), segment_bytes=2048)
+        table = json.loads((pkg / "programs.json").read_text())
+        self.assertGreater(sum(len(t["segments"]) for t in table["tasks"]), 4)
+        manifest = json.loads((pkg / "manifest.json").read_text())
+        self.assertTrue(manifest["weight_layouts"]["fc2.q"].startswith("npu_b4"))
+        x = rng.normal(size=(m, k)).astype(np.float32)
+        model = CompiledModel(pkg, "sim")
+        self.assertTrue(model.stream_weights, "packed INT4 weights must stream")
+        out = np.zeros((m, n), np.float32)
+        model.call("forward", "weights", x, out)
+        np.testing.assert_allclose(out, reference(x), rtol=1e-5, atol=1e-5)
+        # INT8 weights run resident or streamed, with the same result.
+        graph, reference = build_mlp(m, k, h, n, 8, 0, rng)
+        pkg = export(graph, self.root / "w8", targets=("host",), segment_bytes=2048)
+        for stream in (False, True):
+            model = CompiledModel(pkg, "sim", stream_weights=stream)
+            out = np.zeros((m, n), np.float32)
+            model.call("forward", "weights", x, out)
+            np.testing.assert_allclose(out, reference(x), rtol=1e-5, atol=1e-5)
+
     def test_cpp_encoder_matches_python_layout(self):
         pkg, *_ = self.compile_and_run(8, 0)
         table = json.loads((pkg / "programs.json").read_text())
         words = isa.unpack((pkg / "programs.bin").read_bytes())
-        for p in table["programs"]:
-            plan = layout.plan_gemm(p["m"], p["n"], p["k"], isa.Limits(), p["tk"])
-            expected = layout.encode(plan, 0, 0, isa.align(plan.a_bytes, 64)) + [isa.end()]
-            self.assertEqual(words[p["word_offset"]:p["word_offset"] + p["length"]], expected)
-            self.assertEqual(p["c_base"] + p["c_bytes"], isa.align(plan.a_bytes, 64) + plan.c_bytes)
+        for t in table["tasks"]:
+            plan = layout.plan_gemm(t["m"], t["n"], t["k"], isa.Limits(), t["tk"])
+            self.assertEqual(t["c_base"] + t["c_bytes"], isa.align(plan.a_bytes, 64) + plan.c_bytes)
+            for g in t["segments"]:
+                expected = layout.encode(plan, 0, 0, isa.align(plan.a_bytes, 64), g["ni_lo"], g["ni_hi"]) + [isa.end()]
+                self.assertEqual(words[g["word_offset"]:g["word_offset"] + g["length"]], expected)
+                self.assertEqual(g["weight_offset"] - t["weight_offset"], g["ni_lo"] * plan.b_panel)
 
     def test_board_library_is_armv7_hard_float(self):
         pkg, *_ = self.compile_and_run(8, 0, targets=("host", "pynq"))

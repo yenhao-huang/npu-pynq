@@ -31,10 +31,16 @@ SIM_STAGE_PHYS = 0x70000000
 SIM_WORDS_PHYS = 0x78000000
 
 
+TASK_FIELDS = ("m", "n", "k", "tm", "tn", "tk", "a_bytes", "c_base", "c_bytes")
+
+
 class NpuProgram(ctypes.Structure):
-    _fields_ = [(name, ctypes.c_int32) for name in (
-        "word_offset", "length", "m", "n", "k", "tm", "tn", "tk",
-        "a_bytes", "c_base", "c_bytes", "b_bytes")] + [("stage_src", ctypes.c_void_p)]
+    _fields_ = [(name, ctypes.c_int32) for name in (*TASK_FIELDS, "first_segment", "segments")]
+
+
+class NpuSegment(ctypes.Structure):
+    _fields_ = [("word_offset", ctypes.c_int32), ("length", ctypes.c_int32), ("b_bytes", ctypes.c_int32),
+                ("packed", ctypes.c_int32), ("stage_src", ctypes.c_void_p)]
 
 
 class NpuRegion(ctypes.Structure):
@@ -47,6 +53,7 @@ class NpuStats(ctypes.Structure):
         ("io_phys", ctypes.c_uint32), ("io_size", ctypes.c_uint32),
         ("words", ctypes.c_void_p), ("words_phys", ctypes.c_uint32), ("stage", ctypes.c_void_p),
         ("programs", ctypes.c_void_p), ("count", ctypes.c_int32),
+        ("segments", ctypes.c_void_p), ("nsegments", ctypes.c_int32),
         ("regions", NpuRegion * 4), ("nregions", ctypes.c_int32),
         ("calls", ctypes.c_int64), ("jobs", ctypes.c_int64), ("cycles", ctypes.c_int64),
         ("macs", ctypes.c_int64), ("polls", ctypes.c_int64),
@@ -83,6 +90,21 @@ def descriptor(array: np.ndarray) -> ctypes.Structure:
             desc.sizes[i] = size
             desc.strides[i] = stride // array.itemsize
     return desc
+
+
+class MappedWeights:
+    """weights.bin mapped read-only: pages load on demand and are never copied."""
+
+    def __init__(self, path: Path) -> None:
+        self.array = np.memmap(path, dtype=np.uint8, mode="r") if path.stat().st_size else np.zeros(8, np.uint8)
+        self.physical_address = 0
+
+    @property
+    def address(self) -> int:
+        return self.array.ctypes.data
+
+    def flush(self) -> None:
+        pass
 
 
 class HostBuffer:
@@ -139,72 +161,92 @@ class CompiledModel:
     def _setup_npu(self, overlay: Any, stream_weights: bool | None) -> None:
         table = json.loads((self.root / "programs.json").read_text())
         words = np.fromfile(self.root / "programs.bin", dtype="<u8")
-        weights = np.fromfile(self.root / "weights.bin", dtype=np.uint8)
-        programs = table["programs"]
-        io_bytes = max([p["c_base"] + p["c_bytes"] for p in programs], default=64)
-        stage_bytes = max([p["b_bytes"] for p in programs], default=8)
+        weights_path = self.root / "weights.bin"
+        tasks = table["tasks"]
+        segments = [g for t in tasks for g in t["segments"]]
+        layouts = self.manifest.get("weight_layouts", {})
+        packed = {t["weight"] for t in tasks if layouts.get(t["weight"], "").startswith("npu_b4")}
+        io_bytes = max([t["c_base"] + t["c_bytes"] for t in tasks], default=64)
+        stage_bytes = max([g["b_bytes"] for g in segments], default=8)
+        weight_bytes = weights_path.stat().st_size
+        if packed:
+            stream_weights = True  # packed INT4 blocks are widened into the stage window
 
         if self.backend == "pynq":
             mmio_ip = getattr(overlay, "npu_accelerator_0")
             mmio_addr = mmio_ip.mmio.array.ctypes.data
             if stream_weights is None:
-                stream_weights = weights.nbytes > self.manifest.get("resident_limit", 96 << 20)
+                stream_weights = weight_bytes > self.manifest.get("resident_limit", 96 << 20)
             if stream_weights:
-                # Weights stay in ordinary memory; each task's block is copied
+                # Weights stay in the page cache; each segment's block is copied
                 # into a CMA stage window just before its program runs.
-                self.weights = HostBuffer(weights.nbytes, 0)
+                self.weights = MappedWeights(weights_path)
             else:
-                self.weights = CmaBuffer(weights.nbytes, cacheable=True)
+                self.weights = CmaBuffer(weight_bytes, cacheable=True)
+                self.weights.array[:] = np.fromfile(weights_path, dtype=np.uint8)
             self.io = CmaBuffer(io_bytes, cacheable=False)
             self.stage = CmaBuffer(stage_bytes, cacheable=False) if stream_weights else None
             self.words = CmaBuffer(words.nbytes, cacheable=True)
         else:
             mmio_addr = None
             stream_weights = bool(stream_weights)
-            self.weights = HostBuffer(weights.nbytes, SIM_WEIGHTS_PHYS)
+            if stream_weights:
+                self.weights = MappedWeights(weights_path)
+            else:
+                self.weights = HostBuffer(weight_bytes, SIM_WEIGHTS_PHYS)
+                self.weights.array[:] = np.fromfile(weights_path, dtype=np.uint8)
             self.io = HostBuffer(io_bytes, SIM_IO_PHYS)
             self.stage = HostBuffer(stage_bytes, SIM_STAGE_PHYS) if stream_weights else None
             self.words = HostBuffer(words.nbytes, SIM_WORDS_PHYS)
         self.stream_weights = stream_weights
-        self.weights.array[:] = weights
         self.weights.flush()
 
-        # ADDR_B words hold offsets inside the task's weight block; make them
-        # relative to DATA_BASE (the I/O arena), wrapping at 32 bits.
+        # ADDR_B words hold offsets inside their segment's weight block; make
+        # them relative to DATA_BASE (the I/O arena), wrapping at 32 bits.
         relocated = words.copy()
         io_phys = self.io.physical_address
-        records = (NpuProgram * max(len(programs), 1))()
-        for i, p in enumerate(programs):
-            block = (self.stage.physical_address if stream_weights
-                     else self.weights.physical_address + p["weight_offset"])
-            delta = (block - io_phys) & MASK32
-            for r in p["relocations"]:
-                index = p["word_offset"] + r
-                word = int(relocated[index])
-                field = ((word & MASK32) + delta) & MASK32
-                relocated[index] = np.uint64((word & ~MASK32 & 0xFFFFFFFFFFFFFFFF) | field)
+        records = (NpuProgram * max(len(tasks), 1))()
+        seg_records = (NpuSegment * max(len(segments), 1))()
+        cursor = 0
+        for i, t in enumerate(tasks):
             rec = records[i]
-            for name in ("word_offset", "length", "m", "n", "k", "tm", "tn", "tk",
-                         "a_bytes", "c_base", "c_bytes", "b_bytes"):
-                setattr(rec, name, int(p[name]))
-            rec.stage_src = (self.weights.address + p["weight_offset"]) if stream_weights else None
+            for name in TASK_FIELDS:
+                setattr(rec, name, int(t[name]))
+            rec.first_segment = cursor
+            rec.segments = len(t["segments"])
+            is_packed = t["weight"] in packed
+            for g in t["segments"]:
+                block = (self.stage.physical_address if stream_weights
+                         else self.weights.physical_address + g["weight_offset"])
+                delta = (block - io_phys) & MASK32
+                for r in g["relocations"]:
+                    index = g["word_offset"] + r
+                    word = int(relocated[index])
+                    relocated[index] = np.uint64((word & ~MASK32 & 0xFFFFFFFFFFFFFFFF) | (((word & MASK32) + delta) & MASK32))
+                sr = seg_records[cursor]
+                sr.word_offset, sr.length, sr.b_bytes = g["word_offset"], g["length"], g["b_bytes"]
+                sr.packed = 1 if is_packed else 0
+                src = (t["weight_offset"] + (g["weight_offset"] - t["weight_offset"]) // 2) if is_packed else g["weight_offset"]
+                sr.stage_src = (self.weights.address + src) if stream_weights else None
+                cursor += 1
         self.words.array[:] = relocated.view(np.uint8)
         self.words.flush()
-        self._records = records
-        self.programs = programs
+        self._records, self._segments = records, seg_records
+        self.tasks = tasks
 
         lib = self.lib
         lib.npu_rt_init.argtypes = [ctypes.c_int32, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32,
                                     ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p,
-                                    ctypes.c_void_p, ctypes.c_int32]
+                                    ctypes.c_void_p, ctypes.c_int32, ctypes.c_void_p, ctypes.c_int32]
         lib.npu_rt_add_region.argtypes = [ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32]
         lib.npu_rt_init(1 if self.backend == "pynq" else 0, mmio_addr, self.io.address, io_phys,
                         self.io.array.nbytes, self.words.address, self.words.physical_address,
                         self.stage.address if self.stage else None,
-                        ctypes.addressof(records), len(programs))
+                        ctypes.addressof(records), len(tasks), ctypes.addressof(seg_records), len(segments))
         if self.backend != "pynq":
-            lib.npu_rt_add_region(self.weights.physical_address, self.weights.address,
-                                  self.weights.array.nbytes)
+            if not stream_weights:
+                lib.npu_rt_add_region(self.weights.physical_address, self.weights.address,
+                                      self.weights.array.nbytes)
             if self.stage:
                 lib.npu_rt_add_region(self.stage.physical_address, self.stage.address,
                                       self.stage.array.nbytes)
