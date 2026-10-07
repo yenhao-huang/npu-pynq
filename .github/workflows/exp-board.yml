@@ -100,11 +100,15 @@ jobs:
           } else {
             vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
           }
-          if ($LASTEXITCODE -ne 0) { throw "Vivado failed with exit code $LASTEXITCODE" }
+          $code = $LASTEXITCODE
+          # Keep the reports either way: a timing failure is diagnosed from them.
           $root = Get-ChildItem build/vivado -Directory | Select-Object -First 1
           New-Item -ItemType Directory -Force -Path build/exp-overlay | Out-Null
-          Copy-Item -Recurse "$($root.FullName)/artifacts" build/exp-overlay/
-          Copy-Item -Recurse "$($root.FullName)/reports" build/exp-overlay/
+          if ($root) {
+            Copy-Item -Recurse "$($root.FullName)/reports" build/exp-overlay/ -ErrorAction SilentlyContinue
+            if ($code -eq 0) { Copy-Item -Recurse "$($root.FullName)/artifacts" build/exp-overlay/ }
+          }
+          if ($code -ne 0) { throw "Vivado failed with exit code $code" }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
