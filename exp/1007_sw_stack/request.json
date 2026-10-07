@@ -1,5 +1,5 @@
 {
-  "id": "007-models-on-board",
+  "id": "008-models-on-board",
   "overlay": {"mode": "build"},
   "export": {"cmd": "bash exp/1007_sw_stack/export_all.sh build/exp-payload"},
   "board": {"script": "exp/1007_sw_stack/board/run_models.sh", "timeout_minutes": 300}
