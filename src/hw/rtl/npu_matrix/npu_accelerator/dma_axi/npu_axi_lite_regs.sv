@@ -57,6 +57,14 @@ module npu_axi_lite_regs #(
     input  logic [31:0]                       isa_cycles,
     input  logic [31:0]                       isa_instructions,
     output logic                              isa_start_pulse,
+    // While the front end owns the controller it drives START and the job
+    // configuration through these same flip-flops, so the controller's inputs
+    // come straight from registers on both paths.
+    input  logic                              ext_own,
+    input  logic                              ext_start,
+    input  logic [15:0]                       ext_m,
+    input  logic [15:0]                       ext_n,
+    input  logic [15:0]                       ext_k,
     output logic [31:0]                       isa_prog_addr,
     output logic [31:0]                       isa_prog_len,
     output logic [31:0]                       isa_data_base
@@ -282,6 +290,17 @@ module npu_axi_lite_regs #(
                 s_axi_bvalid <= 1'b1;
             end else if (s_axi_bvalid && s_axi_bready) begin
                 s_axi_bvalid <= 1'b0;
+            end
+
+            if (ext_own) begin
+                start_pulse <= ext_start;
+                cfg_m <= ext_m;
+                cfg_n <= ext_n;
+                cfg_k <= ext_k;
+                cfg_a_stride <= {16'd0, ext_k};
+                cfg_b_stride <= {16'd0, ext_n};
+                cfg_c_stride <= {14'd0, ext_n, 2'b00};
+                cfg_timeout_cycles <= 32'hffff_ffff;
             end
 
             if (s_axi_arvalid && s_axi_arready) begin
