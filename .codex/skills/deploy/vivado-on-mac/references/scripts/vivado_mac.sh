@@ -12,6 +12,8 @@
 #   vivado_mac.sh deploy [RUN ARGS]          send that overlay + packages to the PYNQ-Z1 and run
 #   vivado_mac.sh stop                       stop the VNC container
 set -euo pipefail
+# Docker Desktop's helpers (docker-credential-desktop, ...) live in the app bundle.
+export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
 
 REPO=$(cd "$(dirname "$0")/../../../../../.." && pwd)
 SKILL=$(cd "$(dirname "$0")/.." && pwd)

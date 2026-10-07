@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libfreetype6 fontconfig fonts-dejavu-core libgtk2.0-0 libgtk-3-0 \
         libglib2.0-0 libnss3 libasound2 libxft2 libxss1 libcanberra-gtk-module \
         libsecret-1-0 graphviz unzip xz-utils \
-        tigervnc-standalone-server tigervnc-common openbox xterm x11-xserver-utils \
+        tigervnc-standalone-server tigervnc-common tigervnc-tools openbox python3-xdg xterm xfonts-base x11-xserver-utils \
     && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 

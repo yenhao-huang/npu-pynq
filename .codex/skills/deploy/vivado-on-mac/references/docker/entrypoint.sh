@@ -6,7 +6,7 @@ VIVADO_SETTINGS=$(ls -d /tools/Xilinx/*/Vivado/settings64.sh /tools/Xilinx/Vivad
 if [ "${1:-}" = desktop ]; then
     shift
     mkdir -p ~/.vnc
-    printf '%s\n' "${VNC_PASSWORD:?VNC_PASSWORD is required}" | vncpasswd -f > ~/.vnc/passwd
+    printf '%s\n' "${VNC_PASSWORD:?VNC_PASSWORD is required}" | tigervncpasswd -f > ~/.vnc/passwd
     chmod 600 ~/.vnc/passwd
     cat > ~/.vnc/xstartup <<XS
 #!/bin/sh
@@ -16,7 +16,7 @@ xterm -geometry 100x30+10+10 -title shell &
 ${DESKTOP_APP:-xterm}
 XS
     chmod +x ~/.vnc/xstartup
-    vncserver :1 -geometry "${VNC_GEOMETRY:-1680x1050}" -depth 24 -localhost no -SecurityTypes VncAuth
+    tigervncserver :1 -geometry "${VNC_GEOMETRY:-1680x1050}" -depth 24 -localhost no -SecurityTypes VncAuth
     exec tail -F ~/.vnc/*.log
 fi
 exec "$@"
