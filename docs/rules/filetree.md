@@ -58,9 +58,14 @@ npu_repo_in_pynq/
 |   |   `-- waves/
 |   |-- isa/                     NPU instruction set: spec, layout, simulator
 |   |   `-- *.py
+|   |-- compiler/                MLIR + LLVM compiler (model -> CPU code + ISA programs)
+|   |   |-- mlir/                out-of-tree MLIR project: npu dialect, passes, npu-opt
+|   |   |-- ops/                 operator library shared by every model
+|   |   `-- *.py                 builder, toolchain driver, exporter
 |   |-- export/
 |   |   `-- *.py
 |   `-- runtime/
+|       |-- c/                   C NPU runtime linked into every compiled model
 |       `-- *.py
 |-- examples/
 |   `-- <example>/
@@ -162,6 +167,13 @@ encodes and decodes it, `layout.py` fixes how a tiled GEMM maps onto DDR, and
 `sim.py` is the bit-accurate simulator the RTL, runtimes and compiler are
 checked against. RTL opcodes must match it; `src/test/tests/test_isa.py`
 enforces that.
+
+`src/compiler/` turns a model graph into a package: `npu-opt` (built from
+`src/compiler/mlir/` with CMake against LLVM 22) partitions INT8 contractions
+onto the NPU and encodes them as ISA programs; upstream MLIR and LLVM compile
+the rest for the Cortex-A9 or the host. `src/runtime/c/npu_rt.c` is linked
+into every compiled model; `src/runtime/compiled.py` loads a package on the
+host (simulated NPU) or the board.
 
 `src/export/` turns a trained model into whatever format the NPU executes.
 
