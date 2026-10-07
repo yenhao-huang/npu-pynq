@@ -109,6 +109,10 @@ module npu_isa_frontend #(
     logic [7:0] l_ar_len;
     logic ld_ready, st_ready;
     logic [12:0] a_bytes, b_bytes;
+    logic [8:0] c_words;
+    // START reaches the controller one register later (npu_accelerator), so its
+    // ACCEPT is stale for two cycles after an issue.
+    logic [1:0] cooldown;
 
     assign start = isa_start && !isa_busy;
     assign ex_idle = (jobs_issued == jobs_written);
@@ -134,6 +138,7 @@ module npu_isa_frontend #(
         .job_valid(job_valid), .job_ready(job_ready),
         .job_m(job_m), .job_n(job_n), .job_k(job_k),
         .job_a(job_a), .job_b(job_b), .job_c(job_c),
+        .job_a_bytes(a_bytes), .job_b_bytes(b_bytes), .job_c_words(c_words),
         .running(dec_running), .done(dec_done),
         .error(dec_error), .error_code(dec_error_code),
         .pc(isa_pc), .instructions(isa_instructions)
@@ -145,9 +150,7 @@ module npu_isa_frontend #(
     // controller in the same cycle, and the controller's ACCEPT reflects the
     // new occupancy one cycle later, so back-to-back issue is safe.
     always_comb begin
-        a_bytes = 13'(job_m * job_k);
-        b_bytes = 13'(job_k * job_n);
-        job_ready = ctl_accept && ld_ready && st_ready && !fault_latched;
+        job_ready = ctl_accept && ld_ready && st_ready && !fault_latched && (cooldown == 2'd0);
         ctl_start = job_valid && job_ready;
         ctl_m = {8'd0, job_m};
         ctl_n = {8'd0, job_n};
@@ -160,7 +163,7 @@ module npu_isa_frontend #(
         .ld_a_addr(job_a), .ld_a_bytes(a_bytes),
         .ld_b_addr(job_b), .ld_b_bytes(b_bytes),
         .st_valid(ctl_start), .st_ready(st_ready),
-        .st_c_addr(job_c), .st_words(9'(job_m * job_n)),
+        .st_c_addr(job_c), .st_words(c_words),
         .ar_valid(l_ar_valid), .ar_ready(l_ar_ready),
         .ar_addr(l_ar_addr), .ar_len(l_ar_len),
         .r_valid(l_r_valid), .r_ready(l_r_ready),
@@ -228,6 +231,7 @@ module npu_isa_frontend #(
         if (!rst_n) begin
             jobs_issued <= 32'd0;
             jobs_written <= 32'd0;
+            cooldown <= 2'd0;
             fault_latched <= 1'b0;
             isa_fault_code <= 8'd0;
             isa_cycles <= 32'd0;
@@ -238,6 +242,7 @@ module npu_isa_frontend #(
         end else begin
             if (ctl_start)
                 jobs_issued <= jobs_issued + 32'd1;
+            cooldown <= ctl_start ? 2'd2 : (cooldown != 2'd0 ? cooldown - 2'd1 : 2'd0);
             if (job_written)
                 jobs_written <= jobs_written + 32'd1;
             if (dec_running && fault && !fault_latched) begin
