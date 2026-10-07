@@ -117,6 +117,10 @@ module npu_matrix_controller #(
     logic [1:0]  occupancy;
 
     logic [15:0] active_m, active_n, active_k;
+    // active_m - 1 and active_n - 1, registered with them so the output
+    // stream's TLAST is two equality compares, not two subtract chains (the
+    // 100 MHz critical path once the ISA front end shares the device).
+    logic [15:0] active_m_last, active_n_last;
     logic [15:0] load_m, load_n, load_k;
     // Bytes of the current frame not yet accepted from the stream.
     logic [FRAME_BITS-1:0] load_remaining;
@@ -232,8 +236,8 @@ module npu_matrix_controller #(
                 (widen_u16(output_row_count) * COLUMNS +
                  widen_u16(output_column_count)) * 32 +: 32
             ];
-            m_axis_tlast = (output_row_count == active_m - 1) &&
-                (output_column_count == active_n - 1);
+            m_axis_tlast = (output_row_count == active_m_last) &&
+                (output_column_count == active_n_last);
         end
 
         retire_now = (exec_state == EXEC_OUTPUT) && m_axis_tvalid &&
@@ -315,6 +319,8 @@ module npu_matrix_controller #(
             occupancy <= 2'd0;
             active_m <= 16'd0;
             active_n <= 16'd0;
+            active_m_last <= 16'hffff;
+            active_n_last <= 16'hffff;
             active_k <= 16'd0;
             frame_rows <= '0;
             row_bytes <= '0;
@@ -352,6 +358,8 @@ module npu_matrix_controller #(
             occupancy <= 2'd0;
             active_m <= 16'd0;
             active_n <= 16'd0;
+            active_m_last <= 16'hffff;
+            active_n_last <= 16'hffff;
             active_k <= 16'd0;
             frame_rows <= '0;
             row_bytes <= '0;
@@ -531,6 +539,8 @@ module npu_matrix_controller #(
                                     exec_state <= EXEC_CLEAR;
                                     active_m <= load_m;
                                     active_n <= load_n;
+                                    active_m_last <= load_m - 16'd1;
+                                    active_n_last <= load_n - 16'd1;
                                     active_k <= load_k;
                                     compute_step <= 32'd0;
                                 end
@@ -563,6 +573,8 @@ module npu_matrix_controller #(
                         exec_state <= EXEC_CLEAR;
                         active_m <= slot_m[exec_ptr];
                         active_n <= slot_n[exec_ptr];
+                        active_m_last <= slot_m[exec_ptr] - 16'd1;
+                        active_n_last <= slot_n[exec_ptr] - 16'd1;
                         active_k <= slot_k[exec_ptr];
                         compute_step <= 32'd0;
                     end
@@ -603,6 +615,8 @@ module npu_matrix_controller #(
                                 exec_state <= EXEC_CLEAR;
                                 active_m <= slot_m[~exec_ptr];
                                 active_n <= slot_n[~exec_ptr];
+                                active_m_last <= slot_m[~exec_ptr] - 16'd1;
+                                active_n_last <= slot_n[~exec_ptr] - 16'd1;
                                 active_k <= slot_k[~exec_ptr];
                                 compute_step <= 32'd0;
                             end else begin
