@@ -92,47 +92,58 @@ module npu_accelerator #(
 
     // The controller is driven either by the registers and the AXI DMA
     // streams (ABI 1.0 path) or, while a program is in flight, by the front end.
-    logic ctl_start;
-    logic [15:0] ctl_m, ctl_n, ctl_k;
-    logic [31:0] ctl_a_stride, ctl_b_stride, ctl_c_stride, ctl_timeout;
+    // Every input of the controller still comes from a flip-flop: the front end
+    // loads START and the job shape into the register file's own flops, the
+    // owner flag is a register, and both streams cross a two-entry skid buffer.
+    // The 100 MHz margin of the 16 x 16 array leaves no room for muxes there.
+    logic own_isa;
     logic fe_start;
     logic [15:0] fe_m, fe_n, fe_k;
-    logic [IN_BYTES*8-1:0] core_s_tdata;
-    logic [IN_BYTES-1:0] core_s_tkeep;
-    logic core_s_tvalid, core_s_tlast;
-    logic [31:0] core_m_tdata;
-    logic core_m_tvalid, core_m_tlast;
-    // The controller computes TVALID and TREADY in one always_comb, so
-    // block-level analysis (Verilator < 5.03x) sees a loop through the front
-    // end. Signal by signal, TVALID never depends on TREADY.
-    /* verilator lint_off UNOPTFLAT */
-    logic core_s_tready, core_m_tready;
-    /* verilator lint_on UNOPTFLAT */
+    // Stream into the controller: mux -> skid -> core.
+    logic [IN_BYTES*8-1:0] in_tdata, core_s_tdata;
+    logic [IN_BYTES-1:0] in_tkeep, core_s_tkeep;
+    logic in_tvalid, in_tready, in_tlast;
+    logic core_s_tvalid, core_s_tready, core_s_tlast;
+    // Stream out of the controller: core -> skid -> mux.
+    logic [31:0] core_m_tdata, out_tdata;
+    logic core_m_tvalid, core_m_tready, core_m_tlast;
+    logic out_tvalid, out_tready, out_tlast;
     logic [63:0] fe_s_tdata;
     logic [7:0] fe_s_tkeep;
     logic fe_s_tvalid, fe_s_tlast, fe_m_tready;
 
     assign irq = status_done | status_error | isa_done | isa_error;
 
-    // One assign per signal: the stream readies loop back through the
-    // controller, and a shared always_comb would look circular to Verilator.
-    assign ctl_start = isa_busy ? fe_start : start_pulse;
-    assign ctl_m = isa_busy ? fe_m : cfg_m;
-    assign ctl_n = isa_busy ? fe_n : cfg_n;
-    assign ctl_k = isa_busy ? fe_k : cfg_k;
-    assign ctl_a_stride = isa_busy ? {16'd0, fe_k} : cfg_a_stride;
-    assign ctl_b_stride = isa_busy ? {16'd0, fe_n} : cfg_b_stride;
-    assign ctl_c_stride = isa_busy ? {14'd0, fe_n, 2'b00} : cfg_c_stride;
-    assign ctl_timeout = isa_busy ? 32'hffff_ffff : cfg_timeout_cycles;
-    assign core_s_tdata = isa_busy ? fe_s_tdata[IN_BYTES*8-1:0] : s_axis_tdata;
-    assign core_s_tkeep = isa_busy ? fe_s_tkeep[IN_BYTES-1:0] : s_axis_tkeep;
-    assign core_s_tvalid = isa_busy ? fe_s_tvalid : s_axis_tvalid;
-    assign core_s_tlast = isa_busy ? fe_s_tlast : s_axis_tlast;
-    assign core_m_tready = isa_busy ? fe_m_tready : m_axis_tready;
-    assign s_axis_tready = isa_busy ? 1'b0 : core_s_tready;
-    assign m_axis_tvalid = isa_busy ? 1'b0 : core_m_tvalid;
-    assign m_axis_tdata = core_m_tdata;
-    assign m_axis_tlast = core_m_tlast;
+    always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
+        if (!s_axi_aresetn)
+            own_isa <= 1'b0;
+        else
+            own_isa <= isa_busy;
+    end
+
+    assign in_tdata = own_isa ? fe_s_tdata[IN_BYTES*8-1:0] : s_axis_tdata;
+    assign in_tkeep = own_isa ? fe_s_tkeep[IN_BYTES-1:0] : s_axis_tkeep;
+    assign in_tvalid = own_isa ? fe_s_tvalid : s_axis_tvalid;
+    assign in_tlast = own_isa ? fe_s_tlast : s_axis_tlast;
+    assign s_axis_tready = own_isa ? 1'b0 : in_tready;
+
+    npu_axis_skid #(.WIDTH(IN_BYTES * 9 + 1)) input_slice (
+        .clk(s_axi_aclk), .rst_n(s_axi_aresetn),
+        .s_valid(in_tvalid), .s_ready(in_tready), .s_data({in_tlast, in_tkeep, in_tdata}),
+        .m_valid(core_s_tvalid), .m_ready(core_s_tready),
+        .m_data({core_s_tlast, core_s_tkeep, core_s_tdata})
+    );
+
+    npu_axis_skid #(.WIDTH(33)) output_slice (
+        .clk(s_axi_aclk), .rst_n(s_axi_aresetn),
+        .s_valid(core_m_tvalid), .s_ready(core_m_tready), .s_data({core_m_tlast, core_m_tdata}),
+        .m_valid(out_tvalid), .m_ready(out_tready), .m_data({out_tlast, out_tdata})
+    );
+
+    assign out_tready = own_isa ? fe_m_tready : m_axis_tready;
+    assign m_axis_tvalid = own_isa ? 1'b0 : out_tvalid;
+    assign m_axis_tdata = out_tdata;
+    assign m_axis_tlast = out_tlast;
 
     npu_isa_frontend #(
         .ROWS(ROWS),
@@ -164,12 +175,12 @@ module npu_accelerator #(
         .s_axis_tdata(fe_s_tdata),
         .s_axis_tkeep(fe_s_tkeep),
         .s_axis_tvalid(fe_s_tvalid),
-        .s_axis_tready(core_s_tready),
+        .s_axis_tready(in_tready && own_isa),
         .s_axis_tlast(fe_s_tlast),
-        .m_axis_tdata(core_m_tdata),
-        .m_axis_tvalid(core_m_tvalid),
+        .m_axis_tdata(out_tdata),
+        .m_axis_tvalid(out_tvalid && own_isa),
         .m_axis_tready(fe_m_tready),
-        .m_axis_tlast(core_m_tlast),
+        .m_axis_tlast(out_tlast),
         .*
     );
 
@@ -192,7 +203,12 @@ module npu_accelerator #(
         .cfg_a_stride(cfg_a_stride),
         .cfg_b_stride(cfg_b_stride),
         .cfg_c_stride(cfg_c_stride),
-        .cfg_timeout_cycles(cfg_timeout_cycles)
+        .cfg_timeout_cycles(cfg_timeout_cycles),
+        .ext_own(own_isa),
+        .ext_start(fe_start),
+        .ext_m(fe_m),
+        .ext_n(fe_n),
+        .ext_k(fe_k)
     );
 
     npu_matrix_core #(
@@ -203,15 +219,15 @@ module npu_accelerator #(
     ) controller (
         .clk(s_axi_aclk),
         .rst_n(s_axi_aresetn),
-        .start_pulse(ctl_start),
+        .start_pulse(start_pulse),
         .soft_reset_pulse(soft_reset_pulse),
-        .cfg_m(ctl_m),
-        .cfg_n(ctl_n),
-        .cfg_k(ctl_k),
-        .cfg_a_stride(ctl_a_stride),
-        .cfg_b_stride(ctl_b_stride),
-        .cfg_c_stride(ctl_c_stride),
-        .cfg_timeout_cycles(ctl_timeout),
+        .cfg_m(cfg_m),
+        .cfg_n(cfg_n),
+        .cfg_k(cfg_k),
+        .cfg_a_stride(cfg_a_stride),
+        .cfg_b_stride(cfg_b_stride),
+        .cfg_c_stride(cfg_c_stride),
+        .cfg_timeout_cycles(cfg_timeout_cycles),
         .s_axis_tdata(core_s_tdata),
         .s_axis_tkeep(core_s_tkeep),
         .s_axis_tvalid(core_s_tvalid),

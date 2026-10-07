@@ -30,6 +30,10 @@ module npu_isa_decode #(
     output logic [31:0] job_a,
     output logic [31:0] job_b,
     output logic [31:0] job_c,
+    // Byte counts of the job, computed here so no multiplier sits on the issue path.
+    output logic [12:0] job_a_bytes,
+    output logic [12:0] job_b_bytes,
+    output logic [8:0]  job_c_words,
 
     output logic        running,
     output logic        done,
@@ -94,6 +98,7 @@ module npu_isa_decode #(
             job_valid <= 1'b0;
             job_m <= 8'd0; job_n <= 8'd0; job_k <= 16'd0;
             job_a <= 32'd0; job_b <= 32'd0; job_c <= 32'd0;
+            job_a_bytes <= 13'd0; job_b_bytes <= 13'd0; job_c_words <= 9'd0;
             running <= 1'b0;
             done <= 1'b0;
             error <= 1'b0;
@@ -181,6 +186,9 @@ module npu_isa_decode #(
                             job_a <= data_base + a_off;
                             job_b <= data_base + b_off;
                             job_c <= data_base + c_off;
+                            job_a_bytes <= 13'(m * k);
+                            job_b_bytes <= 13'(k * n);
+                            job_c_words <= 9'(m * n);
                             if (cur_word[0]) a_off <= a_off + {13'd0, a_inc};
                             if (cur_word[1]) b_off <= b_off + {13'd0, b_inc};
                             if (cur_word[2]) c_off <= c_off + {13'd0, c_inc};

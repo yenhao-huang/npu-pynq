@@ -62,6 +62,7 @@ set rtl_files [list \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core controller npu_matrix_controller.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath npu_matrix_datapath.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_core.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_axis_skid.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_fifo.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_fetch.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_decode.sv] \

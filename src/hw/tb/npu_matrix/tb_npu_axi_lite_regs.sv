@@ -122,7 +122,12 @@ module tb_npu_axi_lite_regs;
         .isa_start_pulse(isa_start_pulse),
         .isa_prog_addr(isa_prog_addr),
         .isa_prog_len(isa_prog_len),
-        .isa_data_base(isa_data_base)
+        .isa_data_base(isa_data_base),
+        .ext_own(1'b0),
+        .ext_start(1'b0),
+        .ext_m(16'd0),
+        .ext_n(16'd0),
+        .ext_k(16'd0)
     );
 
     task automatic expect_word;
