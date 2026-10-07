@@ -44,7 +44,10 @@ cmd_preflight() {
     # interface with an address on the board's /24.
     local iface addr
     iface=$(route -n get "$HOST" 2>/dev/null | awk '/interface:/ {print $2}')
-    addr=$(ipconfig getifaddr "${iface:-none}" 2>/dev/null || true)
+    # An adapter can carry several addresses (e.g. link-local first); any one
+    # on the board's /24 makes it a direct link.
+    addr=$(ifconfig "${iface:-none}" 2>/dev/null | awk -v net="${HOST%.*}." '$1 == "inet" && index($2, net) == 1 {print $2; exit}')
+    [ -n "$addr" ] || addr=$(ipconfig getifaddr "${iface:-none}" 2>/dev/null || true)
     say "route      ${iface:-none} (local address ${addr:-none})"
     if [ "${addr%.*}" != "${HOST%.*}" ]; then
         cat >&2 <<EOF
