@@ -4,6 +4,10 @@ All commands run from the repository root of `npu/issue119-a`.
 
 ## 1. Toolchain
 
+On a Mac, `.codex/skills/deploy/install-requirement-in-mac/references/scripts/mac_npu.sh`
+does all of this: `doctor` lists what is missing, `install` adds it, and
+`hw`, `sw`, `export` and `deploy` run the steps below.
+
 | Need | Version used | Notes |
 | --- | --- | --- |
 | LLVM + MLIR + clang | 22.1 (Homebrew `llvm`; apt `llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev clang-22`) | `NPU_LLVM_BIN` overrides discovery |

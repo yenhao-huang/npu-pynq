@@ -1,0 +1,12 @@
+# Python packages for the NPU stack on macOS (Python 3.12, repository .venv).
+numpy>=1.26
+torch>=2.4
+torchvision>=0.19
+transformers>=4.57
+safetensors
+huggingface_hub
+pillow
+pyyaml
+regex
+# LLVM's lld as a wheel: links the Cortex-A9 (ELF) libraries on macOS.
+ziglang

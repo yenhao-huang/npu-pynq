@@ -72,3 +72,6 @@ Thumbs.db
 # npm launcher dependencies and generated package archives
 tools/ic/node_modules/
 tools/ic/*.tgz
+
+# Python environment created by .codex/skills/deploy/install-requirement-in-mac
+.venv/
