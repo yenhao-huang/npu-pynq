@@ -81,3 +81,17 @@ the board:
 sudo -E /usr/local/share/pynq-venv/bin/python3 exp/1007_sw_stack/board/run_models.py \
     --overlay overlay/artifacts/npu_matrix.bit --packages export --out results/models.json
 ```
+
+## 7. From macOS, without the Windows runner
+
+With the board cabled to the Mac (adapter set to 192.168.2.1/24) and an SSH
+key installed (`ssh-copy-id xilinx@192.168.2.99`):
+
+```bash
+S=.codex/skills/deploy/deploy-pynq-macos/references/scripts/pynq_deploy.sh
+$S preflight
+$S all --run <exp-board run id with the ISA overlay>     # or --release vX.Y.Z / --dir DIR
+ls build/deploy/results/*/results/                      # board.log, isa_gemm.json, models.json
+```
+
+`--dry-run` before the command prints the plan only.
