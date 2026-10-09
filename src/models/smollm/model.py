@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from src.compiler.ops import attention as A, core, embedding as E, linear as L
-from src.inference.graph import LLMOptions, StateSpec, build_entry_points, choose_group, new_graph
+from src.inference.graph import LLMOptions, StateSpec, build_prefill_decode_graphs, choose_group, new_graph
 from src.inference.weights import SafeTensors, resolve_hf
 
 DEFAULT_SOURCE = "HuggingFaceTB/SmolLM2-135M-Instruct"
@@ -58,10 +58,13 @@ def awq_spec(cfg: Config):
 
 
 def build(source: str = DEFAULT_SOURCE, opts: LLMOptions | None = None, awq=None):
+    """Prepare SmolLM weights and build its prefill and decode graphs."""
     opts = opts or LLMOptions()
+    # Read the model configuration and weights from a local path or HF cache.
     root = resolve_hf(source)
     cfg = Config(json.loads((root / "config.json").read_text()))
     st = SafeTensors(root)
+    # Start an empty graph, then prepare values shared by all layers.
     graph = new_graph("smollm")
     H, D = cfg.heads, cfg.head_dim
     emb = L.quantize_weight(st["model.embed_tokens.weight"], opts.embed_bits, opts.group)
@@ -69,15 +72,18 @@ def build(source: str = DEFAULT_SOURCE, opts: LLMOptions | None = None, awq=None
     if opts.layers:
         cfg.layers = opts.layers
     opts.group = choose_group(opts.group, [cfg.hidden, cfg.inter, cfg.heads * cfg.head_dim])
+    # Calibrate AWQ when requested, then quantize each decoder layer's weights.
     if opts.awq and awq is None:
         from src.inference.quant import awq as AWQ
         awq = AWQ.hook_for(root, AWQ.calibration_ids(root), awq_spec(cfg), cfg.layers, opts.bits, opts.group)
     layers = [quantize_layer_weights(st, cfg, i, opts, awq) for i in range(cfg.layers)]
     final_norm = st["model.norm.weight"].astype(np.float32)
 
+    # Describe the KV cache buffers passed to both entry points.
     kv_shapes = A.AttnConfig(1, H, cfg.kv_heads, D, cfg.layers, opts.max_seq, opts.attention, opts.kv).cache_shapes()
     state = [StateSpec(n, s, d) for n, (s, d) in kv_shapes.items()]
 
+    # The same forward body handles one decode token or a prefill chunk.
     def body(ctx, tokens, st_vals, pos, last):
         b = ctx.b
         T = tokens.shape[0]
@@ -107,7 +113,9 @@ def build(source: str = DEFAULT_SOURCE, opts: LLMOptions | None = None, awq=None
             x = b.extract_slice(x, [last, 0], [1, cfg.hidden])
         return L.linear(ctx, x, "lm_head", emb)
 
-    build_entry_points(graph, state, cfg.vocab, opts.chunk, body)
+    # Emit separate decode and fixed-chunk prefill functions from that body.
+    build_prefill_decode_graphs(graph, state, cfg.vocab, opts.chunk, body)
+    # Keep runtime options and the tokenizer alongside the compiled graph.
     graph.meta.update({"family": "llama", "config": vars(cfg), "options": opts.describe(),
                        "eos": cfg.eos, "source": source})
     graph.files["tokenizer.json"] = root / "tokenizer.json"

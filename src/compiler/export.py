@@ -101,15 +101,18 @@ def export(graph: ModelGraph, out: str | Path, targets: Sequence[str] = ("host",
     work.mkdir(parents=True)
     timings: dict[str, float] = {}
 
+    # Write the model graph as MLIR, then choose which matmuls run on the NPU.
     t = time.monotonic()
     source = work / "model.mlir"
     source.write_text(graph.module.render())
+
     parted = work / "partitioned.mlir"
     report_path = out / "partition.json"
     toolchain.partition(source, parted, report_path, max_k=limits.max_k)
     report = json.loads(report_path.read_text())
     timings["partition"] = time.monotonic() - t
 
+    # Pack NPU weights as tiles and record every weight's offset in the arena.
     t = time.monotonic()
     blob, offsets, layouts = pack_weights(graph, report, limits)
     (out / "weights.bin").write_bytes(blob)
@@ -117,12 +120,14 @@ def export(graph: ModelGraph, out: str | Path, targets: Sequence[str] = ("host",
     table.write_text(json.dumps(offsets))
     timings["pack_weights"] = time.monotonic() - t
 
+    # Turn NPU tasks into ISA programs and calls to the C runtime.
     t = time.monotonic()
     lowered = work / "lowered.mlir"
     toolchain.lower(parted, lowered, table, out / "programs", limits.rows, limits.columns, limits.max_k,
                     segment_bytes)
     timings["npu_lower"] = time.monotonic() - t
 
+    # Compile the remaining CPU operations for each requested platform.
     libraries = {}
     for name in targets:
         t = time.monotonic()
@@ -134,6 +139,7 @@ def export(graph: ModelGraph, out: str | Path, targets: Sequence[str] = ("host",
         libraries[name] = f"{name}/{tgt.library}"
         timings[f"codegen_{name}"] = time.monotonic() - t
 
+    # Bundle the compiled libraries, weights, programs, and model metadata.
     for dest, src in graph.files.items():
         shutil.copy2(src, out / dest)
     programs = json.loads((out / "programs.json").read_text())

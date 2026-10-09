@@ -51,7 +51,7 @@ class StateSpec:
     dtype: str  # "f32" | "i8"
 
 
-def build_entry_points(graph: ModelGraph, state: list[StateSpec], vocab: int, chunk: int,
+def build_prefill_decode_graphs(graph: ModelGraph, state: list[StateSpec], vocab: int, chunk: int,
                        body: Callable[[Ctx, Value, dict[str, Value], Value, Value | None], Value]) -> None:
     """Emit decode and prefill; ``body(ctx, tokens_i32[T], state, pos, last) -> logits [1, V]``."""
     for name, tokens in (("decode", 1), ("prefill", chunk)):

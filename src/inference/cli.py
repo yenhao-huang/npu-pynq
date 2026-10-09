@@ -32,8 +32,10 @@ def cmd_export(args) -> int:
         kwargs["opts"] = module.ResNetOptions(bits=args.bits)
     else:
         kwargs["opts"] = _options(args)
+    # Build the model graph and prepare its weights before compiling it.
     graph, _ = module.build(**kwargs)
     built = time.monotonic() - t
+    # Compile the graph into a package for the requested CPU targets.
     pkg = export(graph, args.out, targets=args.targets.split(","))
     manifest = json.loads((pkg / "manifest.json").read_text())
     manifest["compile_seconds"]["frontend"] = built

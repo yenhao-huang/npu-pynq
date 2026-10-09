@@ -16,7 +16,7 @@ import numpy as np
 
 from src.compiler.mlir_builder import Region, Value, identity_map, map_of
 from src.compiler.ops import attention as A, core, embedding as E, linear as L, linear_attention as G
-from src.inference.graph import LLMOptions, StateSpec, build_entry_points, choose_group, new_graph
+from src.inference.graph import LLMOptions, StateSpec, build_prefill_decode_graphs, choose_group, new_graph
 from src.inference.weights import SafeTensors, resolve_hf
 
 DEFAULT_SOURCE = "Qwen/Qwen3.5-0.8B"
@@ -157,7 +157,7 @@ def build(source: str = DEFAULT_SOURCE, opts: LLMOptions | None = None, awq=None
             x = b.extract_slice(x, [last, 0], [1, cfg.hidden])
         return L.linear(ctx, x, "lm_head", emb)
 
-    build_entry_points(graph := new_graph("qwen3_5"), state, cfg.vocab, opts.chunk, body)
+    build_prefill_decode_graphs(graph := new_graph("qwen3_5"), state, cfg.vocab, opts.chunk, body)
     graph.meta.update({"family": "qwen3_5", "config": {k: v for k, v in vars(cfg).items() if k != "layer_types"},
                        "layer_types": cfg.layer_types, "options": opts.describe(), "eos": cfg.eos, "source": source})
     graph.files["tokenizer.json"] = root / "tokenizer.json"

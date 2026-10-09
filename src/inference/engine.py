@@ -80,6 +80,7 @@ class LLMEngine:
         """Feed ``ids`` at the current position; return the last token's logits."""
         if self.pos + len(ids) > self.max_seq:
             raise ValueError(f"prompt exceeds the {self.max_seq}-token KV cache")
+        # Feed fixed-size chunks; only real tokens advance the cache position.
         for start in range(0, len(ids), self.chunk):
             part = ids[start:start + self.chunk]
             self.tokens_buf[:] = 0
@@ -92,6 +93,7 @@ class LLMEngine:
     def decode(self, token: int) -> np.ndarray:
         if self.pos >= self.max_seq:
             raise ValueError("KV cache is full")
+        # One compiled call updates the cache and returns the next logits.
         self.model.call("decode", "weights", *self.state, int(token), self.pos, self.logits)
         self.pos += 1
         return self.logits[0]
@@ -100,19 +102,23 @@ class LLMEngine:
     def generate(self, prompt: str | list[int], max_new_tokens: int = 32,
                  params: SamplingParams | None = None, chat: bool = False,
                  on_token: Callable[[int, str], None] | None = None,
-                 use_prefill: bool = True) -> tuple[list[int], str, GenerationStats]:
+                 use_chunked_prefill: bool = True) -> tuple[list[int], str, GenerationStats]:
         params = params or SamplingParams()
         sampler = Sampler(params)
+        # Apply the chat template if requested, then tokenize the prompt.
         if isinstance(prompt, str):
             text = self.tokenizer.chat([{"role": "user", "content": prompt}]) if chat else prompt
             ids = self.tokenizer.encode(text)
         else:
             ids = list(prompt)
+
+        # Clear the KV cache before processing this prompt.
         self.reset()
         stats = GenerationStats(prompt_tokens=len(ids))
         before = self.model.stats()
         t = time.perf_counter()
-        if use_prefill:
+        # Process the prompt in chunks, or token by token for comparison.
+        if use_chunked_prefill:
             logits = self.prefill(ids)
         else:
             for tid in ids:
@@ -121,6 +127,7 @@ class LLMEngine:
         history = list(ids)
         out: list[int] = []
         t = time.perf_counter()
+        # Sample from the current logits, then decode that token for the next step.
         for _ in range(max_new_tokens):
             nxt = sampler(logits, history)
             if nxt in self.eos:
@@ -136,6 +143,7 @@ class LLMEngine:
         stats.generated_tokens = len(out)
         after = self.model.stats()
         stats.npu = {k: after[k] - before[k] for k in ("calls", "jobs", "cycles", "macs")}
+        # Convert generated IDs to text and return them with timing and NPU stats.
         text = self.tokenizer.decode(out) if self.tokenizer else ""
         return out, text, stats
 
