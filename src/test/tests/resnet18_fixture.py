@@ -9,8 +9,8 @@ import zipfile
 
 import numpy as np
 
-from src.model.numeric import INT32_MAX
-from src.model.resnet import (
+from src.deprecate.model.numeric import INT32_MAX
+from src.deprecate.model.resnet import (
     ConstantTensor,
     Conv2D,
     Flatten,

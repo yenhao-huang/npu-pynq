@@ -119,8 +119,8 @@ the workflow from source, follow the
 
 [`src/compiler/`](docs/goals/sw_optimal/details/compiler.md) exports compiled
 models and `src/runtime/` executes them. The earlier ResNet model and export
-implementation lives in `src/deprecate/`, with its original import paths kept
-for existing examples. `src/hw/` implements the accelerator, and `examples/`
+implementation lives in `src/deprecate/`, which existing examples import.
+`src/hw/` implements the accelerator, and `examples/`
 assembles human-facing workflows. Production modules never import from examples.
 
 ## Hardware Architecture

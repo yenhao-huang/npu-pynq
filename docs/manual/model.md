@@ -1,10 +1,10 @@
 # Model contracts
 
 This page documents the pre-MLIR ResNet stack, now implemented under
-`src/deprecate/`. The `src/model/` and `src/export/` imports remain available
-for compatibility. New models use `src/models/` and `src/compiler/`.
+`src/deprecate/`. Existing examples use its `src.deprecate.model` and
+`src.deprecate.export` modules. New models use `src/models/` and `src/compiler/`.
 
-`src/model/` is the production-visible source of truth for model data
+`src/deprecate/model/` is the legacy source of truth for model data
 structures and bit-accurate integer behavior. Exporters, runtimes, and tests
 import the same definitions so that model conversion and execution do not
 silently implement different numeric rules.
@@ -18,13 +18,13 @@ weights, datasets, exported model packages, bitstreams, or board results.
 trained model or adapter
           |
           v
-src/model contracts <--- contract tests
+src/deprecate/model contracts <--- contract tests
           |
           v
-src/export package ---> src/runtime ---> NPU hardware
+src/deprecate/export package ---> src/deprecate/runtime ---> NPU hardware
 ```
 
-`src/model/` is framework-neutral. A future PyTorch or ONNX adapter may produce
+`src/deprecate/model/` is framework-neutral. A future PyTorch or ONNX adapter may produce
 these records, but framework-specific objects do not become part of the core
 contract.
 
@@ -32,7 +32,7 @@ contract.
 
 ### `numeric.py`
 
-[`src/model/numeric.py`](../../src/model/numeric.py) defines the shared integer
+[`src/deprecate/model/numeric.py`](../../src/deprecate/model/numeric.py) defines the shared integer
 arithmetic contract:
 
 - signed INT8 and INT32 ranges;
@@ -47,7 +47,7 @@ accumulator saturates or how a tie rounds may change hardware-visible results.
 
 ### `resnet.py`
 
-[`src/model/resnet.py`](../../src/model/resnet.py) defines the immutable,
+[`src/deprecate/model/resnet.py`](../../src/deprecate/model/resnet.py) defines the immutable,
 framework-neutral graph representation:
 
 - `Quantization`;
@@ -64,7 +64,7 @@ unsupported graphs fail before export or hardware execution.
 
 ### `operators.py`
 
-[`src/model/operators.py`](../../src/model/operators.py) implements the
+[`src/deprecate/model/operators.py`](../../src/deprecate/model/operators.py) implements the
 bit-accurate Python reference for every supported command. These functions are
 the executable meaning of the graph contract and provide expected results for
 exporter, runtime, and hardware verification.
@@ -73,9 +73,9 @@ They are reference implementations, not an optimized inference engine.
 
 ### `__init__.py`
 
-[`src/model/__init__.py`](../../src/model/__init__.py) is the supported public
+[`src/deprecate/model/__init__.py`](../../src/deprecate/model/__init__.py) is the supported public
 import surface. Consumers should import model records and numeric functions
-from `src.model` when possible instead of depending on private helpers.
+from `src.deprecate.model` when possible instead of depending on private helpers.
 
 ## Supported Phase 2A model subset
 
@@ -102,12 +102,12 @@ The normative requirements and rejection scenarios are in the
 
 `src/test/model/` predates the production model package and remains the Phase 0
 hardware-verification reference. Shared numeric behavior is promoted into
-`src/model/`; compatibility imports keep existing tests working during the
+`src/deprecate/model/`; compatibility imports keep existing tests working during the
 migration. Production code must not import from `src/test/`.
 
 ## What does not belong here
 
-Do not place these artifacts under `src/model/`:
+Do not place these artifacts under `src/deprecate/model/`:
 
 - trained `.pth`, `.onnx`, `.npz`, or similar weight files;
 - generated model manifests or packed payloads;
@@ -117,12 +117,12 @@ Do not place these artifacts under `src/model/`:
 - framework-specific training pipelines.
 
 Generated model packages belong outside Git. Conversion belongs in
-`src/export/`, board execution belongs in `src/runtime/`, and verification
+`src/deprecate/export/`, board execution belongs in `src/runtime/`, and verification
 belongs in `src/test/`.
 
 ## Review rules
 
-A change to `src/model/` is a contract change when it affects a public record,
+A change to `src/deprecate/model/` is a contract change when it affects a public record,
 accepted graph, tensor layout, arithmetic order, saturation point, rounding
 rule, quantization rule, or operator result. Such a change should update the
 corresponding OpenSpec requirement and focused tests in the same pull request.

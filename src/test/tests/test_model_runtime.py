@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from src.export.resnet import export_model
-from src.model.numeric import INT32_MAX
-from src.model.operators import (
+from src.deprecate.export.resnet import export_model
+from src.deprecate.model.numeric import INT32_MAX
+from src.deprecate.model.operators import (
     conv2d_int8,
     flatten_int8,
     fully_connected_int8,
@@ -17,8 +17,8 @@ from src.model.operators import (
     relu_int8,
     residual_add_int8,
 )
-from src.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
-from src.model.resnet import (
+from src.deprecate.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
+from src.deprecate.model.resnet import (
     ConstantTensor,
     Conv2D,
     Flatten,
@@ -31,7 +31,7 @@ from src.model.resnet import (
     ResidualAdd,
     TensorSpec,
 )
-from src.runtime.model import (
+from src.deprecate.runtime.model import (
     ModelExecutionError,
     ModelLoadError,
     ModelRuntimeError,

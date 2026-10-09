@@ -66,8 +66,6 @@ npu_repo_in_pynq/
 |   |   |-- model/               numeric and ResNet model contracts
 |   |   |-- export/              legacy ResNet package exporter
 |   |   `-- runtime/             legacy model execution and acceptance
-|   |-- export/
-|   |   `-- *.py                 compatibility imports for deprecate/export
 |   `-- runtime/
 |       |-- c/                   C NPU runtime linked into every compiled model
 |       `-- *.py
@@ -181,13 +179,11 @@ into every compiled model; `src/runtime/compiled.py` loads a package on the
 host (simulated NPU) or the board.
 
 `src/deprecate/` contains the pre-MLIR model contracts, ResNet exporter, and
-model runtime. `src/model/`, `src/export/`, and selected `src/runtime/` modules
-provide compatibility imports for the existing examples and release packages.
-New software features belong in `src/compiler/`, `src/inference/`, and
-`src/models/`.
+model runtime. Existing examples and release packages import these modules
+directly. New software features belong in `src/compiler/`, `src/inference/`,
+and `src/models/`.
 
-`src/runtime/` holds the active compiled-model and ISA runtimes, overlay access,
-and compatibility imports for the archived runtime.
+`src/runtime/` holds the active compiled-model and ISA runtimes and overlay access.
 
 `examples/` consumes the three above. Nothing under `src/` may import from it.
 An example owns its application-specific runtime, notebooks, package builder,
@@ -303,7 +299,7 @@ runs in CI.
 
 `src/test/model/` defines the numeric contract: quantization, rounding
 direction, saturation bounds, accumulator width and overflow behaviour. When
-`src/export/` starts depending on it, promote it to `src/model/` rather than
+`src/deprecate/export/` starts depending on it, promote it to `src/deprecate/model/` rather than
 letting production code import from a test directory.
 
 `src/test/waves/` and `src/test/build/` are generated. Only

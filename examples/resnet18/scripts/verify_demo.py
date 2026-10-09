@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 from examples.resnet18.package_example import validate_workspace
-from src.runtime.model import load_model_package
+from src.deprecate.runtime.model import load_model_package
 from src.runtime.verify_overlay import verify_artifacts
 
 

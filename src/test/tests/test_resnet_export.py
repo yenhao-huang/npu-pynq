@@ -6,18 +6,18 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from src.export.resnet import (
+from src.deprecate.export.resnet import (
     ExportError,
     certify_accumulators,
     export_model,
 )
-from src.model.numeric import INT32_MAX
-from src.model.package import PackageValidationError, validate_package_data
-from src.model.package import (
+from src.deprecate.model.numeric import INT32_MAX
+from src.deprecate.model.package import PackageValidationError, validate_package_data
+from src.deprecate.model.package import (
     REQUIRED_ABI_MAJOR as PACKAGE_ABI_MAJOR,
     REQUIRED_CAPABILITIES as PACKAGE_CAPABILITIES,
 )
-from src.model.resnet import (
+from src.deprecate.model.resnet import (
     ConstantTensor,
     Conv2D,
     Flatten,
@@ -194,7 +194,7 @@ class DeterministicExportTests(unittest.TestCase):
                     raise OSError("injected manifest replace failure")
                 return real_replace(source, destination)
 
-            with patch("src.export.resnet.os.replace", side_effect=fail_manifest_once):
+            with patch("src.deprecate.export.resnet.os.replace", side_effect=fail_manifest_once):
                 with self.assertRaisesRegex(ExportError, "publish"):
                     export_model(graph_fixture(conv_weight=3), prefix)
 

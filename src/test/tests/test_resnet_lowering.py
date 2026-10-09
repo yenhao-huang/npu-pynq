@@ -3,9 +3,9 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from src.model.numeric import INT32_MAX
-from src.model.operators import conv2d_int8, fully_connected_int8
-from src.runtime.lowering import (
+from src.deprecate.model.numeric import INT32_MAX
+from src.deprecate.model.operators import conv2d_int8, fully_connected_int8
+from src.deprecate.runtime.lowering import (
     LoweringValidationError,
     MatrixLowerer,
 )

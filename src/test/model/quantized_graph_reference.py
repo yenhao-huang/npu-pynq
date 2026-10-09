@@ -6,8 +6,8 @@ from collections.abc import Mapping
 
 import numpy as np
 
-from src.model.numeric import INT8_MAX, INT8_MIN, INT32_MAX, INT32_MIN
-from src.model.resnet import (
+from src.deprecate.model.numeric import INT8_MAX, INT8_MIN, INT32_MAX, INT32_MIN
+from src.deprecate.model.resnet import (
     Conv2D,
     Flatten,
     FullyConnected,
