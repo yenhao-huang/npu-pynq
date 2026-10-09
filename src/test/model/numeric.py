@@ -1,6 +1,6 @@
 """Compatibility re-export of the production numeric contract."""
 
-from src.model.numeric import (
+from src.deprecate.model.numeric import (
     INT8_MAX,
     INT8_MIN,
     INT32_MAX,

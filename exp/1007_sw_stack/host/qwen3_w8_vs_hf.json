@@ -1,0 +1,96 @@
+{
+  "package": "build/pkg/qwen3",
+  "options": {
+    "chunk": 16,
+    "max_seq": 512,
+    "bits": 8,
+    "group": 128,
+    "embed_bits": 8,
+    "kv": "f32",
+    "attention": "online",
+    "awq": false,
+    "layers": null,
+    "limits": {
+      "rows": 16,
+      "columns": 16,
+      "max_k": 256
+    }
+  },
+  "prompts": [
+    {
+      "prompt": "The capital of France is",
+      "tokens": 5,
+      "prefill_cosine": 0.9953247308731079,
+      "decode_cosine": 0.9953247308731079,
+      "prefill_vs_decode_max_abs": 0.0,
+      "top1_match_every_position": 0.8,
+      "greedy_tokens_agreeing_with_hf": "1/20",
+      "ours": " Paris, and the capital of Italy is Rome. The capital of Spain is Madrid. The capital of",
+      "hf": " Paris. The capital of Italy is Rome. The capital of Spain is Madrid. The capital of China",
+      "stats": {
+        "prompt_tokens": 5,
+        "generated_tokens": 20,
+        "prefill_seconds": 2.2441,
+        "decode_seconds": 3.7546,
+        "prefill_tok_per_s": 2.228,
+        "decode_tok_per_s": 5.327,
+        "npu": {
+          "calls": 2373,
+          "jobs": 3055584,
+          "cycles": 0,
+          "macs": 19121700864
+        }
+      }
+    },
+    {
+      "prompt": "def fibonacci(n):\n    ",
+      "tokens": 5,
+      "prefill_cosine": 0.9923011660575867,
+      "decode_cosine": 0.9923011660575867,
+      "prefill_vs_decode_max_abs": 0.0,
+      "top1_match_every_position": 0.8,
+      "greedy_tokens_agreeing_with_hf": "20/20",
+      "ours": " if n == 0:\n         return 0\n     elif n == 1:\n         return",
+      "hf": " if n == 0:\n         return 0\n     elif n == 1:\n         return",
+      "stats": {
+        "prompt_tokens": 5,
+        "generated_tokens": 20,
+        "prefill_seconds": 2.2337,
+        "decode_seconds": 3.7666,
+        "prefill_tok_per_s": 2.238,
+        "decode_tok_per_s": 5.31,
+        "npu": {
+          "calls": 2373,
+          "jobs": 3055584,
+          "cycles": 0,
+          "macs": 19121700864
+        }
+      }
+    },
+    {
+      "prompt": "In a distant galaxy, scientists discovered",
+      "tokens": 7,
+      "prefill_cosine": 0.9958285093307495,
+      "decode_cosine": 0.9958285093307495,
+      "prefill_vs_decode_max_abs": 0.0,
+      "top1_match_every_position": 0.7142857142857143,
+      "greedy_tokens_agreeing_with_hf": "8/20",
+      "ours": " a new type of star called the \"Luminous Star\" that emits light with a wavelength of",
+      "hf": " a new type of star called the \"Eclipse Star\" which has a unique property. The E",
+      "stats": {
+        "prompt_tokens": 7,
+        "generated_tokens": 20,
+        "prefill_seconds": 2.2384,
+        "decode_seconds": 3.7561,
+        "prefill_tok_per_s": 3.127,
+        "decode_tok_per_s": 5.325,
+        "npu": {
+          "calls": 2373,
+          "jobs": 3055584,
+          "cycles": 0,
+          "macs": 19121700864
+        }
+      }
+    }
+  ]
+}

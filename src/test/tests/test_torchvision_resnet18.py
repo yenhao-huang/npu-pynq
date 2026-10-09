@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-from src.export.torchvision_resnet18 import (
+from src.deprecate.export.torchvision_resnet18 import (
     FIXTURE_EVIDENCE_TYPE,
     PHYSICAL_BOARD_EVIDENCE_TYPE,
     REAL_MODEL_HOST_EVIDENCE_TYPE,

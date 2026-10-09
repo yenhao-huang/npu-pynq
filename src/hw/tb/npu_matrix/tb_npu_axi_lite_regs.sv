@@ -41,6 +41,20 @@ module tb_npu_axi_lite_regs;
     wire [31:0]               cfg_b_stride;
     wire [31:0]               cfg_c_stride;
     wire [31:0]               cfg_timeout_cycles;
+    logic                     isa_running = 1'b0;
+    logic                     isa_busy = 1'b0;
+    logic                     isa_done = 1'b0;
+    logic                     isa_error = 1'b0;
+    logic [7:0]               isa_error_code = 8'd0;
+    logic [31:0]              isa_pc = 32'd0;
+    logic [31:0]              isa_jobs = 32'd0;
+    logic [31:0]              isa_cycles = 32'd0;
+    logic [31:0]              isa_instructions = 32'd0;
+    wire                      isa_start_pulse;
+    wire [31:0]               isa_prog_addr;
+    wire [31:0]               isa_prog_len;
+    wire [31:0]               isa_data_base;
+    integer isa_start_count = 0;
 
     integer start_count = 0;
     integer reset_count = 0;
@@ -52,6 +66,8 @@ module tb_npu_axi_lite_regs;
             start_count <= start_count + 1;
         if (soft_reset_pulse)
             reset_count <= reset_count + 1;
+        if (isa_start_pulse)
+            isa_start_count <= isa_start_count + 1;
     end
 
     npu_axi_lite_regs #(
@@ -93,7 +109,25 @@ module tb_npu_axi_lite_regs;
         .cfg_a_stride(cfg_a_stride),
         .cfg_b_stride(cfg_b_stride),
         .cfg_c_stride(cfg_c_stride),
-        .cfg_timeout_cycles(cfg_timeout_cycles)
+        .cfg_timeout_cycles(cfg_timeout_cycles),
+        .isa_running(isa_running),
+        .isa_busy(isa_busy),
+        .isa_done(isa_done),
+        .isa_error(isa_error),
+        .isa_error_code(isa_error_code),
+        .isa_pc(isa_pc),
+        .isa_jobs(isa_jobs),
+        .isa_cycles(isa_cycles),
+        .isa_instructions(isa_instructions),
+        .isa_start_pulse(isa_start_pulse),
+        .isa_prog_addr(isa_prog_addr),
+        .isa_prog_len(isa_prog_len),
+        .isa_data_base(isa_data_base),
+        .ext_own(1'b0),
+        .ext_start(1'b0),
+        .ext_m(16'd0),
+        .ext_n(16'd0),
+        .ext_k(16'd0)
     );
 
     task automatic expect_word;
@@ -198,9 +232,9 @@ module tb_npu_axi_lite_regs;
         axi_read(8'h00, 2, read_value);
         expect_word(read_value, 32'h3155504e, "MAGIC");
         axi_read(8'h04, 0, read_value);
-        expect_word(read_value, 32'h00010000, "VERSION");
+        expect_word(read_value, 32'h00010001, "VERSION");
         axi_read(8'h08, 0, read_value);
-        expect_word(read_value, 32'h0000003b, "CAPABILITIES");
+        expect_word(read_value, 32'h0000007b, "CAPABILITIES");
         axi_read(8'h3c, 0, read_value);
         expect_word(read_value, 32'h00000000, "RESERVED");
 
@@ -280,6 +314,42 @@ module tb_npu_axi_lite_regs;
         axi_write(8'h3c, 32'hffffffff, 4'b1111, 0, 0, 0);
         axi_read(8'h3c, 0, read_value);
         expect_word(read_value, 32'h00000000, "reserved remains zero");
+
+        // ABI 1.1: the instruction-stream front end's registers.
+        axi_write(8'h48, 32'h1f000040, 4'b1111, 0, 0, 0);
+        axi_write(8'h4c, 32'd1234, 4'b1111, 1, 0, 0);
+        axi_write(8'h50, 32'h1e000000, 4'b1111, 0, 1, 0);
+        axi_write(8'h50, 32'h00000100, 4'b0010, 0, 0, 0);
+        axi_read(8'h48, 0, read_value);
+        expect_word(read_value, 32'h1f000040, "PROG_ADDR readback");
+        axi_read(8'h4c, 0, read_value);
+        expect_word(read_value, 32'd1234, "PROG_LEN readback");
+        axi_read(8'h50, 0, read_value);
+        expect_word(read_value, 32'h1e000100, "DATA_BASE WSTRB merge");
+        expect_word(isa_prog_addr, 32'h1f000040, "PROG_ADDR output");
+        prior_start_count = isa_start_count;
+        axi_write(8'h40, 32'h00000001, 4'b0001, 0, 0, 0);
+        @(posedge clk);
+        if (isa_start_count !== prior_start_count + 1) begin
+            $display("MISMATCH ISA START pulse count");
+            $fatal(1);
+        end
+        isa_running = 1'b1; isa_busy = 1'b1; isa_error = 1'b1; isa_error_code = 8'h12;
+        isa_pc = 32'd77; isa_jobs = 32'd5; isa_cycles = 32'd999; isa_instructions = 32'd80;
+        axi_read(8'h44, 0, read_value);
+        expect_word(read_value, 32'h0000000d, "ISA_STATUS");
+        axi_read(8'h54, 0, read_value);
+        expect_word(read_value, 32'h00000012, "ISA_ERROR");
+        axi_read(8'h58, 0, read_value);
+        expect_word(read_value, 32'd77, "ISA_PC");
+        axi_read(8'h5c, 0, read_value);
+        expect_word(read_value, 32'd5, "ISA_JOBS");
+        axi_read(8'h60, 0, read_value);
+        expect_word(read_value, 32'd999, "ISA_CYCLES");
+        axi_read(8'h64, 0, read_value);
+        expect_word(read_value, 32'd80, "ISA_INSTRUCTIONS");
+        axi_read(8'h68, 0, read_value);
+        expect_word(read_value, 32'd1, "ISA_VERSION");
 
         $display("PASS tb_npu_axi_lite_regs");
         $finish;

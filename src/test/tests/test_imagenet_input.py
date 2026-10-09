@@ -6,7 +6,7 @@ import unittest
 
 import numpy as np
 
-from src.export.imagenet import (
+from src.deprecate.export.imagenet import (
     CROP_SIZE,
     ImageNetInputError,
     decode_logits,

@@ -7,9 +7,9 @@ import unittest
 
 import numpy as np
 
-from src.export.resnet import export_model
-from src.model.resnet import ConstantTensor, Conv2D, QuantizedGraph
-from src.model.resnet18 import (
+from src.deprecate.export.resnet import export_model
+from src.deprecate.model.resnet import ConstantTensor, Conv2D, QuantizedGraph
+from src.deprecate.model.resnet18 import (
     AcceptanceValidationError,
     load_acceptance_bundle,
     validate_resnet18_topology,

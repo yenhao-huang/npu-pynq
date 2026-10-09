@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from src.runtime.board_smoke import PASS_MARKER, execute_smoke
+from src.deprecate.runtime.board_smoke import PASS_MARKER, execute_smoke
 
 
 class FakeMMIO:

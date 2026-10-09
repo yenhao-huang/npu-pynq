@@ -18,6 +18,7 @@ npu_repo_in_pynq/
 |   `-- workflows/
 |       |-- cd.yml
 |       |-- ci.yml
+|       |-- exp-board.yml       issue-119 experiment runs on the self-hosted runners
 |       `-- release-publish.yml
 |-- .codex/
 |   `-- skills/
@@ -55,9 +56,18 @@ npu_repo_in_pynq/
 |   |   |   `-- test_*.py
 |   |   |-- vectors/
 |   |   `-- waves/
-|   |-- export/
+|   |-- isa/                     NPU instruction set: spec, layout, simulator
 |   |   `-- *.py
+|   |-- compiler/                MLIR + LLVM compiler (model -> CPU code + ISA programs)
+|   |   |-- mlir/                out-of-tree MLIR project: npu dialect, passes, npu-opt
+|   |   |-- ops/                 operator library shared by every model
+|   |   `-- *.py                 builder, toolchain driver, exporter
+|   |-- deprecate/               archived pre-MLIR model, export, and runtime code
+|   |   |-- model/               numeric and ResNet model contracts
+|   |   |-- export/              legacy ResNet package exporter
+|   |   `-- runtime/             legacy model execution and acceptance
 |   `-- runtime/
+|       |-- c/                   C NPU runtime linked into every compiled model
 |       `-- *.py
 |-- examples/
 |   `-- <example>/
@@ -136,7 +146,9 @@ npu_repo_in_pynq/
 |       `-- *.ts
 |-- .mcp.json
 |-- exp/
-|   `-- 0911_performance_optimization/  compact hardware and board results
+|   |-- 0911_performance_optimization/  compact hardware and board results
+|   `-- 1007_sw_stack/          software-stack goal (#119): exp-board request, export
+|                               and board scripts, host evaluation scripts and results
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
@@ -153,9 +165,25 @@ npu_repo_in_pynq/
 the numpy golden reference, `cocotb/` are the Python tests that compare RTL
 against it, and `Makefile` is what CI invokes.
 
-`src/export/` turns a trained model into whatever format the NPU executes.
+`src/isa/` is the single definition of the NPU instruction set: `isa.py`
+encodes and decodes it, `layout.py` fixes how a tiled GEMM maps onto DDR, and
+`sim.py` is the bit-accurate simulator the RTL, runtimes and compiler are
+checked against. RTL opcodes must match it; `src/test/tests/test_isa.py`
+enforces that.
 
-`src/runtime/` loads an overlay on the board and runs an exported model on it.
+`src/compiler/` turns a model graph into a package: `npu-opt` (built from
+`src/compiler/mlir/` with CMake against LLVM 22) partitions INT8 contractions
+onto the NPU and encodes them as ISA programs; upstream MLIR and LLVM compile
+the rest for the Cortex-A9 or the host. `src/runtime/c/npu_rt.c` is linked
+into every compiled model; `src/runtime/compiled.py` loads a package on the
+host (simulated NPU) or the board.
+
+`src/deprecate/` contains the pre-MLIR model contracts, ResNet exporter, and
+model runtime. Existing examples and release packages import these modules
+directly. New software features belong in `src/compiler/`, `src/inference/`,
+and `src/models/`.
+
+`src/runtime/` holds the active compiled-model and ISA runtimes and overlay access.
 
 `examples/` consumes the three above. Nothing under `src/` may import from it.
 An example owns its application-specific runtime, notebooks, package builder,
@@ -220,6 +248,9 @@ Claude Code and Codex alike.
 reproduction procedures, including commands, recorded outputs and validation
 limitations. Package installation and demo instructions live under
 `tools/ic/docs/manual/` and ship with the npm package.
+`docs/goals/sw_optimal/` holds the software-stack goal (#119): the goal as
+given, `Results.md` (key results), `Reproduce.md`, and `details/` (hardware
+ISA, compiler, inference framework, quantization, board runs).
 `docs/goals/widen-input-width/` holds the packed operand stream's simulation
 report, design walkthrough, reproduction steps and recorded metrics (#93).
 `docs/goal/` holds one prompt file per hardware goal. Each file records the goal
@@ -268,7 +299,7 @@ runs in CI.
 
 `src/test/model/` defines the numeric contract: quantization, rounding
 direction, saturation bounds, accumulator width and overflow behaviour. When
-`src/export/` starts depending on it, promote it to `src/model/` rather than
+`src/deprecate/export/` starts depending on it, promote it to `src/deprecate/model/` rather than
 letting production code import from a test directory.
 
 `src/test/waves/` and `src/test/build/` are generated. Only

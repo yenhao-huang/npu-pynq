@@ -1,8 +1,8 @@
 import unittest
 
-from src.export.planner import MemoryPlanningError, plan_memory
-from src.model.numeric import INT32_MAX
-from src.model.resnet import (
+from src.deprecate.export.planner import MemoryPlanningError, plan_memory
+from src.deprecate.model.numeric import INT32_MAX
+from src.deprecate.model.resnet import (
     Quantization,
     QuantizedGraph,
     Relu,

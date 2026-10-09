@@ -27,7 +27,7 @@ from host_reference import (
     read_json,
     write_new_array,
 )
-from src.export.imagenet import (
+from src.deprecate.export.imagenet import (
     ImageNetInputError,
     decode_logits,
     input_scale,
@@ -37,11 +37,11 @@ from src.export.imagenet import (
     preprocessing_contract,
     resolve_class_index,
 )
-from src.export.torchvision_resnet18 import (
+from src.deprecate.export.torchvision_resnet18 import (
     REAL_MODEL_HOST_EVIDENCE_TYPE,
     compare_integer_captures,
 )
-from src.runtime.model import NPUModelRuntime, load_model_package
+from src.deprecate.runtime.model import NPUModelRuntime, load_model_package
 from src.test.model.quantized_graph_reference import (
     execute_quantized_graph_reference,
 )

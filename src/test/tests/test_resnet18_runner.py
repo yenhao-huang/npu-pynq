@@ -7,11 +7,11 @@ import unittest
 
 import numpy as np
 
-from src.export.resnet import export_model
-from src.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
-from src.model.resnet18 import load_acceptance_bundle
-from src.runtime.acceptance import AcceptanceRunError, run_resnet18_acceptance
-from src.runtime.model import NPUModelRuntime, load_model_package
+from src.deprecate.export.resnet import export_model
+from src.deprecate.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
+from src.deprecate.model.resnet18 import load_acceptance_bundle
+from src.deprecate.runtime.acceptance import AcceptanceRunError, run_resnet18_acceptance
+from src.deprecate.runtime.model import NPUModelRuntime, load_model_package
 from src.test.tests.resnet18_fixture import (
     make_reduced_resnet18_graph,
     write_canonical_json,

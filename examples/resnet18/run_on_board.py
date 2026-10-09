@@ -33,8 +33,8 @@ try:
     )
 except ModuleNotFoundError:  # deployed standalone package layout
     from package_example import DELIVERY_MAGIC, validate_workspace
-from src.model.resnet18 import load_acceptance_bundle
-from src.runtime import (
+from src.deprecate.model.resnet18 import load_acceptance_bundle
+from src.deprecate.runtime import (
     NPURuntime,
     NPUModelRuntime,
     load_model_package,

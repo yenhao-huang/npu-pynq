@@ -1,0 +1,215 @@
+name: exp-board
+
+# Experiment runs for the software-stack goal (#119). A push to an issue-119
+# branch (or one of its sub-issue branches, #12x) that changes exp/1007_sw_stack/request.json runs the stages that
+# request names: a hosted export, a Vivado overlay build on the self-hosted
+# runner, and a script on the physical PYNQ-Z1. Nothing here tags, publishes a
+# Release, or touches main or dev; results come back as workflow artifacts.
+
+on:
+  push:
+    branches: ['npu/issue119-a']
+    paths: ['exp/1007_sw_stack/request.json']
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.read.outputs.id }}
+      overlay_mode: ${{ steps.read.outputs.overlay_mode }}
+      overlay_run_id: ${{ steps.read.outputs.overlay_run_id }}
+      tclargs: ${{ steps.read.outputs.tclargs }}
+      export_cmd: ${{ steps.read.outputs.export_cmd }}
+      board_script: ${{ steps.read.outputs.board_script }}
+      board_timeout: ${{ steps.read.outputs.board_timeout }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the request
+        id: read
+        run: |
+          set -euo pipefail
+          r=exp/1007_sw_stack/request.json
+          jq . "$r"
+          {
+            echo "id=$(jq -r '.id' "$r")"
+            echo "overlay_mode=$(jq -r '.overlay.mode // "none"' "$r")"
+            echo "overlay_run_id=$(jq -r '.overlay.run_id // ""' "$r")"
+            echo "tclargs=$(jq -r '.overlay.tclargs // ""' "$r")"
+            echo "export_cmd=$(jq -r '.export.cmd // ""' "$r")"
+            echo "board_script=$(jq -r '.board.script // ""' "$r")"
+            echo "board_timeout=$(jq -r '.board.timeout_minutes // 60' "$r")"
+          } >> "$GITHUB_OUTPUT"
+
+  export:
+    needs: plan
+    if: needs.plan.outputs.export_cmd != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install LLVM, MLIR and lld 22
+        run: |
+          set -euo pipefail
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" | sudo tee /etc/apt/sources.list.d/llvm22.list
+          sudo apt-get update -q
+          sudo apt-get install -y -q llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22
+          echo "/usr/lib/llvm-22/bin" >> "$GITHUB_PATH"
+      - name: Install Python dependencies
+        run: python -m pip install -r exp/1007_sw_stack/requirements-export.txt
+      - name: Export
+        env:
+          HF_HUB_DISABLE_PROGRESS_BARS: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p build/exp-payload
+          ${{ needs.plan.outputs.export_cmd }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exp-export-${{ needs.plan.outputs.id }}
+          path: build/exp-payload/
+          if-no-files-found: error
+          retention-days: 14
+
+  build-overlay:
+    needs: plan
+    if: needs.plan.outputs.overlay_mode == 'build'
+    runs-on: [self-hosted, vivado]
+    timeout-minutes: 240
+    # Only the self-hosted jobs queue behind one another; the hosted export runs at once.
+    concurrency:
+      group: exp-board-vivado
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+      - name: Build routed overlay and bitstream
+        shell: pwsh
+        run: |
+          $tclargs = '${{ needs.plan.outputs.tclargs }}'.Split(' ', [StringSplitOptions]::RemoveEmptyEntries)
+          if ($tclargs.Count -gt 0) {
+            vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl -tclargs @tclargs
+          } else {
+            vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
+          }
+          $code = $LASTEXITCODE
+          # Keep the reports either way: a timing failure is diagnosed from them.
+          $root = Get-ChildItem build/vivado -Directory | Select-Object -First 1
+          New-Item -ItemType Directory -Force -Path build/exp-overlay | Out-Null
+          if ($root) {
+            Copy-Item -Recurse "$($root.FullName)/reports" build/exp-overlay/ -ErrorAction SilentlyContinue
+            if ($code -eq 0) { Copy-Item -Recurse "$($root.FullName)/artifacts" build/exp-overlay/ }
+          }
+          if ($code -ne 0) { throw "Vivado failed with exit code $code" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exp-overlay-${{ needs.plan.outputs.id }}
+          path: build/exp-overlay/
+          if-no-files-found: warn
+          retention-days: 30
+
+  board:
+    needs: [plan, export, build-overlay]
+    if: >-
+      always() && needs.plan.result == 'success' && needs.plan.outputs.board_script != '' &&
+      (needs.export.result == 'success' || needs.export.result == 'skipped') &&
+      (needs.build-overlay.result == 'success' || needs.build-overlay.result == 'skipped')
+    runs-on: [self-hosted, pynq-z1]
+    timeout-minutes: 600
+    concurrency:
+      group: exp-board-board
+      cancel-in-progress: false
+    env:
+      PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
+      PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+      - name: Download this run's overlay
+        if: needs.plan.outputs.overlay_mode == 'build'
+        uses: actions/download-artifact@v4
+        with:
+          name: exp-overlay-${{ needs.plan.outputs.id }}
+          path: build/exp-stage/overlay
+      - name: Download an earlier run's overlay
+        if: needs.plan.outputs.overlay_mode == 'run'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: exp-overlay-*
+          merge-multiple: true
+          run-id: ${{ needs.plan.outputs.overlay_run_id }}
+          github-token: ${{ github.token }}
+          path: build/exp-stage/overlay
+      - name: Download the export
+        if: needs.plan.outputs.export_cmd != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: exp-export-${{ needs.plan.outputs.id }}
+          path: build/exp-stage/export
+      - name: Run on the board
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $target = "$env:PYNQ_BOARD_USER@$env:PYNQ_BOARD_HOST"
+          $ssh = @('-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=4', '-o', 'StrictHostKeyChecking=accept-new')
+          $run = "${{ needs.plan.outputs.id }}-${{ github.run_id }}"
+          $remote = "/home/xilinx/npu_exp/$run"
+          New-Item -ItemType Directory -Force -Path build/exp-stage | Out-Null
+          # The repository's src/ and exp/ trees travel with every run, so a board
+          # script can import the runtime it was committed with.
+          tar -czf build/payload.tgz src exp -C build/exp-stage .
+          if ($LASTEXITCODE -ne 0) { throw "tar failed" }
+          & ssh @ssh $target "mkdir -p '$remote' && ls -1dt /home/xilinx/npu_exp/*/ | tail -n +4 | xargs -r sudo -n /usr/local/share/pynq-venv/bin/python3 -c 'import shutil,sys; [shutil.rmtree(p) for p in sys.argv[1:]]'"
+          if ($LASTEXITCODE -ne 0) { throw "could not prepare $remote" }
+          & scp @ssh build/payload.tgz "${target}:$remote/payload.tgz"
+          if ($LASTEXITCODE -ne 0) { throw "scp failed" }
+          $script = '${{ needs.plan.outputs.board_script }}'
+          $job = @(
+            'set -u'
+            "cd '$remote'"
+            'tar -xzf payload.tgz && rm payload.tgz'
+            'mkdir -p results'
+            'code=0'
+            "bash '$script' '$remote' > results/board.log 2>&1 || code=`$?"
+            'sudo -n chmod -R a+rwX results || true'
+            "echo `$code > exit.tmp && mv exit.tmp exit"
+          ) -join "`n"
+          $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($job + "`n"))
+          & ssh @ssh $target "echo $encoded | base64 -d > '$remote/job.sh'; cd '$remote'; nohup setsid bash job.sh > job.log 2>&1 < /dev/null & echo started"
+          if ($LASTEXITCODE -ne 0) { throw "could not start the board job" }
+          $deadline = (Get-Date).AddMinutes([int]'${{ needs.plan.outputs.board_timeout }}')
+          $status = $null; $failures = 0; $last = Get-Date
+          while ((Get-Date) -lt $deadline) {
+            Start-Sleep -Seconds 20
+            $answer = & ssh @ssh $target "cat '$remote/exit' 2>/dev/null || echo running" 2>$null
+            if ($LASTEXITCODE -ne 0) { $failures += 1; if ($failures -ge 30) { throw "lost the board" }; continue }
+            $failures = 0
+            $answer = "$answer".Trim()
+            if ($answer -ne 'running') { $status = $answer; break }
+            if (((Get-Date) - $last).TotalMinutes -ge 3) {
+              $last = Get-Date
+              & ssh @ssh $target "tail -n 5 '$remote/results/board.log'" 2>$null | ForEach-Object { Write-Host "  board: $_" }
+            }
+          }
+          & ssh @ssh $target "tail -n 60 '$remote/results/board.log'" 2>$null | ForEach-Object { Write-Host $_ }
+          New-Item -ItemType Directory -Force -Path build/exp-results | Out-Null
+          & ssh @ssh $target "cd '$remote' && tar -czf - results" > build/exp-results/results.tgz
+          if ($null -eq $status) { throw "board job did not finish in time" }
+          if ($status -ne '0') { throw "board job failed (exit $status)" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exp-board-${{ needs.plan.outputs.id }}
+          path: build/exp-results/
+          if-no-files-found: warn
+          retention-days: 30
