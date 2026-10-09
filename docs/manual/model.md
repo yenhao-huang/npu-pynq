@@ -1,5 +1,9 @@
 # Model contracts
 
+This page documents the pre-MLIR ResNet stack, now implemented under
+`src/deprecate/`. The `src/model/` and `src/export/` imports remain available
+for compatibility. New models use `src/models/` and `src/compiler/`.
+
 `src/model/` is the production-visible source of truth for model data
 structures and bit-accurate integer behavior. Exporters, runtimes, and tests
 import the same definitions so that model conversion and execution do not

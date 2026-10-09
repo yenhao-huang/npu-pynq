@@ -13,7 +13,8 @@ on-board runtime.
 | `src/hw/constraints/` | `.xdc` timing and pin constraints | yes |
 | `src/hw/vivado_tcl/<design>/` | project-regenerating Tcl | yes |
 | `src/test/` | Makefile, golden model, cocotb tests, vectors | yes (not `build/`, not `waves/`) |
-| `src/export/` | trained model to NPU executable format | yes |
+| `src/deprecate/` | archived pre-MLIR model, export, and runtime implementation | yes |
+| `src/export/`, `src/model/` | compatibility imports for the archived implementation | yes |
 | `src/runtime/` | on-board overlay loading and execution | yes |
 | `examples/` | demos built on export and runtime | yes |
 | `tools/ic/` | agent-facing lint/sim/debug/view/synth toolchain | yes |

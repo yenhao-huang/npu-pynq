@@ -1,27 +1,2 @@
-"""Deterministic export pipeline for validated NPU model graphs."""
-
-from .planner import (
-    MemoryPlan,
-    MemoryPlanningError,
-    TensorAllocation,
-    plan_memory,
-)
-from .resnet import (
-    AccumulatorCertificate,
-    ExportError,
-    ExportedPackage,
-    certify_accumulators,
-    export_model,
-)
-
-__all__ = [
-    "MemoryPlan",
-    "MemoryPlanningError",
-    "TensorAllocation",
-    "plan_memory",
-    "AccumulatorCertificate",
-    "ExportError",
-    "ExportedPackage",
-    "certify_accumulators",
-    "export_model",
-]
+"""Compatibility API for src.deprecate.export."""
+from src.deprecate.export import *  # noqa: F401,F403

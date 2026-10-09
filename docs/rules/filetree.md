@@ -62,8 +62,12 @@ npu_repo_in_pynq/
 |   |   |-- mlir/                out-of-tree MLIR project: npu dialect, passes, npu-opt
 |   |   |-- ops/                 operator library shared by every model
 |   |   `-- *.py                 builder, toolchain driver, exporter
+|   |-- deprecate/               archived pre-MLIR model, export, and runtime code
+|   |   |-- model/               numeric and ResNet model contracts
+|   |   |-- export/              legacy ResNet package exporter
+|   |   `-- runtime/             legacy model execution and acceptance
 |   |-- export/
-|   |   `-- *.py
+|   |   `-- *.py                 compatibility imports for deprecate/export
 |   `-- runtime/
 |       |-- c/                   C NPU runtime linked into every compiled model
 |       `-- *.py
@@ -176,9 +180,14 @@ the rest for the Cortex-A9 or the host. `src/runtime/c/npu_rt.c` is linked
 into every compiled model; `src/runtime/compiled.py` loads a package on the
 host (simulated NPU) or the board.
 
-`src/export/` turns a trained model into whatever format the NPU executes.
+`src/deprecate/` contains the pre-MLIR model contracts, ResNet exporter, and
+model runtime. `src/model/`, `src/export/`, and selected `src/runtime/` modules
+provide compatibility imports for the existing examples and release packages.
+New software features belong in `src/compiler/`, `src/inference/`, and
+`src/models/`.
 
-`src/runtime/` loads an overlay on the board and runs an exported model on it.
+`src/runtime/` holds the active compiled-model and ISA runtimes, overlay access,
+and compatibility imports for the archived runtime.
 
 `examples/` consumes the three above. Nothing under `src/` may import from it.
 An example owns its application-specific runtime, notebooks, package builder,

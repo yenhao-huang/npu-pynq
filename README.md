@@ -117,11 +117,11 @@ the workflow from source, follow the
                                           board      target
 ```
 
-[`src/model/`](docs/manual/model.md)
-defines shared numeric and graph contracts, `src/export/` produces the package,
-`src/runtime/` validates and executes it, `src/hw/` implements the accelerator,
-and `examples/` assembles human-facing workflows. Production modules never
-import from examples.
+[`src/compiler/`](docs/goals/sw_optimal/details/compiler.md) exports compiled
+models and `src/runtime/` executes them. The earlier ResNet model and export
+implementation lives in `src/deprecate/`, with its original import paths kept
+for existing examples. `src/hw/` implements the accelerator, and `examples/`
+assembles human-facing workflows. Production modules never import from examples.
 
 ## Hardware Architecture
 
