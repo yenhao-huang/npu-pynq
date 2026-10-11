@@ -17,16 +17,19 @@ harness grants and whether a turn can see the previous turn's measurements.
 ## 1. What one round costs
 
 A single-round attempt and a multi-round *round* are not the same unit of work. Each
-round carries the whole prior conversation, so input tokens and cost climb round over
-round. The first table multiplies each per-attempt or per-round average by 50;
+round carries the whole prior conversation, so input tokens grow across rounds.
+Following the resumed-session accounting in
+[PR #135](https://github.com/yenhao-huang/npu-pynq/pull/135), each round's Claude
+cost and Codex tokens are the difference between consecutive session totals. The first
+table multiplies each per-attempt or per-round average by 50;
 it does not weight the rows by how many attempts or rounds the study ran.
 
 | Cost and tokens ×50 | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
 |---|---|---|---|
 | baseline | $4.05<br>505K in · 105K out | $1.51<br>475K in · 60K out | $2.36<br>1.565M in · 75K out |
 | single-round | $7.19<br>2.780M in · 170K out | $1.67<br>1.260M in · 60K out | $8.97<br>11.390M in · 195K out |
-| multi-round, mean per round | $33.83<br>10.445M in · 305K out | $8.10<br>3.695M in · 120K out | $32.64<br>57.715M in · 710K out |
-| **ratio, one round vs one attempt** | **4.71× cost · 3.76× in · 1.80× out** | **4.86× cost · 2.93× in · 2.01× out** | **3.64× estimated cost · 5.07× in · 3.68× out** |
+| multi-round, mean per round | $12.61<br>10.445M in · 305K out | $2.86<br>3.695M in · 120K out | $12.52<br>24.000M in · 259K out |
+| **ratio, one round vs one attempt** | **1.75× cost · 3.76× in · 1.80× out** | **1.71× cost · 2.93× in · 2.01× out** | **1.40× estimated cost · 2.11× in · 1.34× out** |
 
 Codex does not report a billed amount. The GPT-6 Sol estimates use the
 [Standard API prices on 2026-10-11](https://developers.openai.com/api/docs/models/gpt-6-sol):
@@ -48,14 +51,14 @@ and resulting estimates are:
 |---|---:|---:|---:|---:|---:|
 | baseline | 1.036250 | 3.654144 | 0.230396 | 150 attempts | $0.047233 |
 | single-round | 3.491221 | 30.681472 | 0.579293 | 150 attempts | $0.179462 |
-| multi-round | 11.953256 | 276.620160 | 3.548939 | 250 rounds | $0.652830 |
+| multi-round | 3.856909 | 116.140288 | 1.294973 | 250 rounds | $0.250400 |
 
 The first table multiplies the displayed per-unit token averages by 50.
 GPT-6 Sol costs use unrounded per-unit estimates before multiplication.
 These are 50× comparisons, not the billed totals for the historical experiment.
 
 Three ratios are easy to confuse, so to be explicit: a multi-round *round* costs roughly
-3–5× a single-round attempt; a whole multi-round *attempt* (5 rounds) costs 15–25× a
+1.4–1.8× a single-round attempt; a whole multi-round *attempt* (5 rounds) costs 7–9× a
 single-round attempt. Neither is the figure to set against the PPA results — the unit
 of comparison there is one problem, and the single-round arm spends three attempts on it.
 That comparison is the table at the end of this section.
@@ -65,15 +68,17 @@ The mean hides the shape. Cost per round, as a multiple of one single-round atte
 | Round | Opus cost | Opus input | Sonnet cost | Sonnet input | gpt-6-sol input |
 |---|---|---|---|---|---|
 | 1 | $0.145 (1.01×) | 52.1K (0.94×) | $0.034 (1.01×) | 25.0K (0.99×) | 221.8K (0.97×) |
-| 2 | $0.378 (2.63×) | 150.7K (2.71×) | $0.101 (3.03×) | 73.1K (2.89×) | 573.8K (2.52×) |
-| 3 | $0.641 (4.46×) | 221.5K (3.98×) | $0.162 (4.86×) | 80.4K (3.19×) | 985.6K (4.33×) |
-| 4 | $0.957 (6.66×) | 286.4K (5.15×) | $0.228 (6.84×) | 95.4K (3.78×) | 1,590.3K (6.98×) |
-| 5 | $1.261 (8.77×) | 334.1K (6.01×) | $0.286 (8.57×) | 95.7K (3.79×) | 2,399.9K (10.53×) |
+| 2 | $0.233 (1.62×) | 150.7K (2.71×) | $0.067 (2.02×) | 73.1K (2.89×) | 351.9K (1.54×) |
+| 3 | $0.264 (1.83×) | 221.5K (3.98×) | $0.061 (1.83×) | 80.4K (3.19×) | 411.8K (1.81×) |
+| 4 | $0.316 (2.20×) | 286.4K (5.15×) | $0.066 (1.98×) | 95.4K (3.78×) | 604.7K (2.65×) |
+| 5 | $0.304 (2.12×) | 334.1K (6.01×) | $0.058 (1.73×) | 95.7K (3.79×) | 809.6K (3.55×) |
 
-Round 1 costs the same as a single-round attempt (1.01×, 1.01×, 0.97×), which is the
-check that the two arms really do start from the same place. Round 5 costs 8.8× / 8.6×
-and spends 10.5× the tokens. Output tokens grow far less than input (1.8–3.7× overall),
-so this is context accumulation, not the model writing more.
+Round 1 matches a single-round attempt: Claude cost is 1.01× / 1.01× and GPT-6 Sol
+input is 0.97×. This checks that the two arms start from the same place. Round 5
+costs 2.12× / 1.73×
+for Opus / Sonnet and spends 3.55× the input tokens for GPT-6 Sol. Across all
+rounds, output grows less than input for each model, consistent with context
+accumulation.
 
 Per problem — the unit every PPA number in this note and in Report.md is measured in —
 single-round gets 3 independent attempts and multi-round gets 1 attempt of 5 rounds:
@@ -81,8 +86,8 @@ single-round gets 3 independent attempts and multi-round gets 1 attempt of 5 rou
 | | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
 |---|---|---|---|
 | single-round, 3 attempts | $0.431 · 167K in | $0.100 · 76K in | $0.5384 · 683K in |
-| multi-round, 5 rounds | $3.383 · 1,045K in | $0.810 · 370K in | $3.2642 · 5,771K in |
-| **ratio** | **7.84× cost · 6.26× tokens** | **8.10× cost · 4.88× tokens** | **8.44× tokens** |
+| multi-round, 5 rounds | $1.261 · 1,045K in | $0.286 · 370K in | $1.2520 · 2,400K in |
+| **ratio** | **2.92× cost · 6.26× tokens** | **2.86× cost · 4.88× tokens** | **2.33× estimated cost · 3.51× tokens** |
 
 ## 2. Where the advantage comes from
 
@@ -140,8 +145,9 @@ single-round calls `ppa` 1.55 times per attempt on average (233 calls / 150 atte
 writes a correct module, measures it once, and stops; its own success criterion is met.
 Multi-round calls `ppa` 11.8 times per attempt, because the harness keeps asking.
 
-**This is not an equal-cost comparison.** At k=3 multi-round spends 2.70× / 2.97× / 2.61×
-the budget of three single-round attempts. The claim supported here is that conditioning
+**This is not an equal-cost comparison.** At k=3 multi-round spends 1.49× / 1.62×
+the Claude cost and 1.44× the GPT-6 Sol input tokens of three single-round attempts.
+The claim supported here is that conditioning
 beats independent resampling *at equal candidate count*, not that it beats spending the
 same money on more independent samples. No arm in this experiment runs single-round 15
 times, so that comparison is open.

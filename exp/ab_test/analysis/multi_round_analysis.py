@@ -4,7 +4,7 @@ Report.md compares whole arms. This answers a narrower question: single-round ha
 same IC tools, so where does the multi-round advantage come from, and what does a round
 cost relative to a single-round attempt?
 
-Run from exp/ab_test/:  python3 analysis/multi_round_analysis.py  -> evidence/multi_round_analysis.json
+Run from exp/ab_test/:  python3 analysis/multi_round_analysis.py  -> results/multi_round_analysis.json
 """
 import itertools
 import json
@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT.parent))
 from analyze import load, MODELS  # noqa: E402
 from src.grade.pareto import eligible  # noqa: E402
+from src.agent.parse import parse_stream  # noqa: E402
 
 MAX_ROUNDS = 5
 TOP_N = 5
@@ -51,32 +52,43 @@ def candidate(row, number):
 def round_usage(row):
     """round number -> (cost_usd, input_tokens, output_tokens), read from the CLI stream.
 
-    Claude reports a billed cost; Codex reports tokens only, so its cost stays 0.
-    Input counts every token the request was charged for, cached reads included.
+    Claude's total_cost_usd and Codex's usage are cumulative session totals;
+    subtract the preceding round. Claude's result usage is already per round.
+    Input includes cached reads.
     """
     usage = {}
-    streams = sorted(row["_dir"].glob("round*.jsonl"))
+    streams = sorted(row["_dir"].glob("round*.jsonl"),
+                     key=lambda path: int(path.stem[len("round"):]))
     if not streams:
         raise FileNotFoundError(
             f"Per-round usage needs the archived CLI streams under {row['_dir']}"
         )
+    previous_cost = 0.0
+    previous_codex = {}
     for path in streams:
-        cost = inputs = outputs = 0
-        for line in path.read_text().splitlines():
-            try:
-                event = json.loads(line)
-            except ValueError:
-                continue
-            if event.get("type") == "result" and "total_cost_usd" in event:        # Claude
-                cost = event["total_cost_usd"] or 0
-                u = event.get("usage") or {}
-                inputs = sum((u.get(k) or 0) for k in
-                             ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
-                outputs = u.get("output_tokens") or 0
-            elif event.get("type") == "turn.completed":                            # Codex
-                u = event.get("usage") or {}
-                inputs += u.get("input_tokens") or 0
-                outputs += u.get("output_tokens") or 0
+        _, result, _, _, _ = parse_stream(path.read_text())
+        counts = result.get("usage") or {}
+        if result.get("synthesized") == "codex":
+            cost = 0.0
+            if any(v for v in counts.values() if isinstance(v, (int, float))):
+                deltas = {key: (counts.get(key) or 0) - (previous_codex.get(key) or 0)
+                          for key in ("input_tokens", "cache_read_input_tokens", "output_tokens")}
+                if any(value < 0 for value in deltas.values()):
+                    raise ValueError(f"Codex session usage decreased in {path}")
+                inputs = deltas["input_tokens"] + deltas["cache_read_input_tokens"]
+                outputs = deltas["output_tokens"]
+                previous_codex = counts
+            else:
+                inputs = outputs = 0
+        else:
+            total_cost = result.get("total_cost_usd") or previous_cost
+            if total_cost < previous_cost:
+                raise ValueError(f"Claude session cost decreased in {path}")
+            cost = total_cost - previous_cost
+            previous_cost = total_cost
+            inputs = sum((counts.get(key) or 0) for key in
+                         ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+            outputs = counts.get("output_tokens") or 0
         usage[int(path.stem.replace("round", ""))] = (cost, inputs, outputs)
     return usage
 
