@@ -105,7 +105,7 @@ jobs:
           $failed = @()
           foreach ($cfg in $request.ppa) {
             $tclargs = @('--top', $cfg.top, '--name', $cfg.name, '--out', 'build/exp-ppa')
-            foreach ($g in @($cfg.generics)) { if ($g) { $tclargs += @('--generic', $g) } }
+            foreach ($g in @($cfg.generics)) { if ($g) { $tclargs += @('--generic', ($g -replace '=', ':')) } }
             if ($cfg.clock_port) { $tclargs += @('--clock-port', $cfg.clock_port) }
             Write-Host "== $($cfg.name)"
             vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/ppa_module.tcl -tclargs @tclargs

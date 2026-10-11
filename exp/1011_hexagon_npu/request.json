@@ -1,5 +1,5 @@
 {
-  "id": "001-ppa-baseline",
+  "id": "002-ppa-baseline",
   "ppa": [
     {"name": "base_npu_pe", "top": "npu_pe"},
     {"name": "base_npu_systolic_array_16x16", "top": "npu_systolic_array", "generics": ["ROWS=16", "COLUMNS=16"]},

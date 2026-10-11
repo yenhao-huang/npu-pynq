@@ -1,7 +1,7 @@
 # Out-of-context PPA run for one RTL module on the PYNQ-Z1 part.
 #
 # Usage: vivado -mode batch -source ppa_module.tcl -tclargs \
-#          --top <module> ?--name <label>? ?--generic NAME=VALUE ...? \
+#          --top <module> ?--name <label>? ?--generic NAME:VALUE ...? \
 #          ?--clock-port clk? ?--clock-ns 10.0? ?--out <dir>?
 #
 # Synthesizes <module> out of context from every .sv under src/hw/rtl, then
@@ -10,6 +10,8 @@
 #   <out>/<label>/timing_summary.rpt     report_timing_summary, routed
 #   <out>/<label>/power.rpt              report_power, vectorless defaults
 #   <out>/<label>/summary.json           the numbers the PPA tables quote
+# Generics are written NAME:VALUE (NAME=VALUE also works on Linux): the Windows
+# vivado.bat launcher splits arguments at '='.
 # Fmax is 1000 / (clock-ns - WNS). Power is vectorless (default 12.5 % toggle
 # rate on inputs), so it compares designs; it does not predict the board.
 
@@ -27,7 +29,12 @@ for {set i 0} {$i < [llength $argv]} {incr i} {
     switch -- $argument {
         --top        { incr i; set top [lindex $argv $i] }
         --name       { incr i; set name [lindex $argv $i] }
-        --generic    { incr i; lappend generics [lindex $argv $i] }
+        --generic    {
+            incr i
+            set g [lindex $argv $i]
+            if {[string first = $g] < 0} { set g [regsub {:} $g =] }
+            lappend generics $g
+        }
         --clock-port { incr i; set clock_port [lindex $argv $i] }
         --clock-ns   { incr i; set clock_ns [lindex $argv $i] }
         --out        { incr i; set out_root [file normalize [lindex $argv $i]] }
@@ -77,16 +84,23 @@ report_utilization -hierarchical -hierarchical_depth 3 -file [file join $out_dir
 report_timing_summary -max_paths 5 -file [file join $out_dir timing_summary.rpt]
 report_power -file [file join $out_dir power.rpt]
 
-proc cell_count {pattern} {
-    return [llength [get_cells -quiet -hierarchical -filter "PRIMITIVE_TYPE =~ $pattern"]]
+# Read the counts back from the utilization report, so the JSON quotes the
+# same numbers a person reading utilization.rpt sees.
+set util [report_utilization -return_string]
+proc util_used {text label} {
+    if {[regexp -line "^\\|\\s*[string map {( \( ) \) * \*} $label]\\s*\\|\\s*(\[0-9.\]+)" $text -> used]} {
+        return $used
+    }
+    return 0
 }
-set luts [cell_count {CLB.LUT.*}]
-set lutram [cell_count {CLB.LUTRAM.*}]
-set ffs [cell_count {REGISTER.*.*}]
-set dsps [cell_count {MULT.DSP.*}]
-set ramb36 [cell_count {BLOCKRAM.BRAM.RAMB36*}]
-set ramb18 [cell_count {BLOCKRAM.BRAM.RAMB18*}]
-set carry [cell_count {CARRY.*.*}]
+set luts [util_used $util {Slice LUTs}]
+set lutram [util_used $util {LUT as Memory}]
+set ffs [util_used $util {Slice Registers}]
+set dsps [util_used $util {DSPs}]
+set bram_tiles [util_used $util {Block RAM Tile}]
+set ramb36 [util_used $util {RAMB36/FIFO*}]
+set ramb18 [util_used $util {RAMB18}]
+set carry [llength [get_cells -quiet -hierarchical -filter {REF_NAME == CARRY4}]]
 set wns [get_property SLACK [get_timing_paths -max_paths 1 -nworst 1 -setup]]
 if {$wns eq ""} { set wns 0.0 }
 set fmax [format %.1f [expr {1000.0 / ($clock_ns - $wns)}]]
@@ -106,7 +120,7 @@ puts $fh "{"
 puts $fh "  \"name\": \"$name\", \"top\": \"$top\", \"generics\": \"[join $generics { }]\","
 puts $fh "  \"vivado\": \"[version -short]\", \"part\": \"xc7z020clg400-1\", \"clock_ns\": $clock_ns,"
 puts $fh "  \"lut\": $luts, \"lutram\": $lutram, \"ff\": $ffs, \"dsp\": $dsps,"
-puts $fh "  \"ramb36\": $ramb36, \"ramb18\": $ramb18, \"carry4\": $carry,"
+puts $fh "  \"bram_tiles\": $bram_tiles, \"ramb36\": $ramb36, \"ramb18\": $ramb18, \"carry4\": $carry,"
 puts $fh "  \"wns_ns\": $wns, \"fmax_mhz\": $fmax,"
 puts $fh "  \"power_total_w\": $power_total, \"power_dynamic_w\": $power_dynamic, \"power_static_w\": $power_static"
 puts $fh "}"
