@@ -1,6 +1,12 @@
 {
-  "id": "004-ppa-scalar",
+  "id": "005-ppa-numeric-vector",
   "ppa": [
-    {"name": "hx_npu_scalar_core", "top": "npu_scalar_core"}
+    {"name": "hx_npu_fp16_mul", "top": "npu_fp16_mul"},
+    {"name": "hx_npu_fp16_add", "top": "npu_fp16_add"},
+    {"name": "hx_npu_fp32_add_nosub", "top": "npu_fp32_add", "generics": ["SUBNORMALS=0"]},
+    {"name": "hx_npu_pe_mp", "top": "npu_pe_mp"},
+    {"name": "hx_npu_systolic_array_mp_4x4", "top": "npu_systolic_array_mp", "generics": ["ROWS=4", "COLUMNS=4"]},
+    {"name": "base_npu_systolic_array_4x4", "top": "npu_systolic_array", "generics": ["ROWS=4", "COLUMNS=4"]},
+    {"name": "hx_npu_vector_unit", "top": "npu_vector_unit"}
   ]
 }
