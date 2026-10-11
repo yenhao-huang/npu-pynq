@@ -14,31 +14,28 @@ Both arms use the identical initial prompt (`src/agent/prompt.py`, arm `tools`),
 tool set, and the same budget per call. The only differences are how many turns the
 harness grants and whether a turn can see the previous turn's measurements.
 
-## 1. What one round costs
+## 1. What one attempt costs
 
-A single-round attempt and a multi-round *round* are not the same unit of work. Each
-round carries the whole prior conversation, so input tokens grow across rounds.
+A single-round attempt has one round; a multi-round attempt has five. Each
+later round carries the prior conversation, so input tokens grow across rounds.
 Following the resumed-session accounting in
 [PR #135](https://github.com/yenhao-huang/npu-pynq/pull/135), each round's Claude
 cost and Codex tokens are the difference between consecutive session totals. The first
-table compares 50 problems with one attempt or one round per problem. The
+table compares 50 problems with one complete attempt per problem. The
 baseline and single-round rows divide their actual 150-attempt totals by three;
-multi-round divides its actual 250-round total by five to show the average
-round across 50 problems. Ratios compare that average round with one
-single-round attempt.
+multi-round keeps its actual 50-attempt total, including all five rounds of
+each attempt. Ratios compare complete attempts.
 
-| 50 problems × one attempt or average round | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
+| 50 problems × one complete attempt | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
 |---|---|---|---|
 | baseline | $4.05<br>503K in · 106K out | $1.50<br>475K in · 61K out | ~$2.36<br>1.563M in · 77K out |
 | single-round | $7.19<br>2.780M in · 169K out | $1.67<br>1.262M in · 60K out | ~$8.97<br>11.391M in · 193K out |
-| multi-round, mean round | $12.61<br>10.447M in · 306K out | $2.86<br>3.696M in · 120K out | ~$12.52<br>23.999M in · 259K out |
-| **multi / single per-unit ratio** | **1.75× cost · 3.76× in · 1.80× out** | **1.71× cost · 2.93× in · 2.01× out** | **1.40× estimated cost · 2.11× in · 1.34× out** |
+| multi-round, five rounds | $63.07<br>52.236M in · 1.528M out | $14.29<br>18.482M in · 601K out | ~$62.60<br>119.997M in · 1.295M out |
+| **multi / single per-attempt ratio** | **8.77× cost · 18.79× in · 9.02× out** | **8.57× cost · 14.64× in · 10.03× out** | **6.98× estimated cost · 10.53× in · 6.71× out** |
 
 The source totals follow [PR #135](https://github.com/yenhao-huang/npu-pynq/pull/135).
-For example, Opus multi-round cost in the table is `$63.0736218 / 5 = $12.61`;
-the full five-round run on 50 problems costs $63.07. Baseline and single-round
-divide their 150-attempt totals by three because they run three independent
-attempts per problem.
+For example, Opus baseline costs `$12.140808 / 3 = $4.05` for 50 attempts,
+while multi-round costs `$63.0736218` for 50 complete five-round attempts.
 
 Codex does not report a billed amount. The GPT-6 Sol estimates use the
 [Standard API prices on 2026-10-11](https://developers.openai.com/api/docs/models/gpt-6-sol):
@@ -62,14 +59,14 @@ and resulting estimates are:
 | single-round | 3.491221 | 30.681472 | 0.579293 | 150 attempts | $0.179462 |
 | multi-round | 3.856909 | 116.140288 | 1.294973 | 250 rounds | $0.250400 |
 
-The first table uses one-third of each baseline and single-round total, or
-one-fifth of each multi-round total, before rounding displayed values.
+The first table uses one-third of each baseline and single-round total, and
+the full multi-round total, before rounding displayed values. The gpt-6-sol
+multi-round estimate is `$0.250400 × 250 rounds = $62.60`.
 
-Three ratios are easy to confuse, so to be explicit: a multi-round *round* costs roughly
-1.4–1.8× a single-round attempt; a whole multi-round *attempt* (5 rounds) costs 7–9× a
-single-round attempt. Neither is the figure to set against the PPA results — the unit
-of comparison there is one problem, and the single-round arm spends three attempts on it.
-That comparison is the table at the end of this section.
+The first table compares one complete attempt per problem. The PPA comparison
+uses three independent single-round attempts per problem against one complete
+multi-round attempt. That actual-experiment comparison is the table at the end
+of this section.
 
 The mean hides the shape. Cost per round, as a multiple of one single-round attempt:
 
