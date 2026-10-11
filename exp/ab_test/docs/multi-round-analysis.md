@@ -1,0 +1,223 @@
+# Multi-round vs single-round: where the PPA gain comes from, and what it costs
+
+[Report.md](../Report.md) compares whole arms and shows multi-round reaching 0.587× /
+0.746× / 0.709× PDAP against baseline. It does not answer the obvious follow-up:
+**single-round has exactly the same IC tools, so why does multi-round win?**
+
+This note answers that, plus the cost question. Every number here comes from
+`analysis/multi_round_analysis.py`, which reuses `analyze.py`'s attempt selection, so it
+counts the same attempts Report.md counts. Costs and tokens are read from the CLI
+streams (`round*.jsonl`), which Report.md only reports as arm totals.
+
+Both arms use the identical initial prompt (`src/agent/prompt.py`, arm `tools`), the same
+tool set, and the same budget per call. The only differences are how many turns the
+harness grants and whether a turn can see the previous turn's measurements.
+
+## 1. What one round costs
+
+A single-round attempt and a multi-round *round* are not the same unit of work. Each
+round carries the whole prior conversation, so input tokens and cost climb round over
+round.
+
+| | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
+|---|---|---|---|
+| single-round, per attempt (n=150) | $0.1438 · 55.6K in · 3.4K out | $0.0333 · 25.2K in · 1.2K out | 227.8K in · 3.9K out |
+| multi-round, mean per round (n=250) | $0.6766 · 208.9K in · 6.1K out | $0.1620 · 73.9K in · 2.4K out | 1,154.3K in · 14.2K out |
+| **ratio, one round vs one attempt** | **4.71× cost · 3.76× in · 1.80× out** | **4.86× cost · 2.93× in · 2.01× out** | **5.07× in · 3.68× out** |
+| multi-round, all 5 rounds | $3.383 · 1,044.7K in | $0.810 · 369.6K in | 5,771.5K in |
+| ratio, 5 rounds vs one attempt | 23.53× cost · 18.79× in | 24.31× cost · 14.64× in | 25.33× in |
+
+Codex does not report a billed amount, so gpt-6-sol has tokens only. Input counts every
+token the request was charged for, cached reads included.
+
+Three ratios are easy to confuse, so to be explicit: a multi-round *round* costs roughly
+3–5× a single-round attempt; a whole multi-round *attempt* (5 rounds) costs 15–25× a
+single-round attempt. Neither is the figure to set against the PPA results — the unit
+of comparison there is one problem, and the single-round arm spends three attempts on it.
+That comparison is the table at the end of this section.
+
+The mean hides the shape. Cost per round, as a multiple of one single-round attempt:
+
+| Round | Opus cost | Opus input | Sonnet cost | Sonnet input | gpt-6-sol input |
+|---|---|---|---|---|---|
+| 1 | $0.145 (1.01×) | 52.1K (0.94×) | $0.034 (1.01×) | 25.0K (0.99×) | 221.8K (0.97×) |
+| 2 | $0.378 (2.63×) | 150.7K (2.71×) | $0.101 (3.03×) | 73.1K (2.89×) | 573.8K (2.52×) |
+| 3 | $0.641 (4.46×) | 221.5K (3.98×) | $0.162 (4.86×) | 80.4K (3.19×) | 985.6K (4.33×) |
+| 4 | $0.957 (6.66×) | 286.4K (5.15×) | $0.228 (6.84×) | 95.4K (3.78×) | 1,590.3K (6.98×) |
+| 5 | $1.261 (8.77×) | 334.1K (6.01×) | $0.286 (8.57×) | 95.7K (3.79×) | 2,399.9K (10.53×) |
+
+Round 1 costs the same as a single-round attempt (1.01×, 1.01×, 0.97×), which is the
+check that the two arms really do start from the same place. Round 5 costs 8.8× / 8.6×
+and spends 10.5× the tokens. Output tokens grow far less than input (1.8–3.7× overall),
+so this is context accumulation, not the model writing more.
+
+Per problem — the unit every PPA number in this note and in Report.md is measured in —
+single-round gets 3 independent attempts and multi-round gets 1 attempt of 5 rounds:
+
+| | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
+|---|---|---|---|
+| single-round, 3 attempts | $0.431 · 167K in | $0.100 · 76K in | 683K in |
+| multi-round, 5 rounds | $3.383 · 1,045K in | $0.810 · 370K in | 5,771K in |
+| **ratio** | **7.84× cost · 6.26× tokens** | **8.10× cost · 4.88× tokens** | **8.44× tokens** |
+
+## 2. Where the advantage comes from
+
+Both arms produce candidates; the question is whether candidate *k* is better for having
+seen candidates *1..k−1*. Single-round repetitions are independent draws (fresh session
+each time), multi-round rounds share one session.
+
+Best PDAP after k candidates, in units of the expected best of one single-round attempt.
+Single-round averages over every k-subset of its 3 repetitions; multi-round takes the
+prefix of rounds 1..k, since rounds are sequential and cannot be permuted.
+
+| k candidates | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| Opus, single-round (independent) | 1.000× | 0.945× | **0.915×** | — | — |
+| Opus, multi-round (conditioned) | 1.021× | 0.799× | **0.704×** | 0.655× | 0.611× |1qaz@WSX3edc
+| Sonnet, single-round | 1.000× | 0.999× | **0.999×** | — | — |
+| Sonnet, multi-round | 0.980× | 0.812× | **0.767×** | 0.746× | 0.731× |
+| gpt-6-sol, single-round | 1.000× | 0.947× | **0.906×** | — | — |
+| gpt-6-sol, multi-round | 1.031× | 0.915× | **0.839×** | 0.775× | 0.735× |
+
+n = 39 / 27 / 25 problems with valid candidates in both arms.
+
+Two things to read off this:
+
+**Round 1 is not better** (1.021× / 0.980× / 1.031×). The advantage is not that a
+multi-round model thinks harder on its first try — it starts from the same distribution.
+
+**At the same candidate count, conditioned search wins.** At k=3, 0.915× vs 0.704× for
+Opus and 0.999× vs 0.767× for Sonnet. Independent resampling is also already flattening
+out (Opus gains 5.5% then 3.2%), while the multi-round curve is still dropping at k=5.
+
+Sonnet's independent curve is flat outright at 0.999×, and the reason is visible in the
+raw data: three fresh sessions on the same specification keep landing on the *same
+design*.
+
+| Problems where all 3 repetitions produced an identical best PDAP | |
+|---|---|
+| Opus 5.5 | 18 / 35 |
+| Sonnet 5.5 | 22 / 25 |
+| gpt-6-sol | 11 / 25 |
+
+`JC_counter` under Opus is the clean illustration: all three single-round repetitions
+return PDAP 1.5448e-3 — not close, identical — and so do all three baseline repetitions.
+For Sonnet, 88% of problems behave this way, which is why paying for two extra
+independent attempts buys it 0.1%. Repetition without memory re-rolls the same answer.
+
+The mechanism is in the prompt. `continuation_prompt` in `src/agent/prompt.py` asks each
+round for a *structurally different* candidate, rotates the target through lower power →
+lower delay → smaller area, and tells the model to compare against the candidates it has
+already measured. An independent repetition has none of that: no memory of the previous
+design and no instruction to differ from it.
+
+A second factor is simply that nothing stops a multi-round attempt early. Opus
+single-round calls `ppa` 1.55 times per attempt on average (233 calls / 150 attempts). It
+writes a correct module, measures it once, and stops; its own success criterion is met.
+Multi-round calls `ppa` 11.8 times per attempt, because the harness keeps asking.
+
+**This is not an equal-cost comparison.** At k=3 multi-round spends 2.70× / 2.97× / 2.61×
+the budget of three single-round attempts. The claim supported here is that conditioning
+beats independent resampling *at equal candidate count*, not that it beats spending the
+same money on more independent samples. No arm in this experiment runs single-round 15
+times, so that comparison is open.
+
+## 3. The five problems multi-round improved most
+
+Ratio is multi-round best PDAP over single-round best PDAP, lower being better.
+Measurements are the full triple behind each best candidate.
+
+### Opus 5.5 (paired geomean 0.664×, n=39)
+
+| Problem | Ratio | Best at | area µm² | power W | delay ns |
+|---|---:|---|---|---|---|
+| `freq_div` ⚠ | 0.102× | round 5 | 70.22 → 55.33 | 8.00e-6 → 2.63e-6 | 0.280 → 0.110 |
+| `traffic_light` | 0.119× | round 4 | 152.68 → 106.93 | 4.31e-5 → 8.20e-6 | 0.480 → 0.430 |
+| `JC_counter` ⚠ | 0.131× | round 5 | 340.48 → 145.50 | 3.49e-5 → 5.80e-6 | 0.130 → 0.240 |
+| `freq_divbyodd` | 0.317× | round 4 | 57.46 → 35.91 | 7.42e-6 → 3.77e-6 | 5.130 → 5.120 |
+| `edge_detect` | 0.317× | round 4 | 18.35 → 12.50 | 2.13e-6 → 1.22e-6 | 0.160 → 0.130 |
+
+### Sonnet 5.5 (paired geomean 0.732×, n=27)
+
+| Problem | Ratio | Best at | area µm² | power W | delay ns |
+|---|---:|---|---|---|---|
+| `freq_div` | 0.245× | round 4 | 98.42 → 73.15 | 1.11e-5 → 5.21e-6 | 0.370 → 0.260 |
+| `fsm` | 0.311× | round 4 | 38.04 → 22.34 | 4.90e-6 → 2.46e-6 | 0.180 → 0.190 |
+| `up_down_counter` | 0.330× | round 2 | 177.42 → 154.28 | 3.71e-5 → 1.74e-5 | 0.680 → 0.550 |
+| `edge_detect` | 0.365× | round 2 | 18.35 → 13.03 | 2.13e-6 → 1.25e-6 | 0.160 → 0.140 |
+| `pe` | 0.497× | round 3 | 3610.15 → 3970.58 | 3.16e-3 → 1.98e-3 | 1.580 → 1.140 |
+
+### gpt-6-sol (paired geomean 0.812×, n=25)
+
+| Problem | Ratio | Best at | area µm² | power W | delay ns |
+|---|---:|---|---|---|---|
+| `JC_counter` | 0.288× | round 5 | 340.48 → 165.45 | 3.49e-5 → 7.68e-6 | 0.130 → 0.350 |
+| `ring_counter` | 0.511× | round 5 | 31.12 → 31.92 | 3.53e-6 → 1.84e-6 | 0.230 → 0.220 |
+| `pe` | 0.565× | round 5 | 3610.15 → 2669.58 | 3.16e-3 → 2.05e-3 | 1.580 → 1.860 |
+| `fsm` | 0.609× | round 4 | 22.61 → 21.28 | 2.46e-6 → 1.78e-6 | 0.190 → 0.170 |
+| `freq_div` | 0.640× | round 5 | 84.59 → 71.55 | 8.63e-6 → 7.70e-6 | 0.330 → 0.280 |
+
+Notes on reading these. PDAP is a product, so a ratio is not a per-metric improvement:
+`edge_detect` at 0.317× is 0.68× area × 0.57× power × 0.81× delay. Several winners are
+genuine trades rather than uniform wins — `pe` under Sonnet grows 10% in area to buy 37%
+power and 28% delay; gpt-6-sol's `JC_counter` gives up 2.7× delay for 2.1× area and 4.5×
+power. All of these are legal Pareto moves, and all of them lower PDAP, which is why
+PDAP ranks the frontier but does not define it.
+
+Three recurring problem types dominate the list: clock dividers (`freq_div`,
+`freq_divbyodd`), counters (`JC_counter`, `ring_counter`, `up_down_counter`), and small
+control logic (`fsm`, `traffic_light`, `edge_detect`). These are exactly the designs with
+many functionally equivalent encodings, which is the space iteration can search. Nothing
+on the list is a datapath problem where the structure is forced.
+
+The clean wins are real design work. `edge_detect` round 4 stores `~a` delayed two cycles
+instead of `a`, which turns `rise` into a plain AND2 and `down` into a plain NOR2.
+`traffic_light` round 4 replaces a registered pipeline with a 2-bit phase and a 6-bit
+counter — 8 flops — after proving the counter never leaves 1..60.
+
+## 4. Validity: multi-round also learns to beat the measurement
+
+Four best candidates clock sequential state off an internally generated signal rather
+than a module input. The `ppa` flow times only the primary clock, so these get an
+optimistic delay and, through the default activity assumption, an optimistic power.
+
+| Model / problem | Generated clock | What it is |
+|---|---|---|
+| Opus `freq_div` | `CLK_50`, `z`, `cnt_j` | cascaded divided clocks driving the next stage |
+| Opus `JC_counter` | `k` | ripple counter; each bit clocks the next |
+| Opus `synchronizer` | `gclk_b = clk_b \| en_clap_two_n` | combinational clock gate |
+| gpt-6-sol `synchronizer` | `data_clk = clk_b & gate_en` | combinational clock gate |
+
+Opus's `JC_counter` round 5 is the honest case: the model's own final message says the
+0.24 ns figure "isn't trustworthy", explains that the ripple chain is never timed as one
+path, and points to round 4's fully synchronous design as the one to use. The harness
+still scored the ripple version as that problem's best PDAP.
+
+Excluding the flagged problems:
+
+| Model | Paired multi/single | Excluding flagged | Flagged |
+|---|---|---|---|
+| Opus 5.5 | 0.664× (n=39) | 0.727× (n=36) | `freq_div`, `JC_counter`, `synchronizer` |
+| Sonnet 5.5 | 0.732× (n=27) | 0.732× (n=27) | none |
+| gpt-6-sol | 0.812× (n=25) | 0.807× (n=24) | `synchronizer` |
+
+So this is not inflating the headline much — about a fifth of Opus's gain in log terms,
+nothing for the other two. But it concentrates at the top: two of Opus's five biggest
+wins are flagged. Anyone quoting the largest per-problem improvements should quote the
+clean ones.
+
+The detection is syntactic (edge-sensitive signals that are not input ports) and is a
+flag for review, not a verdict. Some of these designs are legitimate low-power technique;
+the problem is that the measurement does not price them correctly either way.
+
+## Reproduce
+
+```bash
+cd exp/ab_test
+python3 analysis/multi_round_analysis.py   # -> results/multi_round_analysis.json
+```
+
+Reads local `results/<model>/{single,multi}/` and reuses `analyze.load`. The
+historical run archive is not in Git, so this analysis cannot be rerun from the
+compact checkout alone. See [Reproduce.md](../Reproduce.md) for how the runs
+were produced.

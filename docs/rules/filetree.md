@@ -136,7 +136,8 @@ npu_repo_in_pynq/
 |       `-- *.ts
 |-- .mcp.json
 |-- exp/
-|   `-- 0911_performance_optimization/  compact hardware and board results
+|   |-- 0911_performance_optimization/  compact hardware and board results
+|   `-- ab_test/                        IC-tool A/B report and experiment source
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
@@ -311,6 +312,11 @@ payloads stay ignored. `hardware/README.md` records where the earlier issue-59
 archive moved; the archive itself remains local. The board summary reports
 experiments 09, 19 and 21, including complete-overlay resources and physical
 ResNet-18 times.
+
+`exp/ab_test/` versions the IC-tool A/B report, reproduction instructions,
+harness, licensed task inputs, tests, and selected acceptance examples.
+`analysis/` regenerates aggregate metrics from a local `results/` archive.
+The archive and generated `evidence/` stay ignored.
 
 ## Not in this repository
 
