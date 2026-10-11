@@ -39,6 +39,19 @@ but this table does not classify each request by context length or capture a
 separate cache-write charge. These are illustrative API estimates, not invoices.
 Displayed input tokens include cached reads.
 
+For a simple 50-problem cost comparison, multiply each displayed unit cost in
+the first table by 50. This is a scaling of those displayed values, without
+adjusting for the number of attempts or rounds actually run:
+
+| Displayed cost × 50 | Opus 5.5 | Sonnet 5.5 | gpt-6-sol API estimate |
+|---|---:|---:|---:|
+| baseline | $4.05 | $1.51 | ~$1.50–$3.00 |
+| single-round | $7.19 | $1.67 | ~$6.50–$11.50 |
+| multi-round, mean per round | $33.83 | $8.10 | ~$23.00–$42.50 |
+
+These are 50× comparisons of the table's per-attempt or per-round figures,
+not the billed totals for the historical experiment.
+
 Three ratios are easy to confuse, so to be explicit: a multi-round *round* costs roughly
 3–5× a single-round attempt; a whole multi-round *attempt* (5 rounds) costs 15–25× a
 single-round attempt. Neither is the figure to set against the PPA results — the unit
