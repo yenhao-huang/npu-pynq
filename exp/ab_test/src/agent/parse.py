@@ -26,15 +26,25 @@ def parse_stream(stdout):
     return calls, result, peak, last_text, iters
 
 def summarize(streams):
+    """Totals over the rounds of one attempt.
+
+    Rounds after the first resume one session, and some fields are session totals:
+    Claude's total_cost_usd and Codex's usage. Those take the latest round's value;
+    Claude's usage is per invocation and is summed.
+    """
     calls, usage, cost, turns, peak, last, iterations = {}, {}, 0.0, 0, 0, "", 0
     for stream in streams:
         c, result, pk, text, count = parse_stream(stream)
         for name, value in c.items():
             calls[name] = calls.get(name, 0) + value
-        for name, value in result.get("usage", {}).items():
-            if isinstance(value, (int, float)):
+        counts = {k: v for k, v in result.get("usage", {}).items() if isinstance(v, (int, float))}
+        if result.get("synthesized") == "codex":
+            if any(counts.values()):  # a failed turn reports nothing, so keep the last total
+                usage = counts
+        else:
+            for name, value in counts.items():
                 usage[name] = usage.get(name, 0) + value
-        cost += result.get("total_cost_usd") or 0
+        cost = max(cost, result.get("total_cost_usd") or 0)
         turns += result.get("num_turns") or 0
         peak, last, iterations = max(peak, pk), text or last, iterations + count
     return dict(tool_calls=calls, usage=usage, cost_usd=cost, turns=turns,

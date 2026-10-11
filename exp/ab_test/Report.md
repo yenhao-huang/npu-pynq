@@ -10,7 +10,7 @@
 2. **PPA：single-round 加工具有小幅改善，前提是模型真的有用工具。** 同一題最佳 PDAP 相對 baseline 的幾何平均：Opus 0.879×（勝 / 平 / 負 = 12 / 22 / 4）、gpt-6-sol 0.870×（13 / 12 / 2）。Sonnet 是 1.014×（2 / 24 / 5），因為 150 次 attempt 裡只有 7 次呼叫了 IC 工具，而且都只用 lint。
 3. **PPA：multi-round 改善最明顯。** PDAP 幾何平均為 Opus 0.587×、Sonnet 0.746×、gpt-6-sol 0.709×，勝場分別是 34 / 38、20 / 27、24 / 25 題。把 multi-round 限制在前 3 輪，讓候選數和 baseline 一樣是 3 個，仍有 0.676× / 0.779× / 0.809×。只看第 1 輪則和 baseline 相當（0.977× / 0.995× / 0.995×）。可見改善來自多輪探索，第一個答案並沒有比較好。
 4. **三組合併比較時，frontier 上的點主要來自 multi-round。** 以「在該題持有最低 PDAP」計算的題數，baseline / single / multi 分別是：Opus 5 / 12 / 34、Sonnet 10 / 13 / 26、gpt-6-sol 3 / 5 / 24。
-5. **代價高。** Opus multi-round 花了 $169.14（50 次 attempt），是 baseline 的 14 倍（$12.14，150 次）。gpt-6-sol multi-round 用掉約 2.8 億 cached input tokens。
+5. **代價高。** Opus multi-round 花了 $63.07（50 次 attempt），是 baseline 的 5.2 倍（$12.14，150 次）、single-round 的 2.9 倍（$21.57）。gpt-6-sol multi-round 用掉約 1.2 億 cached input tokens，是 single-round 的 3.8 倍（3,070 萬）。
 6. **無法區分「工具」和「多輪」各自的貢獻。** 依目標文件只跑了三組，沒有「多輪但不給工具」的對照組，所以 multi-round 的改善不能全部歸功於工具（見「限制」）。
 7. **只給 shell 不會改善 PPA（附錄 B）。** 不給 IC 工具、只給 shell 時，同題最佳 PDAP 相對 baseline 為 Opus 1.011×、Sonnet 0.996×、gpt-6-sol 1.062×；IC 工具組（尤其 multi-round）仍明顯較好。
 
@@ -136,15 +136,15 @@ FUNCTION 的分母相同，但 baseline / single-round 每題有 3 次 attempt�
 |---|---|---:|---|---|---:|
 | Opus 5.5 | baseline | 0 / 150 | — | $12.14 | 0.9 h |
 | Opus 5.5 | single-round | 150 / 150 | ppa 233、lint 141、equiv 100、sim 23、value_range 3、value_at 1 | $21.57 | 1.7 h |
-| Opus 5.5 | multi-round | 50 / 50 | ppa 592、equiv 460、lint 247、sim 133、value_range 3、value_at 1 | $169.14 | 4.9 h |
+| Opus 5.5 | multi-round | 50 / 50 | ppa 592、equiv 460、lint 247、sim 133、value_range 3、value_at 1 | $63.07 | 4.9 h |
 | Sonnet 5.5 | baseline | 0 / 150 | — | $4.51 | 0.5 h |
 | Sonnet 5.5 | single-round | 7 / 150 | lint 8 | $5.00 | 0.5 h |
-| Sonnet 5.5 | multi-round | 50 / 50 | ppa 268、equiv 193、lint 11、sim 2、synth 1 | $40.50 | 1.6 h |
+| Sonnet 5.5 | multi-round | 50 / 50 | ppa 268、equiv 193、lint 11、sim 2、synth 1 | $14.29 | 1.6 h |
 | gpt-6-sol | baseline | 0 / 150 | — | in 4.7M / out 0.23M tokens | 1.9 h |
 | gpt-6-sol | single-round | 150 / 150 | lint 442、ppa 389、sim 192、equiv 143、value_range 9 | in 34.2M / out 0.58M tokens | 5.5 h |
-| gpt-6-sol | multi-round | 50 / 50 | lint 1239、ppa 1134、equiv 642、sim 233、value_at 2 | in 288.6M / out 3.5M tokens | 11.2 h |
+| gpt-6-sol | multi-round | 50 / 50 | lint 1239、ppa 1134、equiv 642、sim 233、value_at 2 | in 120.0M / out 1.29M tokens | 11.2 h |
 
-Claude 的成本取自 CLI 回報的 `total_cost_usd`。Codex 不回報金額，只列 token（input 含 cached）。耗時是各 attempt 模型時間的總和，不含評分。
+Claude 的成本取自 CLI 回報的 `total_cost_usd`。multi-round 以 `--resume` 接續同一個 session，`total_cost_usd` 是整個 session 的累計值，因此每次 attempt 取最後一輪的值，不把各輪相加（相加會重複計算，得到 Opus $169.14、Sonnet $40.50）。Codex 不回報金額，只列 token（input 含 cached）；Codex `resume` 後每輪回報的 token 也是同一個 thread 的累計值，同樣取最後一輪（相加會得到 in 288.6M / out 3.5M）。Claude 的 `usage` 是每輪各自的值，所以照常相加。耗時是各 attempt 模型時間的總和，不含評分。
 
 ## 限制與偏離
 
