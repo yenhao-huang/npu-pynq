@@ -108,8 +108,26 @@ def derived_clocks(source):
     return sorted(edges - input_ports(source))
 
 
-def cost_table(single, multi):
-    """Mean cost and tokens of one multi-round round against one single-round attempt."""
+def api_cost_estimate(rows, units):
+    """GPT-6 Sol Standard API price bounds, USD per attempt or round (2026-10-11).
+
+    Cached reads use their own rate. The run archive does not identify which
+    individual requests crossed the 272K long-context threshold, so apply the
+    short and long rates to all tokens as illustrative bounds, not a bill.
+    """
+    usage = {key: sum(row.get("usage", {}).get(key, 0) or 0 for row in rows)
+             for key in ("input_tokens", "cache_read_input_tokens", "output_tokens")}
+    def price(input_rate, cached_rate, output_rate):
+        return (usage["input_tokens"] * input_rate
+                + usage["cache_read_input_tokens"] * cached_rate
+                + usage["output_tokens"] * output_rate) / 1_000_000 / units
+    return dict(short_context_usd=price(2, 0.2, 10),
+                long_context_usd=price(4, 0.4, 15))
+
+
+def cost_table(baseline, single, multi, model):
+    """Mean cost and tokens per baseline/single attempt and multi-round round."""
+    baseline_values = [u for row in baseline for u in round_usage(row).values()]
     base = [u for row in single for u in round_usage(row).values()]
     mean = lambda rows, i: sum(u[i] for u in rows) / len(rows)
     by_round = {}
@@ -118,7 +136,10 @@ def cost_table(single, multi):
             by_round.setdefault(number, []).append(u)
     every = [u for group in by_round.values() for u in group]
     ratio = lambda rows, i: mean(rows, i) / mean(base, i) if mean(base, i) else None
-    return dict(
+    result = dict(
+        baseline_attempt=dict(n=len(baseline_values), cost_usd=mean(baseline_values, 0),
+                              input_tokens=mean(baseline_values, 1),
+                              output_tokens=mean(baseline_values, 2)),
         single_attempt=dict(n=len(base), cost_usd=mean(base, 0),
                             input_tokens=mean(base, 1), output_tokens=mean(base, 2)),
         multi_round_mean=dict(n=len(every), cost_usd=mean(every, 0),
@@ -129,6 +150,11 @@ def cost_table(single, multi):
                            output_tokens=mean(g, 2), cost_ratio=ratio(g, 0),
                            input_ratio=ratio(g, 1), output_ratio=ratio(g, 2))
                    for n, g in sorted(by_round.items())})
+    if model == "gpt-6-sol":
+        result["baseline_attempt"]["api_estimate"] = api_cost_estimate(baseline, len(baseline_values))
+        result["single_attempt"]["api_estimate"] = api_cost_estimate(single, len(base))
+        result["multi_round_mean"]["api_estimate"] = api_cost_estimate(multi, len(every))
+    return result
 
 
 def best_of_k(single_best, multi_rounds, problems):
@@ -154,6 +180,7 @@ def best_of_k(single_best, multi_rounds, problems):
 def main():
     out = {}
     for model in MODELS:
+        baseline = clean(load(model, "baseline")[1])
         single, multi = clean(load(model, "single-round")[1]), clean(load(model, "multi-round")[1])
 
         single_best, single_pick = {}, {}
@@ -192,7 +219,7 @@ def main():
                      if max(single_best[p]) - min(single_best[p]) < 1e-9 * max(single_best[p])]
 
         out[model] = dict(
-            cost=cost_table(single, multi),
+            cost=cost_table(baseline, single, multi, model),
             best_of_k=best_of_k(single_best, multi_rounds, problems),
             collapse=dict(identical=len(identical), complete=len(complete), problems=sorted(identical)),
             paired=dict(geomean=geomean([d["ratio"] for d in deltas]), n=len(deltas),

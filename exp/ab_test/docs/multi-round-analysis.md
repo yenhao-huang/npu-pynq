@@ -4,10 +4,11 @@
 0.746× / 0.709× PDAP against baseline. It does not answer the obvious follow-up:
 **single-round has exactly the same IC tools, so why does multi-round win?**
 
-This note answers that, plus the cost question. Every number here comes from
+This note answers that, plus the cost question. Measured numbers come from
 `analysis/multi_round_analysis.py`, which reuses `analyze.py`'s attempt selection, so it
-counts the same attempts Report.md counts. Costs and tokens are read from the CLI
-streams (`round*.jsonl`), which Report.md only reports as arm totals.
+counts the same attempts Report.md counts. Claude costs and all token counts are read
+from the CLI streams (`round*.jsonl`), which Report.md only reports as arm totals.
+GPT-6 Sol dollar amounts are estimates using current API rates, not billed costs.
 
 Both arms use the identical initial prompt (`src/agent/prompt.py`, arm `tools`), the same
 tool set, and the same budget per call. The only differences are how many turns the
@@ -21,14 +22,22 @@ round.
 
 | | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
 |---|---|---|---|
-| single-round, per attempt (n=150) | $0.1438 · 55.6K in · 3.4K out | $0.0333 · 25.2K in · 1.2K out | 227.8K in · 3.9K out |
-| multi-round, mean per round (n=250) | $0.6766 · 208.9K in · 6.1K out | $0.1620 · 73.9K in · 2.4K out | 1,154.3K in · 14.2K out |
+| baseline, per attempt (n=150) | $0.0809 · 10.1K in · 2.1K out | $0.0301 · 9.5K in · 1.2K out | ~$0.03–$0.06 · 31.3K in · 1.5K out |
+| single-round, per attempt (n=150) | $0.1438 · 55.6K in · 3.4K out | $0.0333 · 25.2K in · 1.2K out | ~$0.13–$0.23 · 227.8K in · 3.9K out |
+| multi-round, mean per round (n=250) | $0.6766 · 208.9K in · 6.1K out | $0.1620 · 73.9K in · 2.4K out | ~$0.46–$0.85 · 1,154.3K in · 14.2K out |
 | **ratio, one round vs one attempt** | **4.71× cost · 3.76× in · 1.80× out** | **4.86× cost · 2.93× in · 2.01× out** | **5.07× in · 3.68× out** |
-| multi-round, all 5 rounds | $3.383 · 1,044.7K in | $0.810 · 369.6K in | 5,771.5K in |
+| multi-round, all 5 rounds | $3.383 · 1,044.7K in | $0.810 · 369.6K in | ~$2.29–$4.23 · 5,771.5K in |
 | ratio, 5 rounds vs one attempt | 23.53× cost · 18.79× in | 24.31× cost · 14.64× in | 25.33× in |
 
-Codex does not report a billed amount, so gpt-6-sol has tokens only. Input counts every
-token the request was charged for, cached reads included.
+Codex does not report a billed amount. The GPT-6 Sol estimates use the
+[Standard API prices on 2026-10-11](https://developers.openai.com/api/docs/models/gpt-6-sol):
+per 1M tokens, $2 uncached input, $0.20 cached input, and $10 output for short
+context; $4, $0.40, and $15 when a request exceeds 272K input tokens. The lower
+figure applies short-context rates to all recorded tokens; the upper applies
+long-context rates to all of them. The archived totals distinguish cached reads,
+but this table does not classify each request by context length or capture a
+separate cache-write charge. These are illustrative API estimates, not invoices.
+Displayed input tokens include cached reads.
 
 Three ratios are easy to confuse, so to be explicit: a multi-round *round* costs roughly
 3–5× a single-round attempt; a whole multi-round *attempt* (5 rounds) costs 15–25× a
@@ -56,8 +65,8 @@ single-round gets 3 independent attempts and multi-round gets 1 attempt of 5 rou
 
 | | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
 |---|---|---|---|
-| single-round, 3 attempts | $0.431 · 167K in | $0.100 · 76K in | 683K in |
-| multi-round, 5 rounds | $3.383 · 1,045K in | $0.810 · 370K in | 5,771K in |
+| single-round, 3 attempts | $0.431 · 167K in | $0.100 · 76K in | ~$0.38–$0.70 · 683K in |
+| multi-round, 5 rounds | $3.383 · 1,045K in | $0.810 · 370K in | ~$2.29–$4.23 · 5,771K in |
 | **ratio** | **7.84× cost · 6.26× tokens** | **8.10× cost · 4.88× tokens** | **8.44× tokens** |
 
 ## 2. Where the advantage comes from
