@@ -109,11 +109,12 @@ def derived_clocks(source):
 
 
 def api_cost_estimate(rows, units):
-    """GPT-6 Sol Standard API price bounds, USD per attempt or round (2026-10-11).
+    """GPT-6 Sol Standard API scenarios and their mean, USD/unit (2026-10-11).
 
     Cached reads use their own rate. The run archive does not identify which
     individual requests crossed the 272K long-context threshold, so apply the
-    short and long rates to all tokens as illustrative bounds, not a bill.
+    short and long rates to all tokens, then average the two estimates. This
+    single figure is illustrative, not a bill.
     """
     usage = {key: sum(row.get("usage", {}).get(key, 0) or 0 for row in rows)
              for key in ("input_tokens", "cache_read_input_tokens", "output_tokens")}
@@ -121,8 +122,10 @@ def api_cost_estimate(rows, units):
         return (usage["input_tokens"] * input_rate
                 + usage["cache_read_input_tokens"] * cached_rate
                 + usage["output_tokens"] * output_rate) / 1_000_000 / units
-    return dict(short_context_usd=price(2, 0.2, 10),
-                long_context_usd=price(4, 0.4, 15))
+    short = price(2, 0.2, 10)
+    long = price(4, 0.4, 15)
+    return dict(short_context_usd=short, long_context_usd=long,
+                mean_usd=(short + long) / 2)
 
 
 def cost_table(baseline, single, multi, model):
