@@ -1,8 +1,8 @@
 {
-  "id": "002-ppa-baseline",
+  "id": "003-ppa-memory",
   "ppa": [
-    {"name": "base_npu_pe", "top": "npu_pe"},
-    {"name": "base_npu_systolic_array_16x16", "top": "npu_systolic_array", "generics": ["ROWS=16", "COLUMNS=16"]},
-    {"name": "base_npu_accelerator_16x16", "top": "npu_accelerator", "generics": ["ROWS=16", "COLUMNS=16", "MAX_K=256", "IN_BYTES=8"], "clock_port": "s_axi_aclk"}
+    {"name": "hx_npu_tcm", "top": "npu_tcm"},
+    {"name": "hx_npu_tcm_dma", "top": "npu_tcm_dma"},
+    {"name": "hx_npu_axi4_arbiter", "top": "npu_axi4_arbiter"}
   ]
 }
