@@ -21,15 +21,24 @@ round carries the whole prior conversation, so input tokens grow across rounds.
 Following the resumed-session accounting in
 [PR #135](https://github.com/yenhao-huang/npu-pynq/pull/135), each round's Claude
 cost and Codex tokens are the difference between consecutive session totals. The first
-table multiplies each per-attempt or per-round average by 50;
-it does not weight the rows by how many attempts or rounds the study ran.
+table multiplies each per-attempt or per-round average by 50. Its multi-round row
+therefore represents 50 rounds, not 50 complete problems; one complete problem
+has five rounds. The actual 50-problem multi-round totals are shown below it.
 
-| Cost and tokens ×50 | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
+| 50 attempts or rounds at the per-unit average | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
 |---|---|---|---|
 | baseline | $4.05<br>505K in · 105K out | $1.51<br>475K in · 60K out | $2.36<br>1.565M in · 75K out |
 | single-round | $7.19<br>2.780M in · 170K out | $1.67<br>1.260M in · 60K out | $8.97<br>11.390M in · 195K out |
 | multi-round, mean per round | $12.61<br>10.445M in · 305K out | $2.86<br>3.695M in · 120K out | $12.52<br>24.000M in · 259K out |
 | **ratio, one round vs one attempt** | **1.75× cost · 3.76× in · 1.80× out** | **1.71× cost · 2.93× in · 2.01× out** | **1.40× estimated cost · 2.11× in · 1.34× out** |
+
+The actual multi-round arm ran five rounds for each of 50 problems (250 rounds
+total). Its totals, as reported in [PR #135](https://github.com/yenhao-huang/npu-pynq/pull/135),
+are **$63.07** for Opus, **$14.29** for Sonnet, and **120.0M input / 1.29M output
+tokens** for gpt-6-sol. Under the same illustrative API pricing used here, the
+gpt-6-sol total is approximately **$62.60**. For example, the displayed Opus
+figure is `$63.0736218 / 250 rounds × 50 = $12.61`; the 50-problem total is
+`$63.0736218 / 250 rounds × 5 rounds/problem × 50 problems = $63.07`.
 
 Codex does not report a billed amount. The GPT-6 Sol estimates use the
 [Standard API prices on 2026-10-11](https://developers.openai.com/api/docs/models/gpt-6-sol):
@@ -55,7 +64,8 @@ and resulting estimates are:
 
 The first table multiplies the displayed per-unit token averages by 50.
 GPT-6 Sol costs use unrounded per-unit estimates before multiplication.
-These are 50× comparisons, not the billed totals for the historical experiment.
+The first table is a 50-unit comparison, not the billed total for the
+historical multi-round arm.
 
 Three ratios are easy to confuse, so to be explicit: a multi-round *round* costs roughly
 1.4–1.8× a single-round attempt; a whole multi-round *attempt* (5 rounds) costs 7–9× a
