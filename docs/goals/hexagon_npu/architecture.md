@@ -18,10 +18,10 @@ Chips 2023 (E. Mahurin), summarised below; block diagram
 ## Target organisation
 
 ```text
-npu_hexagon (new top, replaces npu_accelerator as the block-design module)
- |-- npu_accelerator            existing, unchanged interface: AXI-lite regs (dma_axi),
- |                              ISA front end, operand TCM, 16 x 16 INT8 tensor array
- `-- npu_hx_subsystem           new, its own AXI-lite window and AXI4 master
+npu_matrix block design (src/hw/vivado_tcl/npu_matrix/build_overlay.tcl --hexagon)
+ |-- npu_accelerator_0          existing, unchanged: AXI-lite regs (dma_axi), ISA front
+ |                              end, operand TCM, 16 x 16 INT8 tensor array
+ `-- npu_hx_0 = npu_hx_subsystem  new cell: its own AXI-lite window and AXI4 master (HP0)
       |-- npu_hx_regs           control/status: scalar start PC, halt, perf counters
       |-- npu_scalar_core       RV32I subset, multi-cycle; custom-0 dispatches vector ops
       |     |-- I-port -> npu_cache (L1 I$, read-only)
@@ -36,6 +36,11 @@ npu_hexagon (new top, replaces npu_accelerator as the block-design module)
            `-- npu_fp16_add / npu_fp16_mul
 ```
 
+The block design is the only place the two cells meet: both are AXI-lite
+slaves of the PS GP0 interconnect and AXI4 masters of the HP0 interconnect, so
+the tensor path, its register map and the runtime that drives it stay
+unchanged, and the overlay without `--hexagon` is the PPA "before" design.
+
 Tensor-side data widths (INT16, FP16) are a separate, parameterised tensor
 unit: `npu_pe_mp` and `npu_systolic_array_mp` (multi-precision PE and array).
 They are verified and PPA-measured stand-alone. The deployed 16 x 16 overlay
@@ -47,8 +52,9 @@ DSPs and 84% of the slices, and an FP16 PE costs several times an INT8 PE.
 - Every unit is a separate module with a valid/ready (or req/gnt) boundary.
   No unit reaches into another unit's internals.
 - Each unit has its own testbench `src/hw/tb/npu_matrix/tb_<module>.sv`.
-- The subsystem top is the only place where units are wired together, and
-  each unit can be removed by a parameter (`HX_ENABLE_*`) for PPA deltas.
+- `npu_hx_subsystem` is the only place where the new units are wired
+  together, and each unit can be removed by a parameter (`HX_ENABLE_*`) for
+  PPA deltas.
 - New RTL lives under `src/hw/rtl/npu_matrix/npu_hexagon/<unit>/`.
 
 ## Numeric contract
@@ -132,27 +138,41 @@ beats, never crossing a 4 KB boundary.
 ### Caches (`npu_hexagon/cache/`)
 
 `npu_cache #(SIZE_BYTES, LINE_BYTES, WAYS = 1 or 2, CPU_W = 32, WRITE_BACK = 1,
-READ_ONLY = 0)`.
+READ_ONLY = 0, CPU_HOLD = 0, MEM_W = CPU_W, RESP_W = CPU_W)`.
 
 ```systemverilog
-// CPU side
+// CPU side (a read answers with CPU_W/RESP_W resp_valid beats, a write with one)
 input  req_valid, output req_ready, input [31:0] req_addr, input req_we,
 input  [CPU_W/8-1:0] req_wstrb, input [CPU_W-1:0] req_wdata,
-output resp_valid, output [CPU_W-1:0] resp_rdata,
+output resp_valid, output [RESP_W-1:0] resp_rdata,
 input  flush,  output flush_done,   // write back dirty lines, then invalidate
-// memory side, whole lines
+// memory side: whole-line requests, read data in MEM_W-bit beats
 output mem_req_valid, input mem_req_ready, output [31:0] mem_req_addr,
 output mem_req_we, output [LINE_BYTES*8-1:0] mem_req_wdata,
-input  mem_resp_valid, input [LINE_BYTES*8-1:0] mem_resp_rdata
+input  mem_resp_valid, input [MEM_W-1:0] mem_resp_rdata
 // counters: hits, misses (32-bit, saturating)
 ```
 
+Line protocol (cache memory side, both `npu_mem_arbiter` sides, the L2 CPU
+side, `npu_axi4_line_bridge`): one request outstanding; the requester holds
+addr, we and the whole-line wdata through its last response pulse. A write
+completes with one `mem_resp_valid` pulse; a read with LINE_BYTES*8/W pulses
+(beats, lowest address first, gaps allowed, no ready), W = 32 between the
+L1s and the L2, W = 64 (the AXI beat) between the L2 and the bridge. Refill
+beats go straight into the data RAM, so the L1s need no line-wide refill
+register.
+
 L1 I$ = `npu_cache #(.SIZE_BYTES(1024), .LINE_BYTES(32), .READ_ONLY(1))`;
-L1 D$ = `npu_cache #(.SIZE_BYTES(1024), .LINE_BYTES(32), .WRITE_BACK(1))`;
-L2 = `npu_cache #(.SIZE_BYTES(8192), .LINE_BYTES(32), .WAYS(2), .CPU_W(256))`.
-`npu_mem_arbiter`: two line-request masters, round-robin, responses routed
-back in order. `npu_axi4_line_bridge`: one line request -> one AXI4 burst of
-LINE_BYTES/8 beats (read or write, waits for B).
+L1 D$ = `npu_cache #(.SIZE_BYTES(1024), .LINE_BYTES(32), .WRITE_BACK(1))`
+(`.CPU_HOLD(1)` is allowed: the scalar core holds its data request through
+the response);
+L2 = `npu_cache #(.SIZE_BYTES(8192), .LINE_BYTES(32), .WAYS(2), .CPU_W(256),
+.CPU_HOLD(1), .MEM_W(64), .RESP_W(32))`.
+`npu_mem_arbiter #(.BEAT_W(32), .P0_READ_ONLY(1))`: two line-request masters,
+round-robin, responses routed back in order. `npu_axi4_line_bridge`: one line
+request -> one AXI4 burst of LINE_BYTES/8 beats (read or write, waits for B);
+its `error` output pulses once per RRESP/BRESP error, and `npu_hx_regs` keeps
+the sticky STATUS.bus_error.
 
 ### Scalar core (`npu_hexagon/scalar/`)
 
@@ -196,3 +216,72 @@ Local inner loop: `ic synth --mode estimate` (Yosys `synth_xilinx`) for rough
 area. Every PPA table records which source produced it. "Before" for a unit
 is the subsystem configuration without it (`HX_ENABLE_*`), so each table
 shows the delta that unit adds.
+
+## Subsystem integration (`npu_hexagon/npu_hx_subsystem.sv`)
+
+### Ports
+
+- `s_axi_*`: AXI4-Lite slave, 32-bit data, 16-bit address (64 KB window), same
+  signal names and `X_INTERFACE` attributes style as `npu_accelerator`, clock
+  `s_axi_aclk`, reset `s_axi_aresetn`.
+- `m_axi_*`: AXI4 master, 32-bit address, 64-bit data, no ID, same names as
+  `npu_accelerator`'s `m_axi_*`.
+- `irq`: registered level of the sticky halt event, fault event and DMA-done
+  bits gated by `IRQ_ENABLE`; CONTROL.CLEAR acknowledges it (a raw
+  halted/fault level could only be dropped by restarting the core).
+
+### Host register map (`npu_hx_regs`)
+
+| Offset | Name | Access | Meaning |
+| --- | --- | --- | --- |
+| 0x000 | MAGIC | R | `0x314E5848` ("HXN1") |
+| 0x004 | VERSION | R | `0x00010000` |
+| 0x008 | CAPS | R | bit0 scalar, 1 vector, 2 L1I, 3 L1D, 4 L2, 5 TCM, 6 DMA; [15:8] VLEN/8; [31:16] TCM words/64 |
+| 0x00C | CONTROL | W | bit0 START (scalar core at START_PC), bit1 FLUSH (L1D then L2 write-back + invalidate of all caches), bit2 DMA_START, bit3 CLEAR (sticky status bits) |
+| 0x010 | STATUS | R | bit0 running, 1 halted, 2 fault, 3 vec_busy, 4 dma_busy, 5 flush_busy, 6 vec_illegal, 7 dma_error, 8 dma_done (sticky), 9 bus_error (sticky), 10 halt event (sticky), 11 fault event (sticky) |
+| 0x014 | START_PC | RW | |
+| 0x018 | CAUSE | R | [2:0] fault_cause, [8] halt_cause |
+| 0x01C | FAULT_PC | R | |
+| 0x020 | CYCLES | R | scalar core cycles |
+| 0x024 | INSTRET | R | |
+| 0x028/0x02C | L1I_HITS / L1I_MISSES | R | |
+| 0x030/0x034 | L1D_HITS / L1D_MISSES | R | |
+| 0x038/0x03C | L2_HITS / L2_MISSES | R | |
+| 0x040 | DMA_DDR_ADDR | RW | |
+| 0x044 | DMA_TCM_ADDR | RW | word address |
+| 0x048 | DMA_LEN | RW | [15:0] words, [31] dir (1 = TCM->DDR) |
+| 0x04C | IRQ_ENABLE | RW | bit0 halt, bit1 fault, bit2 DMA done |
+| 0x050-0x05C | MAILBOX0-3 | RW | arguments/results shared with scalar programs |
+| 0x060 | VEC_CYCLES | R | cycles with vec_busy high, cleared by START |
+| 0x064-0x7FFF | - | - | reads 0, writes ignored |
+| 0x8000-0xFFFF | TCM | RW | 32-bit window onto TCM port B: word = offset[14:3], lane = offset[2]; past the TCM end reads 0 / ignores writes (OKAY) |
+
+CAPS for the four PPA configurations: all units `0x0010087F`, no vector
+`0x0010007D`, no L2 `0x0010086F`, no DMA `0x0010083F`. Cache counters are the
+caches' own (cleared only by reset).
+
+### Scalar data-port address map
+
+| Range | Target |
+| --- | --- |
+| `0x0000_0000`-`0x3FFF_FFFF` | DDR through L1 D$ and L2 |
+| `0x4000_0000`-`0x4000_FFFF` | TCM port B, uncached, 32-bit lane of the 64-bit word |
+| `0x8000_0000`-`0x8000_0FFF` | the same `npu_hx_regs` registers as the host map (offset = addr[11:0]) |
+| anything else, and the TCM window past its end | `d_resp_err`: the core faults with cause 6 |
+
+TCM and MMIO accesses answer two cycles after the handshake. AXI errors on
+cached traffic cannot reach the core (the caches have no error path): the
+bridge's error pulse sets the sticky STATUS.bus_error instead.
+
+FLUSH flushes L1D and invalidates L1I together, then flushes L2 once L1D is
+done. With `HX_ENABLE_L2 = 0` the line bridge feeds the L1 arbiter through a
+64-to-32-bit beat serializer. A DMA_TCM_ADDR beyond the TCM makes the DMA
+reject the descriptor (error + done, nothing moved). With
+`HX_ENABLE_VECTOR = 0`, vector commands are consumed and set
+STATUS.vec_illegal.
+
+TCM port B is shared by the TCM DMA, the scalar core's TCM window and the host
+TCM window, with fixed priority DMA > scalar > host (the DMA tolerates `gnt`
+low). Port A belongs to the vector unit. Caches are not coherent with the host
+or the DMA: software flushes (CONTROL.FLUSH) before handing DDR data to the
+host and before starting a new program.
