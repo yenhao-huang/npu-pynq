@@ -22,10 +22,10 @@ round.
 
 | | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
 |---|---|---|---|
-| baseline, per attempt (n=150) | $0.0809 · 10.1K in · 2.1K out | $0.0301 · 9.5K in · 1.2K out | $0.0472 · 31.3K in · 1.5K out |
-| single-round, per attempt (n=150) | $0.1438 · 55.6K in · 3.4K out | $0.0333 · 25.2K in · 1.2K out | $0.1795 · 227.8K in · 3.9K out |
-| multi-round, mean per round (n=250) | $0.6766 · 208.9K in · 6.1K out | $0.1620 · 73.9K in · 2.4K out | $0.6528 · 1,154.3K in · 14.2K out |
-| **ratio, one round vs one attempt** | **4.71× cost · 3.76× in · 1.80× out** | **4.86× cost · 2.93× in · 2.01× out** | **5.07× in · 3.68× out** |
+| baseline, per attempt (n=150) | $0.0809 → **$4.05 ×50**<br>10.1K in · 2.1K out | $0.0301 → **$1.51 ×50**<br>9.5K in · 1.2K out | $0.0472 → **$2.36 ×50**<br>31.3K in · 1.5K out |
+| single-round, per attempt (n=150) | $0.1438 → **$7.19 ×50**<br>55.6K in · 3.4K out | $0.0333 → **$1.67 ×50**<br>25.2K in · 1.2K out | $0.1795 → **$8.97 ×50**<br>227.8K in · 3.9K out |
+| multi-round, mean per round (n=250) | $0.6766 → **$33.83 ×50**<br>208.9K in · 6.1K out | $0.1620 → **$8.10 ×50**<br>73.9K in · 2.4K out | $0.6528 → **$32.64 ×50**<br>1,154.3K in · 14.2K out |
+| **ratio, one round vs one attempt** | **4.71× cost · 3.76× in · 1.80× out** | **4.86× cost · 2.93× in · 2.01× out** | **3.64× estimated cost · 5.07× in · 3.68× out** |
 | multi-round, all 5 rounds | $3.383 · 1,044.7K in | $0.810 · 369.6K in | $3.2642 · 5,771.5K in |
 | ratio, 5 rounds vs one attempt | 23.53× cost · 18.79× in | 24.31× cost · 14.64× in | 25.33× in |
 
@@ -51,19 +51,10 @@ and resulting estimates are:
 | single-round | 3.491221 | 30.681472 | 0.579293 | 150 attempts | $0.179462 |
 | multi-round | 11.953256 | 276.620160 | 3.548939 | 250 rounds | $0.652830 |
 
-For a simple 50-problem cost comparison, multiply each displayed unit cost in
-the first table by 50. This is a scaling of those displayed values, without
-adjusting for the number of attempts or rounds actually run:
-
-| Displayed cost × 50 | Opus 5.5 | Sonnet 5.5 | gpt-6-sol API estimate |
-|---|---:|---:|---:|
-| baseline | $4.05 | $1.51 | $2.36 |
-| single-round | $7.19 | $1.67 | $8.97 |
-| multi-round, mean per round | $33.83 | $8.10 | $32.64 |
-
-The GPT-6 Sol values use the unrounded per-unit estimates above before
-multiplying by 50. These are 50× comparisons of the table's per-attempt or
-per-round figures, not the billed totals for the historical experiment.
+The bold amounts in the first table multiply the per-attempt or per-round cost
+by 50 without adjusting for the number of attempts or rounds actually run.
+The GPT-6 Sol values use unrounded per-unit estimates before multiplication.
+These are 50× comparisons, not the billed totals for the historical experiment.
 
 Three ratios are easy to confuse, so to be explicit: a multi-round *round* costs roughly
 3–5× a single-round attempt; a whole multi-round *attempt* (5 rounds) costs 15–25× a
