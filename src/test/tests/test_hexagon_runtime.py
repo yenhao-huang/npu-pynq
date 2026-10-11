@@ -428,6 +428,75 @@ class DmaTests(unittest.TestCase):
             npu.dma(0x1600_0000, 0, 1, to_ddr=False)
 
 
+class RegisterMapConsistencyTests(unittest.TestCase):
+    """The driver's register map against the constants of the subsystem test
+    generator, which tb_npu_hx_subsystem checks against the RTL (every
+    offset, STATUS / CONTROL / IRQ_ENABLE bit and CAPS value below is
+    exercised there), and against the RTL header itself."""
+
+    def test_offsets_and_bits_match_the_simulated_map(self):
+        from src.test.vectors import generate_hx_subsystem_vectors as g
+
+        pairs = {
+            hx.REG_MAGIC: g.MAGIC, hx.REG_VERSION: g.VERSION, hx.REG_CAPS: g.CAPS,
+            hx.REG_CONTROL: g.CONTROL, hx.REG_STATUS: g.STATUS, hx.REG_START_PC: g.START_PC,
+            hx.REG_CAUSE: g.CAUSE, hx.REG_FAULT_PC: g.FAULT_PC, hx.REG_CYCLES: g.CYCLES,
+            hx.REG_INSTRET: g.INSTRET, hx.REG_L1I_HITS: g.L1I_HITS,
+            hx.REG_L1I_MISSES: g.L1I_MISSES, hx.REG_L1D_HITS: g.L1D_HITS,
+            hx.REG_L1D_MISSES: g.L1D_MISSES, hx.REG_L2_HITS: g.L2_HITS,
+            hx.REG_L2_MISSES: g.L2_MISSES, hx.REG_DMA_DDR_ADDR: g.DMA_DDR,
+            hx.REG_DMA_TCM_ADDR: g.DMA_TCM, hx.REG_DMA_LEN: g.DMA_LEN,
+            hx.REG_IRQ_ENABLE: g.IRQ_EN, hx.REG_VEC_CYCLES: g.VEC_CYCLES,
+            hx.TCM_WINDOW: g.TCM_WIN,
+        }
+        for driver, sim in pairs.items():
+            self.assertEqual(driver, sim)
+        self.assertEqual(list(hx.REG_MAILBOX), g.MBOX)
+        self.assertEqual(hx.REG_MAILBOX0, g.MBOX[0])
+        self.assertEqual((hx.CONTROL_START, hx.CONTROL_FLUSH, hx.CONTROL_DMA_START, hx.CONTROL_CLEAR),
+                         (g.C_START, g.C_FLUSH, g.C_DMA, g.C_CLEAR))
+        self.assertEqual(
+            (hx.STATUS_RUNNING, hx.STATUS_HALTED, hx.STATUS_FAULT, hx.STATUS_VEC_BUSY,
+             hx.STATUS_DMA_BUSY, hx.STATUS_FLUSH_BUSY, hx.STATUS_VEC_ILLEGAL, hx.STATUS_DMA_ERROR,
+             hx.STATUS_DMA_DONE, hx.STATUS_BUS_ERROR, hx.STATUS_HALT_EVENT, hx.STATUS_FAULT_EVENT),
+            (g.S_RUNNING, g.S_HALTED, g.S_FAULT, g.S_VBUSY, g.S_DBUSY, g.S_FBUSY, g.S_VILL,
+             g.S_DERR, g.S_DDONE, g.S_BERR, g.S_HEVT, g.S_FEVT))
+        self.assertEqual(g.TCM_WORDS, hx.Caps.decode(CAPS_FULL).tcm_words)
+
+    def test_caps_of_every_simulated_configuration(self):
+        from src.test.vectors import generate_hx_subsystem_vectors as g
+
+        for name, vec, l2, dma in g.CONFIGS:
+            caps = hx.Caps.decode(g.caps_of(vec, l2, dma))
+            self.assertEqual((caps.vector, caps.l2, caps.dma), (bool(vec), bool(l2), bool(dma)), name)
+            self.assertTrue(caps.scalar and caps.l1i and caps.l1d and caps.tcm, name)
+            self.assertEqual(caps.vlen_bits, 64 if vec else 0, name)
+            self.assertEqual(caps.tcm_words, g.TCM_WORDS, name)
+        self.assertEqual(g.caps_of(1, 1, 1), CAPS_FULL)
+
+    def test_rtl_header_register_indices(self):
+        """npu_hx_regs.sv localparams R_* (word index) -> driver offsets."""
+        import re
+
+        rtl = (REPO / "src/hw/rtl/npu_matrix/npu_hexagon/npu_hx_regs.sv").read_text()
+        index = {m.group(1): int(m.group(2), 16) * 4
+                 for m in re.finditer(r"localparam logic \[4:0\] R_(\w+)\s*=\s*5'h([0-9A-Fa-f]+);", rtl)}
+        expect = {"MAGIC": hx.REG_MAGIC, "VERSION": hx.REG_VERSION, "CAPS": hx.REG_CAPS,
+                  "CONTROL": hx.REG_CONTROL, "STATUS": hx.REG_STATUS, "START_PC": hx.REG_START_PC,
+                  "CAUSE": hx.REG_CAUSE, "FAULT_PC": hx.REG_FAULT_PC, "CYCLES": hx.REG_CYCLES,
+                  "INSTRET": hx.REG_INSTRET, "L1I_HIT": hx.REG_L1I_HITS,
+                  "L1I_MISS": hx.REG_L1I_MISSES, "L1D_HIT": hx.REG_L1D_HITS,
+                  "L1D_MISS": hx.REG_L1D_MISSES, "L2_HIT": hx.REG_L2_HITS,
+                  "L2_MISS": hx.REG_L2_MISSES, "DMA_DDR": hx.REG_DMA_DDR_ADDR,
+                  "DMA_TCM": hx.REG_DMA_TCM_ADDR, "DMA_LEN": hx.REG_DMA_LEN,
+                  "IRQ_EN": hx.REG_IRQ_ENABLE, "MBOX0": hx.REG_MAILBOX[0],
+                  "MBOX1": hx.REG_MAILBOX[1], "MBOX2": hx.REG_MAILBOX[2],
+                  "MBOX3": hx.REG_MAILBOX[3], "VEC_CYC": hx.REG_VEC_CYCLES}
+        self.assertEqual(index, expect)
+        self.assertIn(f"HX_MAGIC = 32'h{hx.HX_MAGIC >> 16:04X}_{hx.HX_MAGIC & 0xFFFF:04X};", rtl)
+        self.assertIn(f"HX_VERSION = 32'h{hx.HX_VERSION >> 16:04X}_{hx.HX_VERSION & 0xFFFF:04X};", rtl)
+
+
 class WindowAndMailboxTests(unittest.TestCase):
     def test_tcm_window(self):
         npu, fake, _ = make()

@@ -402,14 +402,19 @@ class SelfTest:
         before = npu.counters()
         result = npu.run(prog.phys_addr, timeout=self.args.timeout)
         delta = npu.counters().delta(before)
+        # AXI errors on cached traffic cannot reach the core: they only set
+        # the sticky STATUS.bus_error (identify() cleared it)
+        status = npu.status()
+        bus_error = bool(status & hxr.STATUS_BUS_ERROR)
         buf.invalidate()
         got = bytes(raw[DATA_OFF:RESULT_OFF + 16])
         want = image[DATA_OFF:RESULT_OFF + 16]
         mismatches = [i // 4 for i in range(0, len(want), 4) if got[i:i + 4] != want[i:i + 4]]
         code_intact = bytes(raw[:4 * len(words)]) == image[:4 * len(words)]
-        ok = not mismatches and result.instret == ref.instret and code_intact
+        ok = not mismatches and result.instret == ref.instret and code_intact and not bus_error
         return {
             "pass": ok,
+            "bus_error": bus_error, "status_after": hxr.describe_status(status),
             "program_words": len(words), "start_pc": f"0x{prog.phys_addr:08x}",
             "run": result.as_dict(),
             "iss_instret": ref.instret,
@@ -463,7 +468,8 @@ class SelfTest:
             got = np.asarray(out).tobytes()
             status = npu.status()
             diff = np.flatnonzero(np.frombuffer(got, np.uint8) != np.frombuffer(ref_model.tobytes(), np.uint8))
-            ok = (not diff.size and model_vs_numpy and not status & hxr.STATUS_VEC_ILLEGAL)
+            ok = (not diff.size and model_vs_numpy and not status & hxr.STATUS_VEC_ILLEGAL
+                  and not status & hxr.STATUS_BUS_ERROR)
             np_median, np_min = time_numpy(np_op)
             seconds_hw = run.cycles / CLOCK_HZ
             entry[name] = {
@@ -471,6 +477,7 @@ class SelfTest:
                 "model_matches_numpy": model_vs_numpy,
                 "mismatched_bytes": int(diff.size), "first_mismatch_byte": int(diff[0]) if diff.size else None,
                 "vec_illegal": bool(status & hxr.STATUS_VEC_ILLEGAL),
+                "bus_error": bool(status & hxr.STATUS_BUS_ERROR),
                 "cycles": run.cycles, "vec_cycles": run.vec_cycles, "instret": run.instret,
                 "cpi": run.cpi, "cycles_per_element": run.cycles / n,
                 "elements_per_s_at_100mhz": n / seconds_hw if seconds_hw else None,

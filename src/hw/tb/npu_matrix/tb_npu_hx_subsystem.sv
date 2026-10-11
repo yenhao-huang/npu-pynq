@@ -12,7 +12,11 @@
 //   it checks the AXI rules the masters must follow (valid/payload stable
 //   until ready, INCR, 8-byte beats, aligned, no 4 KB crossing, WLAST);
 // - an AXI4-Lite host BFM with random AW/W ordering and delays and random
-//   BREADY/RREADY delays.
+//   BREADY/RREADY delays, or (HFAST 1) back-to-back transactions with
+//   BREADY/RREADY raised together with the address; RW issues a write and a
+//   read concurrently (the Cortex-A9 may post a write and issue the next read
+//   before BRESP). A monitor checks the slave side of the AXI4-Lite rules:
+//   BVALID/RVALID and their payload held until BREADY/RREADY.
 // The scenario comes from src/test/vectors/hx_subsystem_script.txt, written by
 // src/test/vectors/generate_hx_subsystem_vectors.py (command list there):
 // register map and reset values, scalar programs in DDR (sum / copy / sort),
@@ -56,6 +60,7 @@ module tb_npu_hx_subsystem;
     logic        m_arready, m_awready, m_wready, m_rvalid, m_rlast, m_bvalid;
     logic [63:0] m_rdata;
     logic [1:0]  m_rresp, m_bresp;
+    logic        host_fast;      // HFAST: back-to-back host transactions
 
     // Per-configuration DUT outputs, packed
     logic [NCFG-1:0]    d_awready, d_wready, d_bvalid, d_arready, d_rvalid, d_irq;
@@ -170,6 +175,9 @@ module tb_npu_hx_subsystem;
     logic [63:0] p_wdata;
     logic [7:0]  p_wstrb;
     logic        p_wlast;
+    logic        p_bstall, p_rstall;
+    logic [1:0]  p_bresp, p_rresp;
+    logic [31:0] p_rdata;
     integer      beats_r, beats_w;
 
     function automatic logic chance(input integer pct);
@@ -208,6 +216,8 @@ module tb_npu_hx_subsystem;
             p_arstall <= 1'b0;
             p_awstall <= 1'b0;
             p_wstall <= 1'b0;
+            p_bstall <= 1'b0;
+            p_rstall <= 1'b0;
         end else begin
             if ((^{m_arvalid, m_awvalid, m_wvalid, m_rready, m_bready, irq,
                    bvalid, rvalid, awready, wready, arready}) === 1'bx)
@@ -220,6 +230,16 @@ module tb_npu_hx_subsystem;
             if (p_wstall && (!m_wvalid || m_wdata != p_wdata || m_wstrb != p_wstrb ||
                              m_wlast != p_wlast))
                 die("WVALID / W payload changed while waiting for WREADY");
+            // ---- AXI4-Lite slave: BVALID / RVALID and payload held until ready
+            if (p_bstall && (!bvalid || bresp != p_bresp))
+                die("BVALID / BRESP changed while waiting for BREADY");
+            if (p_rstall && (!rvalid || rdata != p_rdata || rresp != p_rresp))
+                die("RVALID / RDATA changed while waiting for RREADY");
+            p_bstall <= bvalid && !bready;
+            p_rstall <= rvalid && !rready;
+            p_bresp <= bresp;
+            p_rresp <= rresp;
+            p_rdata <= rdata;
             p_arstall <= m_arvalid && !m_arready;
             p_awstall <= m_awvalid && !m_awready;
             p_wstall <= m_wvalid && !m_wready;
@@ -332,14 +352,26 @@ module tb_npu_hx_subsystem;
         if (cycle > MAX_CYCLES) die("watchdog: the script did not finish");
     end
 
+    // Drive on the falling edge, sample on the rising edge. In HFAST mode a
+    // transaction starts at the falling edge where the previous one ended
+    // (no idle cycle) and BREADY / RREADY are high from the start.
+    task automatic host_edge;
+        begin
+            if (!(host_fast && ($time % 10 == 0)))
+                @(negedge clk);
+        end
+    endtask
+
     task automatic host_write(input [15:0] a, input [31:0] d, input [3:0] s);
         integer t0, dly_aw, dly_w, dly_b;
         begin
             t0 = cycle;
-            dly_aw = $urandom % 3;
-            dly_w = $urandom % 3;
-            dly_b = $urandom % 3;
-            @(negedge clk);     // drive on the falling edge, sample on the rising edge
+            dly_aw = host_fast ? 0 : $urandom % 3;
+            dly_w = host_fast ? 0 : $urandom % 3;
+            dly_b = host_fast ? 0 : $urandom % 3;
+            host_edge();
+            if (host_fast)
+                bready = 1'b1;
             fork
                 begin
                     repeat (dly_aw) @(negedge clk);
@@ -373,11 +405,14 @@ module tb_npu_hx_subsystem;
     endtask
 
     task automatic host_read(input [15:0] a, output [31:0] d);
-        integer dly_ar, dly_r;
+        integer t0, dly_ar, dly_r;
         begin
-            dly_ar = $urandom % 3;
-            dly_r = $urandom % 3;
-            @(negedge clk);
+            t0 = cycle;
+            dly_ar = host_fast ? 0 : $urandom % 3;
+            dly_r = host_fast ? 0 : $urandom % 3;
+            host_edge();
+            if (host_fast)
+                rready = 1'b1;
             repeat (dly_ar) @(negedge clk);
             araddr = a;
             arvalid = 1'b1;
@@ -393,6 +428,7 @@ module tb_npu_hx_subsystem;
             if (rresp != 2'b00) die("host read RRESP is not OKAY");
             @(negedge clk);
             rready = 1'b0;
+            if (cycle - t0 > 2000) die("host read took too long");
         end
     endtask
 
@@ -413,7 +449,7 @@ module tb_npu_hx_subsystem;
     reg [8*64-1:0] t_label [0:15];
     integer        t_start [0:15];
     reg [8*256-1:0] line;
-    logic [31:0] addr, data, expv, mask, value;
+    logic [31:0] addr, data, expv, mask, value, addr2;
     logic [3:0]  strb;
     logic        done_flag;
 
@@ -424,6 +460,7 @@ module tb_npu_hx_subsystem;
         cycle = 0;
         awaddr = '0; araddr = '0; wdata = '0; wstrb = '0;
         awvalid = 1'b0; wvalid = 1'b0; bready = 1'b0; arvalid = 1'b0; rready = 1'b0;
+        host_fast = 1'b0;
         ready_pct = 100;
         max_lat = 0;
         beats_r = 0;
@@ -480,6 +517,21 @@ module tb_npu_hx_subsystem;
             end else if (kw == "WS") begin
                 code = $fscanf(fd, "%h %h %h", addr, data, strb);
                 host_write(addr[15:0], data, strb);
+            end else if (kw == "HFAST") begin
+                code = $fscanf(fd, "%d", n);
+                host_fast = n[0];
+            end else if (kw == "RW") begin
+                // concurrent write and read (different registers)
+                code = $fscanf(fd, "%h %h %h %h %h", addr, data, addr2, expv, mask);
+                fork
+                    host_write(addr[15:0], data, 4'hF);
+                    host_read(addr2[15:0], value);
+                join
+                if ((value & mask) !== expv) begin
+                    $display("MISMATCH concurrent host read [%04h] = %08h (mask %08h), expected %08h",
+                             addr2[15:0], value, mask, expv);
+                    die("concurrent host read");
+                end
             end else if (kw == "R") begin
                 code = $fscanf(fd, "%h %h %h", addr, expv, mask);
                 host_read(addr[15:0], value);

@@ -83,7 +83,20 @@
 // output or at a register of this module (port-B requests, response
 // pulses, flush pulses, the serializer output); the remaining combinational
 // glue is the data-port decode (address bits -> valid/ready select), the
-// response OR-mux and the port-B priority mux.
+// response mux and the port-B priority mux. Cross-module chains (LUT levels,
+// review round 1 estimate):
+//   core alu_q -> d_is_* decode (3) -> d_req_ready / l1d_req_valid (1) ->
+//     core state, L1 D$ accept, ts_pend_q / mm_pend_q / err_resp_q (~2): ~6;
+//   L1 D$ tag register -> tag compare (resp_valid, 3) -> d_resp_valid (1) ->
+//     core state / load enable (~2): ~6 (the load data mux does not wait
+//     for the compare, see d_resp_rdata);
+//   DMA rd_issue (3) -> port-B mux (2) -> TCM BRAM address / WE setup, and
+//     -> h_gnt / ts_gnt -> npu_hx_regs window FSM, ts_pend_q (~2): ~5;
+//   TCM BRAM clock-to-out -> window lane mux -> core load_q / s_axi_rdata
+//     (2) (BRAM without output register: ~2 ns clock-to-out).
+// npu_hx_regs: AXI hold registers / core address -> register index mux ->
+// 32:1 read mux -> s_axi_rdata / mmio_resp_rdata, ~7 levels. All are well
+// inside 10 ns; the scalar core's own DECODE paths (~7 ns) stay the worst.
 module npu_hx_subsystem #(
     parameter integer HX_ENABLE_VECTOR = 1,
     parameter integer HX_ENABLE_L2 = 1,
@@ -278,12 +291,15 @@ module npu_hx_subsystem #(
     assign mmio_req_valid = d_req_valid && d_is_mmio;
     assign d_req_ready = (d_is_ddr && l1d_req_ready) || (d_is_tcm && !ts_pend_q) ||
                          (d_is_mmio && mmio_req_ready) || d_is_err;
-    // One response source at a time (one request outstanding): OR-mux.
+    // One response source at a time (one request outstanding). The read data
+    // is selected by the two registered response flags (TCM window, MMIO) and
+    // defaults to the L1 D$, whose resp_valid is its tag compare: that compare
+    // only gates the core's load enable, not the 32-bit data mux. d_resp_rdata
+    // is don't-care without d_resp_valid (and with d_resp_err).
     assign d_resp_valid = l1d_resp_valid || ts_resp_q || mmio_resp_valid || err_resp_q;
     assign d_resp_err = err_resp_q;
-    assign d_resp_rdata = (l1d_resp_valid ? l1d_resp_rdata : 32'd0) |
-                          (mmio_resp_valid ? mmio_resp_rdata : 32'd0) |
-                          (ts_resp_q ? (ts_lane_q ? b_rdata[63:32] : b_rdata[31:0]) : 32'd0);
+    assign d_resp_rdata = ts_resp_q ? (ts_lane_q ? b_rdata[63:32] : b_rdata[31:0]) :
+                          mmio_resp_valid ? mmio_resp_rdata : l1d_resp_rdata;
 
     // Scalar TCM window adapter: registered request, held until granted.
     logic ts_gnt;

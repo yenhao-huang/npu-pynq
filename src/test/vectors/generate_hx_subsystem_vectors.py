@@ -30,6 +30,12 @@ Script (one command per line, numbers hex unless marked dec, '#' comments)::
     W <off> <data>                host write, all byte strobes
     WS <off> <data> <strb>        host write with byte strobes
     R <off> <exp> <mask>          host read, check (rdata & mask) == exp
+    RW <woff> <wdata> <roff> <exp> <mask>
+                                  host write and host read issued
+                                  concurrently (different registers)
+    HFAST <0|1>                   host BFM: 1 = back-to-back transactions,
+                                  BREADY / RREADY high from the start;
+                                  0 = random delays (default)
     P <off> <mask> <val> <n dec>  poll until (rdata & mask) == val, <= n reads
     PN <off> <mask> <n dec>       poll until (rdata & mask) != 0, <= n reads
     IRQ <0|1>                     check the irq output
@@ -154,6 +160,12 @@ class Script:
 
     def r(self, off: int, exp: int, mask: int = 0xFFFFFFFF):
         self.emit(f"R {off:04x} {exp & mask:08x} {mask:08x}")
+
+    def rw(self, woff: int, wdata: int, roff: int, exp: int, mask: int = 0xFFFFFFFF):
+        self.emit(f"RW {woff:04x} {wdata & 0xFFFFFFFF:08x} {roff:04x} {exp & mask:08x} {mask:08x}")
+
+    def hfast(self, on: bool):
+        self.emit(f"HFAST {int(on)}")
 
     def poll(self, off: int, mask: int, val: int, n: int = POLL):
         self.emit(f"P {off:04x} {mask:08x} {val:08x} {n}")
@@ -433,6 +445,61 @@ PROG_E = f"""
 """
 
 
+PC_E2 = 0x1C00     # (e) scalar TCM traffic while the DMA streams
+PC_I = 0x3800      # (i) scalar MMIO traffic while the host accesses registers
+D_E2_DMA_OUT = 0x6000
+
+PROG_E2 = f"""
+    # TCM window traffic during DMA bursts on port B: 64 times
+    # dst[i] = src[i % 32] ^ i (32-bit lanes; src = TCM bytes 0..127,
+    # dst = TCM word 128..), checksum to DDR
+    li   s0, {TCM_BASE:#x}
+    li   s1, {TCM_BASE + 8 * 128:#x}
+    li   t0, 64
+    li   t1, 0
+    li   t3, 0
+loop:
+    andi t2, t1, 0x1f
+    slli t2, t2, 2
+    add  t4, s0, t2
+    lw   t5, 0(t4)
+    xor  t5, t5, t1
+    add  t3, t3, t5
+    slli t6, t1, 2
+    add  t6, s1, t6
+    sw   t5, 0(t6)
+    addi t1, t1, 1
+    bne  t1, t0, loop
+    li   s2, {D_E_OUT + 0x40:#x}
+    sw   t3, 0(s2)
+    ecall
+"""
+
+PROG_I = """
+    # MMIO traffic: MBOX0 iterations of MBOX3 += 1 and a STATUS / MAGIC read;
+    # MBOX0 = number of reads that saw STATUS.running, MBOX1 is the host's
+    lui  s0, 0x80000
+    lw   t0, 0x50(s0)
+    li   t1, 0
+    li   s1, 0x314e5848
+loop:
+    lw   t2, 0x5c(s0)
+    addi t2, t2, 1
+    sw   t2, 0x5c(s0)
+    lw   t3, 0x10(s0)
+    andi t3, t3, 1
+    add  t1, t1, t3
+    lw   t4, 0(s0)
+    bne  t4, s1, bad
+    addi t0, t0, -1
+    bnez t0, loop
+    sw   t1, 0x50(s0)
+    ecall
+bad:
+    ebreak
+"""
+
+
 def fault_programs():
     """(name, source, fault_cause or None, halt_cause, fault offset label)."""
     return [
@@ -563,6 +630,16 @@ def case_regs(s: Script, cfg: int):
     s.r(CYCLES, 0)
     s.irq(0)                             # IRQ_ENABLE = 7 but no event
     s.w(IRQ_EN, 0)
+    s.w(IRQ_EN, 0x7, 0xE)                # IRQ_ENABLE needs byte 0
+    s.r(IRQ_EN, 0)
+    # unmapped register offsets: writes are ignored (no aliasing of offset
+    # bits above the 32-register block onto the registers)
+    for off in (0x064, 0x07C, 0x080, 0x0FD4, 0x1050, 0x2014, 0x7FD0):
+        s.w(off, 0x5555AAAA)
+    expect = {off: val & mask for off, val, mask in rw}
+    expect.update({MBOX[0]: 0xDE22BE44, DMA_LEN: 0x0000FFFF, IRQ_EN: 0})
+    for off in sorted(expect):
+        s.r(off, expect[off])
     # random register traffic on the mailboxes (read-after-write)
     rng = random.Random(SEED + 1)
     shadow = {off: 0 for off in MBOX}
@@ -583,10 +660,50 @@ def case_regs(s: Script, cfg: int):
             shadow[off] = cur
         else:
             s.r(off, shadow[off])
+    # back-to-back and concurrent host traffic (a posted write and the next
+    # read may overlap on the Cortex-A9's GP0 port)
+    host_traffic(s, rng, shadow, 96, fast=True)
+    host_traffic(s, rng, shadow, 32, fast=False)
     # reset clears everything again
     s.rst()
     for off in [START_PC, DMA_DDR, DMA_TCM, DMA_LEN, IRQ_EN] + MBOX:
         s.r(off, 0)
+
+
+def host_traffic(s: Script, rng: random.Random, shadow: dict, n: int, fast: bool,
+                 window: int | None = None):
+    """n random host accesses on the registers in ``shadow`` (offset ->
+    value): writes, reads, and concurrent write + read pairs (RW) of two
+    different registers; with ``window`` (a TCM byte offset) the pairs also
+    mix a register access with a TCM window access. Updates ``shadow``."""
+    regs = sorted(shadow)
+    s.hfast(fast)
+    for _ in range(n):
+        kind = rng.random()
+        if kind < 0.3:
+            off = rng.choice(regs)
+            val = rng.getrandbits(32)
+            s.w(off, val)
+            shadow[off] = val
+        elif kind < 0.55:
+            off = rng.choice(regs)
+            s.r(off, shadow[off])
+        else:
+            woff, roff = rng.sample(regs, 2)
+            val = rng.getrandbits(32)
+            s.rw(woff, val, roff, shadow[roff])
+            shadow[woff] = val
+    if window is not None:
+        # register write || window read, window write || register read
+        for i in range(8):
+            woff = window + 4 * i
+            val = rng.getrandbits(32)
+            off = rng.choice(regs)
+            s.rw(woff, val, off, shadow[off])
+            reg_val = rng.getrandbits(32)
+            s.rw(off, reg_val, woff, val)
+            shadow[off] = reg_val
+    s.hfast(False)
 
 
 def case_b(s: Script, cfg: int, ideal: bool, tag: str):
@@ -686,6 +803,7 @@ def case_c(s: Script, cfg: int):
     s.r(INSTRET, res.instret)
     s.show(CYCLES, "c.cycles")
     s.show(VEC_CYCLES, "c.vec_cycles")
+    s.poll_nz(VEC_CYCLES, 0xFFFFFFFF, 0)
     s.t0("c_dma_out")
     s.dma(D_C_OUT, 64, 128, to_ddr=True)
     s.t1("c_dma_out")
@@ -724,6 +842,7 @@ def case_d(s: Script, cfg: int):
     s.r(DMA_DDR, D_D_DST)
     s.r(DMA_TCM, 8)
     s.r(DMA_LEN, 0x8000_0000 | words)
+    s.r(VEC_CYCLES, 0)      # START cleared it, no vector command since
     for i, v in enumerate(src):
         s.mc(D_D_DST + 4 * i, v + 1)
         s.r(TCM_WIN + 64 + 4 * i, v + 1)
@@ -804,6 +923,52 @@ def case_e(s: Script, cfg: int):
         s.r(TCM_WIN + 8 * (512 + wi), data[wi] & 0xFFFFFFFF)
         s.r(TCM_WIN + 8 * (512 + wi) + 4, data[wi] >> 32)
 
+    # all three port-B clients at once: the scalar core's TCM window
+    # traffic (PROG_E2) runs while the DMA streams DDR -> TCM and then
+    # TCM -> DDR, and the host hammers the window (back-to-back)
+    prog2 = assemble(PROG_E2, base=PC_E2)
+    ddr2 = bytearray(DDR_SIZE)
+    for a, wd in prog2.image().items():
+        ddr2[a:a + 4] = wd.to_bytes(4, "little")
+    iss2 = HxISS(ddr2, tcm)
+    res2 = iss2.run(PC_E2)
+    assert res2.status == "halt" and res2.cause == 0, res2
+    data2 = [rng.getrandbits(64) for _ in range(dma_words)]
+    s.load_image(prog2.image())
+    s.mw(D_E_OUT + 0x40, 0)
+    s.load_bytes(0x4800, words_to_bytes(data2))
+    for i in range(2 * dma_words):
+        s.mw(D_E2_DMA_OUT + 4 * i, 0xCCCCCCCC)
+    s.flush()
+    s.dma(0x4800, 512, dma_words, to_ddr=False, wait=False)
+    s.start(PC_E2)
+    s.hfast(True)
+    for i in range(16):
+        v = rng.getrandbits(32)
+        s.w(TCM_WIN + 4 * (64 + i), v)
+        s.r(TCM_WIN + 4 * (64 + i), v)
+    s.hfast(False)
+    s.poll_nz(STATUS, S_DDONE)
+    s.r(STATUS, S_RUNNING, S_RUNNING | S_DBUSY | S_DERR)   # still overlapping
+    s.dma(D_E2_DMA_OUT, 512, dma_words, to_ddr=True, wait=False)
+    s.hfast(True)
+    for i in range(16, 24):
+        v = rng.getrandbits(32)
+        s.w(TCM_WIN + 4 * (64 + i), v)
+        s.r(TCM_WIN + 4 * (64 + i), v)
+    s.hfast(False)
+    s.poll_nz(STATUS, S_DDONE)
+    s.r(STATUS, 0, S_DBUSY | S_DERR)
+    s.wait_stop()
+    s.r(STATUS, S_HALTED, S_RUNNING | S_HALTED | S_FAULT)
+    s.r(INSTRET, res2.instret)
+    s.flush()
+    s.mc(D_E_OUT + 0x40, iss2.word(D_E_OUT + 0x40))
+    s.check_bytes(D_E2_DMA_OUT, words_to_bytes(data2))
+    for wi in range(128, 160):
+        s.r(TCM_WIN + 8 * wi, int.from_bytes(tcm[8 * wi:8 * wi + 4], "little"))
+        s.r(TCM_WIN + 8 * wi + 4, int.from_bytes(tcm[8 * wi + 4:8 * wi + 8], "little"))
+
 
 def case_f(s: Script, cfg: int):
     name, vec, l2, dma = CONFIGS[cfg]
@@ -833,6 +998,9 @@ def case_f(s: Script, cfg: int):
     _, base, prog, _, _ = images[0]
     s.w(IRQ_EN, 0x2)
     s.irq(1)                    # the last program faulted: the event is pending
+    s.w(CONTROL, C_CLEAR, 0xE)  # CONTROL acts only with byte 0 written
+    s.irq(1)
+    s.r(STATUS, S_FEVT, S_FEVT)
     s.w(CONTROL, C_CLEAR)
     s.irq(0)
     s.r(STATUS, S_FAULT, S_FAULT | S_FEVT)   # fault itself is core state
@@ -962,6 +1130,36 @@ def case_h(s: Script, cfg: int):
     s.mc(D_H + 8, 0x222)
 
 
+def case_i(s: Script, cfg: int):
+    """Scalar MMIO accesses collide with host register accesses on the one
+    register port of npu_hx_regs (the scalar access has precedence)."""
+    name = CONFIGS[cfg][0]
+    rng = random.Random(SEED + 6)
+    iters = 60
+    prog = assemble(PROG_I, base=PC_I)
+    s.case(f"i_mmio_host_concurrency_{name}")
+    s.cfg(90, 1)
+    s.load_image(prog.image())
+    s.flush()
+    s.w(MBOX[0], iters)
+    s.w(MBOX[3], 0)
+    shadow = {MBOX[1]: 0, MBOX[2]: 0, START_PC: PC_I}
+    if CONFIGS[cfg][3]:
+        shadow.update({DMA_DDR: 0, DMA_TCM: 0})
+    for off, val in shadow.items():
+        s.w(off, val)
+    s.w(CONTROL, C_START)
+    host_traffic(s, rng, shadow, 160, fast=True, window=TCM_WIN + 8 * 300)
+    s.r(STATUS, S_RUNNING, S_RUNNING)    # the traffic overlapped the program
+    s.wait_stop()
+    s.r(STATUS, S_HALTED, S_RUNNING | S_HALTED | S_FAULT)
+    s.r(CAUSE, 0, 0x107)
+    s.r(MBOX[0], iters)
+    s.r(MBOX[3], iters)
+    for off in sorted(shadow):
+        s.r(off, shadow[off])
+
+
 def build_script() -> Script:
     s = Script()
     # configuration 0: every unit, every scenario
@@ -975,6 +1173,7 @@ def build_script() -> Script:
     case_f(s, 0)
     case_g(s, 0)
     case_h(s, 0)
+    case_i(s, 0)
     # configuration 1: no vector unit
     s.config(1)
     case_regs(s, 1)
@@ -992,6 +1191,7 @@ def build_script() -> Script:
     case_b(s, 3, ideal=False, tag="nodma_random")
     case_e(s, 3)
     case_f(s, 3)
+    case_i(s, 3)
     return s
 
 
