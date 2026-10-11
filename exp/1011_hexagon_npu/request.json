@@ -1,4 +1,6 @@
 {
-  "id": "008-baseline-overlay-power",
-  "overlay": {"mode": "build"}
+  "id": "009-hexagon-board",
+  "overlay": {"mode": "run", "run_id": "38169804215"},
+  "export": {"cmd": "bash exp/1011_hexagon_npu/export_smollm.sh build/exp-payload"},
+  "board": {"script": "exp/1011_hexagon_npu/board/run_hexagon.sh", "timeout_minutes": 120}
 }

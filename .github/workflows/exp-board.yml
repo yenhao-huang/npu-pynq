@@ -222,6 +222,9 @@ jobs:
             'set -u'
             "cd '$remote'"
             'tar -xzf payload.tgz && rm payload.tgz'
+            # The Windows runner may hand over CRLF scripts (a reused checkout keeps
+            # files git did not rewrite); bash on the board needs LF.
+            "find src exp -name '*.sh' -exec sed -i 's/\r`$//' {} +"
             'mkdir -p results'
             'code=0'
             "bash '$script' '$remote' > results/board.log 2>&1 || code=`$?"
