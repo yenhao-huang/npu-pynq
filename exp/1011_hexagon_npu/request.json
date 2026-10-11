@@ -1,0 +1,8 @@
+{
+  "id": "001-ppa-baseline",
+  "ppa": [
+    {"name": "base_npu_pe", "top": "npu_pe"},
+    {"name": "base_npu_systolic_array_16x16", "top": "npu_systolic_array", "generics": ["ROWS=16", "COLUMNS=16"]},
+    {"name": "base_npu_accelerator_16x16", "top": "npu_accelerator", "generics": ["ROWS=16", "COLUMNS=16", "MAX_K=256", "IN_BYTES=8"], "clock_port": "s_axi_aclk"}
+  ]
+}

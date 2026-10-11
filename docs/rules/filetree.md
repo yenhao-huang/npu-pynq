@@ -18,7 +18,7 @@ npu_repo_in_pynq/
 |   `-- workflows/
 |       |-- cd.yml
 |       |-- ci.yml
-|       |-- exp-board.yml       issue-119 experiment runs on the self-hosted runners
+|       |-- exp-board.yml       issue-119 and issue-136 experiment runs on the self-hosted runners
 |       `-- release-publish.yml
 |-- .codex/
 |   `-- skills/
@@ -149,6 +149,8 @@ npu_repo_in_pynq/
 |   |-- 0911_performance_optimization/  compact hardware and board results
 |   |-- 1007_sw_stack/          software-stack goal (#119): exp-board request, export
 |   |                           and board scripts, host evaluation scripts and results
+|   |-- 1011_hexagon_npu/       heterogeneous NPU goal (#136): exp-board request (PPA,
+|   |                           overlay, board) and board scripts
 |   `-- ab_test/                IC-tool A/B report and experiment source
 |-- openspec/
 |   |-- changes/
