@@ -4,7 +4,7 @@ Report.md compares whole arms. This answers a narrower question: single-round ha
 same IC tools, so where does the multi-round advantage come from, and what does a round
 cost relative to a single-round attempt?
 
-Run from exp/ab_test/:  python3 analysis/multi_round_analysis.py  -> evidence/multi_round_analysis.json
+Run from exp/ab_test/:  python3 analysis/multi_round_analysis.py  -> results/multi_round_analysis.json
 """
 import itertools
 import json
@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT.parent))
 from analyze import load, MODELS  # noqa: E402
 from src.grade.pareto import eligible  # noqa: E402
+from src.agent.parse import parse_stream  # noqa: E402
 
 MAX_ROUNDS = 5
 TOP_N = 5
@@ -51,32 +52,43 @@ def candidate(row, number):
 def round_usage(row):
     """round number -> (cost_usd, input_tokens, output_tokens), read from the CLI stream.
 
-    Claude reports a billed cost; Codex reports tokens only, so its cost stays 0.
-    Input counts every token the request was charged for, cached reads included.
+    Claude's total_cost_usd and Codex's usage are cumulative session totals;
+    subtract the preceding round. Claude's result usage is already per round.
+    Input includes cached reads.
     """
     usage = {}
-    streams = sorted(row["_dir"].glob("round*.jsonl"))
+    streams = sorted(row["_dir"].glob("round*.jsonl"),
+                     key=lambda path: int(path.stem[len("round"):]))
     if not streams:
         raise FileNotFoundError(
             f"Per-round usage needs the archived CLI streams under {row['_dir']}"
         )
+    previous_cost = 0.0
+    previous_codex = {}
     for path in streams:
-        cost = inputs = outputs = 0
-        for line in path.read_text().splitlines():
-            try:
-                event = json.loads(line)
-            except ValueError:
-                continue
-            if event.get("type") == "result" and "total_cost_usd" in event:        # Claude
-                cost = event["total_cost_usd"] or 0
-                u = event.get("usage") or {}
-                inputs = sum((u.get(k) or 0) for k in
-                             ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
-                outputs = u.get("output_tokens") or 0
-            elif event.get("type") == "turn.completed":                            # Codex
-                u = event.get("usage") or {}
-                inputs += u.get("input_tokens") or 0
-                outputs += u.get("output_tokens") or 0
+        _, result, _, _, _ = parse_stream(path.read_text())
+        counts = result.get("usage") or {}
+        if result.get("synthesized") == "codex":
+            cost = 0.0
+            if any(v for v in counts.values() if isinstance(v, (int, float))):
+                deltas = {key: (counts.get(key) or 0) - (previous_codex.get(key) or 0)
+                          for key in ("input_tokens", "cache_read_input_tokens", "output_tokens")}
+                if any(value < 0 for value in deltas.values()):
+                    raise ValueError(f"Codex session usage decreased in {path}")
+                inputs = deltas["input_tokens"] + deltas["cache_read_input_tokens"]
+                outputs = deltas["output_tokens"]
+                previous_codex = counts
+            else:
+                inputs = outputs = 0
+        else:
+            total_cost = result.get("total_cost_usd") or previous_cost
+            if total_cost < previous_cost:
+                raise ValueError(f"Claude session cost decreased in {path}")
+            cost = total_cost - previous_cost
+            previous_cost = total_cost
+            inputs = sum((counts.get(key) or 0) for key in
+                         ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
+            outputs = counts.get("output_tokens") or 0
         usage[int(path.stem.replace("round", ""))] = (cost, inputs, outputs)
     return usage
 
@@ -108,8 +120,29 @@ def derived_clocks(source):
     return sorted(edges - input_ports(source))
 
 
-def cost_table(single, multi):
-    """Mean cost and tokens of one multi-round round against one single-round attempt."""
+def api_cost_estimate(rows, units):
+    """GPT-6 Sol Standard API scenarios and their mean, USD/unit (2026-10-11).
+
+    Cached reads use their own rate. The run archive does not identify which
+    individual requests crossed the 272K long-context threshold, so apply the
+    short and long rates to all tokens, then average the two estimates. This
+    single figure is illustrative, not a bill.
+    """
+    usage = {key: sum(row.get("usage", {}).get(key, 0) or 0 for row in rows)
+             for key in ("input_tokens", "cache_read_input_tokens", "output_tokens")}
+    def price(input_rate, cached_rate, output_rate):
+        return (usage["input_tokens"] * input_rate
+                + usage["cache_read_input_tokens"] * cached_rate
+                + usage["output_tokens"] * output_rate) / 1_000_000 / units
+    short = price(2, 0.2, 10)
+    long = price(4, 0.4, 15)
+    return dict(short_context_usd=short, long_context_usd=long,
+                mean_usd=(short + long) / 2)
+
+
+def cost_table(baseline, single, multi, model):
+    """Mean cost and tokens per baseline/single attempt and multi-round round."""
+    baseline_values = [u for row in baseline for u in round_usage(row).values()]
     base = [u for row in single for u in round_usage(row).values()]
     mean = lambda rows, i: sum(u[i] for u in rows) / len(rows)
     by_round = {}
@@ -118,7 +151,10 @@ def cost_table(single, multi):
             by_round.setdefault(number, []).append(u)
     every = [u for group in by_round.values() for u in group]
     ratio = lambda rows, i: mean(rows, i) / mean(base, i) if mean(base, i) else None
-    return dict(
+    result = dict(
+        baseline_attempt=dict(n=len(baseline_values), cost_usd=mean(baseline_values, 0),
+                              input_tokens=mean(baseline_values, 1),
+                              output_tokens=mean(baseline_values, 2)),
         single_attempt=dict(n=len(base), cost_usd=mean(base, 0),
                             input_tokens=mean(base, 1), output_tokens=mean(base, 2)),
         multi_round_mean=dict(n=len(every), cost_usd=mean(every, 0),
@@ -129,6 +165,11 @@ def cost_table(single, multi):
                            output_tokens=mean(g, 2), cost_ratio=ratio(g, 0),
                            input_ratio=ratio(g, 1), output_ratio=ratio(g, 2))
                    for n, g in sorted(by_round.items())})
+    if model == "gpt-6-sol":
+        result["baseline_attempt"]["api_estimate"] = api_cost_estimate(baseline, len(baseline_values))
+        result["single_attempt"]["api_estimate"] = api_cost_estimate(single, len(base))
+        result["multi_round_mean"]["api_estimate"] = api_cost_estimate(multi, len(every))
+    return result
 
 
 def best_of_k(single_best, multi_rounds, problems):
@@ -154,6 +195,7 @@ def best_of_k(single_best, multi_rounds, problems):
 def main():
     out = {}
     for model in MODELS:
+        baseline = clean(load(model, "baseline")[1])
         single, multi = clean(load(model, "single-round")[1]), clean(load(model, "multi-round")[1])
 
         single_best, single_pick = {}, {}
@@ -192,7 +234,7 @@ def main():
                      if max(single_best[p]) - min(single_best[p]) < 1e-9 * max(single_best[p])]
 
         out[model] = dict(
-            cost=cost_table(single, multi),
+            cost=cost_table(baseline, single, multi, model),
             best_of_k=best_of_k(single_best, multi_rounds, problems),
             collapse=dict(identical=len(identical), complete=len(complete), problems=sorted(identical)),
             paired=dict(geomean=geomean([d["ratio"] for d in deltas]), n=len(deltas),
