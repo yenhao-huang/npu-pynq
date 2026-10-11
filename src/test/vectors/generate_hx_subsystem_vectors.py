@@ -42,6 +42,10 @@ Script (one command per line, numbers hex unless marked dec, '#' comments)::
     T0 <label>                    start a cycle stopwatch
     T1 <label>                    print the cycles since T0
     SHOW <off> <label>            host read, print the value (decimal)
+    CPY <src> <dst>               host read of src, host write of the value to dst
+    PROF <label>                  print the testbench's per-instruction-class
+                                  cycle profile of the scalar core since the
+                                  last accepted START (measurement only)
     END
 
     python3 -m src.test.vectors.generate_hx_subsystem_vectors [--check]
@@ -54,6 +58,7 @@ import random
 import sys
 from pathlib import Path
 
+from src.runtime import hexagon as hxr
 from src.test.model import hx_numeric as hx
 from src.test.model import hx_vector as hv
 from src.test.model.rv32_asm import assemble
@@ -76,7 +81,7 @@ MBOX = [0x50, 0x54, 0x58, 0x5C]
 VEC_CYCLES = 0x60
 TCM_WIN = 0x8000
 
-C_START, C_FLUSH, C_DMA, C_CLEAR = 1, 2, 4, 8
+C_START, C_FLUSH, C_DMA, C_CLEAR, C_STOP = 1, 2, 4, 8, 0x10
 S_RUNNING, S_HALTED, S_FAULT, S_VBUSY, S_DBUSY, S_FBUSY = 1, 2, 4, 8, 0x10, 0x20
 S_VILL, S_DERR, S_DDONE, S_BERR, S_HEVT, S_FEVT = 0x40, 0x80, 0x100, 0x200, 0x400, 0x800
 
@@ -185,6 +190,12 @@ class Script:
     def show(self, off: int, label: str):
         self.emit(f"SHOW {off:04x} {label}")
 
+    def prof(self, label: str):
+        self.emit(f"PROF {label}")
+
+    def cpy(self, src: int, dst: int):
+        self.emit(f"CPY {src:04x} {dst:04x}")
+
     # ------------------------------------------------------------ helpers
     def load_image(self, image: dict[int, int]):
         for addr in sorted(image):
@@ -216,10 +227,10 @@ class Script:
         self.wait_stop()
         if fault_cause is None:
             self.r(STATUS, S_HALTED, S_RUNNING | S_HALTED | S_FAULT)
-            self.r(CAUSE, (halt_cause or 0) << 8, 0x107)
+            self.r(CAUSE, (halt_cause or 0) << 8, 0x307)
         else:
             self.r(STATUS, S_FAULT, S_RUNNING | S_HALTED | S_FAULT)
-            self.r(CAUSE, fault_cause, 0x107)
+            self.r(CAUSE, fault_cause, 0x307)
             if fault_pc is not None:
                 self.r(FAULT_PC, fault_pc)
 
@@ -595,7 +606,7 @@ def prog_h2(value: int) -> str:
 def case_regs(s: Script, cfg: int):
     name, vec, l2, dma = CONFIGS[cfg]
     s.case(f"regs_{name}")
-    for off, exp in ((MAGIC, 0x314E5848), (VERSION, 0x00010000), (CAPS, caps_of(vec, l2, dma))):
+    for off, exp in ((MAGIC, 0x314E5848), (VERSION, 0x00010001), (CAPS, caps_of(vec, l2, dma))):
         s.r(off, exp)
     if cfg != 0:
         return
@@ -741,6 +752,7 @@ def case_b(s: Script, cfg: int, ideal: bool, tag: str):
     s.t1(f"b_{tag}")
     s.r(INSTRET, res.instret)
     s.show_counters(f"b_{tag}")
+    s.prof(f"b_{tag}")
     s.flush()
     for a in sorted(set(init) | iss.ddr_written):
         s.mc(a, iss.word(a))
@@ -803,6 +815,7 @@ def case_c(s: Script, cfg: int):
     s.r(INSTRET, res.instret)
     s.show(CYCLES, "c.cycles")
     s.show(VEC_CYCLES, "c.vec_cycles")
+    s.prof("c")
     s.poll_nz(VEC_CYCLES, 0xFFFFFFFF, 0)
     s.t0("c_dma_out")
     s.dma(D_C_OUT, 64, 128, to_ddr=True)
@@ -813,6 +826,96 @@ def case_c(s: Script, cfg: int):
     for wi in (64, 95, 160, 191):
         s.r(TCM_WIN + 8 * wi, model.tcm[wi] & 0xFFFFFFFF)
         s.r(TCM_WIN + 8 * wi + 4, model.tcm[wi] >> 32)
+
+
+# Mailbox-driven vector kernels as the board self-test runs them
+# (MAILBOX0 = W words per operand, MAILBOX1 = the FP16 coefficient; TCM: x at
+# word 0, r / y at word W, the result at word 2W).
+PC_K = 0x3C00          # (k) board vector kernels, 0x100 bytes each
+D_K = 0x4000           # (k) DDR in: x | y (W words each), out at D_K + 0x1000
+
+
+class MailboxHxISS(HxISS):
+    """HxISS with MAILBOX0-3 readable through the MMIO window."""
+
+    def __init__(self, ddr, tcm, mailbox):
+        super().__init__(ddr, tcm)
+        self.mailbox = mailbox
+
+    def _region(self, addr: int, size: int):
+        if MMIO_BASE + MBOX[0] <= addr and addr + size <= MMIO_BASE + MBOX[3] + 4:
+            buf = bytearray(b"".join(v.to_bytes(4, "little") for v in self.mailbox))
+            return buf, addr - MMIO_BASE - MBOX[0]
+        return super()._region(addr, size)
+
+
+def case_k(s: Script, cfg: int, unroll: int):
+    """The board self-test's vector kernels (hexagon.vector_kernel_source) at
+    the board's default size (512 lanes: W = 64 INT8 / 128 FP16 words per
+    operand): DMA in, run, DMA out, bit-exact against hx_vector; cycles and
+    the profile for the report."""
+    name = CONFIGS[cfg][0]
+    kernels = {k: hxr.vector_kernel_source(k, unroll) for k in hxr.VECTOR_KERNELS}
+    tag = f"u{unroll}"
+    rng = random.Random(SEED + 7)
+    a_fp16 = 0xBA00
+    s.case(f"k_kernels_{tag}_{name}")
+    s.cfg(100, 0)
+    for ki, kind in enumerate(("int8", "fp16")):
+        w = 64 if kind == "int8" else 128
+        base = PC_K + 0x100 * ki
+        prog = assemble(kernels[kind], base=base)
+        assert len(prog.words) * 4 <= 0x100, (kind, len(prog.words))
+        if kind == "int8":
+            x = [rng.getrandbits(64) for _ in range(w)]
+            y = [rng.getrandbits(64) for _ in range(w)]
+        else:
+            def fp16_word():
+                lanes = []
+                for _ in range(4):
+                    lanes.append((rng.getrandbits(1) << 15) | (rng.randint(8, 22) << 10)
+                                 | rng.getrandbits(10))
+                return hv.join_lanes(lanes, 16)
+            x = [fp16_word() for _ in range(w)]
+            y = [fp16_word() for _ in range(w)]
+        tcm = bytearray(TCM_WORDS * 8)
+        iss = MailboxHxISS(bytearray(DDR_SIZE), tcm, [w, a_fp16, 0, 0])
+        iss.load_words(prog.image())
+        res = iss.run(base)
+        assert res.status == "halt" and res.cause == 0, res
+        model = hv.VectorUnitModel(vlen=64, nregs=8, tcm_words=TCM_WORDS)
+        model.tcm[0:2 * w] = x + y
+        for c in iss.vcmds:
+            model.execute(hv.VectorCommand(op=c.op, typ=c.vtype, vd=c.vd, vs1=c.vs1, vs2=c.vs2,
+                                           addr=c.scalar % TCM_WORDS, scalar=c.scalar))
+        assert not model.illegal
+        out = model.tcm[2 * w:3 * w]
+        # independent reference: word by word, as the kernel computes it
+        for i in range(w):
+            if kind == "int8":
+                ref = hv.vector_op(hv.OP_VADD, hv.TYPE_INT8, x[i], y[i], 0)
+            else:
+                av = hv.splat(hv.TYPE_FP16, a_fp16, 64)
+                ref = hv.vector_op(hv.OP_VADD, hv.TYPE_FP16,
+                                   hv.vector_op(hv.OP_VMUL, hv.TYPE_FP16, av, x[i], 0), y[i], 0)
+            assert out[i] == ref, (kind, i)
+        s.comment(f"{kind} kernel, W = {w}")
+        s.load_image(prog.image())
+        s.load_bytes(D_K, words_to_bytes(x + y))
+        for i in range(2 * w):
+            s.mw(D_K + 0x1000 + 4 * i, 0xCCCCCCCC)
+        s.flush()
+        s.dma(D_K, 0, 2 * w, to_ddr=False)
+        s.w(MBOX[0], w)
+        s.w(MBOX[1], a_fp16)
+        s.run(base)
+        s.r(STATUS, 0, S_VBUSY | S_VILL)
+        s.r(INSTRET, res.instret)
+        s.show(CYCLES, f"k_{tag}_{kind}.cycles")
+        s.show(VEC_CYCLES, f"k_{tag}_{kind}.vec_cycles")
+        s.prof(f"k_{tag}_{kind}")
+        s.dma(D_K + 0x1000, 2 * w, w, to_ddr=True)
+        s.check_bytes(D_K + 0x1000, words_to_bytes(out))
 
 
 def case_d(s: Script, cfg: int):
@@ -843,6 +946,8 @@ def case_d(s: Script, cfg: int):
     s.r(DMA_TCM, 8)
     s.r(DMA_LEN, 0x8000_0000 | words)
     s.r(VEC_CYCLES, 0)      # START cleared it, no vector command since
+    s.show(CYCLES, "d.cycles")
+    s.prof("d")
     for i, v in enumerate(src):
         s.mc(D_D_DST + 4 * i, v + 1)
         s.r(TCM_WIN + 64 + 4 * i, v + 1)
@@ -899,6 +1004,8 @@ def case_e(s: Script, cfg: int):
     s.flush()
     s.run(PC_E)
     s.r(INSTRET, res.instret)
+    s.show(CYCLES, "e.cycles")
+    s.prof("e")
     s.flush()
     for a in sorted(iss.ddr_written):
         s.mc(a, iss.word(a))
@@ -1154,10 +1261,131 @@ def case_i(s: Script, cfg: int):
     s.wait_stop()
     s.r(STATUS, S_HALTED, S_RUNNING | S_HALTED | S_FAULT)
     s.r(CAUSE, 0, 0x107)
+    s.show(CYCLES, f"i_{name}.cycles")
+    s.prof(f"i_{name}")
     s.r(MBOX[0], iters)
     s.r(MBOX[3], iters)
     for off in sorted(shadow):
         s.r(off, shadow[off])
+
+
+PC_J = 0x2C00          # (j) STOP / resume
+D_J = 0xE000
+TCM_J = 900            # TCM word of the (j) counter
+
+PROG_J = f"""
+    # vector work first (VEC_CYCLES > 0), then a loop that only ends when the
+    # host sets MAILBOX0: a hung program for CONTROL.STOP. Every iteration
+    # bumps a DDR, a TCM and an MMIO counter (load, add, store) and two
+    # register counters; at the exit MAILBOX1 = 0 iff all of them agree, i.e.
+    # no instruction was skipped or executed twice across the stops/resumes.
+    lui  s0, 0x80000
+    li   s1, {D_J:#x}
+    li   s2, {TCM_BASE + 8 * TCM_J:#x}
+    li   t0, 0
+    li   t2, 0
+    li   t4, 7
+    li   a3, {TCM_J + 1}
+    vsplat.i32 v1, t4
+    vadd.i32   v2, v1, v1
+    vst        v2, a3
+    vfence
+loop:
+    addi t0, t0, 1
+    lw   t5, 0(s1)
+    addi t5, t5, 1
+    sw   t5, 0(s1)
+    lw   t6, 0(s2)
+    addi t6, t6, 1
+    sw   t6, 0(s2)
+    lw   t4, 0x5c(s0)
+    addi t4, t4, 1
+    sw   t4, 0x5c(s0)
+    addi t2, t2, 1
+    vadd.i32   v3, v2, v1    # a STOP may land in VCMD / VFENCE too
+    vfence
+    lw   t1, 0x50(s0)
+    beqz t1, loop
+    sub  t3, t0, t2
+    sub  a0, t5, t0
+    sub  a1, t6, t0
+    sub  a2, t4, t0
+    or   t3, t3, a0
+    or   t3, t3, a1
+    or   t3, t3, a2
+    sw   t3, 0x54(s0)
+    sw   t0, 0x58(s0)
+    ecall
+"""
+
+
+def case_j(s: Script, cfg: int):
+    """CONTROL.STOP: ignored while idle, START|STOP on an idle core is a
+    START, STOP during the very first fetch (FAULT_PC = START_PC, INSTRET 0),
+    repeated STOP / resume (START at FAULT_PC) of a running loop with halt
+    cause 2, the halt event and IRQ, and a START while running that must not
+    clear VEC_CYCLES (review round 1 mutant M32)."""
+    name = CONFIGS[cfg][0]
+    rng = random.Random(SEED + 8)
+    prog = assemble(PROG_J, base=PC_J)
+    s.case(f"j_stop_resume_{name}")
+    s.cfg(100, 0)
+    s.load_image(prog.image())
+    s.mw(D_J, 0)
+    s.w(TCM_WIN + 8 * TCM_J, 0)
+    for off in (MBOX[0], MBOX[1], MBOX[2], MBOX[3]):
+        s.w(off, 0)
+    s.flush()
+    # STOP on an idle (halted) core: nothing happens
+    s.w(CONTROL, C_CLEAR)
+    s.r(STATUS, S_HALTED, S_RUNNING | S_HALTED | S_FAULT | S_HEVT | S_FEVT)
+    s.w(CONTROL, C_STOP)
+    s.r(STATUS, S_HALTED, S_RUNNING | S_HALTED | S_FAULT | S_HEVT | S_FEVT)
+    s.r(CAUSE, 0, 0x307)
+    # STOP while the first instruction is being fetched (L1 I$ miss after the
+    # flush): stops before it, nothing retired
+    s.w(START_PC, PC_J)
+    s.hfast(True)
+    s.w(CONTROL, C_START)
+    s.w(CONTROL, C_STOP)
+    s.hfast(False)
+    s.wait_stop()
+    s.r(STATUS, S_HALTED | S_HEVT, S_RUNNING | S_HALTED | S_FAULT | S_HEVT | S_FEVT)
+    s.r(CAUSE, 0x200, 0x307)
+    s.r(FAULT_PC, PC_J)
+    s.r(INSTRET, 0)
+    # START | STOP on a stopped core is a plain START
+    s.w(CONTROL, C_START | C_STOP)
+    s.poll_nz(MBOX[3], 0xFFFFFFFF)
+    s.r(STATUS, S_RUNNING, S_RUNNING | S_HALTED | S_FAULT | S_HEVT)
+    # START while running is ignored: VEC_CYCLES (counted during the vector
+    # prologue) and the events must survive it (M32)
+    s.w(CONTROL, C_START)
+    s.r(STATUS, S_RUNNING, S_RUNNING | S_HALTED | S_FAULT | S_HEVT | S_FEVT)
+    s.poll_nz(VEC_CYCLES, 0xFFFFFFFF, 0)
+    # repeated STOP / resume at varying points of the loop
+    s.w(IRQ_EN, 0x1)
+    for _ in range(10):
+        for _ in range(rng.randint(0, 6)):
+            s.r(MBOX[3], 0, 0)
+        s.w(CONTROL, C_STOP)
+        s.wait_stop()
+        s.r(STATUS, S_HALTED | S_HEVT, S_RUNNING | S_HALTED | S_FAULT | S_HEVT | S_FEVT)
+        s.r(CAUSE, 0x200, 0x307)
+        s.irq(1)
+        s.w(CONTROL, C_CLEAR)
+        s.irq(0)
+        s.cpy(FAULT_PC, START_PC)
+        s.w(CONTROL, C_START)
+        s.r(STATUS, S_RUNNING, S_RUNNING)
+    s.w(IRQ_EN, 0)
+    # let the program finish
+    s.w(MBOX[0], 1)
+    s.wait_stop()
+    s.r(STATUS, S_HALTED, S_RUNNING | S_HALTED | S_FAULT)
+    s.r(CAUSE, 0, 0x307)
+    s.r(MBOX[1], 0)                      # every counter agrees
+    s.r(STATUS, 0, S_VILL | S_BERR)
 
 
 def build_script() -> Script:
@@ -1174,6 +1402,9 @@ def build_script() -> Script:
     case_g(s, 0)
     case_h(s, 0)
     case_i(s, 0)
+    case_j(s, 0)
+    case_k(s, 0, 4)
+    case_k(s, 0, 1)
     # configuration 1: no vector unit
     s.config(1)
     case_regs(s, 1)
@@ -1192,6 +1423,7 @@ def build_script() -> Script:
     case_e(s, 3)
     case_f(s, 3)
     case_i(s, 3)
+    case_j(s, 3)
     return s
 
 

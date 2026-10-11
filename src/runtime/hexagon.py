@@ -21,6 +21,15 @@ Memory model the caller must respect:
   0x3FFF_FFFF to DDR unchanged), so a program runs from
   ``buffer.physical_address``.
 
+A hung program is recovered with :meth:`HexagonNpu.stop` (CONTROL.STOP,
+VERSION >= 0x00010001): the core stops at the next instruction boundary and
+reports a halt with cause 2; FAULT_PC is the resume address.
+:meth:`HexagonNpu.run` stops the core itself when its timeout expires.
+
+:func:`vector_kernel_source` returns the reference vector kernels (INT8
+residual add, FP16 a*x+y) that the board self-test runs; tb_npu_hx_subsystem
+simulates the same sources.
+
 The MMIO object (``read(offset)`` / ``write(offset, value)``) and the buffer
 allocator are injectable, so the driver is unit-tested on a host without
 pynq (``src/test/tests/test_hexagon_runtime.py``); pynq is imported lazily,
@@ -64,13 +73,15 @@ TCM_WINDOW = 0x8000          # 0x8000-0xFFFF: word = offset[14:3], lane = offset
 TCM_WINDOW_BYTES = 0x8000
 
 HX_MAGIC = 0x314E5848        # "HXN1"
-HX_VERSION = 0x00010000
+HX_VERSION = 0x00010001      # minor 1: CONTROL.STOP, CAUSE[9:8]
+HX_VERSION_STOP = 0x00010001  # first VERSION with CONTROL.STOP
 
 # CONTROL bits (write-only pulses)
 CONTROL_START = 1 << 0
 CONTROL_FLUSH = 1 << 1
 CONTROL_DMA_START = 1 << 2
 CONTROL_CLEAR = 1 << 3
+CONTROL_STOP = 1 << 4        # stop the running scalar core (VERSION >= 0x00010001)
 
 # STATUS bits
 STATUS_RUNNING = 1 << 0
@@ -83,7 +94,7 @@ STATUS_VEC_ILLEGAL = 1 << 6
 STATUS_DMA_ERROR = 1 << 7
 STATUS_DMA_DONE = 1 << 8     # sticky
 STATUS_BUS_ERROR = 1 << 9    # sticky
-STATUS_HALT_EVENT = 1 << 10  # sticky, cleared by START (core idle) or CLEAR
+STATUS_HALT_EVENT = 1 << 10  # sticky (also set by a STOP), cleared by START (core idle) or CLEAR
 STATUS_FAULT_EVENT = 1 << 11  # sticky, cleared by START (core idle) or CLEAR
 
 STATUS_NAMES = {
@@ -116,6 +127,8 @@ CAPS_DMA = 1 << 6
 # CAUSE fields and the scalar core's cause codes (rv32_iss FAULT_* / HALT_*)
 CAUSE_FAULT_MASK = 0x7
 CAUSE_HALT_SHIFT = 8
+CAUSE_HALT_MASK = 0x3        # CAUSE[9:8]
+HALT_ECALL, HALT_EBREAK, HALT_STOP = 0, 1, 2
 FAULT_NAMES = {
     0: "none",
     1: "illegal instruction",
@@ -125,7 +138,7 @@ FAULT_NAMES = {
     5: "instruction bus error",
     6: "data bus error (unmapped data address)",
 }
-HALT_NAMES = {0: "ecall", 1: "ebreak"}
+HALT_NAMES = {HALT_ECALL: "ecall", HALT_EBREAK: "ebreak", HALT_STOP: "stop"}
 
 CLOCK_HZ = 100_000_000       # FCLK_CLK0 of the overlay
 MASK32 = 0xFFFFFFFF
@@ -137,11 +150,14 @@ class HexagonError(RuntimeError):
 
 
 class HexagonTimeout(HexagonError):
-    """A program, flush or DMA did not finish within the timeout."""
+    """A program, flush or DMA did not finish within the timeout. When
+    :meth:`HexagonNpu.run` stopped the program after its timeout, ``result``
+    holds the :class:`RunResult` of the stop (halt cause ``"stop"``)."""
 
-    def __init__(self, message: str, status: int):
+    def __init__(self, message: str, status: int, result: "RunResult | None" = None):
         super().__init__(message)
         self.status = status
+        self.result = result
 
 
 class HexagonFault(HexagonError):
@@ -197,7 +213,8 @@ class RunResult:
     fault: bool
     halt_cause: int
     fault_cause: int
-    fault_pc: int          # the stopping PC (ECALL/EBREAK address on a halt)
+    fault_pc: int          # the stopping PC: ECALL / EBREAK / faulting instruction;
+                           # after a STOP the first instruction not executed
     cycles: int
     instret: int
     vec_cycles: int
@@ -208,6 +225,11 @@ class RunResult:
         if self.fault:
             return FAULT_NAMES.get(self.fault_cause, f"unknown ({self.fault_cause})")
         return HALT_NAMES.get(self.halt_cause, f"unknown ({self.halt_cause})")
+
+    @property
+    def stopped(self) -> bool:
+        """Halted by CONTROL.STOP; resume with ``start(fault_pc)``."""
+        return self.halted and self.halt_cause == HALT_STOP
 
     @property
     def cpi(self) -> float:
@@ -401,7 +423,7 @@ class HexagonNpu:
             status=status,
             halted=bool(status & STATUS_HALTED),
             fault=bool(status & STATUS_FAULT),
-            halt_cause=(cause >> CAUSE_HALT_SHIFT) & 1,
+            halt_cause=(cause >> CAUSE_HALT_SHIFT) & CAUSE_HALT_MASK,
             fault_cause=cause & CAUSE_FAULT_MASK,
             fault_pc=self.read(REG_FAULT_PC),
             cycles=self.read(REG_CYCLES),
@@ -428,10 +450,39 @@ class HexagonNpu:
             raise HexagonFault(result)
         return result
 
+    @property
+    def has_stop(self) -> bool:
+        """CONTROL.STOP exists (VERSION >= 0x00010001)."""
+        return self.version >= HX_VERSION_STOP
+
+    def stop(self, timeout: float = 1.0) -> RunResult:
+        """CONTROL.STOP: stop a running (e.g. hung) program at the next
+        instruction boundary and return its result. A stopped program reports
+        ``halted`` with halt cause 2 (``result.stopped``); ``result.fault_pc``
+        is the first instruction not executed, so ``start(result.fault_pc)``
+        resumes it (registers are kept; CYCLES / INSTRET restart). A program
+        that halts or faults on its own first reports its own cause; on an
+        idle core nothing happens and the last result is returned. The vector
+        unit and a DMA in flight finish their work. Raises
+        :class:`HexagonTimeout` if the core does not stop (a VFENCE or a cache
+        access that waits forever: only a bitstream reload helps then)."""
+        if not self.has_stop:
+            raise HexagonError(f"{self.name}: VERSION 0x{self.version:08x} has no CONTROL.STOP "
+                               f"(needs 0x{HX_VERSION_STOP:08x}); reload the bitstream instead")
+        self.write(REG_CONTROL, CONTROL_STOP)
+        status, seconds = self._poll(lambda s: not s & STATUS_RUNNING, timeout, "STOP")
+        return self.result(status, seconds)
+
     def run(self, pc: int, timeout: float = 10.0, *, flush: bool = True,
-            raise_on_fault: bool = True) -> RunResult:
+            raise_on_fault: bool = True, stop_on_timeout: bool = True) -> RunResult:
         """FLUSH (unless ``flush`` is False), START at ``pc``, wait, FLUSH again
-        so the program's DDR stores are visible to the host and the DMA."""
+        so the program's DDR stores are visible to the host and the DMA.
+
+        When the program does not finish within ``timeout`` and
+        ``stop_on_timeout`` is set (and the hardware has CONTROL.STOP), the
+        core is stopped and flushed before :class:`HexagonTimeout` is raised;
+        the exception's ``result`` holds the stop result. Otherwise the core
+        is left running."""
         if flush:
             self.flush()
         self.start(pc)
@@ -441,6 +492,15 @@ class HexagonNpu:
             if flush:
                 self.flush()
             raise
+        except HexagonTimeout as error:
+            if not (stop_on_timeout and self.has_stop):
+                raise
+            stopped = self.stop()
+            if flush:
+                self.flush()
+            raise HexagonTimeout(f"{error} (stopped at pc=0x{stopped.fault_pc:08x} after "
+                                 f"{stopped.instret} instructions)", error.status,
+                                 stopped) from error
         if flush:
             self.flush()
         return result
@@ -547,6 +607,77 @@ class HexagonNpu:
                         vec_cycles=r(REG_VEC_CYCLES))
 
 
+# ------------------------------------------------------------------ kernels
+VECTOR_KERNELS = ("int8", "fp16")
+_KX = ("a0", "a1", "a2", "a3")        # x pointers, one per unrolled word
+_KY = ("a4", "a5", "a6", "a7")        # r / y pointers
+_KO = ("t3", "t4", "t5", "t6")        # result pointers
+
+
+def vector_kernel_source(kind: str, unroll: int = 4) -> str:
+    """RV32I + custom-0 assembly (src/test/model/rv32_asm.py) of a reference
+    vector kernel over the TCM, position independent.
+
+    Arguments come from the mailboxes: MAILBOX0 = W, the 64-bit TCM words per
+    operand (a multiple of ``unroll``, at least ``unroll``); MAILBOX1 = the
+    FP16 coefficient ``a`` (binary16 bits). TCM layout: x at word 0, r / y at
+    word W, the result at word 2W.
+
+    - ``"int8"``: y = saturate_int8(x + r), 8 lanes per word.
+    - ``"fp16"``: y = a * x + y in binary16 (vmul then vadd, two roundings).
+
+    The scalar core sends at most one instruction every 3 cycles and the
+    vector unit never back-pressures these kernels, so their time is the
+    scalar instruction count: per word 4 (int8) / 5 (fp16) vector commands
+    plus 3 pointer bumps (every command needs its address in a register),
+    plus 1 / ``unroll`` for the loop branch. ``unroll`` words are processed
+    per iteration in software-pipelined order (all loads, then the
+    arithmetic, then the stores), so the vector unit's 5-cycle dependency and
+    VST drain latencies stay hidden."""
+    if kind not in VECTOR_KERNELS:
+        raise ValueError(f"kind must be one of {VECTOR_KERNELS}")
+    if unroll not in (1, 2, 4):
+        raise ValueError("unroll must be 1, 2 or 4")
+    u = unroll
+    lines = ["    lui   s0, 0x80000         # npu_hx_regs through the scalar MMIO window",
+             "    lw    t2, 0x50(s0)        # MAILBOX0 = W (loop end for the x pointer)",
+             "    slli  t0, t2, 1           # 2W"]
+    if kind == "fp16":
+        lines += ["    lw    t1, 0x54(s0)        # MAILBOX1 = a",
+                  "    vsplat.f16 v0, t1"]
+    for k in range(u):
+        lines += [f"    addi  {_KX[k]}, x0, {k}",
+                  f"    addi  {_KY[k]}, t2, {k}",
+                  f"    addi  {_KO[k]}, t0, {k}"]
+    lines.append("loop:")
+    body = []
+    if kind == "int8":
+        # x_k -> v(2k), r_k -> v(2k+1), result in v(2k)
+        for k in range(u):
+            body += [f"    vld   v{2 * k}, {_KX[k]}", f"    vld   v{2 * k + 1}, {_KY[k]}"]
+        for k in range(u):
+            body += [f"    vadd.i8 v{2 * k}, v{2 * k}, v{2 * k + 1}", f"    addi  {_KX[k]}, {_KX[k]}, {u}"]
+        for k in range(u):
+            body += [f"    vst   v{2 * k}, {_KO[k]}", f"    addi  {_KY[k]}, {_KY[k]}, {u}"]
+    else:
+        # x_k -> v(1+k) (a * x in place), y_k -> v(5 + k % 3), result in v(1+k)
+        for k in range(u):
+            body.append(f"    vld   v{1 + k}, {_KX[k]}")
+        for k in range(u):
+            body += [f"    vmul.f16 v{1 + k}, v0, v{1 + k}", f"    addi  {_KX[k]}, {_KX[k]}, {u}"]
+        for k in range(u):
+            body.append(f"    vld   v{5 + k % 3}, {_KY[k]}")
+            if k:
+                body.append(f"    vadd.f16 v{k}, v{k}, v{5 + (k - 1) % 3}")
+        body.append(f"    vadd.f16 v{u}, v{u}, v{5 + (u - 1) % 3}")
+        for k in range(u):
+            body += [f"    vst   v{1 + k}, {_KO[k]}", f"    addi  {_KY[k]}, {_KY[k]}, {u}"]
+    body += [f"    addi  {_KO[k]}, {_KO[k]}, {u}" for k in range(u)]
+    body.append(f"    bne   {_KX[0]}, t2, loop")
+    lines += body + ["    vfence", "    ecall", ""]
+    return "\n".join(lines)
+
+
 # ------------------------------------------------------------------ helpers
 def _u32_view(buffer: Any) -> np.ndarray:
     array = buffer if isinstance(buffer, np.ndarray) else np.asarray(buffer)
@@ -576,5 +707,5 @@ def _invalidate(buffer: Any) -> None:
 
 __all__ = [name for name in dir() if name.isupper() and not name.startswith("_")] + [
     "Caps", "Counters", "HexagonError", "HexagonFault", "HexagonNpu", "HexagonTimeout",
-    "LoadedProgram", "Mailbox", "RunResult", "describe_status",
+    "LoadedProgram", "Mailbox", "RunResult", "describe_status", "vector_kernel_source",
 ]

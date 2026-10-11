@@ -23,8 +23,10 @@
 // FLUSH, host DMA + vector kernels (INT8 saturating residual add, FP16
 // a*x+y) checked against the Python model, scalar-driven DMA over MMIO with a
 // mailbox handshake, the host and scalar TCM windows, faults / halts / IRQ /
-// CLEAR, SLVERR -> STATUS.bus_error, I$ refill after FLUSH. Cycle counts and
-// cache counters are printed for the report.
+// CLEAR, SLVERR -> STATUS.bus_error, I$ refill after FLUSH, CONTROL.STOP and
+// resume, the board's vector kernels (src/runtime/hexagon.py). Cycle counts,
+// cache counters and a per-instruction-class cycle profile of the scalar core
+// (PROF, see "profiler") are printed for the report.
 module tb_npu_hx_subsystem;
     localparam integer NCFG = 4;
     localparam integer DDR_WORDS = 8192;           // 64 KB
@@ -73,6 +75,11 @@ module tb_npu_hx_subsystem;
     logic [NCFG*4-1:0]  d_arcache, d_awcache;
     logic [NCFG-1:0]    d_arvalid, d_awvalid, d_wvalid, d_wlast, d_rready, d_bready;
     logic [NCFG*64-1:0] d_wdata;
+    // Profiler taps per configuration
+    logic [NCFG*4-1:0]  p_state;
+    logic [NCFG*32-1:0] p_instr;
+    logic [NCFG-1:0]    p_go, p_ivalid, p_iready, p_dvalid, p_dready, p_vready, p_stop;
+    logic [NCFG*2-1:0]  p_dregion;
 
     genvar g;
     generate
@@ -109,6 +116,18 @@ module tb_npu_hx_subsystem;
                 .m_axi_bresp(m_bresp), .m_axi_bvalid(m_bvalid), .m_axi_bready(d_bready[g]),
                 .irq(d_irq[g])
             );
+            // Profiler taps (hierarchical, measurement only; see "profiler")
+            assign p_state[g*4 +: 4] = u.u_core.state;
+            assign p_instr[g*32 +: 32] = u.u_core.instr;
+            assign p_go[g] = u.u_core.start && !u.u_core.running;
+            assign p_ivalid[g] = u.u_core.i_req_valid;
+            assign p_iready[g] = u.u_core.i_req_ready;
+            assign p_dvalid[g] = u.u_core.d_req_valid;
+            assign p_dready[g] = u.u_core.d_req_ready;
+            assign p_dregion[g*2 +: 2] = u.d_is_ddr ? 2'd0 : u.d_is_tcm ? 2'd1 :
+                                         u.d_is_mmio ? 2'd2 : 2'd3;
+            assign p_vready[g] = u.u_core.vcmd_ready;
+            assign p_stop[g] = u.stop_pend_q;
         end
     endgenerate
 
@@ -345,6 +364,115 @@ module tb_npu_hx_subsystem;
             m_bvalid <= bv;
         end
     end
+
+    // ------------------------------------------------------------ profiler
+    // Measurement only (no checks): from the scalar core's state, cycles are
+    // charged to the class of the instruction in flight (latched in DECODE).
+    // FETCH / IWAIT come after the retire, so they are charged to the
+    // instruction whose successor was late (class "start" before the first
+    // DECODE). Buckets: decode / exec / wb, mem_fetch (MEM waiting for the
+    // overlapped fetch to be accepted), mem_ready (d_req_valid && !ready),
+    // mem_hs (the handshake cycle), mwait by region (response latency after
+    // the handshake: DDR = L1 D$, TCM window, MMIO, unmapped), vcmd_bp
+    // (vcmd_valid && !vcmd_ready), vcmd (the accept cycle), vfence (waiting
+    // for vec_busy), ifetch (FETCH + IWAIT). The counters restart with every
+    // accepted START; PROF prints them. Cycle model reference (the core's
+    // header, both ports at latency L): ALU / branch / vcmd 3 cycles, loads /
+    // stores 4 + L, so mwait = L per access and every other bucket beyond
+    // decode + exec + wb (+ mem_hs) is a stall.
+    localparam integer NCLS = 9, NB = 16;
+    localparam integer B_DEC = 0, B_EXEC = 1, B_WB = 2, B_IF = 3, B_MEMF = 4, B_MEMR = 5;
+    localparam integer B_MEMH = 6, B_MWD = 7, B_MWT = 8, B_MWM = 9, B_MWU = 10, B_VBP = 11;
+    localparam integer B_VCMD = 12, B_VF = 13, B_N = 14, B_CYC = 15;
+    integer prof [0:NCLS*NB-1];
+    integer prof_cls, prof_istall;
+    logic [1:0] prof_region;
+    // CONTROL.STOP coverage: core state in the cycle STOP arms
+    integer stop_cov [0:15];
+    logic   p_stop_d;
+    initial for (int k = 0; k < 16; k++) stop_cov[k] = 0;
+    always @(posedge clk) begin
+        p_stop_d <= rst_n && p_stop[sel];
+        if (rst_n && p_stop[sel] && !p_stop_d)
+            stop_cov[p_state[sel*4 +: 4]] = stop_cov[p_state[sel*4 +: 4]] + 1;
+    end
+
+    function automatic integer instr_class(input [31:0] ins);
+        case (ins[6:0])
+            7'b1100011: instr_class = 1;                        // branch
+            7'b1101111, 7'b1100111: instr_class = 2;            // JAL, JALR
+            7'b0000011: instr_class = 3;                        // load
+            7'b0100011: instr_class = 4;                        // store
+            7'b0001011: instr_class = (ins[29:25] == 5'd31) ? 6 : 5;   // vfence / vcmd
+            7'b1110011: instr_class = 7;                        // system
+            default:    instr_class = 0;                        // ALU, LUI, AUIPC, FENCE
+        endcase
+    endfunction
+
+    always @(posedge clk) begin : profiler
+        integer st, b;
+        st = p_state[sel*4 +: 4];
+        if (!rst_n || p_go[sel]) begin
+            for (int k = 0; k < NCLS * NB; k++)
+                prof[k] = 0;
+            prof_cls = 8;
+            prof_istall = 0;
+        end else if (st != 0 && st != 10 && st != 11) begin
+            if (st == 3)
+                prof_cls = instr_class(p_instr[sel*32 +: 32]);
+            b = -1;
+            case (st)
+                1, 2: b = B_IF;
+                3: begin b = B_DEC; prof[prof_cls*NB + B_N] = prof[prof_cls*NB + B_N] + 1; end
+                4: b = B_EXEC;
+                5: begin
+                    if (!p_dvalid[sel]) b = B_MEMF;
+                    else if (!p_dready[sel]) b = B_MEMR;
+                    else begin b = B_MEMH; prof_region = p_dregion[sel*2 +: 2]; end
+                end
+                6: b = B_MWD + prof_region;
+                7: b = B_WB;
+                8: b = p_vready[sel] ? B_VCMD : B_VBP;
+                9: b = B_VF;
+                default: b = -1;
+            endcase
+            if (b >= 0) begin
+                prof[prof_cls*NB + b] = prof[prof_cls*NB + b] + 1;
+                prof[prof_cls*NB + B_CYC] = prof[prof_cls*NB + B_CYC] + 1;
+            end
+            if (p_ivalid[sel] && !p_iready[sel])
+                prof_istall = prof_istall + 1;
+        end
+    end
+
+    task automatic print_profile(input [8*64-1:0] tag);
+        reg [8*8-1:0] cname;
+        integer tot [0:NB-1];
+        begin
+            for (int b = 0; b < NB; b++)
+                tot[b] = 0;
+            for (int c = 0; c < NCLS; c++) begin
+                for (int b = 0; b < NB; b++)
+                    tot[b] = tot[b] + prof[c*NB + b];
+                case (c)
+                    0: cname = "alu"; 1: cname = "branch"; 2: cname = "jump";
+                    3: cname = "load"; 4: cname = "store"; 5: cname = "vcmd";
+                    6: cname = "vfence"; 7: cname = "system"; default: cname = "start";
+                endcase
+                if (prof[c*NB + B_CYC] != 0)
+                    $display("  prof %0s %0s n=%0d cyc=%0d dec=%0d exec=%0d wb=%0d ifetch=%0d mem_fetch=%0d mem_ready=%0d mem_hs=%0d mwait_ddr=%0d mwait_tcm=%0d mwait_mmio=%0d mwait_unmapped=%0d vcmd=%0d vcmd_bp=%0d vfence=%0d",
+                             tag, cname, prof[c*NB + B_N], prof[c*NB + B_CYC], prof[c*NB + B_DEC],
+                             prof[c*NB + B_EXEC], prof[c*NB + B_WB], prof[c*NB + B_IF],
+                             prof[c*NB + B_MEMF], prof[c*NB + B_MEMR], prof[c*NB + B_MEMH],
+                             prof[c*NB + B_MWD], prof[c*NB + B_MWT], prof[c*NB + B_MWM],
+                             prof[c*NB + B_MWU], prof[c*NB + B_VCMD], prof[c*NB + B_VBP],
+                             prof[c*NB + B_VF]);
+            end
+            $display("  prof %0s total n=%0d cyc=%0d ifetch=%0d mem_fetch=%0d mem_ready=%0d mwait_ddr=%0d mwait_tcm=%0d mwait_mmio=%0d vcmd_bp=%0d vfence=%0d i_req_wait=%0d",
+                     tag, tot[B_N], tot[B_CYC], tot[B_IF], tot[B_MEMF], tot[B_MEMR], tot[B_MWD],
+                     tot[B_MWT], tot[B_MWM], tot[B_VBP], tot[B_VF], prof_istall);
+        end
+    endtask
 
     // ------------------------------------------------------------ host BFM
     always @(posedge clk) begin
@@ -586,6 +714,13 @@ module tb_npu_hx_subsystem;
                 code = $fscanf(fd, "%h %s", addr, label);
                 host_read(addr[15:0], value);
                 $display("  %0s = %0d", label, value);
+            end else if (kw == "CPY") begin
+                code = $fscanf(fd, "%h %h", addr, addr2);
+                host_read(addr[15:0], value);
+                host_write(addr2[15:0], value, 4'hF);
+            end else if (kw == "PROF") begin
+                code = $fscanf(fd, "%s", label);
+                print_profile(label);
             end else if (kw == "END") begin
                 done_flag = 1'b1;
             end else begin
@@ -595,6 +730,9 @@ module tb_npu_hx_subsystem;
         end
         $fclose(fd);
         repeat (10) @(posedge clk);
+        $display("stop coverage (core state when STOP armed): fetch=%0d iwait=%0d decode=%0d exec=%0d mem=%0d mwait=%0d wb=%0d vcmd=%0d vfence=%0d",
+                 stop_cov[1], stop_cov[2], stop_cov[3], stop_cov[4], stop_cov[5], stop_cov[6],
+                 stop_cov[7], stop_cov[8], stop_cov[9]);
         $display("PASS tb_npu_hx_subsystem configs=%0d cases=%0d commands=%0d axi_r_beats=%0d axi_w_beats=%0d cycles=%0d",
                  NCFG, ncase, ncmd, beats_r, beats_w, cycle);
         $finish;

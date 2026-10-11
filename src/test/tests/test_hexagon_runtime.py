@@ -2,9 +2,10 @@
 
 A fake MMIO emulates npu_hx_regs closely enough for the driver logic: the
 identification registers, START -> running -> halted/fault after a few STATUS
-reads (with the sticky events of STATUS bits 10/11), FLUSH busy, the TCM DMA
-copying between fake contiguous buffers and a TCM array, the host TCM window
-and the mailboxes. No pynq is needed.
+reads (with the sticky events of STATUS bits 10/11), STOP -> halted with halt
+cause 2, FLUSH busy, the TCM DMA copying between fake contiguous buffers and a
+TCM array, the host TCM window and the mailboxes. The reference vector
+kernels are checked on the ISS and the vector model. No pynq is needed.
 """
 
 from __future__ import annotations
@@ -93,6 +94,7 @@ class FakeHx:
                                     "l2_hits", "l2_misses"), 0)
         self.program = Program()
         self.pending = None          # (countdown, action)
+        self.stop_pc = 0x1234_5670   # where a STOP lands
         self.flush_reads = 0
         self.flushes = 0
         self.starts = []
@@ -155,6 +157,14 @@ class FakeHx:
             self.status |= hx.STATUS_RUNNING
             self.cycles = self.instret = self.vec_cycles = 0
             self.pending = [self.program.reads, self._stop]
+        if (value & hx.CONTROL_STOP and self.status & hx.STATUS_RUNNING
+                and self.version >= hx.HX_VERSION_STOP):
+            self.pending = None
+            self.status &= ~hx.STATUS_RUNNING
+            self.status |= hx.STATUS_HALTED | hx.STATUS_HALT_EVENT
+            self.cause = hx.HALT_STOP << hx.CAUSE_HALT_SHIFT
+            self.fault_pc = self.stop_pc
+            self.cycles, self.instret = 999, 333
         if value & hx.CONTROL_DMA_START and not self.status & hx.STATUS_DMA_BUSY:
             self.status &= ~(hx.STATUS_DMA_DONE | hx.STATUS_DMA_ERROR)
             self.status |= hx.STATUS_DMA_BUSY
@@ -340,15 +350,77 @@ class RunTests(unittest.TestCase):
         self.assertTrue(res.fault)
         self.assertEqual(res.cause_name, "misaligned load")
 
-    def test_timeout(self):
+    def test_timeout_stops_the_core(self):
         npu, fake, _ = make()
         fake.program = Program(kind="hang")
         with self.assertRaises(hx.HexagonTimeout) as ctx:
             npu.run(0x1000, timeout=0.05)
+        self.assertTrue(ctx.exception.status & hx.STATUS_RUNNING)   # as observed at the timeout
+        self.assertIn("stopped at pc=0x12345670", str(ctx.exception))
+        res = ctx.exception.result
+        self.assertTrue(res.stopped and res.halted and not res.fault)
+        self.assertEqual((res.cause_name, res.fault_pc, res.instret), ("stop", 0x1234_5670, 333))
+        self.assertEqual(fake.flushes, 2)             # before START and after the stop
+        self.assertEqual(fake.writes.count((hx.REG_CONTROL, hx.CONTROL_STOP)), 1)
+        self.assertFalse(npu.status() & hx.STATUS_RUNNING)
+        npu.start(0x1000)                             # the core is usable again
+
+    def test_timeout_without_stop(self):
+        npu, fake, _ = make()
+        fake.program = Program(kind="hang")
+        with self.assertRaises(hx.HexagonTimeout) as ctx:
+            npu.run(0x1000, timeout=0.05, stop_on_timeout=False)
         self.assertTrue(ctx.exception.status & hx.STATUS_RUNNING)
+        self.assertIsNone(ctx.exception.result)
         self.assertIn("running", str(ctx.exception))
+        self.assertNotIn((hx.REG_CONTROL, hx.CONTROL_STOP), fake.writes)
         with self.assertRaisesRegex(hx.HexagonError, "still running"):
             npu.start(0x1000)
+
+    def test_stop_and_resume(self):
+        npu, fake, _ = make()
+        self.assertTrue(npu.has_stop)
+        fake.program = Program(kind="hang")
+        npu.start(0x1000)
+        res = npu.stop()
+        self.assertTrue(res.stopped)
+        self.assertEqual(res.halt_cause, hx.HALT_STOP)
+        self.assertEqual(res.as_dict()["cause_name"], "stop")
+        self.assertTrue(npu.status() & hx.STATUS_HALT_EVENT)
+        # resume where it stopped; this time the program ends with ECALL
+        fake.program = Program(instret=5, stop_pc=0x2000)
+        npu.start(res.fault_pc)
+        self.assertEqual(fake.starts, [0x1000, 0x1234_5670])
+        done = npu.wait()
+        self.assertFalse(done.stopped)
+        self.assertEqual(done.cause_name, "ecall")
+
+    def test_stop_idle_core(self):
+        npu, fake, _ = make()
+        npu.run(0x1000)
+        res = npu.stop()                              # nothing to stop: last result
+        self.assertTrue(res.halted)
+        self.assertFalse(res.stopped)
+        self.assertEqual(res.cause_name, "ecall")
+
+    def test_stop_unsupported_version(self):
+        npu, fake, _ = make(version=0x00010000)       # first build: no CONTROL.STOP
+        self.assertFalse(npu.has_stop)
+        with self.assertRaisesRegex(hx.HexagonError, "no CONTROL.STOP"):
+            npu.stop()
+        fake.program = Program(kind="hang")
+        with self.assertRaises(hx.HexagonTimeout) as ctx:
+            npu.run(0x1000, timeout=0.05)             # left running, as before
+        self.assertIsNone(ctx.exception.result)
+        self.assertNotIn((hx.REG_CONTROL, hx.CONTROL_STOP), fake.writes)
+
+    def test_stop_timeout(self):
+        npu, fake, _ = make()
+        fake.program = Program(kind="hang")
+        npu.start(0x1000)
+        fake.version = 0                              # the fake ignores STOP now
+        with self.assertRaisesRegex(hx.HexagonTimeout, "STOP"):
+            npu.stop(timeout=0.02)
 
     def test_start_argument_checks(self):
         npu, _, _ = make()
@@ -453,8 +525,9 @@ class RegisterMapConsistencyTests(unittest.TestCase):
             self.assertEqual(driver, sim)
         self.assertEqual(list(hx.REG_MAILBOX), g.MBOX)
         self.assertEqual(hx.REG_MAILBOX0, g.MBOX[0])
-        self.assertEqual((hx.CONTROL_START, hx.CONTROL_FLUSH, hx.CONTROL_DMA_START, hx.CONTROL_CLEAR),
-                         (g.C_START, g.C_FLUSH, g.C_DMA, g.C_CLEAR))
+        self.assertEqual((hx.CONTROL_START, hx.CONTROL_FLUSH, hx.CONTROL_DMA_START, hx.CONTROL_CLEAR,
+                          hx.CONTROL_STOP),
+                         (g.C_START, g.C_FLUSH, g.C_DMA, g.C_CLEAR, g.C_STOP))
         self.assertEqual(
             (hx.STATUS_RUNNING, hx.STATUS_HALTED, hx.STATUS_FAULT, hx.STATUS_VEC_BUSY,
              hx.STATUS_DMA_BUSY, hx.STATUS_FLUSH_BUSY, hx.STATUS_VEC_ILLEGAL, hx.STATUS_DMA_ERROR,
@@ -495,6 +568,82 @@ class RegisterMapConsistencyTests(unittest.TestCase):
         self.assertEqual(index, expect)
         self.assertIn(f"HX_MAGIC = 32'h{hx.HX_MAGIC >> 16:04X}_{hx.HX_MAGIC & 0xFFFF:04X};", rtl)
         self.assertIn(f"HX_VERSION = 32'h{hx.HX_VERSION >> 16:04X}_{hx.HX_VERSION & 0xFFFF:04X};", rtl)
+        # CONTROL bits and the CAUSE layout
+        for bit, name in ((0, "core_start"), (1, "flush_start"), (4, "core_stop")):
+            self.assertRegex(rtl, rf"{name} <= ctl_wr && acc_wdata\[{bit}\]")
+        self.assertIn("R_CAUSE:    rd_word = {22'd0, halt_cause, 5'd0, fault_cause};", rtl)
+        self.assertIn("input  logic [1:0]         halt_cause,", rtl)
+        self.assertEqual(hx.CAUSE_HALT_MASK << hx.CAUSE_HALT_SHIFT, 0x300)
+
+
+class VectorKernelTests(unittest.TestCase):
+    """vector_kernel_source: assembles, and its vector commands (from the
+    ISS, with the mailboxes readable) computed by the vector model match a
+    word-by-word reference for every unroll."""
+
+    def _run(self, kind, unroll, w, a_bits=0xBA00, seed=1):
+        from src.test.model import hx_vector as hv
+        from src.test.model.rv32_asm import assemble
+        from src.test.model.rv32_iss import RV32ISS
+
+        class MailboxISS(RV32ISS):
+            def word(self, addr):
+                if 0x8000_0050 <= addr < 0x8000_0060:
+                    return [w, a_bits, 0, 0][(addr - 0x8000_0050) >> 2]
+                return super().word(addr)
+
+        prog = assemble(hx.vector_kernel_source(kind, unroll), base=0)
+        iss = MailboxISS(mem_size=0x1000)
+        iss.load_words(prog.image())
+        res = iss.run(0)
+        self.assertEqual((res.status, res.cause), ("halt", 0))
+        rng = np.random.default_rng(seed)
+        if kind == "int8":
+            x = [int(v) for v in rng.integers(0, 2**63, w)]
+            y = [int(v) for v in rng.integers(0, 2**63, w)]
+        else:
+            def f16():
+                lanes = (rng.integers(0, 2, 4) << 15) | (rng.integers(8, 23, 4) << 10) | rng.integers(0, 1024, 4)
+                return hv.join_lanes([int(v) for v in lanes], 16)
+            x = [f16() for _ in range(w)]
+            y = [f16() for _ in range(w)]
+        model = hv.VectorUnitModel(vlen=64, nregs=8, tcm_words=1024)
+        model.tcm[:2 * w] = x + y
+        for c in iss.vcmds:
+            model.execute(hv.VectorCommand(op=c.op, typ=c.vtype, vd=c.vd, vs1=c.vs1, vs2=c.vs2,
+                                           addr=c.scalar % 1024, scalar=c.scalar))
+        self.assertFalse(model.illegal)
+        av = hv.splat(hv.TYPE_FP16, a_bits, 64)
+        for i in range(w):
+            if kind == "int8":
+                ref = hv.vector_op(hv.OP_VADD, hv.TYPE_INT8, x[i], y[i], 0)
+            else:
+                ref = hv.vector_op(hv.OP_VADD, hv.TYPE_FP16,
+                                   hv.vector_op(hv.OP_VMUL, hv.TYPE_FP16, av, x[i], 0), y[i], 0)
+            self.assertEqual(model.tcm[2 * w + i], ref, (kind, unroll, i))
+        self.assertEqual(model.tcm[:2 * w], x + y)            # inputs untouched
+        self.assertTrue(all(v == 0 for v in model.tcm[3 * w:]))
+        return res, len(prog.words)
+
+    def test_kernels_match_the_reference(self):
+        for kind in hx.VECTOR_KERNELS:
+            for unroll in (1, 2, 4):
+                for w in (unroll, 4 * unroll, 12):
+                    self._run(kind, unroll, w)
+
+    def test_instruction_count_per_word(self):
+        # scalar-bound: instructions per word = commands + 3 pointer bumps + 1 / unroll
+        for kind, cmds in (("int8", 4), ("fp16", 5)):
+            small, _ = self._run(kind, 4, 8)
+            large, words = self._run(kind, 4, 64)
+            self.assertEqual(large.instret - small.instret, (64 - 8) * (cmds + 3) + (64 - 8) // 4)
+            self.assertLessEqual(4 * words, 0x100)            # the self-test's program slot
+
+    def test_arguments(self):
+        with self.assertRaises(ValueError):
+            hx.vector_kernel_source("int16")
+        with self.assertRaises(ValueError):
+            hx.vector_kernel_source("int8", 3)
 
 
 class WindowAndMailboxTests(unittest.TestCase):

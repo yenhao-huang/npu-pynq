@@ -9,7 +9,9 @@ tensor accelerator npu_accelerator_0) and checks, in order:
                 memory image and INSTRET must match; reports cycles, CPI and
                 the L1I / L1D / L2 hit rates of the run
   c. vector     INT8 residual add with saturation and FP16 a*x+y over
-                --elements lanes: DDR -> TCM DMA, a scalar-driven vector loop,
+                --elements lanes: DDR -> TCM DMA, the runtime's reference
+                kernels (hexagon.vector_kernel_source, unrolled by
+                --unroll, the same sources tb_npu_hx_subsystem simulates),
                 TCM -> DDR DMA; bit-exact against hx_vector and numpy; reports
                 cycles, elements/s at 100 MHz, DMA times and the wall time of
                 the same op in numpy on the Cortex-A9
@@ -17,8 +19,10 @@ tensor accelerator npu_accelerator_0) and checks, in order:
                 in a child process, proving the tensor path on this overlay
 
 Writes --out (JSON) after every step and exits non-zero on any mismatch or
-error. ``--host-check`` runs only the host side (assembly, ISS, vector model
-and numpy references agree) without pynq or a board.
+error. A program that does not finish within --timeout is stopped with
+CONTROL.STOP (bitstreams with VERSION >= 0x00010001), so later steps still
+run. ``--host-check`` runs only the host side (assembly, ISS, vector model and
+numpy references agree) without pynq or a board.
 
     python3 hx_selftest.py --overlay overlay/artifacts/npu_matrix.bit --out results/hx_selftest.json
 """
@@ -100,52 +104,13 @@ noswap:
 """
 
 # ------------------------------------------------------------------ (c) vector
-# Both kernels read their arguments from the mailboxes: MAILBOX0 = W, the
-# number of 64-bit TCM words per operand; MAILBOX1 = the FP16 coefficient.
-# TCM layout: x at word 0, r / y at word W, the result at word 2W.
-INT8_SOURCE = """
-    lui   s0, 0x80000         # npu_hx_regs through the scalar MMIO window
-    lw    t0, 0x50(s0)        # MAILBOX0 = W
-    li    a0, 0
-    mv    a1, t0
-    add   a2, t0, t0
-loop:
-    vld      v1, a0
-    vld      v2, a1
-    vadd.i8  v3, v1, v2       # saturating INT8 add
-    vst      v3, a2
-    addi  a0, a0, 1
-    addi  a1, a1, 1
-    addi  a2, a2, 1
-    addi  t0, t0, -1
-    bnez  t0, loop
-    vfence
-    ecall
-"""
-
-FP16_SOURCE = """
-    lui   s0, 0x80000
-    lw    t0, 0x50(s0)        # MAILBOX0 = W
-    lw    t1, 0x54(s0)        # MAILBOX1 = a (binary16 bits)
-    vsplat.f16 v4, t1
-    li    a0, 0
-    mv    a1, t0
-    add   a2, t0, t0
-loop:
-    vld      v1, a0
-    vld      v2, a1
-    vmul.f16 v5, v4, v1       # a * x, rounded to FP16
-    vadd.f16 v6, v5, v2       # + y, rounded again
-    vst      v6, a2
-    addi  a0, a0, 1
-    addi  a1, a1, 1
-    addi  a2, a2, 1
-    addi  t0, t0, -1
-    bnez  t0, loop
-    vfence
-    ecall
-"""
-
+# The kernels come from the runtime (hexagon.vector_kernel_source): arguments
+# in the mailboxes (MAILBOX0 = W, the number of 64-bit TCM words per operand,
+# a multiple of the unroll; MAILBOX1 = the FP16 coefficient); TCM layout: x at
+# word 0, r / y at word W, the result at word 2W. Before review round 2 of the
+# integration they were rolled loops (9 / 10 instructions per word); unrolled
+# by 4 they need 7.25 / 8.25 (simulated at 512 lanes: 1801 -> 1591 and
+# 3945 -> 3399 cycles).
 FP16_A = 0xBA00                # -0.75
 VEC_PROG_STRIDE = 0x100        # bytes between the two kernels in the program buffer
 SENTINEL = 0xCC
@@ -283,11 +248,11 @@ def vector_program_on_iss(program_words, w, a_bits, x, y):
     return out, res
 
 
-def check_elements(n: int, tcm_words: int = 1024) -> None:
+def check_elements(n: int, tcm_words: int = 1024, unroll: int = 4) -> None:
     """Both kernels keep three operands of n lanes in the TCM (FP16: 4 lanes
-    per 64-bit word, INT8: 8)."""
-    if n <= 0 or n % 8:
-        raise ValueError("--elements must be a positive multiple of 8")
+    per 64-bit word, INT8: 8); W must be a multiple of the unroll."""
+    if n <= 0 or n % (8 * unroll):
+        raise ValueError(f"--elements must be a positive multiple of {8 * unroll} (8 x --unroll)")
     if 3 * (n // 4) > tcm_words:
         raise ValueError(f"{n} FP16 elements need {3 * (n // 4)} TCM words (> {tcm_words}); "
                          f"use at most {tcm_words // 3 * 4 // 8 * 8}")
@@ -309,9 +274,9 @@ class SelfTest:
         self.args = args
         self.report = {"pass": True, "steps": {}}
         self.rng = np.random.default_rng(SEED)
-        self.programs = {"scalar": assemble(SCALAR_SOURCE, base=0).words,
-                         "int8": assemble(INT8_SOURCE, base=0).words,
-                         "fp16": assemble(FP16_SOURCE, base=0).words}
+        self.programs = {"scalar": assemble(SCALAR_SOURCE, base=0).words}
+        for kind in hxr.VECTOR_KERNELS:
+            self.programs[kind] = assemble(hxr.vector_kernel_source(kind, args.unroll), base=0).words
         for name in ("int8", "fp16"):
             if 4 * len(self.programs[name]) > VEC_PROG_STRIDE:
                 raise AssertionError(f"{name} kernel larger than its program slot")
@@ -431,7 +396,7 @@ class SelfTest:
     def vector(self):
         npu = self.npu
         n = self.args.elements
-        check_elements(n, npu.caps.tcm_words)
+        check_elements(n, npu.caps.tcm_words, self.args.unroll)
         prog_buf = self.alloc(2 * VEC_PROG_STRIDE // 4, np.uint32)
         np.asarray(prog_buf)[:] = 0
         pcs = {"int8": npu.load_program(self.programs["int8"], prog_buf, 0).phys_addr,
@@ -444,7 +409,7 @@ class SelfTest:
             "fp16_axpy": ("fp16", xf, yf, FP16_A, fp16_numpy(FP16_A, xf, yf),
                           lambda: np.float16(-0.75) * xf + yf),
         }
-        entry = {"elements": n, "fp16_a": f"0x{FP16_A:04x}", "pass": True}
+        entry = {"elements": n, "fp16_a": f"0x{FP16_A:04x}", "unroll": self.args.unroll, "pass": True}
         for name, (kind, x, y, a_bits, ref_np, np_op) in kernels.items():
             w = x.nbytes // 8                      # TCM words per operand
             ref_model = vector_model(kind, x, y, a_bits)
@@ -522,7 +487,7 @@ class SelfTest:
         entry["scalar"] = {"program_words": len(self.programs["scalar"]), "iss_instret": ref.instret,
                            "iss_ideal_cycles": ref.cycles}
         n = self.args.elements
-        check_elements(n)
+        check_elements(n, unroll=self.args.unroll)
         for kind, (x, y), a_bits in (("int8", int8_inputs(self.rng, n), 0),
                                      ("fp16", fp16_inputs(self.rng, n), FP16_A)):
             ref_np = int8_numpy(x, y) if kind == "int8" else fp16_numpy(a_bits, x, y)
@@ -531,7 +496,8 @@ class SelfTest:
             on_iss, res = vector_program_on_iss(self.programs[kind], w, a_bits, x, y)
             ok = model.tobytes() == ref_np.tobytes() == on_iss
             entry[kind] = {"pass": ok, "tcm_words_per_operand": w, "iss_instret": res.instret,
-                           "vector_commands_per_word": 4 if kind == "int8" else 5}
+                           "vector_commands_per_word": 4 if kind == "int8" else 5,
+                           "unroll": self.args.unroll}
             entry["pass"] = entry["pass"] and ok
         return entry
 
@@ -542,6 +508,8 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default="results/hx_selftest.json")
     ap.add_argument("--name", default="npu_hx_0", help="IP name of the subsystem in the overlay")
     ap.add_argument("--elements", type=int, default=512, help="lanes per vector kernel")
+    ap.add_argument("--unroll", type=int, default=4, choices=(1, 2, 4),
+                    help="words per vector-kernel loop iteration")
     ap.add_argument("--timeout", type=float, default=10.0, help="seconds per scalar program")
     ap.add_argument("--skip-tensor", action="store_true", help="skip the tensor ISA GEMM step")
     ap.add_argument("--tensor-out", default="results/isa_gemm.json")

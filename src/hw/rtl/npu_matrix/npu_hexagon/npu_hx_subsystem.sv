@@ -35,18 +35,40 @@
 // executable; an instruction fetch outside DDR reads whatever the AXI slave
 // returns). AXI response errors of cache traffic do not reach the core (the
 // caches have no error path): the line bridge's error pulse sets the sticky
-// STATUS.bus_error instead, so i_resp_err is tied to 0 and d_resp_err only
-// flags unmapped data addresses.
+// STATUS.bus_error instead, so d_resp_err only flags unmapped data addresses
+// and i_resp_err only carries CONTROL.STOP (below).
 //
 // TCM port B arbiter: fixed priority DMA > scalar > host, combinational
-// grant from the clients' requests. The scalar and host requests come from
-// registers (the scalar window adapter registers the handshake and drives
-// the core's request fields, which the core holds until its response; the
-// host window request is a register in npu_hx_regs); the DMA's request
-// never depends on gnt and the DMA tolerates gnt low. Scalar window latency:
-// handshake at t, port-B request at t+1, response (read data lane) at t+2
-// when the DMA is not using the port. MMIO latency: response at t+2.
-// Port A belongs to the vector unit.
+// grant from the clients' requests. The scalar window request is the core's
+// data request itself (d_req_valid to a TCM address, from core registers;
+// the core holds the request fields until its response), accepted in the
+// cycle the DMA does not use the port (d_req_ready = !dma_b_req); the host
+// window request is a register in npu_hx_regs; the DMA's request never
+// depends on gnt and the DMA tolerates gnt low. Latency (review round 2:
+// both were 2): scalar window handshake at t = port-B request, response
+// (read data lane) at t+1; MMIO handshake at t, the register access and its
+// response at t+1 (see npu_hx_regs). TCM / MMIO loads and stores therefore
+// take as long as L1 D$ hits (5 cycles). Port A belongs to the vector unit.
+//
+// CONTROL.STOP (review round 2, addition): recovers a hung program without
+// a bitstream reload and without touching the core's internals. The STOP
+// pulse arms stop_pend_q while the core runs; while armed, i_resp_err is
+// raised, so the next instruction-fetch response the core consumes is an
+// instruction bus error (the core's existing, verified path): the core stops
+// at that instruction boundary (the instruction before it retired with all
+// its memory traffic complete; the fetched one has no effect) in its FAULT
+// state with fault_cause 5 and fault_pc = the address of the first
+// instruction not executed. i_resp_err is otherwise never raised in this
+// subsystem, so cause 5 identifies the STOP: npu_hx_regs sees it as a halt
+// (STATUS.halted, halt event / IRQ) with CAUSE.halt_cause = 2 and fault cause
+// 0, and FAULT_PC is the resume address (START there continues the program:
+// the register file keeps its contents; CYCLES / INSTRET restart). Disarmed
+// whenever the core is not running, so a STOP while idle does nothing and a
+// program that halts or faults on its own first reports its own cause. A
+// STOP acts within about two instructions, or once the current one ends: a
+// VFENCE waits for the vector unit and an L1 D$ access for its AXI traffic
+// (an AXI slave that never answers cannot be recovered by STOP). The vector
+// unit and a DMA in flight finish their work.
 //
 // CONTROL.FLUSH sequencing (flush_busy = STATUS.flush_busy): pulse the L1 D$
 // flush (write back dirty lines into the L2, invalidate) and the L1 I$ flush
@@ -86,17 +108,22 @@
 // response mux and the port-B priority mux. Cross-module chains (LUT levels,
 // review round 1 estimate):
 //   core alu_q -> d_is_* decode (3) -> d_req_ready / l1d_req_valid (1) ->
-//     core state, L1 D$ accept, ts_pend_q / mm_pend_q / err_resp_q (~2): ~6;
+//     core state, L1 D$ accept, mm_pend_q / err_resp_q (~2): ~6;
+//   core alu_q -> d_is_tcm (3) -> ts_req -> port-B mux select (2) -> TCM
+//     BRAM address / WE setup, and -> h_gnt -> npu_hx_regs window FSM (~2):
+//     ~5-6 (round 2: the scalar window request is no longer registered);
 //   L1 D$ tag register -> tag compare (resp_valid, 3) -> d_resp_valid (1) ->
 //     core state / load enable (~2): ~6 (the load data mux does not wait
 //     for the compare, see d_resp_rdata);
 //   DMA rd_issue (3) -> port-B mux (2) -> TCM BRAM address / WE setup, and
-//     -> h_gnt / ts_gnt -> npu_hx_regs window FSM, ts_pend_q (~2): ~5;
+//     -> h_gnt / d_req_ready -> npu_hx_regs window FSM, core state (~2): ~5;
 //   TCM BRAM clock-to-out -> window lane mux -> core load_q / s_axi_rdata
 //     (2) (BRAM without output register: ~2 ns clock-to-out).
 // npu_hx_regs: AXI hold registers / core address -> register index mux ->
-// 32:1 read mux -> s_axi_rdata / mmio_resp_rdata, ~7 levels. All are well
-// inside 10 ns; the scalar core's own DECODE paths (~7 ns) stay the worst.
+// 32:1 read mux -> s_axi_rdata, ~7 levels; for a scalar MMIO read the same
+// mux continues through d_resp_rdata (1) into the core's load_q, ~7-8
+// levels. All are inside 10 ns; the scalar core's own DECODE paths (~7 ns)
+// stay the worst.
 module npu_hx_subsystem #(
     parameter integer HX_ENABLE_VECTOR = 1,
     parameter integer HX_ENABLE_L2 = 1,
@@ -257,6 +284,7 @@ module npu_hx_subsystem #(
     logic [63:0]       h_wdata;
     logic [7:0]        h_wstrb;
     logic        flush_start, flush_busy, clear_pulse;
+    logic        core_stop, stop_pend_q, stop_halt;
 
     // ------------------------------------------------------------ scalar core
     npu_scalar_core u_core (
@@ -265,7 +293,7 @@ module npu_hx_subsystem #(
         .running(running), .halted(halted), .halt_cause(halt_cause),
         .fault(fault), .fault_cause(fault_cause), .fault_pc(fault_pc),
         .i_req_valid(i_req_valid), .i_req_ready(i_req_ready), .i_req_addr(i_req_addr),
-        .i_resp_valid(i_resp_valid), .i_resp_rdata(i_resp_rdata), .i_resp_err(1'b0),
+        .i_resp_valid(i_resp_valid), .i_resp_rdata(i_resp_rdata), .i_resp_err(stop_pend_q),
         .d_req_valid(d_req_valid), .d_req_ready(d_req_ready), .d_req_addr(d_req_addr),
         .d_req_we(d_req_we), .d_req_wstrb(d_req_wstrb), .d_req_wdata(d_req_wdata),
         .d_resp_valid(d_resp_valid), .d_resp_rdata(d_resp_rdata), .d_resp_err(d_resp_err),
@@ -275,9 +303,23 @@ module npu_hx_subsystem #(
         .cycles(core_cycles), .instret(core_instret)
     );
 
+    // ------------------------------------------------------------ CONTROL.STOP
+    // Armed by the STOP pulse while running, dropped whenever the core is
+    // not running. Every fetch response the core consumes while armed is an
+    // instruction bus error (the only source of fault cause 5 here).
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            stop_pend_q <= 1'b0;
+        else if (!running)
+            stop_pend_q <= 1'b0;
+        else if (core_stop)
+            stop_pend_q <= 1'b1;
+    end
+    assign stop_halt = fault && (fault_cause == 3'd5);
+
     // ------------------------------------------------------------ data-port decode
     logic d_is_ddr, d_is_tcm, d_is_mmio, d_is_err;
-    logic ts_pend_q, ts_resp_q, ts_lane_q;
+    logic ts_req, ts_resp_q, ts_lane_q;
     logic [7:0]  ts_wstrb;
     logic        err_resp_q;
 
@@ -289,32 +331,30 @@ module npu_hx_subsystem #(
     assign d_is_err = !d_is_ddr && !d_is_tcm && !d_is_mmio;
     assign l1d_req_valid = d_req_valid && d_is_ddr;
     assign mmio_req_valid = d_req_valid && d_is_mmio;
-    assign d_req_ready = (d_is_ddr && l1d_req_ready) || (d_is_tcm && !ts_pend_q) ||
+    assign d_req_ready = (d_is_ddr && l1d_req_ready) || (d_is_tcm && !dma_b_req) ||
                          (d_is_mmio && mmio_req_ready) || d_is_err;
     // One response source at a time (one request outstanding). The read data
-    // is selected by the two registered response flags (TCM window, MMIO) and
-    // defaults to the L1 D$, whose resp_valid is its tag compare: that compare
-    // only gates the core's load enable, not the 32-bit data mux. d_resp_rdata
-    // is don't-care without d_resp_valid (and with d_resp_err).
+    // is selected by the two registered response flags (TCM window, MMIO:
+    // mmio_resp_valid is npu_hx_regs' pending flag) and defaults to the L1
+    // D$, whose resp_valid is its tag compare: that compare only gates the
+    // core's load enable, not the 32-bit data mux. d_resp_rdata is don't-care
+    // without d_resp_valid (and with d_resp_err).
     assign d_resp_valid = l1d_resp_valid || ts_resp_q || mmio_resp_valid || err_resp_q;
     assign d_resp_err = err_resp_q;
     assign d_resp_rdata = ts_resp_q ? (ts_lane_q ? b_rdata[63:32] : b_rdata[31:0]) :
                           mmio_resp_valid ? mmio_resp_rdata : l1d_resp_rdata;
 
-    // Scalar TCM window adapter: registered request, held until granted.
+    // Scalar TCM window: the core's request goes to port B in its handshake
+    // cycle (granted exactly when d_req_ready, i.e. the DMA is not on the
+    // port); the response follows the BRAM read latency.
     logic ts_gnt;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            ts_pend_q <= 1'b0;
             ts_resp_q <= 1'b0;
             err_resp_q <= 1'b0;
         end else begin
             ts_resp_q <= ts_gnt;
             err_resp_q <= d_req_valid && d_is_err;
-            if (d_req_valid && d_is_tcm && !ts_pend_q)
-                ts_pend_q <= 1'b1;
-            else if (ts_gnt)
-                ts_pend_q <= 1'b0;
         end
     end
 
@@ -329,13 +369,14 @@ module npu_hx_subsystem #(
 
     // ------------------------------------------------------------ TCM port-B arbiter
     // Fixed priority DMA > scalar > host.
-    assign ts_gnt = ts_pend_q && !dma_b_req && b_gnt;
-    assign h_gnt = h_req && !dma_b_req && !ts_pend_q && b_gnt;
-    assign b_req = dma_b_req || ts_pend_q || h_req;
-    assign b_we = dma_b_req ? dma_b_we : (ts_pend_q ? d_req_we : h_we);
-    assign b_addr = dma_b_req ? dma_b_addr : (ts_pend_q ? d_req_addr[TCM_AW+2:3] : h_addr);
-    assign b_wdata = dma_b_req ? dma_b_wdata : (ts_pend_q ? {d_req_wdata, d_req_wdata} : h_wdata);
-    assign b_wstrb = dma_b_req ? dma_b_wstrb : (ts_pend_q ? ts_wstrb : h_wstrb);
+    assign ts_req = d_req_valid && d_is_tcm;
+    assign ts_gnt = ts_req && !dma_b_req && b_gnt;
+    assign h_gnt = h_req && !dma_b_req && !ts_req && b_gnt;
+    assign b_req = dma_b_req || ts_req || h_req;
+    assign b_we = dma_b_req ? dma_b_we : (ts_req ? d_req_we : h_we);
+    assign b_addr = dma_b_req ? dma_b_addr : (ts_req ? d_req_addr[TCM_AW+2:3] : h_addr);
+    assign b_wdata = dma_b_req ? dma_b_wdata : (ts_req ? {d_req_wdata, d_req_wdata} : h_wdata);
+    assign b_wstrb = dma_b_req ? dma_b_wstrb : (ts_req ? ts_wstrb : h_wstrb);
 
     npu_tcm #(.WIDTH(VLEN), .DEPTH(TCM_DEPTH), .AW(TCM_AW)) u_tcm (
         .clk(clk), .rst_n(rst_n),
@@ -708,11 +749,15 @@ module npu_hx_subsystem #(
         .mmio_resp_valid(mmio_resp_valid), .mmio_resp_rdata(mmio_resp_rdata),
         .tcm_req(h_req), .tcm_we(h_we), .tcm_addr(h_addr), .tcm_wdata(h_wdata),
         .tcm_wstrb(h_wstrb), .tcm_gnt(h_gnt), .tcm_rdata(b_rdata),
-        .core_start(core_start), .start_pc(start_pc), .flush_start(flush_start),
+        .core_start(core_start), .core_stop(core_stop), .start_pc(start_pc),
+        .flush_start(flush_start),
         .dma_start(dma_start), .dma_dir(dma_dir), .dma_ddr_addr(dma_ddr_addr),
         .dma_tcm_addr(dma_tcm_addr), .dma_words(dma_words), .clear(clear_pulse),
-        .running(running), .halted(halted), .halt_cause(halt_cause), .fault(fault),
-        .fault_cause(fault_cause), .fault_pc(fault_pc),
+        // a STOP (fault cause 5, see CONTROL.STOP) is reported as halt cause 2
+        .running(running), .halted(halted || stop_halt),
+        .halt_cause(stop_halt ? 2'd2 : {1'b0, halt_cause}),
+        .fault(fault && !stop_halt), .fault_cause(stop_halt ? 3'd0 : fault_cause),
+        .fault_pc(fault_pc),
         .vec_busy(vec_busy), .vec_illegal(vec_illegal),
         .dma_busy(dma_busy), .dma_done(dma_done), .dma_error(dma_error),
         .flush_busy(flush_busy), .bus_error(br_error),

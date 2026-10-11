@@ -14,11 +14,16 @@
 //   stray host access never raises a bus fault on the ARM).
 // - the scalar core, through a word-oriented MMIO port (the cache CPU-side
 //   protocol, offset = 12 address bits): the handshake is registered, the
-//   access executes the next cycle and is answered with one mmio_resp_valid
-//   the cycle after (2 cycles after the handshake). mmio_req_ready is low
-//   only while a request is pending. The requester must hold mmio_req_addr /
-//   we / wstrb / wdata from the handshake until mmio_resp_valid (the scalar
-//   core does: CPU_HOLD contract), so they are not copied here.
+//   access executes the next cycle and is answered in that same cycle:
+//   mmio_resp_valid is the pending flag and mmio_resp_rdata the
+//   combinational register read (1 cycle after the handshake; review round
+//   2, was 2 with a registered response: the requester captures the same
+//   word one cycle earlier). mmio_req_ready is low only while a request is
+//   pending. The requester must hold mmio_req_addr / we / wstrb / wdata from
+//   the handshake until mmio_resp_valid (the scalar core does: CPU_HOLD
+//   contract), so they are not copied here. No output of this port depends
+//   combinationally on mmio_req_valid (only on registers and the held
+//   request fields).
 //
 // Ordering: one register access executes per cycle. A pending scalar access
 // takes precedence; the host's register access waits one cycle (the core
@@ -30,18 +35,20 @@
 //
 // Register map (offsets in bytes, see architecture.md; additions marked +):
 //   0x000 MAGIC        R   0x314E5848
-//   0x004 VERSION      R   0x00010000
+//   0x004 VERSION      R   0x00010001 (minor 1: CONTROL.STOP, CAUSE[9:8])
 //   0x008 CAPS         R   CAPS parameter (built by the subsystem)
-//   0x00C CONTROL      W   bit0 START, bit1 FLUSH, bit2 DMA_START, bit3 CLEAR
-//                          (reads 0; acts when wstrb[0] is set)
+//   0x00C CONTROL      W   bit0 START, bit1 FLUSH, bit2 DMA_START, bit3 CLEAR,
+//                          +bit4 STOP (reads 0; acts when wstrb[0] is set)
 //   0x010 STATUS       R   bit0 running, 1 halted, 2 fault, 3 vec_busy,
 //                          4 dma_busy, 5 flush_busy, 6 vec_illegal,
 //                          7 dma_error, 8 dma_done (sticky), 9 bus_error
 //                          (sticky), +10 halt event (sticky), +11 fault event
 //                          (sticky)
 //   0x014 START_PC     RW
-//   0x018 CAUSE        R   [2:0] fault_cause, [8] halt_cause
-//   0x01C FAULT_PC     R
+//   0x018 CAUSE        R   [2:0] fault_cause, [9:8] halt_cause (0 ECALL,
+//                          1 EBREAK, +2 STOP)
+//   0x01C FAULT_PC     R   PC of the ECALL / EBREAK / faulting instruction;
+//                          after a STOP the first instruction not executed
 //   0x020 CYCLES       R   scalar core cycles since the last accepted START
 //   0x024 INSTRET      R
 //   0x028/0x02C L1I_HITS / L1I_MISSES, 0x030/0x034 L1D, 0x038/0x03C L2   R
@@ -66,6 +73,11 @@
 //   CLEAR     clears dma_done, bus_error and the halt/fault events and pulses
 //             clear (vector unit illegal_clear). An event in the same cycle
 //             wins over CLEAR.
+//   STOP      pulses core_stop; the subsystem stops a running scalar core at
+//             the next instruction boundary and reports it here as a halt
+//             with halt_cause 2 (npu_hx_subsystem, CONTROL.STOP). Ignored
+//             while the core is not running. START together with STOP on an
+//             idle core is a plain START.
 // IRQ (deviation, documented in the subsystem): irq = (halt event &
 // IRQ_ENABLE[0]) | (fault event & [1]) | (dma_done & [2]), registered. The
 // events are sticky copies of the rising edges of halted / fault, so the host
@@ -132,6 +144,7 @@ module npu_hx_regs #(
 
     // Control
     output logic               core_start,
+    output logic               core_stop,
     output logic [31:0]        start_pc,
     output logic               flush_start,
     output logic               dma_start,
@@ -144,7 +157,7 @@ module npu_hx_regs #(
     // Status
     input  logic               running,
     input  logic               halted,
-    input  logic               halt_cause,
+    input  logic [1:0]         halt_cause,
     input  logic               fault,
     input  logic [2:0]         fault_cause,
     input  logic [31:0]        fault_pc,
@@ -167,7 +180,7 @@ module npu_hx_regs #(
     output logic               irq
 );
     localparam logic [31:0] HX_MAGIC = 32'h314E_5848;
-    localparam logic [31:0] HX_VERSION = 32'h0001_0000;
+    localparam logic [31:0] HX_VERSION = 32'h0001_0001;
 
     localparam logic [4:0] R_MAGIC    = 5'h00;   // word index = offset[6:2]
     localparam logic [4:0] R_VERSION  = 5'h01;
@@ -289,7 +302,7 @@ module npu_hx_regs #(
                 R_CAPS:     rd_word = CAPS;
                 R_STATUS:   rd_word = status_word;
                 R_START_PC: rd_word = start_pc_q;
-                R_CAUSE:    rd_word = {23'd0, halt_cause, 5'd0, fault_cause};
+                R_CAUSE:    rd_word = {22'd0, halt_cause, 5'd0, fault_cause};
                 R_FAULT_PC: rd_word = fault_pc;
                 R_CYCLES:   rd_word = cycles;
                 R_INSTRET:  rd_word = instret;
@@ -413,22 +426,21 @@ module npu_hx_regs #(
         end
     end
 
-    // Scalar MMIO: register at the handshake, execute next cycle, answer after.
+    // Scalar MMIO: register at the handshake, execute and answer next cycle
+    // (the register file writes at the end of that cycle; a read returns the
+    // value before it, as with the former registered response).
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             mm_pend_q <= 1'b0;
-            mmio_resp_valid <= 1'b0;
-            mmio_resp_rdata <= '0;
         end else begin
-            mmio_resp_valid <= mm_pend_q;
-            if (mm_pend_q) begin
-                mmio_resp_rdata <= rd_word;
+            if (mm_pend_q)
                 mm_pend_q <= 1'b0;
-            end else if (mmio_req_valid) begin
+            else if (mmio_req_valid)
                 mm_pend_q <= 1'b1;
-            end
         end
     end
+    assign mmio_resp_valid = mm_pend_q;
+    assign mmio_resp_rdata = rd_word;
 
     // ------------------------------------------------------------ register file
     logic start_ok;
@@ -445,11 +457,13 @@ module npu_hx_regs #(
             for (int i = 0; i < 4; i++)
                 mbox_q[i] <= '0;
             core_start <= 1'b0;
+            core_stop <= 1'b0;
             flush_start <= 1'b0;
             dma_start <= 1'b0;
             clear <= 1'b0;
         end else begin
             core_start <= ctl_wr && acc_wdata[0];
+            core_stop <= ctl_wr && acc_wdata[4];
             flush_start <= ctl_wr && acc_wdata[1];
             dma_start <= ctl_wr && acc_wdata[2] && (HAS_DMA != 0);
             clear <= ctl_wr && acc_wdata[3];

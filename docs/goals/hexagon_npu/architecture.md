@@ -235,13 +235,13 @@ shows the delta that unit adds.
 | Offset | Name | Access | Meaning |
 | --- | --- | --- | --- |
 | 0x000 | MAGIC | R | `0x314E5848` ("HXN1") |
-| 0x004 | VERSION | R | `0x00010000` |
+| 0x004 | VERSION | R | `0x00010001` (minor 1 adds CONTROL.STOP and CAUSE[9:8]; the first build reads `0x00010000`) |
 | 0x008 | CAPS | R | bit0 scalar, 1 vector, 2 L1I, 3 L1D, 4 L2, 5 TCM, 6 DMA; [15:8] VLEN/8; [31:16] TCM words/64 |
-| 0x00C | CONTROL | W | bit0 START (scalar core at START_PC), bit1 FLUSH (L1D then L2 write-back + invalidate of all caches), bit2 DMA_START, bit3 CLEAR (sticky status bits) |
-| 0x010 | STATUS | R | bit0 running, 1 halted, 2 fault, 3 vec_busy, 4 dma_busy, 5 flush_busy, 6 vec_illegal, 7 dma_error, 8 dma_done (sticky), 9 bus_error (sticky), 10 halt event (sticky), 11 fault event (sticky) |
+| 0x00C | CONTROL | W | bit0 START (scalar core at START_PC), bit1 FLUSH (L1D then L2 write-back + invalidate of all caches), bit2 DMA_START, bit3 CLEAR (sticky status bits), bit4 STOP (stop a running scalar core at the next instruction boundary, see below) |
+| 0x010 | STATUS | R | bit0 running, 1 halted (ECALL, EBREAK or STOP), 2 fault, 3 vec_busy, 4 dma_busy, 5 flush_busy, 6 vec_illegal, 7 dma_error, 8 dma_done (sticky), 9 bus_error (sticky), 10 halt event (sticky), 11 fault event (sticky) |
 | 0x014 | START_PC | RW | |
-| 0x018 | CAUSE | R | [2:0] fault_cause, [8] halt_cause |
-| 0x01C | FAULT_PC | R | |
+| 0x018 | CAUSE | R | [2:0] fault_cause, [9:8] halt_cause: 0 ECALL, 1 EBREAK, 2 STOP |
+| 0x01C | FAULT_PC | R | PC of the ECALL / EBREAK / faulting instruction; after a STOP the first instruction not executed (the resume address) |
 | 0x020 | CYCLES | R | scalar core cycles |
 | 0x024 | INSTRET | R | |
 | 0x028/0x02C | L1I_HITS / L1I_MISSES | R | |
@@ -269,9 +269,29 @@ caches' own (cleared only by reset).
 | `0x8000_0000`-`0x8000_0FFF` | the same `npu_hx_regs` registers as the host map (offset = addr[11:0]) |
 | anything else, and the TCM window past its end | `d_resp_err`: the core faults with cause 6 |
 
-TCM and MMIO accesses answer two cycles after the handshake. AXI errors on
-cached traffic cannot reach the core (the caches have no error path): the
-bridge's error pulse sets the sticky STATUS.bus_error instead.
+TCM and MMIO accesses answer one cycle after the handshake (integration
+review round 2; it was two), so they take as long as an L1 D$ hit (a load or
+store is 5 core cycles). The TCM window request goes to port B in the
+handshake cycle when the DMA is not using the port; an MMIO access executes
+in the cycle after the handshake and answers in it. AXI errors on cached
+traffic cannot reach the core (the caches have no error path): the bridge's
+error pulse sets the sticky STATUS.bus_error instead.
+
+CONTROL.STOP recovers a hung program without reloading the bitstream and
+without changes to the scalar core: while a STOP is pending (armed only while
+the core runs) the subsystem raises the core's `i_resp_err`, so the next
+instruction-fetch response the core consumes is an instruction bus error. The
+core stops at that instruction boundary (the previous instruction retired
+with its memory access complete, the fetched one has no effect) with fault
+cause 5, which nothing else raises in this subsystem; `npu_hx_regs` reports
+it as a halt with halt cause 2 (halt event and IRQ like ECALL) and FAULT_PC
+is the resume address: START at FAULT_PC continues the program (the register
+file keeps its contents, CYCLES / INSTRET restart). A STOP while the core is
+not running does nothing; START together with STOP on an idle core is a
+START. It acts within about two instructions or when the current one ends: a
+VFENCE waits for the vector unit and a cached access for its AXI traffic, so
+an AXI slave that never answers is not recoverable this way. The vector unit
+and a DMA in flight finish their work.
 
 FLUSH flushes L1D and invalidates L1I together, then flushes L2 once L1D is
 done. With `HX_ENABLE_L2 = 0` the line bridge feeds the L1 arbiter through a
