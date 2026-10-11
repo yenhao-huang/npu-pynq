@@ -19,6 +19,13 @@ conclusions must stay readable without a PyTorch environment, a dataset, or an
 hour of compute, and the committed figure is what a reviewer checks the prose
 against. The study's input corpus is still never committed.
 
+The IC-tool A/B study under `exp/ab_test/` versions its report, source,
+reproduction instructions, MIT-licensed task inputs, and selected acceptance
+examples. The full attempt archive and generated `evidence/` are local only.
+Analysis scripts belong in `exp/ab_test/analysis/`, outside generated-output
+directories. The report explicitly states that its historical measurements
+cannot be recalculated from the compact checkout alone.
+
 Commit project-regenerating Tcl under `src/hw/vivado_tcl/<design>/`. Attach a
 matching bitstream and hardware handoff to a tagged GitHub Release rather than
 Git history. Files staged under `mount/` are deploy payloads and are not
