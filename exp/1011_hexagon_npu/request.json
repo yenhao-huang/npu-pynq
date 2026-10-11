@@ -1,8 +1,6 @@
 {
-  "id": "003-ppa-memory",
+  "id": "004-ppa-scalar",
   "ppa": [
-    {"name": "hx_npu_tcm", "top": "npu_tcm"},
-    {"name": "hx_npu_tcm_dma", "top": "npu_tcm_dma"},
-    {"name": "hx_npu_axi4_arbiter", "top": "npu_axi4_arbiter"}
+    {"name": "hx_npu_scalar_core", "top": "npu_scalar_core"}
   ]
 }
