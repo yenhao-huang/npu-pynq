@@ -21,21 +21,24 @@ round carries the whole prior conversation, so input tokens grow across rounds.
 Following the resumed-session accounting in
 [PR #135](https://github.com/yenhao-huang/npu-pynq/pull/135), each round's Claude
 cost and Codex tokens are the difference between consecutive session totals. The first
-table reports the actual 50-problem experiment totals: baseline and single-round
-ran three attempts per problem (150 attempts each), while multi-round ran one
-five-round attempt per problem (250 rounds). Ratios compare whole arms.
+table compares 50 problems with one attempt or one round per problem. The
+baseline and single-round rows divide their actual 150-attempt totals by three;
+multi-round divides its actual 250-round total by five to show the average
+round across 50 problems. Ratios compare that average round with one
+single-round attempt.
 
-| Actual totals for 50 problems | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
+| 50 problems × one attempt or average round | Opus 5.5 | Sonnet 5.5 | gpt-6-sol |
 |---|---|---|---|
-| baseline | $12.14<br>1.508M in · 319K out | $4.51<br>1.424M in · 184K out | ~$7.08<br>4.690M in · 230K out |
-| single-round | $21.57<br>8.339M in · 508K out | $5.00<br>3.787M in · 180K out | ~$26.92<br>34.173M in · 579K out |
-| multi-round | $63.07<br>52.236M in · 1.528M out | $14.29<br>18.482M in · 601K out | ~$62.60<br>119.997M in · 1.295M out |
-| **multi / single** | **2.92× cost · 6.26× in · 3.01× out** | **2.86× cost · 4.88× in · 3.34× out** | **2.33× estimated cost · 3.51× in · 2.24× out** |
+| baseline | $4.05<br>503K in · 106K out | $1.50<br>475K in · 61K out | ~$2.36<br>1.563M in · 77K out |
+| single-round | $7.19<br>2.780M in · 169K out | $1.67<br>1.262M in · 60K out | ~$8.97<br>11.391M in · 193K out |
+| multi-round, mean round | $12.61<br>10.447M in · 306K out | $2.86<br>3.696M in · 120K out | ~$12.52<br>23.999M in · 259K out |
+| **multi / single per-unit ratio** | **1.75× cost · 3.76× in · 1.80× out** | **1.71× cost · 2.93× in · 2.01× out** | **1.40× estimated cost · 2.11× in · 1.34× out** |
 
-These totals follow [PR #135](https://github.com/yenhao-huang/npu-pynq/pull/135).
-For example, Opus multi-round cost is `$63.0736218 / 250 rounds × 5
-rounds/problem × 50 problems = $63.07`. A 50-round comparison would instead be
-`$63.0736218 / 250 × 50 = $12.61`; it is not the 50-problem cost.
+The source totals follow [PR #135](https://github.com/yenhao-huang/npu-pynq/pull/135).
+For example, Opus multi-round cost in the table is `$63.0736218 / 5 = $12.61`;
+the full five-round run on 50 problems costs $63.07. Baseline and single-round
+divide their 150-attempt totals by three because they run three independent
+attempts per problem.
 
 Codex does not report a billed amount. The GPT-6 Sol estimates use the
 [Standard API prices on 2026-10-11](https://developers.openai.com/api/docs/models/gpt-6-sol):
@@ -59,9 +62,8 @@ and resulting estimates are:
 | single-round | 3.491221 | 30.681472 | 0.579293 | 150 attempts | $0.179462 |
 | multi-round | 3.856909 | 116.140288 | 1.294973 | 250 rounds | $0.250400 |
 
-The first table uses the full recorded token totals. GPT-6 Sol dollar totals
-multiply the unrounded per-unit estimates by their actual unit counts (150
-attempts or 250 rounds).
+The first table uses one-third of each baseline and single-round total, or
+one-fifth of each multi-round total, before rounding displayed values.
 
 Three ratios are easy to confuse, so to be explicit: a multi-round *round* costs roughly
 1.4–1.8× a single-round attempt; a whole multi-round *attempt* (5 rounds) costs 7–9× a
