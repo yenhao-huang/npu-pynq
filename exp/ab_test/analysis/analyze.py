@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("AB_RESULTS", ROOT.parent / "results")).resolve()  # local run archive by default
 sys.path.insert(0, str(ROOT.parent))
 from src.grade.pareto import frontier, top3_pdap, eligible  # noqa: E402
+from src.agent.parse import summarize as summarize_streams  # noqa: E402
 
 MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "gpt-6-sol"]
 # group label -> (run directory, arm)
@@ -47,6 +48,17 @@ def api_error(directory):
     return False
 
 
+def usage_from_streams(directory):
+    """(cost_usd, usage) re-derived from the saved round streams.
+
+    result.json from runs before parse.summarize stopped summing session totals
+    over-counts resumed rounds, so the raw streams are authoritative.
+    """
+    rounds = sorted(directory.glob("round*.jsonl"), key=lambda f: int(f.stem[len("round"):]))
+    totals = summarize_streams([f.read_text() for f in rounds])
+    return totals["cost_usd"], totals["usage"]
+
+
 def load(model, group):
     """Merge runs of one group: per (problem, rep) keep the newest attempt without API errors."""
     manifest = DATA / "attempts.jsonl"
@@ -77,6 +89,7 @@ def load(model, group):
             row = json.loads(f.read_text())
             row["_dir"], row["_run"] = f.parent, run
             row["_api_error"] = api_error(f.parent)
+            row["cost_usd"], row["usage"] = usage_from_streams(f.parent)
             key = row["problem"] if single else (row["problem"], row["rep"])
             if key not in chosen or (chosen[key]["_api_error"] and not row["_api_error"]):
                 chosen[key] = row

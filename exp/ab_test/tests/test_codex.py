@@ -42,6 +42,16 @@ class CodexTests(unittest.TestCase):
         self.assertEqual(summary["usage"]["cache_read_input_tokens"], 60)
         self.assertEqual(summary["cost_usd"], 0)
 
+    def test_resumed_thread_usage_is_not_summed(self):
+        # Codex reports the thread's running total on every resumed turn.
+        first = codex_stream() + "\n" + normalize(codex_stream(), 0)
+        later = codex_stream().replace('"input_tokens": 100, "cached_input_tokens": 60',
+                                       '"input_tokens": 250, "cached_input_tokens": 200')
+        second = later + "\n" + normalize(later, 0)
+        summary = summarize([first, second])
+        self.assertEqual(summary["usage"]["input_tokens"], 50)
+        self.assertEqual(summary["usage"]["cache_read_input_tokens"], 200)
+
     def test_failed_turn_is_an_error(self):
         _, result, *_ = parse_stream(normalize(codex_stream(fail="usage limit reached"), 1))
         self.assertTrue(result["is_error"])
