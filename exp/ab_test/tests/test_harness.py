@@ -64,7 +64,9 @@ class HarnessTests(unittest.TestCase):
                     self.assertEqual(model.calls[1][2], ['--resume', context.session_id])
                     self.assertIn('Round 2 of 3', model.calls[1][0])
                 summary = summarize([r['response'].stdout for r in records])
-                self.assertEqual(summary['cost_usd'], count * 0.25)
+                # total_cost_usd is a session total, so resumed rounds are not summed;
+                # usage is per invocation and is.
+                self.assertEqual(summary['cost_usd'], 0.25)
                 self.assertEqual(summary['usage']['input_tokens'], count * 10)
 
     def test_errors_stop_rounds_and_preserve_logs(self):
