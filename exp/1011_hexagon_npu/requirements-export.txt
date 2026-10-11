@@ -1,0 +1,2 @@
+# Host-side export for the #136 exp-board run: the same toolchain as #119.
+-r ../1007_sw_stack/requirements-export.txt

@@ -150,7 +150,7 @@ npu_repo_in_pynq/
 |   |-- 1007_sw_stack/          software-stack goal (#119): exp-board request, export
 |   |                           and board scripts, host evaluation scripts and results
 |   |-- 1011_hexagon_npu/       heterogeneous NPU goal (#136): exp-board request (PPA,
-|   |                           overlay, board) and board scripts
+|   |                           overlay, export, board), export and board scripts
 |   `-- ab_test/                IC-tool A/B report and experiment source
 |-- openspec/
 |   |-- changes/
