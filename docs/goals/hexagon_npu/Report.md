@@ -67,8 +67,12 @@ Whole overlay, routed (before = base branch build, after = `--hexagon`):
 | | LUT | FF | Slices | DSP | BRAM | WNS (ns) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Before | 35,477 (66.7 %) | 25,200 | 11,141 (83.8 %) | 194 | 26.5 | +0.031 |
-| After | 39,931 (75.1 %) | 28,279 | 12,304 (92.5 %) | 200 | 34.5 | +0.063 |
-| Delta | +4,454 | +3,079 | +1,163 | +6 | +8 | timing still met |
+| After (final RTL, run 38205853103) | 40,011 (75.2 %) | 28,326 | 12,215 (91.8 %) | 200 | 34.5 | +0.113 |
+| Delta | +4,534 | +3,126 | +1,074 | +6 | +8 | timing met at 100 MHz |
+
+`--hexagon` builds use post-place and post-route `phys_opt_design`: without
+it the final RTL missed by 71 ps in the unchanged tensor controller
+(placement noise at 92 % slices).
 
 Power (vectorless, routed): `npu_hx_0` 0.055 W dynamic in the overlay
 (0.053 W out of context). The overlay's total dynamic power goes from

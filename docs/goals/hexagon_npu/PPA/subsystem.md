@@ -15,6 +15,7 @@ differences are what each unit adds in place (glue included).
 | No L2 (beat serializer instead) | 3,715 | 2,702 | 6 | 3 | 168 | 0.437 | 104.6 | 0.049 | 0.152 |
 | No TCM DMA / AXI arbiter | 3,757 | 2,399 | 6 | 8 | 174 | 0.505 | 105.3 | 0.051 | 0.154 |
 | All units | 4,186 | 2,774 | 6 | 8 | 188 | 0.389 | 104.0 | 0.053 | 0.157 |
+| All units, final RTL (STOP, 1-cycle TCM/MMIO; run 38196223963) | 4,212 | 2,743 | 6 | 8 | 188 | 0.153 | 101.6 | 0.051 | 0.155 |
 
 | Unit added to the rest | LUT | FF | DSP | BRAM | Dynamic (mW) | Fmax effect |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -33,8 +34,15 @@ After: the same build script with `--hexagon` (run 38169804215), which adds
 | | LUT | FF | Slices | DSP | BRAM tiles | WNS (ns) | Failing endpoints |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Before | 35,477 (66.7 %) | 25,200 (23.7 %) | 11,141 (83.8 %) | 194 (88.2 %) | 26.5 (18.9 %) | +0.031 | 0 |
-| After | 39,931 (75.1 %) | 28,279 (26.6 %) | 12,304 (92.5 %) | 200 (90.9 %) | 34.5 (24.6 %) | +0.063 | 0 |
-| Delta | +4,454 | +3,079 | +1,163 | +6 | +8 | timing still met at 100 MHz | |
+| After (run 38169804215, commit 2c34b1d) | 39,931 (75.1 %) | 28,279 (26.6 %) | 12,304 (92.5 %) | 200 (90.9 %) | 34.5 (24.6 %) | +0.063 | 0 |
+| After, final RTL (run 38205853103, commit 5471ff4) | 40,011 (75.2 %) | 28,326 (26.6 %) | 12,215 (91.8 %) | 200 (90.9 %) | 34.5 (24.6 %) | +0.113 | 0 |
+| Delta (final vs before) | +4,534 | +3,126 | +1,074 | +6 | +8 | timing met at 100 MHz | |
+
+The final-RTL build without extra physical optimisation (run 38196223963)
+missed by 71 ps on 11 endpoints, all in the unchanged tensor controller's
+`align_row -> active_m/n` enables (77 % routing delay). `--hexagon` builds
+now run `phys_opt_design` after placement and after routing
+(AggressiveExplore), which gave +0.113 ns; the baseline flow is unchanged.
 
 Power, vectorless `report_power` on the routed overlay:
 
@@ -44,8 +52,10 @@ Power, vectorless `report_power` on the routed overlay:
 | Dynamic | 1.670 | 1.947 |
 | PS7 | 1.532 | 1.532 |
 | `npu_accelerator_0` (RTL unchanged) | 0.125 | 0.344 |
-| `npu_hx_0` | - | 0.055 |
+| `npu_hx_0` | - | 0.055 (final RTL build: 0.053) |
 | AXI DMA + interconnects | 0.013 | 0.016 |
+
+(The final-RTL build: total 2.111 W, dynamic 1.958 W, accelerator 0.358 W.)
 
 Reading the power table: the subsystem itself costs 0.055 W dynamic in the
 overlay, consistent with its 0.053 W out of context. The total rises by
