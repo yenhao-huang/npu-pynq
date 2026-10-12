@@ -239,6 +239,19 @@ open_run synth_1
 report_utilization -file [file join $report_dir utilization_synth.rpt]
 close_design
 
+if {$hexagon} {
+    # With npu_hx_0 the device is at ~92 % slices and the unchanged tensor
+    # controller's align_row -> active_m/n enable paths land within tens of
+    # picoseconds of 10 ns either way, route-dominated (exp-board runs
+    # 38169804215: +0.063 ns, 38196223963: -0.071 ns). Extra physical
+    # optimisation after placement and after routing recovers that without
+    # touching the RTL; the baseline overlay keeps the default flow.
+    set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+    set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
+    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
+}
+
 launch_runs impl_1 -to_step write_bitstream -jobs $jobs
 wait_on_run impl_1
 if {[get_property PROGRESS [get_runs impl_1]] ne "100%"} {

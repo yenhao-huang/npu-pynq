@@ -1,8 +1,5 @@
 {
-  "id": "012-hexagon-final",
-  "ppa": [
-    {"name": "hx_subsystem_full", "top": "npu_hx_subsystem", "clock_port": "s_axi_aclk"}
-  ],
+  "id": "013-hexagon-final",
   "overlay": {"mode": "build", "tclargs": "--hexagon"},
   "export": {"cmd": "bash exp/1011_hexagon_npu/export_smollm.sh build/exp-payload"},
   "board": {"script": "exp/1011_hexagon_npu/board/run_hexagon.sh", "timeout_minutes": 120}
