@@ -1378,6 +1378,26 @@ def case_j(s: Script, cfg: int):
         s.cpy(FAULT_PC, START_PC)
         s.w(CONTROL, C_START)
         s.r(STATUS, S_RUNNING, S_RUNNING)
+    # STOP during a FLUSH (review round 3): the caches refuse requests while
+    # they sweep, so the core waits in FETCH (or in MEM for a prefetch / its
+    # data access) when STOP arms; the stop must still land on an
+    # instruction boundary (checked by the counters at the end)
+    for k in range(6):
+        for _ in range(rng.randint(0, 4)):
+            s.r(MBOX[3], 0, 0)
+        s.hfast(True)
+        s.w(CONTROL, C_FLUSH)
+        for _ in range(k % 3):
+            s.r(MBOX[3], 0, 0)
+        s.w(CONTROL, C_STOP)
+        s.hfast(False)
+        s.wait_stop()
+        s.r(STATUS, S_HALTED | S_HEVT, S_RUNNING | S_HALTED | S_FAULT | S_HEVT | S_FEVT)
+        s.r(CAUSE, 0x200, 0x307)
+        s.poll(STATUS, S_FBUSY, 0)
+        s.cpy(FAULT_PC, START_PC)
+        s.w(CONTROL, C_START)
+        s.r(STATUS, S_RUNNING, S_RUNNING)
     s.w(IRQ_EN, 0)
     # let the program finish
     s.w(MBOX[0], 1)

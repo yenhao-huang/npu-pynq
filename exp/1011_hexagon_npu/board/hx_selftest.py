@@ -14,7 +14,12 @@ tensor accelerator npu_accelerator_0) and checks, in order:
                 --unroll, the same sources tb_npu_hx_subsystem simulates),
                 TCM -> DDR DMA; bit-exact against hx_vector and numpy; reports
                 cycles, elements/s at 100 MHz, DMA times and the wall time of
-                the same op in numpy on the Cortex-A9
+                the same op in numpy on the Cortex-A9. Then the same op
+                through hexagon.VectorOp (kernel resident, buffers reused,
+                no FLUSH in the steady state): the wall time of the first
+                call and of --repeat steady-state calls (each checked
+                bit-exact on fresh operands), a per-phase profile and the
+                MMIO accesses of one steady call
   d. tensor     exp/1007_sw_stack/board/isa_gemm.py (legacy tile + ISA GEMMs)
                 in a child process, proving the tensor path on this overlay
 
@@ -111,6 +116,12 @@ noswap:
 # integration they were rolled loops (9 / 10 instructions per word); unrolled
 # by 4 they need 7.25 / 8.25 (simulated at 512 lanes: 1801 -> 1591 and
 # 3945 -> 3399 cycles).
+#
+# Host overhead (review round 3): on run 38184383844 the generic sequence
+# (dma_to_tcm + run + dma_from_tcm) took 1.79 ms end to end for a 17 us INT8
+# kernel. The step therefore also times hexagon.VectorOp, which keeps the
+# kernel and its buffers resident and needs 9 MMIO writes + 4 reads per
+# steady-state call instead of 14 + 15, through the direct MMIO.array path.
 FP16_A = 0xBA00                # -0.75
 VEC_PROG_STRIDE = 0x100        # bytes between the two kernels in the program buffer
 SENTINEL = 0xCC
@@ -275,8 +286,8 @@ class SelfTest:
         self.report = {"pass": True, "steps": {}}
         self.rng = np.random.default_rng(SEED)
         self.programs = {"scalar": assemble(SCALAR_SOURCE, base=0).words}
-        for kind in hxr.VECTOR_KERNELS:
-            self.programs[kind] = assemble(hxr.vector_kernel_source(kind, args.unroll), base=0).words
+        for kind in hxr.VECTOR_KERNELS:     # assembled once, shared with VectorOp
+            self.programs[kind] = list(hxr.vector_kernel_words(kind, args.unroll))
         for name in ("int8", "fp16"):
             if 4 * len(self.programs[name]) > VEC_PROG_STRIDE:
                 raise AssertionError(f"{name} kernel larger than its program slot")
@@ -437,6 +448,7 @@ class SelfTest:
                   and not status & hxr.STATUS_BUS_ERROR)
             np_median, np_min = time_numpy(np_op)
             seconds_hw = run.cycles / CLOCK_HZ
+            prepared = self.vector_op(kind, x, y, a_bits, ref_np, np_median)
             entry[name] = {
                 "pass": ok, "tcm_words_per_operand": w,
                 "model_matches_numpy": model_vs_numpy,
@@ -451,9 +463,78 @@ class SelfTest:
                 "numpy_a9_median_seconds": np_median, "numpy_a9_min_seconds": np_min,
                 "numpy_a9_elements_per_s": n / np_median if np_median else None,
                 "speedup_kernel_vs_numpy": np_median / seconds_hw if seconds_hw else None,
+                "vector_op": prepared,
             }
-            entry["pass"] = entry["pass"] and ok
+            entry["pass"] = entry["pass"] and ok and prepared["pass"]
         return entry
+
+    def vector_op(self, kind, x, y, a_bits, ref, np_median):
+        """The op through hexagon.VectorOp: first call and steady state.
+
+        Call i uses x and y rotated by i + 1 elements (an elementwise op, so
+        the reference rotates too): every result differs from the one the
+        TCM still holds, so a kernel that stored nothing cannot pass."""
+        npu = self.npu
+        a = np.array([a_bits], dtype=np.uint16).view(np.float16)[0]
+        t = time.perf_counter()
+        op = hxr.VectorOp(npu, kind, x.size, unroll=self.args.unroll, words=self.programs[kind],
+                          timeout=self.args.timeout)
+        prepare = time.perf_counter() - t
+        try:
+            calls = [np.roll(x, i + 1) for i in range(self.args.repeat + 3)]
+            calls_y = [np.roll(y, i + 1) for i in range(self.args.repeat + 3)]
+            seconds, bad = [], []
+            cycles = []
+            for i in range(self.args.repeat + 1):            # call 0 is the first call
+                xi, yi = calls[i], calls_y[i]
+                t = time.perf_counter()
+                got = op(xi, yi, a)
+                seconds.append(time.perf_counter() - t)
+                cycles.append(op.last_cycles)
+                if got.tobytes() != np.roll(ref, i + 1).tobytes():
+                    bad.append(i)
+            i = self.args.repeat + 1
+            got = op(calls[i], calls_y[i], a, profile=True)
+            profile = dict(op.last_profile)
+            if got.tobytes() != np.roll(ref, i + 1).tobytes():
+                bad.append(i)
+            # one more steady call with every MMIO access counted (not timed)
+            counts = {"reads": 0, "writes": 0}
+            rd, wr = npu._rd, npu._wr
+
+            def count_rd(offset):
+                counts["reads"] += 1
+                return rd(offset)
+
+            def count_wr(offset, value):
+                counts["writes"] += 1
+                wr(offset, value)
+
+            npu._rd, npu._wr = count_rd, count_wr
+            try:
+                i += 1
+                got = op(calls[i], calls_y[i], a)
+            finally:
+                npu._rd, npu._wr = rd, wr
+            if got.tobytes() != np.roll(ref, i + 1).tobytes():
+                bad.append(i)
+        finally:
+            op.free()
+        steady = seconds[1:]
+        median = float(np.median(steady)) if steady else None
+        return {
+            "pass": not bad, "mismatched_calls": bad, "calls_checked": i + 1,
+            "prepare_seconds": prepare,
+            "first_call_seconds": seconds[0],
+            "steady_calls": len(steady),
+            "steady_median_seconds": median,
+            "steady_min_seconds": float(min(steady)) if steady else None,
+            "kernel_cycles": cycles[-1],
+            "steady_profile_seconds": profile,
+            "steady_mmio_accesses": counts,
+            "speedup_first_call_vs_numpy": np_median / seconds[0] if seconds[0] else None,
+            "speedup_steady_vs_numpy": np_median / median if median else None,
+        }
 
     # (d)
     def tensor(self):
@@ -511,6 +592,8 @@ def main(argv=None) -> int:
     ap.add_argument("--unroll", type=int, default=4, choices=(1, 2, 4),
                     help="words per vector-kernel loop iteration")
     ap.add_argument("--timeout", type=float, default=10.0, help="seconds per scalar program")
+    ap.add_argument("--repeat", type=int, default=20,
+                    help="steady-state VectorOp calls timed per vector kernel")
     ap.add_argument("--skip-tensor", action="store_true", help="skip the tensor ISA GEMM step")
     ap.add_argument("--tensor-out", default="results/isa_gemm.json")
     ap.add_argument("--tensor-timeout", type=float, default=1800.0)

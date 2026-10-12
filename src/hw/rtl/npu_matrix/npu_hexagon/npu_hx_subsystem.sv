@@ -122,8 +122,15 @@
 // npu_hx_regs: AXI hold registers / core address -> register index mux ->
 // 32:1 read mux -> s_axi_rdata, ~7 levels; for a scalar MMIO read the same
 // mux continues through d_resp_rdata (1) into the core's load_q, ~7-8
-// levels. All are inside 10 ns; the scalar core's own DECODE paths (~7 ns)
-// stay the worst.
+// levels. Review round 3 re-estimated them on the flattened Yosys netlist
+// (7-series -1 LUT / MUXF / net delays): MMIO read data -> load_q 6.95 ns,
+// the same as -> s_axi_rdata, and its worst start is the host side of the
+// index mux (s_axi_bvalid -> read / write select), not the core address;
+// the core's own DECODE -> npc path is 7.08 ns and the subsystem's worst
+// is the vector unit's FP16 multiplier (8.98 ns; 104 MHz out of context in
+// Vivado). Registering the MMIO read data at the handshake would need a
+// second 32-bit read mux (or a select decoded from mmio_req_valid, no
+// shorter), so it is not done.
 module npu_hx_subsystem #(
     parameter integer HX_ENABLE_VECTOR = 1,
     parameter integer HX_ENABLE_L2 = 1,

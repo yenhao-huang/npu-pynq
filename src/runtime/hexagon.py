@@ -12,7 +12,9 @@ Memory model the caller must respect:
 - The scalar core fetches and loads/stores DDR through its write-back caches,
   which are not coherent with the ARM or with the TCM DMA. :meth:`HexagonNpu.run`
   issues CONTROL.FLUSH before START (so code or data the host just wrote is
-  not shadowed by stale lines) and after the halt (so results reach DDR).
+  not shadowed by stale lines) and after the halt (so results reach DDR);
+  ``flush_before`` / ``flush_after`` skip one when the program does not need
+  it (e.g. a TCM-only kernel whose code is already cached).
 - The subsystem's AXI master uses non-coherent HP traffic, so a cacheable
   pynq buffer must be ``flush()``-ed after CPU writes and ``invalidate()``-d
   before CPU reads. :meth:`HexagonNpu.load_program`, :meth:`dma_to_tcm` and
@@ -28,7 +30,16 @@ reports a halt with cause 2; FAULT_PC is the resume address.
 
 :func:`vector_kernel_source` returns the reference vector kernels (INT8
 residual add, FP16 a*x+y) that the board self-test runs; tb_npu_hx_subsystem
-simulates the same sources.
+simulates the same sources. :class:`VectorOp` keeps one of them resident
+for repeated calls with the host overhead cut to the minimum (review
+round 3 of the integration; see its docstring for the per-call MMIO count).
+
+Host overhead: every MMIO access from Python costs microseconds, far more
+than the subsystem needs for a short kernel. When the MMIO object is a pynq
+``DefaultIP`` / ``MMIO`` whose ``array`` maps the whole 64 KB window, the
+driver reads and writes that array directly (the same 32-bit loads and
+stores pynq's ``MMIO.read`` / ``write`` issue, without their per-call
+checks); pass ``fast_mmio=False`` to go through ``read`` / ``write``.
 
 The MMIO object (``read(offset)`` / ``write(offset, value)``) and the buffer
 allocator are injectable, so the driver is unit-tested on a host without
@@ -38,6 +49,7 @@ only when no allocator was given and a buffer is needed.
 
 from __future__ import annotations
 
+import functools
 import time
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Iterable, Sequence
@@ -71,6 +83,7 @@ REG_MAILBOX = (0x050, 0x054, 0x058, 0x05C)
 REG_VEC_CYCLES = 0x060
 TCM_WINDOW = 0x8000          # 0x8000-0xFFFF: word = offset[14:3], lane = offset[2]
 TCM_WINDOW_BYTES = 0x8000
+HX_WINDOW_BYTES = 0x10000    # the IP's address range (registers + TCM window)
 
 HX_MAGIC = 0x314E5848        # "HXN1"
 HX_VERSION = 0x00010001      # minor 1: CONTROL.STOP, CAUSE[9:8]
@@ -289,7 +302,9 @@ class LoadedProgram:
 
 
 class Mailbox:
-    """MAILBOX0-3: ``npu.mailbox[i]`` reads, ``npu.mailbox[i] = v`` writes."""
+    """MAILBOX0-3: ``npu.mailbox[i]`` reads, ``npu.mailbox[i] = v`` writes.
+    ``mmio`` is anything with ``read(offset)`` / ``write(offset, value)``
+    (:class:`HexagonNpu` passes itself)."""
 
     def __init__(self, mmio: Any):
         self._mmio = mmio
@@ -312,6 +327,35 @@ class Mailbox:
         return [self[i] for i in range(len(self))]
 
 
+def _bind_mmio(mmio: Any, fast: bool):
+    """(read, write) callables for ``mmio``: direct accesses to a pynq
+    ``MMIO.array`` (``mmio.array`` or ``mmio.mmio.array``, a uint32 view of
+    the whole 64 KB window) when ``fast``, else ``mmio.read`` / ``write``."""
+    if fast:
+        array = getattr(mmio, "array", None)
+        if array is None:
+            array = getattr(getattr(mmio, "mmio", None), "array", None)
+        if (isinstance(array, np.ndarray) and array.dtype == np.uint32 and array.ndim == 1
+                and array.size * 4 >= HX_WINDOW_BYTES):
+            get, put = array.__getitem__, array.__setitem__
+
+            def read_fast(offset: int) -> int:
+                return int(get(offset >> 2))
+
+            def write_fast(offset: int, value: int) -> None:
+                put(offset >> 2, value)
+
+            return read_fast, write_fast
+
+    def read_mmio(offset: int) -> int:
+        return int(mmio.read(offset)) & MASK32
+
+    def write_mmio(offset: int, value: int) -> None:
+        mmio.write(offset, value)
+
+    return read_mmio, write_mmio
+
+
 def _default_allocate(shape, dtype):
     from pynq import allocate  # lazy: keeps the module importable on a host
 
@@ -326,12 +370,18 @@ class HexagonNpu:
     any object with ``read(offset)`` / ``write(offset, value)`` instead
     (``overlay`` may then be None). ``allocate`` creates contiguous buffers
     (default: ``pynq.allocate``); ``clock`` is the monotonic time source used
-    for timeouts and wall-time measurements.
+    for timeouts and wall-time measurements; ``fast_mmio`` allows the direct
+    ``MMIO.array`` accesses described in the module docstring.
+
+    Every register write goes through :meth:`write`, which counts it
+    (``write_epoch``): a :class:`VectorOp` uses that count to know that
+    nothing else touched the subsystem since its previous call.
     """
 
     def __init__(self, overlay: Any = None, name: str = "npu_hx_0", *, mmio: Any = None,
                  allocate: Callable[..., Any] | None = None,
-                 clock: Callable[[], float] = time.monotonic, check: bool = True):
+                 clock: Callable[[], float] = time.monotonic, check: bool = True,
+                 fast_mmio: bool = True):
         if mmio is None:
             if overlay is None:
                 raise HexagonError("pass an overlay or an mmio object")
@@ -342,10 +392,12 @@ class HexagonNpu:
                                    "is this the --hexagon overlay?") from error
         self.name = name
         self.mmio = mmio
+        self._rd, self._wr = _bind_mmio(mmio, fast_mmio)
+        self.write_epoch = 0
         self._allocate = allocate or _default_allocate
         self._clock = clock
         self._started: float | None = None
-        self.mailbox = Mailbox(mmio)
+        self.mailbox = Mailbox(self)
         self.magic = self.read(REG_MAGIC)
         self.version = self.read(REG_VERSION)
         self.caps = Caps.decode(self.read(REG_CAPS))
@@ -354,13 +406,14 @@ class HexagonNpu:
 
     # -------------------------------------------------------------- raw access
     def read(self, offset: int) -> int:
-        return int(self.mmio.read(offset)) & MASK32
+        return self._rd(offset)
 
     def write(self, offset: int, value: int) -> None:
-        self.mmio.write(offset, int(value) & MASK32)
+        self.write_epoch += 1
+        self._wr(offset, int(value) & MASK32)
 
     def status(self) -> int:
-        return self.read(REG_STATUS)
+        return self._rd(REG_STATUS)
 
     def check(self) -> None:
         """Raise unless MAGIC / VERSION identify a supported subsystem."""
@@ -377,14 +430,18 @@ class HexagonNpu:
                 "version": f"0x{self.version:08x}", "caps": self.caps.as_dict()}
 
     def _poll(self, done: Callable[[int], bool], timeout: float, what: str) -> tuple[int, float]:
-        start = self._clock()
-        while True:
-            status = self.status()
-            if done(status):
-                return status, self._clock() - start
-            if self._clock() - start > timeout:
+        """Read STATUS back to back (no sleep: the subsystem's operations
+        take microseconds, about one MMIO read) until ``done(status)``; one
+        clock read per extra iteration enforces ``timeout``."""
+        read, clock = self._rd, self._clock
+        start = clock()
+        status = read(REG_STATUS)
+        while not done(status):
+            if clock() - start > timeout:
                 raise HexagonTimeout(f"{self.name}: {what} did not finish within {timeout:g} s "
                                      f"(STATUS={describe_status(status)})", status)
+            status = read(REG_STATUS)
+        return status, clock() - start
 
     # -------------------------------------------------------------- control
     def clear(self) -> None:
@@ -398,37 +455,50 @@ class HexagonNpu:
     def flush(self, timeout: float = 1.0) -> float:
         """CONTROL.FLUSH: write back L1D then L2 to DDR and invalidate every
         cache (L1I included). Returns the wall time."""
-        if self.status() & STATUS_FLUSH_BUSY:
+        return self._flush_go(None, timeout)[1]
+
+    def _flush_go(self, status: int | None, timeout: float = 1.0) -> tuple[int, float]:
+        """FLUSH; ``status`` is a STATUS value read since the last command
+        (skips the busy check read). Returns (final STATUS, wall time)."""
+        if (self.status() if status is None else status) & STATUS_FLUSH_BUSY:
             raise HexagonError(f"{self.name}: a flush is already in progress")
         self.write(REG_CONTROL, CONTROL_FLUSH)
-        _, seconds = self._poll(lambda s: not s & STATUS_FLUSH_BUSY, timeout, "cache flush")
-        return seconds
+        return self._poll(_flush_idle, timeout, "cache flush")
 
-    def start(self, pc: int) -> None:
-        """Start the scalar core at ``pc`` (a DDR physical address)."""
+    def start(self, pc: int, *, status: int | None = None) -> None:
+        """Start the scalar core at ``pc`` (a DDR physical address).
+        ``status``: a STATUS value read since the last command, which
+        replaces the read that checks the core is not running."""
         if pc & 3:
             raise HexagonError(f"start pc 0x{pc:08x} is not word aligned")
         if not 0 <= pc < 0x4000_0000:
             raise HexagonError(f"start pc 0x{pc:08x} is outside the DDR window")
-        if self.status() & STATUS_RUNNING:
+        self._start_go(pc, status, True)
+
+    def _start_go(self, pc: int, status: int | None, write_pc: bool) -> None:
+        if (self.status() if status is None else status) & STATUS_RUNNING:
             raise HexagonError(f"{self.name}: the scalar core is still running")
-        self.write(REG_START_PC, pc)
+        if write_pc:
+            self.write(REG_START_PC, pc)
         self._started = self._clock()
         self.write(REG_CONTROL, CONTROL_START)
 
     def result(self, status: int | None = None, seconds: float = 0.0) -> RunResult:
-        status = self.status() if status is None else status
-        cause = self.read(REG_CAUSE)
+        """The last program's outcome: STATUS (read unless given), CAUSE,
+        FAULT_PC, CYCLES, INSTRET, VEC_CYCLES (5 or 6 reads)."""
+        read = self._rd
+        status = read(REG_STATUS) if status is None else status
+        cause = read(REG_CAUSE)
         return RunResult(
             status=status,
             halted=bool(status & STATUS_HALTED),
             fault=bool(status & STATUS_FAULT),
             halt_cause=(cause >> CAUSE_HALT_SHIFT) & CAUSE_HALT_MASK,
             fault_cause=cause & CAUSE_FAULT_MASK,
-            fault_pc=self.read(REG_FAULT_PC),
-            cycles=self.read(REG_CYCLES),
-            instret=self.read(REG_INSTRET),
-            vec_cycles=self.read(REG_VEC_CYCLES),
+            fault_pc=read(REG_FAULT_PC),
+            cycles=read(REG_CYCLES),
+            instret=read(REG_INSTRET),
+            vec_cycles=read(REG_VEC_CYCLES),
             seconds=seconds,
         )
 
@@ -440,15 +510,18 @@ class HexagonNpu:
         cannot end the wait early. Raises :class:`HexagonTimeout` (the core is
         left running) or, on a fault, :class:`HexagonFault`.
         """
-        started = self._started
-        status, _ = self._poll(
-            lambda s: bool(s & (STATUS_HALT_EVENT | STATUS_FAULT_EVENT)) and not s & STATUS_RUNNING,
-            timeout, "scalar program")
-        seconds = self._clock() - started if started is not None else 0.0
+        status, seconds = self._wait_halt(timeout)
         result = self.result(status, seconds)
         if result.fault and raise_on_fault:
             raise HexagonFault(result)
         return result
+
+    def _wait_halt(self, timeout: float) -> tuple[int, float]:
+        """Poll for the halt / fault event of the program started last;
+        returns (STATUS, wall time since START)."""
+        started = self._started
+        status, _ = self._poll(_program_done, timeout, "scalar program")
+        return status, (self._clock() - started if started is not None else 0.0)
 
     @property
     def has_stop(self) -> bool:
@@ -474,36 +547,51 @@ class HexagonNpu:
         return self.result(status, seconds)
 
     def run(self, pc: int, timeout: float = 10.0, *, flush: bool = True,
+            flush_before: bool | None = None, flush_after: bool | None = None,
             raise_on_fault: bool = True, stop_on_timeout: bool = True) -> RunResult:
-        """FLUSH (unless ``flush`` is False), START at ``pc``, wait, FLUSH again
-        so the program's DDR stores are visible to the host and the DMA.
+        """FLUSH, START at ``pc``, wait, FLUSH again so the program's DDR
+        stores are visible to the host and the DMA.
+
+        ``flush`` sets both flushes; ``flush_before`` / ``flush_after``
+        override one of them. Each FLUSH costs a few MMIO accesses: skip the
+        first when the code and the DDR data the program reads are already
+        coherent (nothing the caches may hold was rewritten since the last
+        FLUSH), the second when the program stores nothing to DDR (e.g. it
+        works on the TCM and the mailboxes only).
 
         When the program does not finish within ``timeout`` and
         ``stop_on_timeout`` is set (and the hardware has CONTROL.STOP), the
         core is stopped and flushed before :class:`HexagonTimeout` is raised;
         the exception's ``result`` holds the stop result. Otherwise the core
         is left running."""
-        if flush:
-            self.flush()
-        self.start(pc)
+        before = flush if flush_before is None else flush_before
+        after = flush if flush_after is None else flush_after
+        status = self._flush_go(None)[0] if before else None
+        self.start(pc, status=status)
+        status, seconds = self._finish(timeout, stop_on_timeout, after)
+        result = self.result(status, seconds)
+        if result.fault and raise_on_fault:
+            raise HexagonFault(result)
+        return result
+
+    def _finish(self, timeout: float, stop_on_timeout: bool, flush_after: bool) -> tuple[int, float]:
+        """Wait for the program started last, FLUSH after it when asked
+        (also after a fault or a STOP); on a timeout STOP it (when enabled
+        and supported) and raise :class:`HexagonTimeout`."""
         try:
-            result = self.wait(timeout, raise_on_fault=raise_on_fault)
-        except HexagonFault:
-            if flush:
-                self.flush()
-            raise
+            status, seconds = self._wait_halt(timeout)
         except HexagonTimeout as error:
             if not (stop_on_timeout and self.has_stop):
                 raise
             stopped = self.stop()
-            if flush:
+            if flush_after:
                 self.flush()
             raise HexagonTimeout(f"{error} (stopped at pc=0x{stopped.fault_pc:08x} after "
                                  f"{stopped.instret} instructions)", error.status,
                                  stopped) from error
-        if flush:
-            self.flush()
-        return result
+        if flush_after:
+            status = self._flush_go(status)[0]
+        return status, seconds
 
     # -------------------------------------------------------------- buffers
     def allocate(self, words: int, dtype=np.uint32):
@@ -543,19 +631,25 @@ class HexagonNpu:
         if tcm_word < 0 or tcm_word + words > self.caps.tcm_words:
             raise HexagonError(f"DMA TCM range [{tcm_word}, {tcm_word + words}) outside the "
                                f"{self.caps.tcm_words}-word TCM")
-        if self.status() & STATUS_DMA_BUSY:
+        return self._dma_go(ddr_phys, tcm_word, words, to_ddr, None, timeout)[1]
+
+    def _dma_go(self, ddr_phys: int, tcm_word: int, words: int, to_ddr: bool,
+                status: int | None, timeout: float = 1.0) -> tuple[int, float]:
+        """The DMA of :meth:`dma` with checked arguments; ``status`` is a
+        STATUS value read since the last command (skips the busy check
+        read). Returns (final STATUS, wall time)."""
+        if (self.status() if status is None else status) & STATUS_DMA_BUSY:
             raise HexagonError(f"{self.name}: the DMA is busy")
         self.write(REG_DMA_DDR_ADDR, ddr_phys)
         self.write(REG_DMA_TCM_ADDR, tcm_word)
         self.write(REG_DMA_LEN, (DMA_LEN_TO_DDR if to_ddr else 0) | words)
         self.write(REG_CONTROL, CONTROL_DMA_START)   # also clears the sticky dma_done
-        status, seconds = self._poll(
-            lambda s: bool(s & STATUS_DMA_DONE) and not s & STATUS_DMA_BUSY, timeout, "TCM DMA")
+        status, seconds = self._poll(_dma_finished, timeout, "TCM DMA")
         if status & STATUS_DMA_ERROR:
             raise HexagonError(f"{self.name}: DMA error ({'TCM->DDR' if to_ddr else 'DDR->TCM'}, "
                                f"ddr=0x{ddr_phys:08x} tcm={tcm_word} words={words}, "
                                f"STATUS={describe_status(status)})")
-        return seconds
+        return status, seconds
 
     def dma_to_tcm(self, buffer: Any, tcm_word: int, words: int | None = None,
                    offset_bytes: int = 0, timeout: float = 1.0) -> float:
@@ -582,10 +676,11 @@ class HexagonNpu:
         """Read ``count`` 64-bit TCM words through the host window (slow:
         two AXI-lite reads per word; use the DMA for bulk data)."""
         self._check_tcm(word, count)
+        read = self._rd
         out = []
         for w in range(word, word + count):
-            lo = self.read(TCM_WINDOW + 8 * w)
-            hi = self.read(TCM_WINDOW + 8 * w + 4)
+            lo = read(TCM_WINDOW + 8 * w)
+            hi = read(TCM_WINDOW + 8 * w + 4)
             out.append(lo | (hi << 32))
         return out
 
@@ -599,7 +694,7 @@ class HexagonNpu:
 
     # -------------------------------------------------------------- counters
     def counters(self) -> Counters:
-        r = self.read
+        r = self._rd
         return Counters(cycles=r(REG_CYCLES), instret=r(REG_INSTRET),
                         l1i_hits=r(REG_L1I_HITS), l1i_misses=r(REG_L1I_MISSES),
                         l1d_hits=r(REG_L1D_HITS), l1d_misses=r(REG_L1D_MISSES),
@@ -678,7 +773,195 @@ def vector_kernel_source(kind: str, unroll: int = 4) -> str:
     return "\n".join(lines)
 
 
+@functools.lru_cache(maxsize=None)
+def vector_kernel_words(kind: str, unroll: int = 4) -> tuple[int, ...]:
+    """The instruction words of :func:`vector_kernel_source`, assembled once
+    per (kind, unroll) and cached (the assembler, src/test/model/rv32_asm.py,
+    is imported on first use). Position independent: load them anywhere."""
+    from src.test.model.rv32_asm import assemble  # lazy: only needed to build kernels
+
+    return tuple(assemble(vector_kernel_source(kind, unroll), base=0).words)
+
+
+class VectorOp:
+    """A reference vector kernel (:func:`vector_kernel_source`) kept resident
+    with its staging buffers, for repeated calls at minimum host overhead.
+
+    ``VectorOp(npu, "int8", max_elements)`` loads the kernel into its own
+    DDR buffer once and allocates an input buffer (x | y) and an output
+    buffer for up to ``max_elements`` lanes. ``op(x, y)`` (FP16:
+    ``op(x, y, a)``) copies the operands in, DMAs them into the TCM (x at
+    word 0, y at W, result at 2W; W = 64-bit words per operand), runs the
+    kernel, DMAs the result back and returns it as a new array (or into
+    ``out``). Bit-exact with :func:`vector_kernel_source` run through
+    :meth:`HexagonNpu.run`.
+
+    What a call skips compared with ``dma_to_tcm`` + ``run`` +
+    ``dma_from_tcm``: the kernel touches only the TCM and the mailboxes, so
+    no FLUSH after it; its code stays valid in the caches, so no FLUSH
+    before it either, except on the first call (the program was just
+    written) and whenever another register write reached the subsystem
+    since this op's previous call (``HexagonNpu.write_epoch`` changed). In
+    that undisturbed steady state the core is known to be halted, the DMA
+    idle and START_PC / MAILBOX0-1 to hold this op's values, so the STATUS
+    check reads and the unchanged writes are skipped too, every STATUS
+    value a poll returns is reused as the next step's check, and only
+    CYCLES is read of the run's result (``stats=True`` reads all of
+    :meth:`HexagonNpu.result`). MMIO accesses per steady call: 9 writes
+    (DMA_DDR_ADDR, DMA_TCM_ADDR, DMA_LEN, CONTROL twice for the DMAs,
+    CONTROL.START) and 4 reads (three completion polls that each end on
+    their first STATUS read when the hardware is faster than one MMIO
+    access, and CYCLES), against 14 writes and 15 reads for the generic
+    sequence; plus one buffer flush and one invalidate (the pynq cache
+    maintenance the non-coherent DMA needs). Timeouts are those of the
+    generic calls: a program that does not halt within ``timeout`` is
+    stopped (CONTROL.STOP) and :class:`HexagonTimeout` raised; the next
+    call then takes the full path.
+
+    The op owns MAILBOX0-1, START_PC and TCM words 0..3W-1 during a call.
+    Do not write its program or staging buffers yourself.
+    """
+
+    _LANES = {"int8": (np.int8, 8), "fp16": (np.float16, 4)}
+
+    def __init__(self, npu: HexagonNpu, kind: str, max_elements: int, *, unroll: int = 4,
+                 words: Sequence[int] | None = None, timeout: float = 10.0,
+                 dma_timeout: float = 1.0):
+        if kind not in VECTOR_KERNELS:
+            raise ValueError(f"kind must be one of {VECTOR_KERNELS}")
+        if not npu.caps.vector or not npu.caps.dma:
+            raise HexagonError(f"{npu.name}: VectorOp needs the vector unit and the TCM DMA "
+                               f"(CAPS 0x{npu.caps.raw:08x})")
+        self.npu, self.kind, self.unroll = npu, kind, unroll
+        self.dtype, self.lanes = self._LANES[kind]
+        self.max_words = self._words_of(max_elements)
+        if 3 * self.max_words > npu.caps.tcm_words:
+            raise HexagonError(f"{max_elements} {kind} elements need {3 * self.max_words} TCM "
+                               f"words (> {npu.caps.tcm_words})")
+        self.timeout, self.dma_timeout = timeout, dma_timeout
+        program = vector_kernel_words(kind, unroll) if words is None else tuple(words)
+        self.program = npu.load_program(program)
+        self._in = npu.allocate(16 * self.max_words, dtype=np.uint8)
+        self._out = npu.allocate(8 * self.max_words, dtype=np.uint8)
+        self._in_bytes = np.asarray(self._in).view(np.uint8)
+        self._out_bytes = np.asarray(self._out).view(np.uint8)
+        self._in_phys = int(self._in.physical_address)
+        self._out_phys = int(self._out.physical_address)
+        self._epoch: int | None = None   # write_epoch after this op's last call
+        self._status = 0                 # STATUS at the end of that call
+        self._args: tuple[int, int] | None = None
+        self.calls = 0
+        self.last_cycles: int | None = None
+        self.last_result: RunResult | None = None
+        self.last_profile: dict | None = None
+
+    def _words_of(self, elements: int) -> int:
+        per_iter = self.lanes * self.unroll
+        if elements <= 0 or elements % per_iter:
+            raise HexagonError(f"{self.kind} element count {elements} must be a positive "
+                               f"multiple of {per_iter} ({self.lanes} lanes x unroll {self.unroll})")
+        return elements // self.lanes
+
+    def free(self) -> None:
+        """Release the program and staging buffers (pynq ``freebuffer``)."""
+        for buf in (self.program.buffer, self._in, self._out):
+            free = getattr(buf, "freebuffer", None)
+            if free is not None:
+                free()
+
+    def __call__(self, x: np.ndarray, y: np.ndarray, a: float = 0.0, *,
+                 out: np.ndarray | None = None, stats: bool = False,
+                 profile: bool = False) -> np.ndarray:
+        """INT8: saturate(x + y); FP16: a * x + y (``a`` rounded to binary16).
+        ``stats`` stores the full :class:`RunResult` in ``last_result``;
+        ``profile`` stores the wall time of each phase in ``last_profile``."""
+        x = np.ascontiguousarray(x)
+        y = np.ascontiguousarray(y)
+        if x.dtype != self.dtype or y.dtype != self.dtype or x.shape != y.shape:
+            raise HexagonError(f"{self.kind} VectorOp needs two {np.dtype(self.dtype).name} "
+                               f"arrays of one shape (got {x.dtype}{x.shape}, {y.dtype}{y.shape})")
+        w = self._words_of(x.size)
+        if w > self.max_words:
+            raise HexagonError(f"{x.size} elements exceed this op's {self.max_words * self.lanes}")
+        if out is not None and (out.dtype != self.dtype or out.size != x.size
+                                or not out.flags.c_contiguous):
+            raise HexagonError(f"out must be a contiguous {np.dtype(self.dtype).name} array of "
+                               f"{x.size} elements")
+        a_bits = int(np.array([a], dtype=np.float16).view(np.uint16)[0]) if self.kind == "fp16" else 0
+        npu = self.npu
+        tick = time.perf_counter if profile else None
+        t0 = tick() if tick else 0.0
+        fast = self._epoch is not None and self._epoch == npu.write_epoch
+        self._epoch = None                       # until this call completes
+        n8 = 8 * w
+        self._in_bytes[:n8] = x.reshape(-1).view(np.uint8)
+        self._in_bytes[n8:2 * n8] = y.reshape(-1).view(np.uint8)
+        _flush(self._in)
+        if fast:
+            status = self._status
+        else:
+            status = npu.status()
+            if status & (STATUS_RUNNING | STATUS_DMA_BUSY | STATUS_FLUSH_BUSY):
+                raise HexagonError(f"{npu.name}: subsystem busy (STATUS={describe_status(status)})")
+            self._args = None
+        sticky = status & (STATUS_VEC_ILLEGAL | STATUS_BUS_ERROR)
+        if self._args != (w, a_bits):
+            npu.write(REG_MAILBOX[0], w)
+            npu.write(REG_MAILBOX[1], a_bits)
+            self._args = (w, a_bits)
+        t1 = tick() if tick else 0.0
+        status, _ = npu._dma_go(self._in_phys, 0, 2 * w, False, status, self.dma_timeout)
+        t2 = tick() if tick else 0.0
+        if not fast:
+            status, _ = npu._flush_go(status)    # the program was just written / others ran
+        npu._start_go(self.program.phys_addr, status, not fast)
+        status, seconds = npu._finish(self.timeout, True, False)
+        if stats or status & STATUS_FAULT:
+            result = npu.result(status, seconds)
+            self.last_result = result
+            self.last_cycles = result.cycles
+            if result.fault:
+                raise HexagonFault(result)
+        else:
+            self.last_cycles = npu.read(REG_CYCLES)
+        new = status & (STATUS_VEC_ILLEGAL | STATUS_BUS_ERROR) & ~sticky
+        if new:
+            raise HexagonError(f"{npu.name}: {self.kind} kernel raised "
+                               f"STATUS={describe_status(status)}")
+        t3 = tick() if tick else 0.0
+        status, _ = npu._dma_go(self._out_phys, 2 * w, w, True, status, self.dma_timeout)
+        _invalidate(self._out)
+        result_bytes = self._out_bytes[:n8]
+        if out is None:
+            out = result_bytes.view(self.dtype).reshape(x.shape).copy()
+        else:
+            out.reshape(-1).view(np.uint8)[:] = result_bytes
+        self._status = status
+        self._epoch = npu.write_epoch
+        self.calls += 1
+        if tick:
+            t4 = tick()
+            self.last_profile = {"fast_path": fast, "stage_and_flush": t1 - t0,
+                                 "dma_in": t2 - t1, "run": t3 - t2,
+                                 "dma_out_and_invalidate": t4 - t3, "total": t4 - t0}
+        return out
+
+
 # ------------------------------------------------------------------ helpers
+def _flush_idle(status: int) -> bool:
+    return not status & STATUS_FLUSH_BUSY
+
+
+def _program_done(status: int) -> bool:
+    # the sticky events (cleared by START) and not running: a stale
+    # ``halted`` of the previous run cannot end the wait early
+    return bool(status & (STATUS_HALT_EVENT | STATUS_FAULT_EVENT)) and not status & STATUS_RUNNING
+
+
+def _dma_finished(status: int) -> bool:
+    return bool(status & STATUS_DMA_DONE) and not status & STATUS_DMA_BUSY
+
+
 def _u32_view(buffer: Any) -> np.ndarray:
     array = buffer if isinstance(buffer, np.ndarray) else np.asarray(buffer)
     if array.dtype != np.uint32:
@@ -707,5 +990,6 @@ def _invalidate(buffer: Any) -> None:
 
 __all__ = [name for name in dir() if name.isupper() and not name.startswith("_")] + [
     "Caps", "Counters", "HexagonError", "HexagonFault", "HexagonNpu", "HexagonTimeout",
-    "LoadedProgram", "Mailbox", "RunResult", "describe_status", "vector_kernel_source",
+    "LoadedProgram", "Mailbox", "RunResult", "VectorOp", "describe_status",
+    "vector_kernel_source", "vector_kernel_words",
 ]

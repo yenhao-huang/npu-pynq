@@ -6,14 +6,16 @@
 // Two masters reach the same register file:
 // - the host, through an AXI4-Lite slave (32-bit data, 16-bit address,
 //   the handshake style of npu_axi_lite_regs: AW and W are held
-//   independently, BRESP/RRESP always OKAY). Offsets 0x0000-0x0FFF are the
-//   registers (0x0080-0x7FFF read 0, writes ignored), 0x8000-0xFFFF is a
+//   independently, BRESP/RRESP always OKAY). Offsets 0x000-0x063 are the
+//   registers below (0x064-0x7FFF read 0, writes ignored; so do writes to
+//   read-only registers), 0x8000-0xFFFF is a
 //   32-bit window onto TCM port B (byte offset o: TCM word o[14:3], lane
 //   o[2], wstrb maps to the lane's four byte strobes). A window access past
 //   the TCM (word >= TCM_DEPTH) reads 0 and ignores writes (still OKAY, so a
 //   stray host access never raises a bus fault on the ARM).
 // - the scalar core, through a word-oriented MMIO port (the cache CPU-side
-//   protocol, offset = 12 address bits): the handshake is registered, the
+//   protocol, offset = 12 address bits, the same map; 0x064-0xFFF read 0):
+//   the handshake is registered, the
 //   access executes the next cycle and is answered in that same cycle:
 //   mmio_resp_valid is the pending flag and mmio_resp_rdata the
 //   combinational register read (1 cycle after the handshake; review round
@@ -49,7 +51,8 @@
 //                          1 EBREAK, +2 STOP)
 //   0x01C FAULT_PC     R   PC of the ECALL / EBREAK / faulting instruction;
 //                          after a STOP the first instruction not executed
-//   0x020 CYCLES       R   scalar core cycles since the last accepted START
+//   0x020 CYCLES       R   cycles the scalar core ran since the last accepted
+//                          START (it stops counting at a halt / fault / STOP)
 //   0x024 INSTRET      R
 //   0x028/0x02C L1I_HITS / L1I_MISSES, 0x030/0x034 L1D, 0x038/0x03C L2   R
 //                          (the caches' saturating counters: cleared only by

@@ -5,7 +5,9 @@ identification registers, START -> running -> halted/fault after a few STATUS
 reads (with the sticky events of STATUS bits 10/11), STOP -> halted with halt
 cause 2, FLUSH busy, the TCM DMA copying between fake contiguous buffers and a
 TCM array, the host TCM window and the mailboxes. The reference vector
-kernels are checked on the ISS and the vector model. No pynq is needed.
+kernels are checked on the ISS and the vector model. VectorOp is checked
+against the fake with a program effect that applies the kernel to the fake
+TCM, and its MMIO accesses per call are counted. No pynq is needed.
 """
 
 from __future__ import annotations
@@ -96,6 +98,7 @@ class FakeHx:
         self.pending = None          # (countdown, action)
         self.stop_pc = 0x1234_5670   # where a STOP lands
         self.flush_reads = 0
+        self.flush_reads_per_flush = 2
         self.flushes = 0
         self.starts = []
         self.writes = []
@@ -147,7 +150,7 @@ class FakeHx:
                              | hx.STATUS_FAULT_EVENT | hx.STATUS_VEC_ILLEGAL)
         if value & hx.CONTROL_FLUSH and not self.status & hx.STATUS_FLUSH_BUSY:
             self.status |= hx.STATUS_FLUSH_BUSY
-            self.flush_reads = 2
+            self.flush_reads = self.flush_reads_per_flush
             self.flushes += 1
         if value & hx.CONTROL_START and not self.status & hx.STATUS_RUNNING:
             pc = self.rw[hx.REG_START_PC]
@@ -244,6 +247,60 @@ def make(caps=CAPS_FULL, **kwargs):
     fake = FakeHx(alloc, caps=caps, **kwargs)
     npu = hx.HexagonNpu(mmio=fake, allocate=alloc, clock=FakeClock())
     return npu, fake, alloc
+
+
+class CountingMmio:
+    """Counts the driver's MMIO accesses on their way to a FakeHx."""
+
+    def __init__(self, target):
+        self.target = target
+        self.reads = 0
+        self.writes = 0
+
+    def read(self, offset):
+        self.reads += 1
+        return self.target.read(offset)
+
+    def write(self, offset, value):
+        self.writes += 1
+        self.target.write(offset, value)
+
+    def take(self):
+        counts = (self.writes, self.reads)
+        self.reads = self.writes = 0
+        return counts
+
+
+def kernel_effect(kind):
+    """What the reference kernel does to the TCM (MAILBOX0 = W, MAILBOX1 = a)."""
+    from src.test.model import hx_vector as hv
+
+    def effect(f):
+        w, a_bits = f.rw[hx.REG_MAILBOX[0]], f.rw[hx.REG_MAILBOX[1]]
+        av = hv.splat(hv.TYPE_FP16, a_bits, 64)
+        for i in range(w):
+            xw, yw = f.tcm[i], f.tcm[w + i]
+            if kind == "int8":
+                f.tcm[2 * w + i] = hv.vector_op(hv.OP_VADD, hv.TYPE_INT8, xw, yw, 0)
+            else:
+                prod = hv.vector_op(hv.OP_VMUL, hv.TYPE_FP16, av, xw, 0)
+                f.tcm[2 * w + i] = hv.vector_op(hv.OP_VADD, hv.TYPE_FP16, prod, yw, 0)
+    return effect
+
+
+def make_minimal(kind="int8"):
+    """A fake that finishes every operation on the first STATUS read (the
+    board case: the hardware is faster than one MMIO access), counted."""
+    alloc = FakeAllocator()
+    fake = FakeHx(alloc)
+    fake.dma_reads = 1
+    fake.flush_reads_per_flush = 1
+    fake.program = Program(reads=1, cycles=1702, instret=481, vec_cycles=1027,
+                           effect=kernel_effect(kind))
+    counter = CountingMmio(fake)
+    npu = hx.HexagonNpu(mmio=counter, allocate=alloc, clock=FakeClock())
+    counter.take()
+    return npu, fake, alloc, counter
 
 
 class IdentificationTests(unittest.TestCase):
@@ -681,6 +738,236 @@ class WindowAndMailboxTests(unittest.TestCase):
         npu.mailbox[0], npu.mailbox[1] = 40, 2
         npu.run(0x1000)
         self.assertEqual(npu.mailbox[2], 42)
+
+
+def int8_reference(x, y):
+    return np.clip(x.astype(np.int16) + y.astype(np.int16), -128, 127).astype(np.int8)
+
+
+def fp16_operands(rng, n):
+    bits = ((rng.integers(0, 2, n) << 15) | (rng.integers(8, 23, n) << 10)
+            | rng.integers(0, 1024, n)).astype(np.uint16)
+    return bits.view(np.float16)
+
+
+def fp16_reference(a, x, y):
+    """Product rounded to FP16, then the sum rounded (the kernel's two roundings)."""
+    with np.errstate(all="ignore"):
+        prod = (np.float32(np.float16(a)) * x.astype(np.float32)).astype(np.float16)
+        return (prod.astype(np.float64) + y.astype(np.float64)).astype(np.float16)
+
+
+class VectorOpTests(unittest.TestCase):
+    """VectorOp: results, the full / steady-state paths and their MMIO cost."""
+
+    def test_int8_results_over_repeated_calls(self):
+        npu, fake, alloc, _ = make_minimal("int8")
+        op = hx.VectorOp(npu, "int8", 512)
+        rng = np.random.default_rng(3)
+        for n in (512, 512, 256, 512):
+            x = rng.integers(-128, 128, n).astype(np.int8)
+            y = rng.integers(-128, 128, n).astype(np.int8)
+            np.testing.assert_array_equal(op(x, y), int8_reference(x, y))
+        self.assertEqual(op.calls, 4)
+        self.assertEqual(op.last_cycles, 1702)
+        self.assertEqual(len(fake.starts), 4)
+        self.assertEqual(set(fake.starts), {op.program.phys_addr})
+        self.assertEqual(fake.flushes, 1)              # only before the first call
+
+    def test_fp16_results_and_out_argument(self):
+        npu, fake, _, _ = make_minimal("fp16")
+        op = hx.VectorOp(npu, "fp16", 256)
+        rng = np.random.default_rng(4)
+        x, y = fp16_operands(rng, 256), fp16_operands(rng, 256)
+        for a in (-0.75, 1.5):
+            got = op(x, y, a)
+            np.testing.assert_array_equal(got.view(np.uint16), fp16_reference(a, x, y).view(np.uint16))
+        out = np.zeros(256, np.float16)
+        self.assertIs(op(x, y, -0.75, out=out), out)
+        np.testing.assert_array_equal(out.view(np.uint16), fp16_reference(-0.75, x, y).view(np.uint16))
+        self.assertEqual(fake.rw[hx.REG_MAILBOX[1]], 0xBA00)
+
+    def test_same_result_as_the_generic_sequence(self):
+        npu, fake, _, _ = make_minimal("int8")
+        rng = np.random.default_rng(5)
+        x = rng.integers(-128, 128, 256).astype(np.int8)
+        y = rng.integers(-128, 128, 256).astype(np.int8)
+        op = hx.VectorOp(npu, "int8", 256)
+        fast = op(x, y)
+        inp = npu.allocate(64, dtype=np.uint8)
+        inp[:] = np.concatenate([x.view(np.uint8), y.view(np.uint8)])[:64]
+        # generic: the whole x | y staged in one buffer, kernel run with both flushes
+        staged = npu.allocate(512, dtype=np.uint8)
+        staged[:] = np.concatenate([x.view(np.uint8), y.view(np.uint8)])
+        out = npu.allocate(256, dtype=np.uint8)
+        npu.mailbox[0], npu.mailbox[1] = 32, 0
+        npu.dma_to_tcm(staged, 0)
+        npu.run(op.program.phys_addr)
+        npu.dma_from_tcm(out, 64)
+        np.testing.assert_array_equal(np.asarray(out).view(np.int8), fast)
+
+    def test_mmio_accesses_per_call(self):
+        npu, fake, _, counter = make_minimal("int8")
+        rng = np.random.default_rng(6)
+        x = rng.integers(-128, 128, 512).astype(np.int8)
+        y = rng.integers(-128, 128, 512).astype(np.int8)
+        # the generic sequence of the self-test (mailboxes, DMA in, run, DMA out)
+        staged = npu.allocate(1024, dtype=np.uint8)
+        out = npu.allocate(512, dtype=np.uint8)
+        prog = npu.load_program(hx.vector_kernel_words("int8"))
+        counter.take()
+        npu.mailbox[0], npu.mailbox[1] = 64, 0
+        npu.dma_to_tcm(staged, 0)
+        npu.run(prog.phys_addr)
+        npu.dma_from_tcm(out, 128)
+        # 14 writes; reads: 2 per DMA, 2 per FLUSH, 1 halt poll, 5 result
+        # (15 before review round 3: the STATUS checks after a poll re-read)
+        self.assertEqual(counter.take(), (14, 13))
+        op = hx.VectorOp(npu, "int8", 512)
+        counter.take()
+        op(x, y)                                       # first call: full path
+        self.assertEqual(counter.take(), (13, 6))
+        flushes, invalidates = op._in.flushes, op._out.invalidates
+        for _ in range(3):
+            op(x, y)
+            # DMA in (4 W + 1 poll), START (1 W + 1 poll), CYCLES, DMA out (4 W + 1 poll)
+            self.assertEqual(counter.take(), (9, 4))
+        self.assertEqual((op._in.flushes - flushes, op._out.invalidates - invalidates), (3, 3))
+        op(x, y, stats=True)                           # + CAUSE, FAULT_PC, INSTRET, VEC_CYCLES
+        self.assertEqual(counter.take(), (9, 8))
+        self.assertEqual((op.last_result.instret, op.last_result.vec_cycles), (481, 1027))
+        op(x[:256], y[:256])                           # new W: the two mailbox writes again
+        self.assertEqual(counter.take(), (11, 4))
+
+    def test_foreign_write_forces_the_full_path(self):
+        npu, fake, _, counter = make_minimal("int8")
+        op = hx.VectorOp(npu, "int8", 256)
+        x = np.arange(256, dtype=np.int16).astype(np.int8)
+        op(x, x)
+        op(x, x)
+        self.assertEqual(fake.flushes, 1)
+        npu.mailbox[2] = 7                             # anything else written
+        start_pc_writes = [v for o, v in fake.writes if o == hx.REG_START_PC]
+        counter.take()
+        np.testing.assert_array_equal(op(x, x), int8_reference(x, x))
+        self.assertEqual(fake.flushes, 2)
+        self.assertEqual(counter.take(), (13, 6))
+        self.assertEqual(len([v for o, v in fake.writes if o == hx.REG_START_PC]),
+                         len(start_pc_writes) + 1)
+        npu.mailbox[0] = 99                            # a stale MAILBOX0 is rewritten
+        np.testing.assert_array_equal(op(x, x), int8_reference(x, x))
+        self.assertEqual(fake.rw[hx.REG_MAILBOX[0]], 32)
+
+    def test_timeout_stops_and_next_call_recovers(self):
+        npu, fake, _, _ = make_minimal("int8")
+        op = hx.VectorOp(npu, "int8", 256, timeout=0.05)
+        x = np.ones(256, np.int8)
+        op(x, x)
+        effect = fake.program.effect
+        fake.program = Program(kind="hang")
+        with self.assertRaises(hx.HexagonTimeout) as ctx:
+            op(x, x)
+        self.assertTrue(ctx.exception.result.stopped)
+        self.assertEqual(fake.writes.count((hx.REG_CONTROL, hx.CONTROL_STOP)), 1)
+        fake.program = Program(reads=1, effect=effect)
+        np.testing.assert_array_equal(op(x, x), np.full(256, 2, np.int8))
+        self.assertEqual(fake.flushes, 2)              # full path again after the timeout
+
+    def test_fault_and_new_sticky_errors_raise(self):
+        npu, fake, _, _ = make_minimal("int8")
+        op = hx.VectorOp(npu, "int8", 256)
+        x = np.ones(256, np.int8)
+        fake.program = Program(kind="fault", cause=1, reads=1)
+        with self.assertRaises(hx.HexagonFault):
+            op(x, x)
+
+        def illegal(f):
+            f.status |= hx.STATUS_VEC_ILLEGAL
+        fake.program = Program(reads=1, effect=illegal)
+        with self.assertRaisesRegex(hx.HexagonError, "vec_illegal"):
+            op(x, x)
+        fake.program = Program(reads=1, effect=kernel_effect("int8"))
+        op(x, x)                                       # already set before the call: not new
+
+    def test_busy_subsystem_and_argument_checks(self):
+        npu, fake, _, _ = make_minimal("int8")
+        with self.assertRaisesRegex(hx.HexagonError, "TCM"):
+            hx.VectorOp(npu, "int8", 8 * 344 * 4)
+        with self.assertRaisesRegex(hx.HexagonError, "multiple of 32"):
+            hx.VectorOp(npu, "int8", 100)
+        with self.assertRaises(ValueError):
+            hx.VectorOp(npu, "int16", 64)
+        op = hx.VectorOp(npu, "int8", 256)
+        with self.assertRaisesRegex(hx.HexagonError, "int8"):
+            op(np.zeros(256, np.int16), np.zeros(256, np.int16))
+        with self.assertRaisesRegex(hx.HexagonError, "exceed"):
+            op(np.zeros(512, np.int8), np.zeros(512, np.int8))
+        with self.assertRaisesRegex(hx.HexagonError, "multiple"):
+            op(np.zeros(48, np.int8), np.zeros(48, np.int8))
+        with self.assertRaisesRegex(hx.HexagonError, "out"):
+            op(np.zeros(256, np.int8), np.zeros(256, np.int8), out=np.zeros(128, np.int8))
+        fake.program = Program(kind="hang")
+        npu.start(0x1000)
+        with self.assertRaisesRegex(hx.HexagonError, "busy"):
+            op(np.zeros(256, np.int8), np.zeros(256, np.int8))
+        no_vec, _, _ = make(caps=0x0010007D)
+        with self.assertRaisesRegex(hx.HexagonError, "vector unit"):
+            hx.VectorOp(no_vec, "int8", 64)
+
+    def test_kernel_words_are_assembled_once(self):
+        a = hx.vector_kernel_words("fp16", 2)
+        self.assertIs(a, hx.vector_kernel_words("fp16", 2))
+        from src.test.model.rv32_asm import assemble
+        self.assertEqual(list(a), assemble(hx.vector_kernel_source("fp16", 2), base=0).words)
+
+
+class FastMmioTests(unittest.TestCase):
+    """The direct MMIO.array binding used on the board."""
+
+    class Ip:
+        """A pynq DefaultIP stand-in whose read/write must not be used."""
+
+        def __init__(self, words):
+            class Mmio:
+                pass
+            self.mmio = Mmio()
+            self.mmio.array = np.zeros(words, dtype=np.uint32)
+            self.calls = 0
+
+        def read(self, offset):
+            self.calls += 1
+            return int(self.mmio.array[offset >> 2])
+
+        def write(self, offset, value):
+            self.calls += 1
+            self.mmio.array[offset >> 2] = value
+
+    def _ip(self, words=hx.HX_WINDOW_BYTES // 4):
+        ip = self.Ip(words)
+        ip.mmio.array[hx.REG_MAGIC >> 2] = hx.HX_MAGIC
+        ip.mmio.array[hx.REG_VERSION >> 2] = hx.HX_VERSION
+        ip.mmio.array[hx.REG_CAPS >> 2] = CAPS_FULL
+        return ip
+
+    def test_array_is_used_directly(self):
+        ip = self._ip()
+        npu = hx.HexagonNpu(mmio=ip)
+        self.assertEqual(npu.caps.raw, CAPS_FULL)
+        npu.mailbox[1] = -2
+        npu.tcm_write(1023, [0x1122334455667788])
+        self.assertEqual(int(ip.mmio.array[hx.REG_MAILBOX[1] >> 2]), MASK32 - 1)
+        self.assertEqual(npu.tcm_read(1023), [0x1122334455667788])
+        self.assertEqual(int(ip.mmio.array[(hx.TCM_WINDOW + 8 * 1023 + 4) >> 2]), 0x11223344)
+        self.assertEqual(npu.write_epoch, 3)
+        self.assertEqual(ip.calls, 0)
+
+    def test_fallbacks(self):
+        ip = self._ip()
+        hx.HexagonNpu(mmio=ip, fast_mmio=False).mailbox[0] = 1
+        self.assertEqual(ip.calls, 4)                  # MAGIC, VERSION, CAPS, MAILBOX0
+        small = self._ip(words=0x100)                  # does not cover the TCM window
+        hx.HexagonNpu(mmio=small).mailbox[0] = 1
+        self.assertEqual(small.calls, 4)
 
 
 if __name__ == "__main__":

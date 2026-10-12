@@ -23,7 +23,8 @@
 // FLUSH, host DMA + vector kernels (INT8 saturating residual add, FP16
 // a*x+y) checked against the Python model, scalar-driven DMA over MMIO with a
 // mailbox handshake, the host and scalar TCM windows, faults / halts / IRQ /
-// CLEAR, SLVERR -> STATUS.bus_error, I$ refill after FLUSH, CONTROL.STOP and
+// CLEAR, SLVERR -> STATUS.bus_error, I$ refill after FLUSH, CONTROL.STOP (also
+// during a FLUSH; every core state must see a STOP arm, see "stop coverage") and
 // resume, the board's vector kernels (src/runtime/hexagon.py). Cycle counts,
 // cache counters and a per-instruction-class cycle profile of the scalar core
 // (PROF, see "profiler") are printed for the report.
@@ -733,6 +734,13 @@ module tb_npu_hx_subsystem;
         $display("stop coverage (core state when STOP armed): fetch=%0d iwait=%0d decode=%0d exec=%0d mem=%0d mwait=%0d wb=%0d vcmd=%0d vfence=%0d",
                  stop_cov[1], stop_cov[2], stop_cov[3], stop_cov[4], stop_cov[5], stop_cov[6],
                  stop_cov[7], stop_cov[8], stop_cov[9]);
+        // every state a running core can be in must have seen a STOP arm
+        // (review round 3: FETCH was not reached before the STOP-during-FLUSH steps)
+        for (int k = 1; k <= 9; k++)
+            if (stop_cov[k] == 0) begin
+                $display("MISMATCH stop coverage: no STOP armed in core state %0d", k);
+                die("stop coverage");
+            end
         $display("PASS tb_npu_hx_subsystem configs=%0d cases=%0d commands=%0d axi_r_beats=%0d axi_w_beats=%0d cycles=%0d",
                  NCFG, ncase, ncmd, beats_r, beats_w, cycle);
         $finish;
