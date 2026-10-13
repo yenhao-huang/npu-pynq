@@ -1,0 +1,84 @@
+{
+  "cases": [
+    {
+      "m": 16,
+      "n": 16,
+      "k": 256,
+      "match": true,
+      "jobs": 1,
+      "cycles": 1485,
+      "instructions": 7,
+      "npu_seconds": 9.460400008265424e-05,
+      "wall_seconds": 0.007756344999961584,
+      "gmacs": 0.6927402640770166
+    },
+    {
+      "m": 5,
+      "n": 37,
+      "k": 300,
+      "match": true,
+      "jobs": 6,
+      "cycles": 2464,
+      "instructions": 19,
+      "npu_seconds": 9.636900006171345e-05,
+      "wall_seconds": 0.009944265000058294,
+      "gmacs": 0.5759113404150559
+    },
+    {
+      "m": 1,
+      "n": 576,
+      "k": 576,
+      "match": true,
+      "jobs": 108,
+      "cycles": 49788,
+      "instructions": 22,
+      "npu_seconds": 0.0008379260000310751,
+      "wall_seconds": 0.04714558099999522,
+      "gmacs": 0.3959490456050962
+    },
+    {
+      "m": 64,
+      "n": 1536,
+      "k": 576,
+      "match": true,
+      "jobs": 1152,
+      "cycles": 1232409,
+      "instructions": 85,
+      "npu_seconds": 0.019763655000019753,
+      "wall_seconds": 0.40569601100003183,
+      "gmacs": 2.865011760220638
+    },
+    {
+      "m": 1,
+      "n": 49152,
+      "k": 576,
+      "match": true,
+      "jobs": 9216,
+      "cycles": 4230065,
+      "instructions": 22,
+      "npu_seconds": 0.0677395750000187,
+      "wall_seconds": 3.4229182779999974,
+      "gmacs": 0.4179469977482466
+    },
+    {
+      "m": 197,
+      "n": 64,
+      "k": 147,
+      "match": true,
+      "jobs": 52,
+      "cycles": 44979,
+      "instructions": 92,
+      "npu_seconds": 0.0007793789999368528,
+      "wall_seconds": 0.04576330499992309,
+      "gmacs": 2.378016343974068
+    }
+  ],
+  "pass": true,
+  "version": "0x10001",
+  "capabilities": "0x7b",
+  "legacy_tile": {
+    "match": true,
+    "seconds": 0.012449280000055296
+  },
+  "legacy_after_isa": true
+}

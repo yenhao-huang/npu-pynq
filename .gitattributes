@@ -1,3 +1,6 @@
 src/test/vectors/*.txt text eol=lf
 # This pinned metadata is byte-validated as canonical JSON on Windows and PYNQ.
 examples/resnet18/model-source.json text eol=lf
+# Shell scripts run on the PYNQ board (bash) even when checked out on the
+# Windows runner, so they must keep LF endings.
+*.sh text eol=lf

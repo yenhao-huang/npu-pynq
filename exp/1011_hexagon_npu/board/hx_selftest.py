@@ -1,0 +1,635 @@
+"""Board acceptance of the Hexagon-style NPU subsystem on the PYNQ-Z1 (issue #136).
+
+Runs on the --hexagon overlay (npu_hx_0 at 0x43C10000 beside the unchanged
+tensor accelerator npu_accelerator_0) and checks, in order:
+
+  a. identify   MAGIC / VERSION / CAPS, a mailbox and TCM-window round trip
+  b. scalar     an RV32I program in DDR (sum, then signed bubble sort of 64
+                words) against the reference ISS (src/test/model/rv32_iss.py):
+                memory image and INSTRET must match; reports cycles, CPI and
+                the L1I / L1D / L2 hit rates of the run
+  c. vector     INT8 residual add with saturation and FP16 a*x+y over
+                --elements lanes: DDR -> TCM DMA, the runtime's reference
+                kernels (hexagon.vector_kernel_source, unrolled by
+                --unroll, the same sources tb_npu_hx_subsystem simulates),
+                TCM -> DDR DMA; bit-exact against hx_vector and numpy; reports
+                cycles, elements/s at 100 MHz, DMA times and the wall time of
+                the same op in numpy on the Cortex-A9. Then the same op
+                through hexagon.VectorOp (kernel resident, buffers reused,
+                no FLUSH in the steady state): the wall time of the first
+                call and of --repeat steady-state calls (each checked
+                bit-exact on fresh operands), a per-phase profile and the
+                MMIO accesses of one steady call
+  d. tensor     exp/1007_sw_stack/board/isa_gemm.py (legacy tile + ISA GEMMs)
+                in a child process, proving the tensor path on this overlay
+
+Writes --out (JSON) after every step and exits non-zero on any mismatch or
+error. A program that does not finish within --timeout is stopped with
+CONTROL.STOP (bitstreams with VERSION >= 0x00010001), so later steps still
+run. ``--host-check`` runs only the host side (assembly, ISS, vector model and
+numpy references agree) without pynq or a board.
+
+    python3 hx_selftest.py --overlay overlay/artifacts/npu_matrix.bit --out results/hx_selftest.json
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+import traceback
+from pathlib import Path
+
+import numpy as np
+
+REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO))
+
+from src.runtime import hexagon as hxr  # noqa: E402
+from src.test.model import hx_numeric as hn  # noqa: E402
+from src.test.model import hx_vector as hv  # noqa: E402
+from src.test.model.rv32_asm import assemble  # noqa: E402
+from src.test.model.rv32_iss import RV32ISS  # noqa: E402
+
+CLOCK_HZ = hxr.CLOCK_HZ
+SEED = 0x136
+EXPECTED_CAPS = 0x0010087F     # every unit, VLEN 64, 1024 TCM words
+
+# ------------------------------------------------------------------ (b) scalar
+SORT_WORDS = 64
+SCALAR_BUF_BYTES = 0x800       # program at 0, data at DATA_OFF, results at RESULT_OFF
+DATA_OFF = 0x400
+RESULT_OFF = DATA_OFF + 4 * SORT_WORDS   # sum, xor, min, max after the sort
+
+SCALAR_SOURCE = f"""
+    # Position independent: the data base comes from AUIPC, so the same words
+    # run at offset 0 in the ISS and at the buffer's physical address on the board.
+start:
+    auipc s0, 0
+    addi  s0, s0, {DATA_OFF}      # s0 = data base (start + DATA_OFF)
+    # sum and xor of the {SORT_WORDS} input words
+    mv    a0, s0
+    li    t1, {SORT_WORDS}
+    li    s2, 0
+    li    s3, 0
+sum:
+    lw    t2, 0(a0)
+    add   s2, s2, t2
+    xor   s3, s3, t2
+    addi  a0, a0, 4
+    addi  t1, t1, -1
+    bnez  t1, sum
+    # signed bubble sort in place
+    li    a1, {SORT_WORDS - 1}
+outer:
+    mv    a2, s0
+    mv    a3, a1
+inner:
+    lw    t2, 0(a2)
+    lw    t3, 4(a2)
+    ble   t2, t3, noswap
+    sw    t3, 0(a2)
+    sw    t2, 4(a2)
+noswap:
+    addi  a2, a2, 4
+    addi  a3, a3, -1
+    bnez  a3, inner
+    addi  a1, a1, -1
+    bnez  a1, outer
+    # results after the array: sum, xor, min (first), max (last)
+    sw    s2, {4 * SORT_WORDS}(s0)
+    sw    s3, {4 * SORT_WORDS + 4}(s0)
+    lw    t2, 0(s0)
+    sw    t2, {4 * SORT_WORDS + 8}(s0)
+    lw    t2, {4 * SORT_WORDS - 4}(s0)
+    sw    t2, {4 * SORT_WORDS + 12}(s0)
+    ecall
+"""
+
+# ------------------------------------------------------------------ (c) vector
+# The kernels come from the runtime (hexagon.vector_kernel_source): arguments
+# in the mailboxes (MAILBOX0 = W, the number of 64-bit TCM words per operand,
+# a multiple of the unroll; MAILBOX1 = the FP16 coefficient); TCM layout: x at
+# word 0, r / y at word W, the result at word 2W. Before review round 2 of the
+# integration they were rolled loops (9 / 10 instructions per word); unrolled
+# by 4 they need 7.25 / 8.25 (simulated at 512 lanes: 1801 -> 1591 and
+# 3945 -> 3399 cycles).
+#
+# Host overhead (review round 3): on run 38184383844 the generic sequence
+# (dma_to_tcm + run + dma_from_tcm) took 1.79 ms end to end for a 17 us INT8
+# kernel. The step therefore also times hexagon.VectorOp, which keeps the
+# kernel and its buffers resident and needs 9 MMIO writes + 4 reads per
+# steady-state call instead of 14 + 15, through the direct MMIO.array path.
+FP16_A = 0xBA00                # -0.75
+VEC_PROG_STRIDE = 0x100        # bytes between the two kernels in the program buffer
+SENTINEL = 0xCC
+
+
+def jsonable(value):
+    if isinstance(value, dict):
+        return {str(k): jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [jsonable(v) for v in value]
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, float) and not np.isfinite(value):
+        return None
+    return value
+
+
+# ------------------------------------------------------------------ references
+def scalar_inputs(rng: np.random.Generator) -> np.ndarray:
+    values = rng.integers(-(1 << 31), 1 << 31, SORT_WORDS, dtype=np.int64)
+    values[:4] = [-(1 << 31), (1 << 31) - 1, 0, -1]
+    rng.shuffle(values)
+    return values.astype(np.int32)
+
+
+def scalar_reference(program_words: list[int], data: np.ndarray):
+    """Run the program in the ISS (flat memory at 0) and return (result, image)."""
+    iss = RV32ISS(mem_size=SCALAR_BUF_BYTES)
+    iss.load_words({4 * i: w for i, w in enumerate(program_words)})
+    iss.mem[DATA_OFF:DATA_OFF + 4 * SORT_WORDS] = data.astype("<i4").tobytes()
+    result = iss.run(0)
+    if result.status != "halt" or result.cause != 0:
+        raise AssertionError(f"ISS did not halt with ECALL: {result}")
+    # Independent numpy cross-check of the ISS
+    s = np.sort(data.astype(np.int64))
+    expect = np.concatenate([s, [int(data.astype(np.int64).sum()) & 0xFFFFFFFF,
+                                 int(np.bitwise_xor.reduce(data.view(np.uint32))), s[0], s[-1]]])
+    got = np.frombuffer(bytes(iss.mem[DATA_OFF:RESULT_OFF + 16]), dtype="<u4")
+    if not np.array_equal(got, (expect & 0xFFFFFFFF).astype(np.uint32)):
+        raise AssertionError("ISS result disagrees with numpy")
+    return result, bytes(iss.mem)
+
+
+def int8_inputs(rng, n):
+    def one():
+        v = rng.integers(-128, 128, n).astype(np.int8)
+        edge = rng.random(n) < 0.3
+        v[edge] = rng.choice(np.array([127, 126, -128, -127, 100, -100], dtype=np.int8), edge.sum())
+        return v
+    return one(), one()
+
+
+def fp16_inputs(rng, n):
+    def one():
+        sign = rng.integers(0, 2, n).astype(np.uint16) << 15
+        exp = rng.integers(8, 23, n).astype(np.uint16) << 10
+        bits = sign | exp | rng.integers(0, 1024, n).astype(np.uint16)
+        special = np.array([0x7C00, 0xFC00, 0x7E00, 0x0000, 0x8000, 0x0001, 0x83FF, 0x7BFF],
+                           dtype=np.uint16)
+        pick = rng.random(n) < 0.03
+        bits[pick] = rng.choice(special, pick.sum())
+        return bits.view(np.float16)
+    return one(), one()
+
+
+def int8_numpy(x, r):
+    return np.clip(x.astype(np.int16) + r.astype(np.int16), -128, 127).astype(np.int8)
+
+
+def canonical_nan16(bits: np.ndarray) -> np.ndarray:
+    bits = bits.copy()
+    bits[((bits & 0x7C00) == 0x7C00) & ((bits & 0x03FF) != 0)] = hn.FP16_CANONICAL_NAN
+    return bits
+
+
+def fp16_numpy(a_bits, x, y):
+    """Bit-exact numpy reference: the product is exact in float32 and rounded
+    once to FP16, the sum is exact in float64 and rounded once; NaN results
+    are the canonical 0x7E00 (the hardware's contract)."""
+    a = np.array([a_bits], dtype=np.uint16).view(np.float16)[0]
+    with np.errstate(all="ignore"):
+        prod = (np.float32(a) * x.astype(np.float32)).astype(np.float16)
+        out = (prod.astype(np.float64) + y.astype(np.float64)).astype(np.float16)
+    return canonical_nan16(out.view(np.uint16)).view(np.float16)
+
+
+def words64(arr: np.ndarray) -> list[int]:
+    return [int(w) for w in np.frombuffer(arr.tobytes(), dtype="<u8")]
+
+
+def vector_model(kind: str, x: np.ndarray, y: np.ndarray, a_bits: int = 0) -> np.ndarray:
+    """hx_vector reference, word by word, as the kernel issues the commands."""
+    out = []
+    if kind == "int8":
+        for xw, yw in zip(words64(x), words64(y)):
+            out.append(hv.vector_op(hv.OP_VADD, hv.TYPE_INT8, xw, yw, 0))
+        dtype = np.int8
+    else:
+        av = hv.splat(hv.TYPE_FP16, a_bits, 64)
+        for xw, yw in zip(words64(x), words64(y)):
+            prod = hv.vector_op(hv.OP_VMUL, hv.TYPE_FP16, av, xw, 0)
+            out.append(hv.vector_op(hv.OP_VADD, hv.TYPE_FP16, prod, yw, 0))
+        dtype = np.float16
+    return np.frombuffer(np.array(out, dtype="<u8").tobytes(), dtype=dtype)
+
+
+class MailboxISS(RV32ISS):
+    """The reference ISS with MAILBOX0-3 readable at 0x8000_0050 (host check)."""
+
+    def __init__(self, mailbox, **kw):
+        super().__init__(**kw)
+        self.mailbox = mailbox
+
+    def word(self, addr):
+        if 0x8000_0050 <= addr < 0x8000_0060:
+            return self.mailbox[(addr - 0x8000_0050) >> 2] & 0xFFFFFFFF
+        return super().word(addr)
+
+
+def vector_program_on_iss(program_words, w, a_bits, x, y):
+    """Execute a kernel's vector commands (from the ISS) on the vector model."""
+    iss = MailboxISS([w, a_bits, 0, 0], mem_size=0x1000)
+    iss.load_words({4 * i: v for i, v in enumerate(program_words)})
+    res = iss.run(0)
+    if res.status != "halt":
+        raise AssertionError(f"kernel did not halt in the ISS: {res}")
+    model = hv.VectorUnitModel(vlen=64, nregs=8, tcm_words=1024)
+    model.tcm[0:2 * w] = words64(x) + words64(y)
+    for c in iss.vcmds:
+        model.execute(hv.VectorCommand(op=c.op, typ=c.vtype, vd=c.vd, vs1=c.vs1, vs2=c.vs2,
+                                       addr=c.scalar % 1024, scalar=c.scalar))
+    if model.illegal:
+        raise AssertionError("kernel issued an illegal vector command")
+    out = np.array(model.tcm[2 * w:3 * w], dtype="<u8").tobytes()
+    return out, res
+
+
+def check_elements(n: int, tcm_words: int = 1024, unroll: int = 4) -> None:
+    """Both kernels keep three operands of n lanes in the TCM (FP16: 4 lanes
+    per 64-bit word, INT8: 8); W must be a multiple of the unroll."""
+    if n <= 0 or n % (8 * unroll):
+        raise ValueError(f"--elements must be a positive multiple of {8 * unroll} (8 x --unroll)")
+    if 3 * (n // 4) > tcm_words:
+        raise ValueError(f"{n} FP16 elements need {3 * (n // 4)} TCM words (> {tcm_words}); "
+                         f"use at most {tcm_words // 3 * 4 // 8 * 8}")
+
+
+def time_numpy(fn, repeat=50):
+    fn()
+    samples = []
+    for _ in range(repeat):
+        t = time.perf_counter()
+        fn()
+        samples.append(time.perf_counter() - t)
+    return float(np.median(samples)), float(min(samples))
+
+
+# ------------------------------------------------------------------ the steps
+class SelfTest:
+    def __init__(self, args):
+        self.args = args
+        self.report = {"pass": True, "steps": {}}
+        self.rng = np.random.default_rng(SEED)
+        self.programs = {"scalar": assemble(SCALAR_SOURCE, base=0).words}
+        for kind in hxr.VECTOR_KERNELS:     # assembled once, shared with VectorOp
+            self.programs[kind] = list(hxr.vector_kernel_words(kind, args.unroll))
+        for name in ("int8", "fp16"):
+            if 4 * len(self.programs[name]) > VEC_PROG_STRIDE:
+                raise AssertionError(f"{name} kernel larger than its program slot")
+        if 4 * len(self.programs["scalar"]) > DATA_OFF:
+            raise AssertionError("scalar program overlaps its data")
+        self.npu = None
+        self.buffers = []
+
+    def save(self):
+        if self.args.out:
+            out = Path(self.args.out)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps(jsonable(self.report), indent=2))
+
+    def step(self, name, fn):
+        print(f"== {name}", flush=True)
+        t = time.monotonic()
+        try:
+            entry = fn()
+            entry.setdefault("pass", True)
+        except Exception as error:  # record and continue: later steps still report
+            entry = {"pass": False, "error": repr(error), "traceback": traceback.format_exc()}
+        entry["step_seconds"] = time.monotonic() - t
+        self.report["steps"][name] = entry
+        self.report["pass"] = bool(self.report["pass"] and entry["pass"])
+        print(json.dumps(jsonable({k: v for k, v in entry.items() if k != "traceback"})), flush=True)
+        if "traceback" in entry:
+            print(entry["traceback"], flush=True)
+        self.save()
+
+    def alloc(self, n, dtype):
+        buf = self.npu.allocate(n, dtype=dtype)
+        self.buffers.append(buf)
+        return buf
+
+    def free(self):
+        for buf in self.buffers:
+            try:
+                buf.freebuffer()
+            except Exception:
+                pass
+        self.buffers = []
+
+    # (a)
+    def identify(self):
+        npu = self.npu
+        caps = npu.caps
+        entry = npu.info()
+        problems = []
+        for unit in ("scalar", "vector", "l1i", "l1d", "l2", "tcm", "dma"):
+            if not getattr(caps, unit):
+                problems.append(f"CAPS lacks {unit}")
+        if caps.vlen_bits != 64:
+            problems.append(f"VLEN {caps.vlen_bits}, expected 64")
+        if caps.raw != EXPECTED_CAPS:
+            entry["note"] = f"CAPS 0x{caps.raw:08x} differs from the default 0x{EXPECTED_CAPS:08x}"
+        status = npu.status()
+        entry["status_at_start"] = hxr.describe_status(status)
+        if status & hxr.STATUS_RUNNING:
+            problems.append("scalar core already running")
+        npu.clear()
+        pattern = [0x13600001, 0xA5A5A5A5, 0x5A5A5A5A, 0xFFFFFFFF]
+        for i, v in enumerate(pattern):
+            npu.mailbox[i] = v
+        if npu.mailbox.read_all() != pattern:
+            problems.append(f"mailbox readback {npu.mailbox.read_all()}")
+        last = caps.tcm_words - 1
+        probe = [0x0123456789ABCDEF, 0xFEDCBA9876543210]
+        npu.tcm_write(last - 1, probe)
+        got = npu.tcm_read(last - 1, 2)
+        if got != probe:
+            problems.append(f"TCM window readback {[hex(v) for v in got]}")
+        entry["checks"] = problems or "ok"
+        entry["pass"] = not problems
+        return entry
+
+    # (b)
+    def scalar(self):
+        npu = self.npu
+        words = self.programs["scalar"]
+        data = scalar_inputs(self.rng)
+        ref, image = scalar_reference(words, data)
+        buf = self.alloc(SCALAR_BUF_BYTES // 4, np.uint32)
+        raw = np.asarray(buf).view(np.uint8)
+        raw[:] = 0
+        raw[DATA_OFF:DATA_OFF + 4 * SORT_WORDS] = np.frombuffer(data.astype("<i4").tobytes(), np.uint8)
+        prog = npu.load_program(words, buf)                  # flushes the whole buffer
+        before = npu.counters()
+        result = npu.run(prog.phys_addr, timeout=self.args.timeout)
+        delta = npu.counters().delta(before)
+        # AXI errors on cached traffic cannot reach the core: they only set
+        # the sticky STATUS.bus_error (identify() cleared it)
+        status = npu.status()
+        bus_error = bool(status & hxr.STATUS_BUS_ERROR)
+        buf.invalidate()
+        got = bytes(raw[DATA_OFF:RESULT_OFF + 16])
+        want = image[DATA_OFF:RESULT_OFF + 16]
+        mismatches = [i // 4 for i in range(0, len(want), 4) if got[i:i + 4] != want[i:i + 4]]
+        code_intact = bytes(raw[:4 * len(words)]) == image[:4 * len(words)]
+        ok = not mismatches and result.instret == ref.instret and code_intact and not bus_error
+        return {
+            "pass": ok,
+            "bus_error": bus_error, "status_after": hxr.describe_status(status),
+            "program_words": len(words), "start_pc": f"0x{prog.phys_addr:08x}",
+            "run": result.as_dict(),
+            "iss_instret": ref.instret,
+            "iss_ideal_cycles": ref.cycles,      # 1-cycle-latency memory, no misses
+            "cycles": result.cycles, "instret": result.instret, "cpi": result.cpi,
+            "us_at_100mhz": result.cycles / CLOCK_HZ * 1e6,
+            "counters": delta.as_dict(),
+            "mismatched_words": mismatches[:16], "mismatch_count": len(mismatches),
+            "code_intact": code_intact,
+            "sum": int(np.frombuffer(got[4 * SORT_WORDS:4 * SORT_WORDS + 4], "<u4")[0]),
+        }
+
+    # (c)
+    def vector(self):
+        npu = self.npu
+        n = self.args.elements
+        check_elements(n, npu.caps.tcm_words, self.args.unroll)
+        prog_buf = self.alloc(2 * VEC_PROG_STRIDE // 4, np.uint32)
+        np.asarray(prog_buf)[:] = 0
+        pcs = {"int8": npu.load_program(self.programs["int8"], prog_buf, 0).phys_addr,
+               "fp16": npu.load_program(self.programs["fp16"], prog_buf, VEC_PROG_STRIDE // 4).phys_addr}
+        x8, r8 = int8_inputs(self.rng, n)
+        xf, yf = fp16_inputs(self.rng, n)
+        kernels = {
+            "int8_residual_add": ("int8", x8, r8, 0, int8_numpy(x8, r8),
+                                  lambda: np.clip(x8.astype(np.int16) + r8, -128, 127).astype(np.int8)),
+            "fp16_axpy": ("fp16", xf, yf, FP16_A, fp16_numpy(FP16_A, xf, yf),
+                          lambda: np.float16(-0.75) * xf + yf),
+        }
+        entry = {"elements": n, "fp16_a": f"0x{FP16_A:04x}", "unroll": self.args.unroll, "pass": True}
+        for name, (kind, x, y, a_bits, ref_np, np_op) in kernels.items():
+            w = x.nbytes // 8                      # TCM words per operand
+            ref_model = vector_model(kind, x, y, a_bits)
+            model_vs_numpy = bytes(ref_model.tobytes()) == bytes(ref_np.tobytes())
+            # DDR in: x | y | sentinel (so a result the kernel never stored shows)
+            inp = self.alloc(3 * w * 8, np.uint8)
+            raw_in = np.asarray(inp)
+            raw_in[:w * 8] = np.frombuffer(x.tobytes(), np.uint8)
+            raw_in[w * 8:2 * w * 8] = np.frombuffer(y.tobytes(), np.uint8)
+            raw_in[2 * w * 8:] = SENTINEL
+            out = self.alloc(w * 8, np.uint8)
+            np.asarray(out)[:] = SENTINEL
+            out.flush()
+            npu.mailbox[0] = w
+            npu.mailbox[1] = a_bits
+            t0 = time.perf_counter()
+            dma_in = npu.dma_to_tcm(inp, tcm_word=0)
+            run = npu.run(pcs[kind], timeout=self.args.timeout)
+            dma_out = npu.dma_from_tcm(out, tcm_word=2 * w)
+            wall = time.perf_counter() - t0
+            got = np.asarray(out).tobytes()
+            status = npu.status()
+            diff = np.flatnonzero(np.frombuffer(got, np.uint8) != np.frombuffer(ref_model.tobytes(), np.uint8))
+            ok = (not diff.size and model_vs_numpy and not status & hxr.STATUS_VEC_ILLEGAL
+                  and not status & hxr.STATUS_BUS_ERROR)
+            np_median, np_min = time_numpy(np_op)
+            seconds_hw = run.cycles / CLOCK_HZ
+            prepared = self.vector_op(kind, x, y, a_bits, ref_np, np_median)
+            entry[name] = {
+                "pass": ok, "tcm_words_per_operand": w,
+                "model_matches_numpy": model_vs_numpy,
+                "mismatched_bytes": int(diff.size), "first_mismatch_byte": int(diff[0]) if diff.size else None,
+                "vec_illegal": bool(status & hxr.STATUS_VEC_ILLEGAL),
+                "bus_error": bool(status & hxr.STATUS_BUS_ERROR),
+                "cycles": run.cycles, "vec_cycles": run.vec_cycles, "instret": run.instret,
+                "cpi": run.cpi, "cycles_per_element": run.cycles / n,
+                "elements_per_s_at_100mhz": n / seconds_hw if seconds_hw else None,
+                "dma_in_seconds": dma_in, "dma_out_seconds": dma_out, "run_seconds": run.seconds,
+                "end_to_end_seconds": wall,
+                "numpy_a9_median_seconds": np_median, "numpy_a9_min_seconds": np_min,
+                "numpy_a9_elements_per_s": n / np_median if np_median else None,
+                "speedup_kernel_vs_numpy": np_median / seconds_hw if seconds_hw else None,
+                "vector_op": prepared,
+            }
+            entry["pass"] = entry["pass"] and ok and prepared["pass"]
+        return entry
+
+    def vector_op(self, kind, x, y, a_bits, ref, np_median):
+        """The op through hexagon.VectorOp: first call and steady state.
+
+        Call i uses x and y rotated by i + 1 elements (an elementwise op, so
+        the reference rotates too): every result differs from the one the
+        TCM still holds, so a kernel that stored nothing cannot pass."""
+        npu = self.npu
+        a = np.array([a_bits], dtype=np.uint16).view(np.float16)[0]
+        t = time.perf_counter()
+        op = hxr.VectorOp(npu, kind, x.size, unroll=self.args.unroll, words=self.programs[kind],
+                          timeout=self.args.timeout)
+        prepare = time.perf_counter() - t
+        try:
+            calls = [np.roll(x, i + 1) for i in range(self.args.repeat + 3)]
+            calls_y = [np.roll(y, i + 1) for i in range(self.args.repeat + 3)]
+            seconds, bad = [], []
+            cycles = []
+            for i in range(self.args.repeat + 1):            # call 0 is the first call
+                xi, yi = calls[i], calls_y[i]
+                t = time.perf_counter()
+                got = op(xi, yi, a)
+                seconds.append(time.perf_counter() - t)
+                cycles.append(op.last_cycles)
+                if got.tobytes() != np.roll(ref, i + 1).tobytes():
+                    bad.append(i)
+            i = self.args.repeat + 1
+            got = op(calls[i], calls_y[i], a, profile=True)
+            profile = dict(op.last_profile)
+            if got.tobytes() != np.roll(ref, i + 1).tobytes():
+                bad.append(i)
+            # one more steady call with every MMIO access counted (not timed)
+            counts = {"reads": 0, "writes": 0}
+            rd, wr = npu._rd, npu._wr
+
+            def count_rd(offset):
+                counts["reads"] += 1
+                return rd(offset)
+
+            def count_wr(offset, value):
+                counts["writes"] += 1
+                wr(offset, value)
+
+            npu._rd, npu._wr = count_rd, count_wr
+            try:
+                i += 1
+                got = op(calls[i], calls_y[i], a)
+            finally:
+                npu._rd, npu._wr = rd, wr
+            if got.tobytes() != np.roll(ref, i + 1).tobytes():
+                bad.append(i)
+        finally:
+            op.free()
+        steady = seconds[1:]
+        median = float(np.median(steady)) if steady else None
+        return {
+            "pass": not bad, "mismatched_calls": bad, "calls_checked": i + 1,
+            "prepare_seconds": prepare,
+            "first_call_seconds": seconds[0],
+            "steady_calls": len(steady),
+            "steady_median_seconds": median,
+            "steady_min_seconds": float(min(steady)) if steady else None,
+            "kernel_cycles": cycles[-1],
+            "steady_profile_seconds": profile,
+            "steady_mmio_accesses": counts,
+            "speedup_first_call_vs_numpy": np_median / seconds[0] if seconds[0] else None,
+            "speedup_steady_vs_numpy": np_median / median if median else None,
+        }
+
+    # (d)
+    def tensor(self):
+        script = REPO / "exp" / "1007_sw_stack" / "board" / "isa_gemm.py"
+        out = Path(self.args.tensor_out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        t = time.monotonic()
+        proc = subprocess.run([sys.executable, "-B", str(script), "--overlay", self.args.overlay,
+                               "--out", str(out)], cwd=str(REPO), capture_output=True, text=True,
+                              timeout=self.args.tensor_timeout)
+        entry = {"returncode": proc.returncode, "seconds": time.monotonic() - t,
+                 "report": str(out), "stdout_tail": proc.stdout[-2000:], "stderr_tail": proc.stderr[-2000:]}
+        if out.exists():
+            gemm = json.loads(out.read_text())
+            entry["version"] = gemm.get("version")
+            entry["capabilities"] = gemm.get("capabilities")
+            entry["legacy_tile"] = gemm.get("legacy_tile", {}).get("match")
+            entry["legacy_after_isa"] = gemm.get("legacy_after_isa")
+            entry["cases"] = [{k: c.get(k) for k in ("m", "n", "k", "match", "cycles", "gmacs")}
+                              for c in gemm.get("cases", [])]
+            entry["pass"] = proc.returncode == 0 and bool(gemm.get("pass"))
+        else:
+            entry["pass"] = False
+        return entry
+
+    # host-only consistency check
+    def host_check(self):
+        entry = {"pass": True}
+        data = scalar_inputs(self.rng)
+        ref, _ = scalar_reference(self.programs["scalar"], data)
+        entry["scalar"] = {"program_words": len(self.programs["scalar"]), "iss_instret": ref.instret,
+                           "iss_ideal_cycles": ref.cycles}
+        n = self.args.elements
+        check_elements(n, unroll=self.args.unroll)
+        for kind, (x, y), a_bits in (("int8", int8_inputs(self.rng, n), 0),
+                                     ("fp16", fp16_inputs(self.rng, n), FP16_A)):
+            ref_np = int8_numpy(x, y) if kind == "int8" else fp16_numpy(a_bits, x, y)
+            w = x.nbytes // 8
+            model = vector_model(kind, x, y, a_bits)
+            on_iss, res = vector_program_on_iss(self.programs[kind], w, a_bits, x, y)
+            ok = model.tobytes() == ref_np.tobytes() == on_iss
+            entry[kind] = {"pass": ok, "tcm_words_per_operand": w, "iss_instret": res.instret,
+                           "vector_commands_per_word": 4 if kind == "int8" else 5,
+                           "unroll": self.args.unroll}
+            entry["pass"] = entry["pass"] and ok
+        return entry
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--overlay", default="overlay/artifacts/npu_matrix.bit")
+    ap.add_argument("--out", default="results/hx_selftest.json")
+    ap.add_argument("--name", default="npu_hx_0", help="IP name of the subsystem in the overlay")
+    ap.add_argument("--elements", type=int, default=512, help="lanes per vector kernel")
+    ap.add_argument("--unroll", type=int, default=4, choices=(1, 2, 4),
+                    help="words per vector-kernel loop iteration")
+    ap.add_argument("--timeout", type=float, default=10.0, help="seconds per scalar program")
+    ap.add_argument("--repeat", type=int, default=20,
+                    help="steady-state VectorOp calls timed per vector kernel")
+    ap.add_argument("--skip-tensor", action="store_true", help="skip the tensor ISA GEMM step")
+    ap.add_argument("--tensor-out", default="results/isa_gemm.json")
+    ap.add_argument("--tensor-timeout", type=float, default=1800.0)
+    ap.add_argument("--host-check", action="store_true",
+                    help="check programs and references on the host only (no pynq)")
+    args = ap.parse_args(argv)
+
+    test = SelfTest(args)
+    if args.host_check:
+        test.step("host_check", test.host_check)
+        return 0 if test.report["pass"] else 1
+
+    from pynq import Overlay
+
+    t = time.monotonic()
+    overlay = Overlay(args.overlay)
+    test.report["overlay"] = {"path": args.overlay, "load_seconds": time.monotonic() - t,
+                              "ips": sorted(overlay.ip_dict)}
+    try:
+        test.npu = hxr.HexagonNpu(overlay, args.name)
+    except Exception as error:
+        test.report["pass"] = False
+        test.report["steps"]["identify"] = {"pass": False, "error": repr(error)}
+        test.save()
+        print(json.dumps(jsonable(test.report), indent=2))
+        return 1
+    test.step("identify", test.identify)
+    test.step("scalar", test.scalar)
+    test.step("vector", test.vector)
+    test.free()
+    if not args.skip_tensor:
+        test.step("tensor", test.tensor)
+    test.save()
+    print("PASS" if test.report["pass"] else "FAIL", flush=True)
+    return 0 if test.report["pass"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -20,11 +20,13 @@ model:
 	cd ../.. && $(PYTHON) -m unittest discover -s examples/matrix-multiplication/tests -v
 	cd ../.. && $(PYTHON) -m unittest discover -s examples/resnet18/tests -v
 
+# MULTITOP is waived: stand-alone units (the multi-precision tensor array, the
+# heterogeneous subsystem) are separate tops next to npu_accelerator by design.
 lint:
 ifeq ($(strip $(RTL)),)
 	@echo "no RTL under src/hw/rtl yet, nothing to lint"
 else
-	verilator --lint-only -Wall -Wno-DECLFILENAME \
+	verilator --lint-only -Wall -Wno-DECLFILENAME -Wno-MULTITOP \
 	  $(if $(TOP),--top-module $(TOP),) $(RTL)
 endif
 

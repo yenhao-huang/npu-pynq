@@ -1,15 +1,18 @@
 name: exp-board
 
-# Experiment runs for the software-stack goal (#119). A push to an issue-119
-# branch (or one of its sub-issue branches, #12x) that changes exp/1007_sw_stack/request.json runs the stages that
-# request names: a hosted export, a Vivado overlay build on the self-hosted
-# runner, and a script on the physical PYNQ-Z1. Nothing here tags, publishes a
-# Release, or touches main or dev; results come back as workflow artifacts.
+# Experiment runs for the software-stack goal (#119) and the heterogeneous
+# Hexagon-style NPU (#136). A push that changes the branch's request file
+# (issue-119: exp/1007_sw_stack/request.json, issue-136:
+# exp/1011_hexagon_npu/request.json) runs the stages that request names: a
+# hosted export, out-of-context PPA runs and a Vivado overlay build on the
+# self-hosted runner, and a script on the physical PYNQ-Z1. Nothing here tags,
+# publishes a Release, or touches main or dev; results come back as workflow
+# artifacts.
 
 on:
   push:
-    branches: ['npu/issue119-a']
-    paths: ['exp/1007_sw_stack/request.json']
+    branches: ['npu/issue119-a', 'npu/issue136-a']
+    paths: ['exp/1007_sw_stack/request.json', 'exp/1011_hexagon_npu/request.json']
 
 permissions:
   contents: read
@@ -23,6 +26,8 @@ jobs:
       overlay_mode: ${{ steps.read.outputs.overlay_mode }}
       overlay_run_id: ${{ steps.read.outputs.overlay_run_id }}
       tclargs: ${{ steps.read.outputs.tclargs }}
+      request: ${{ steps.read.outputs.request }}
+      ppa: ${{ steps.read.outputs.ppa }}
       export_cmd: ${{ steps.read.outputs.export_cmd }}
       board_script: ${{ steps.read.outputs.board_script }}
       board_timeout: ${{ steps.read.outputs.board_timeout }}
@@ -33,8 +38,11 @@ jobs:
         run: |
           set -euo pipefail
           r=exp/1007_sw_stack/request.json
+          if [ "${GITHUB_REF_NAME}" = "npu/issue136-a" ]; then r=exp/1011_hexagon_npu/request.json; fi
           jq . "$r"
           {
+            echo "request=$r"
+            echo "ppa=$(jq -c '.ppa // [] | length' "$r")"
             echo "id=$(jq -r '.id' "$r")"
             echo "overlay_mode=$(jq -r '.overlay.mode // "none"' "$r")"
             echo "overlay_run_id=$(jq -r '.overlay.run_id // ""' "$r")"
@@ -63,7 +71,9 @@ jobs:
           sudo apt-get install -y -q llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22
           echo "/usr/lib/llvm-22/bin" >> "$GITHUB_PATH"
       - name: Install Python dependencies
-        run: python -m pip install -r exp/1007_sw_stack/requirements-export.txt
+        # The request's own directory names its export requirements
+        # (exp/1011_hexagon_npu/ includes the 1007 file).
+        run: python -m pip install -r "$(dirname '${{ needs.plan.outputs.request }}')/requirements-export.txt"
       - name: Export
         env:
           HF_HUB_DISABLE_PROGRESS_BARS: '1'
@@ -77,6 +87,40 @@ jobs:
           path: build/exp-payload/
           if-no-files-found: error
           retention-days: 14
+
+  ppa:
+    needs: plan
+    if: needs.plan.outputs.ppa != '0'
+    runs-on: [self-hosted, vivado]
+    timeout-minutes: 240
+    concurrency:
+      group: exp-board-vivado
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+      - name: Out-of-context PPA runs
+        shell: pwsh
+        run: |
+          $request = Get-Content '${{ needs.plan.outputs.request }}' -Raw | ConvertFrom-Json
+          $failed = @()
+          foreach ($cfg in $request.ppa) {
+            $tclargs = @('--top', $cfg.top, '--name', $cfg.name, '--out', 'build/exp-ppa')
+            foreach ($g in @($cfg.generics)) { if ($g) { $tclargs += @('--generic', ($g -replace '=', ':')) } }
+            if ($cfg.clock_port) { $tclargs += @('--clock-port', $cfg.clock_port) }
+            Write-Host "== $($cfg.name)"
+            vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/ppa_module.tcl -tclargs @tclargs
+            if ($LASTEXITCODE -ne 0) { $failed += $cfg.name }
+          }
+          if ($failed.Count -gt 0) { throw "PPA failed for: $($failed -join ', ')" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exp-ppa-${{ needs.plan.outputs.id }}
+          path: build/exp-ppa/
+          if-no-files-found: warn
+          retention-days: 30
 
   build-overlay:
     needs: plan
@@ -178,6 +222,9 @@ jobs:
             'set -u'
             "cd '$remote'"
             'tar -xzf payload.tgz && rm payload.tgz'
+            # The Windows runner may hand over CRLF scripts (a reused checkout keeps
+            # files git did not rewrite); bash on the board needs LF.
+            "find src exp -name '*.sh' -exec sed -i 's/\r`$//' {} +"
             'mkdir -p results'
             'code=0'
             "bash '$script' '$remote' > results/board.log 2>&1 || code=`$?"

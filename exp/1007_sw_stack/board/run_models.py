@@ -1,6 +1,9 @@
 """Run the exported SmolLM2, Qwen3 and ResNet-18 packages on the PYNQ-Z1 NPU.
 
     python run_models.py --overlay overlay/artifacts/npu_matrix.bit --packages export --out results/models.json
+
+``--models smollm`` (comma-separated) runs a subset; the #136 board entry
+point uses it to run SmolLM2 alone on the --hexagon overlay.
 """
 
 from __future__ import annotations
@@ -55,7 +58,13 @@ def main() -> int:
     ap.add_argument("--overlay", required=True)
     ap.add_argument("--packages", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--models", default="resnet18,smollm,qwen3",
+                    help="comma-separated subset of resnet18,smollm,qwen3 to run")
     args = ap.parse_args()
+    selected = [m.strip() for m in args.models.split(",") if m.strip()]
+    unknown = set(selected) - {"resnet18", "smollm", "qwen3"}
+    if unknown or not selected:
+        ap.error(f"--models: unknown or empty selection {sorted(unknown) or selected}")
     from pynq import Overlay
 
     overlay = Overlay(args.overlay)
@@ -64,6 +73,7 @@ def main() -> int:
     jobs = [("resnet18", lambda: run_resnet(root / "resnet18", overlay, root / "gallery", report)),
             ("smollm", lambda: run_llm("smollm", root / "smollm", overlay, "What is the capital of France?", 24, report)),
             ("qwen3", lambda: run_llm("qwen3", root / "qwen3", overlay, "What is the capital of France?", 12, report))]
+    jobs = [(name, job) for name, job in jobs if name in selected]
     for name, job in jobs:
         try:
             ok &= bool(job())

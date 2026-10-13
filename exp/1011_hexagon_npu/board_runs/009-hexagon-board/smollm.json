@@ -1,0 +1,46 @@
+{
+  "smollm": {
+    "prompt": "What is the capital of France?",
+    "output": "The capital of France is Paris. Paris is a city located in the northern part of the country, and it is known",
+    "output_ids": [
+      504,
+      3575,
+      282,
+      4649,
+      314,
+      7042,
+      30,
+      7042,
+      314,
+      253,
+      2240,
+      3807,
+      281,
+      260,
+      5761,
+      599,
+      282,
+      260,
+      1798,
+      28,
+      284,
+      357,
+      314,
+      1343
+    ],
+    "load_seconds": 18.994591128001048,
+    "stream_weights": true,
+    "prompt_tokens": 16,
+    "generated_tokens": 24,
+    "prefill_seconds": 7.7994,
+    "decode_seconds": 16.7217,
+    "prefill_tok_per_s": 2.051,
+    "decode_tok_per_s": 1.435,
+    "npu": {
+      "calls": 3025,
+      "jobs": 1040400,
+      "cycles": 511666526,
+      "macs": 4954521600
+    }
+  }
+}

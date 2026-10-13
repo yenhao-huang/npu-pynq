@@ -1,12 +1,17 @@
 # Recreate and optionally implement the PYNQ-Z1 NPU matrix overlay.
 # Usage: vivado -mode batch -source build_overlay.tcl -tclargs
-#        ?--array-size 2|8|16? ?--elaborate-only? ?--allow-dirty?
+#        ?--array-size 2|8|16? ?--hexagon? ?--elaborate-only? ?--allow-dirty?
+#
+# --hexagon adds the heterogeneous subsystem (npu_hx_subsystem, #136) as a
+# second block-design cell, npu_hx_0: an AXI-lite slave at 0x43C10000 and an
+# AXI4 master on HP0 next to the unchanged npu_accelerator_0.
 
 set script_dir [file normalize [file dirname [info script]]]
 set repo_root [file normalize [file join $script_dir .. .. .. ..]]
 set array_size 16
 set elaborate_only 0
 set allow_dirty 0
+set hexagon 0
 for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_index} {
     set argument [lindex $argv $argument_index]
     switch -- $argument {
@@ -20,6 +25,7 @@ for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_in
                 error "unsupported array size '$array_size': expected 2, 8, or 16"
             }
         }
+        --hexagon { set hexagon 1 }
         --elaborate-only { set elaborate_only 1 }
         --allow-dirty { set allow_dirty 1 }
         default { error "unknown argument '$argument'" }
@@ -29,6 +35,9 @@ for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_in
 set build_name npu_matrix
 if {$array_size != 2} {
     set build_name "npu_matrix_${array_size}x${array_size}"
+}
+if {$hexagon} {
+    append build_name "_hx"
 }
 set build_root [file normalize [file join $repo_root build vivado $build_name]]
 set project_dir [file join $build_root project]
@@ -69,6 +78,20 @@ set rtl_files [list \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_lsu.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_frontend.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_accelerator.sv]]
+if {$hexagon} {
+    proc collect_sv {dir} {
+        set found [lsort [glob -nocomplain -type f -directory $dir *.sv]]
+        foreach sub [lsort [glob -nocomplain -type d -directory $dir *]] {
+            set found [concat $found [collect_sv $sub]]
+        }
+        return $found
+    }
+    set hx_files [collect_sv [file join $repo_root src hw rtl npu_matrix npu_hexagon]]
+    if {[llength $hx_files] == 0} {
+        error "--hexagon: no RTL under src/hw/rtl/npu_matrix/npu_hexagon"
+    }
+    set rtl_files [concat $rtl_files $hx_files]
+}
 foreach rtl_file $rtl_files {
     if {![file isfile $rtl_file]} {
         error "missing source-controlled RTL: $rtl_file"
@@ -94,9 +117,9 @@ set reset0 [create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:* reset0]
 set reset_inverter [create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:* reset_inverter]
 set_property -dict [list CONFIG.C_OPERATION {not} CONFIG.C_SIZE {1}] $reset_inverter
 set control_ic [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:* control_ic]
-set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {2}] $control_ic
+set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI [expr {$hexagon ? 3 : 2}]] $control_ic
 set memory_ic [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:* memory_ic]
-set_property -dict [list CONFIG.NUM_SI {3} CONFIG.NUM_MI {1}] $memory_ic
+set_property -dict [list CONFIG.NUM_SI [expr {$hexagon ? 4 : 3}] CONFIG.NUM_MI {1}] $memory_ic
 set dma [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:* axi_dma_0]
 set_property -dict [list \
     CONFIG.c_include_sg {0} \
@@ -113,7 +136,10 @@ set_property -dict [list \
     CONFIG.MAX_K {256} \
     CONFIG.IN_BYTES {8}] $accelerator
 set irq_concat [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:* irq_concat]
-set_property CONFIG.NUM_PORTS {3} $irq_concat
+set_property CONFIG.NUM_PORTS [expr {$hexagon ? 4 : 3}] $irq_concat
+if {$hexagon} {
+    create_bd_cell -type module -reference npu_hx_subsystem npu_hx_0
+}
 
 connect_bd_intf_net [get_bd_intf_pins ps7/M_AXI_GP0] [get_bd_intf_pins control_ic/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins control_ic/M00_AXI] [get_bd_intf_pins npu_accelerator_0/s_axi]
@@ -152,6 +178,17 @@ connect_bd_net [get_bd_pins axi_dma_0/mm2s_introut] [get_bd_pins irq_concat/In0]
 connect_bd_net [get_bd_pins axi_dma_0/s2mm_introut] [get_bd_pins irq_concat/In1]
 connect_bd_net [get_bd_pins npu_accelerator_0/irq] [get_bd_pins irq_concat/In2]
 connect_bd_net [get_bd_pins irq_concat/dout] [get_bd_pins ps7/IRQ_F2P]
+if {$hexagon} {
+    connect_bd_intf_net [get_bd_intf_pins control_ic/M02_AXI] [get_bd_intf_pins npu_hx_0/s_axi]
+    connect_bd_intf_net [get_bd_intf_pins npu_hx_0/m_axi] [get_bd_intf_pins memory_ic/S03_AXI]
+    connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
+        [get_bd_pins control_ic/M02_ACLK] [get_bd_pins memory_ic/S03_ACLK] \
+        [get_bd_pins npu_hx_0/s_axi_aclk]
+    connect_bd_net [get_bd_pins reset0/interconnect_aresetn] \
+        [get_bd_pins control_ic/M02_ARESETN] [get_bd_pins memory_ic/S03_ARESETN]
+    connect_bd_net [get_bd_pins reset0/peripheral_aresetn] [get_bd_pins npu_hx_0/s_axi_aresetn]
+    connect_bd_net [get_bd_pins npu_hx_0/irq] [get_bd_pins irq_concat/In3]
+}
 
 create_bd_addr_seg -range 0x00010000 -offset 0x43C00000 \
     [get_bd_addr_spaces ps7/Data] \
@@ -159,6 +196,11 @@ create_bd_addr_seg -range 0x00010000 -offset 0x43C00000 \
 create_bd_addr_seg -range 0x00010000 -offset 0x40400000 \
     [get_bd_addr_spaces ps7/Data] \
     [get_bd_addr_segs axi_dma_0/S_AXI_LITE/Reg] SEG_axi_dma
+if {$hexagon} {
+    create_bd_addr_seg -range 0x00010000 -offset 0x43C10000 \
+        [get_bd_addr_spaces ps7/Data] \
+        [get_bd_addr_segs npu_hx_0/s_axi/reg0] SEG_npu_hx
+}
 assign_bd_address
 
 validate_bd_design
@@ -174,6 +216,9 @@ update_compile_order -fileset sources_1
 set address_file [open [file join $report_dir address_map.txt] w]
 puts $address_file "accelerator=0x43C00000 range=0x00010000"
 puts $address_file "dma=0x40400000 range=0x00010000"
+if {$hexagon} {
+    puts $address_file "hexagon=0x43C10000 range=0x00010000"
+}
 foreach segment [get_bd_addr_segs] {
     puts $address_file "[get_property NAME $segment] offset=[get_property OFFSET $segment] range=[get_property RANGE $segment]"
 }
@@ -194,6 +239,19 @@ open_run synth_1
 report_utilization -file [file join $report_dir utilization_synth.rpt]
 close_design
 
+if {$hexagon} {
+    # With npu_hx_0 the device is at ~92 % slices and the unchanged tensor
+    # controller's align_row -> active_m/n enable paths land within tens of
+    # picoseconds of 10 ns either way, route-dominated (exp-board runs
+    # 38169804215: +0.063 ns, 38196223963: -0.071 ns). Extra physical
+    # optimisation after placement and after routing recovers that without
+    # touching the RTL; the baseline overlay keeps the default flow.
+    set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+    set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
+    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
+}
+
 launch_runs impl_1 -to_step write_bitstream -jobs $jobs
 wait_on_run impl_1
 if {[get_property PROGRESS [get_runs impl_1]] ne "100%"} {
@@ -204,6 +262,9 @@ report_utilization -file [file join $report_dir utilization_impl.rpt]
 report_timing_summary -delay_type min_max -report_unconstrained -check_timing_verbose \
     -max_paths 10 -file [file join $report_dir timing_summary_routed.rpt]
 report_drc -file [file join $report_dir drc_routed.rpt]
+# Vectorless system power: the PPA comparison of the overlay with and
+# without --hexagon (#136).
+report_power -file [file join $report_dir power_routed.rpt]
 set route_report [file join $report_dir route_status.rpt]
 report_route_status -file $route_report
 
@@ -264,6 +325,7 @@ puts $evidence "vivado=[version -short]"
 puts $evidence "part=xc7z020clg400-1"
 puts $evidence "rows=$array_size"
 puts $evidence "columns=$array_size"
+puts $evidence "hexagon=$hexagon"
 puts $evidence "wns=$wns"
 puts $evidence "setup_failing_paths=[llength $failing_paths]"
 puts $evidence "drc_errors=[llength $drc_errors]"
