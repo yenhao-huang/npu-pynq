@@ -45,11 +45,11 @@ or boards other than the PYNQ-Z1.
 ## Quick Start
 
 1. Download the package on your computer:
-   [npu-resnet18-v1.0.6.zip](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.6/npu-resnet18-v1.0.6.zip).
+   [npu-resnet18-v1.0.7.zip](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.7/npu-resnet18-v1.0.7.zip).
 2. Copy it to the PYNQ-Z1:
 
    ```bash
-   scp npu-resnet18-v1.0.6.zip xilinx@192.168.2.99:~/jupyter_notebooks/
+   scp npu-resnet18-v1.0.7.zip xilinx@192.168.2.99:~/jupyter_notebooks/
    ```
 
 3. Log in to the board:
@@ -62,7 +62,7 @@ or boards other than the PYNQ-Z1.
 
    ```bash
    cd ~/jupyter_notebooks
-   unzip npu-resnet18-v1.0.6.zip -d npu-resnet18
+   unzip npu-resnet18-v1.0.7.zip -d npu-resnet18
    ```
 
 5. Open the notebook in Jupyter at
