@@ -1,6 +1,6 @@
 {
-  "id": "013-hexagon-final",
-  "overlay": {"mode": "build", "tclargs": "--hexagon"},
+  "id": "014-hexagon-final-board",
+  "overlay": {"mode": "run", "run_id": "38205853103"},
   "export": {"cmd": "bash exp/1011_hexagon_npu/export_smollm.sh build/exp-payload"},
   "board": {"script": "exp/1011_hexagon_npu/board/run_hexagon.sh", "timeout_minutes": 120}
 }
