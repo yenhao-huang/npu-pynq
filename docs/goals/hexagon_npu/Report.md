@@ -95,12 +95,15 @@ unit stays INT8 and FP16 runs on the board in the vector unit.
 | INT8 saturating add, 512 elements | kernel 17.0 us (3.32 cycles/element), 23.5x numpy on the A9 |
 | FP16 a*x+y, 512 elements | kernel 35.4 us (6.92 cycles/element), 5.4x numpy on the A9 |
 | Tensor GEMM (unchanged unit) | all ISA checks match; up to 2.87 GMAC/s |
-| SmolLM2-135M (W8A8 + AWQ) | correct answer; prefill 2.05 tok/s, decode 1.44 tok/s |
+| SmolLM2-135M (W8A8 + AWQ) | correct answer; prefill 2.33 tok/s, decode 1.45 tok/s (final bitstream) |
 
-End to end from Python, one 512-element vector call took ~1.7-1.8 ms
-because of host-side driver overhead (program load, flushes, MMIO
-polling); the kernel is 17-35 us. Integration review round 3 reworked the
-driver for resident programs and reused buffers (see below).
+Numbers from the final bitstream (run 38329269229); see [board.md](board.md)
+for both board runs. From Python, a 512-element vector call went from
+1.79 ms (first driver) to 0.86 ms steady state with the resident
+`VectorOp` (9 MMIO writes + 4 reads); the NPU part is ~0.35 ms and the rest
+is the A9's cache flush/invalidate of the pynq buffers, so at this size
+numpy on the A9 (0.38 ms) is still faster end to end while the kernel is
+5-22x faster.
 
 ## Review rounds
 
@@ -118,9 +121,9 @@ review-and-improve agents. Findings that changed the design:
 
 ## Limitations and next steps
 
-- The board bitstream predates subsystem review rounds 2-3 (STOP,
-  1-cycle TCM/MMIO, driver rework); those are simulated and unit-tested,
-  not yet measured on the board.
+- Python-side calls are dominated by the A9's cache maintenance on pynq
+  buffers; non-cacheable staging buffers or letting the scalar core chain
+  DMA + kernel + DMA without the host are the next steps.
 - FP16/INT16 tensor GEMMs are verified and measured stand-alone but not
   deployed (area). An INT8/INT16-only PE (no FP path, same DSPs) is the
   cheap step if INT16 GEMMs are needed.

@@ -1,17 +1,47 @@
-# PYNQ-Z1 run: heterogeneous overlay with SmolLM2
+# PYNQ-Z1 runs: heterogeneous overlay with SmolLM2
 
-Status: **PASS**. exp-board run 38184383844 (request `009-hexagon-board`),
-2026-10-11, on the PYNQ-Z1 at 192.168.2.99. Overlay: `--hexagon` build of
-run 38169804215 (Vivado 2026.1, 16 x 16 INT8 tensor array + `npu_hx_0`,
-100 MHz, WNS +0.063 ns, 0 failing endpoints, 0 DRC errors). Runtime and
-board scripts from the same branch. Raw results:
-[exp/1011_hexagon_npu/board_runs/009-hexagon-board/](../../../exp/1011_hexagon_npu/board_runs/009-hexagon-board/).
+Status: **PASS** on the final RTL.
 
-The bitstream predates integration review rounds 2-3 (it reports VERSION
-`0x00010000`: no CONTROL.STOP, 2-cycle TCM/MMIO responses); the runtime
-detects that and uses the older behaviour.
+| Run | Bitstream | Result |
+| --- | --- | --- |
+| 38329269229 (request `014-hexagon-final-board`, 2026-10-13) | final RTL, run 38205853103 (commit 5471ff4, VERSION `0x00010001`: STOP, 1-cycle TCM/MMIO; WNS +0.113 ns) | self-test PASS, tensor GEMMs PASS, SmolLM2 PASS |
+| 38184383844 (request `009-hexagon-board`, 2026-10-11) | first `--hexagon` build, run 38169804215 (VERSION `0x00010000`; WNS +0.063 ns) | self-test PASS, tensor GEMMs PASS, SmolLM2 PASS |
 
-## Self-test (`exp/1011_hexagon_npu/board/hx_selftest.py`)
+Raw results: [014](../../../exp/1011_hexagon_npu/board_runs/014-hexagon-final-board/),
+[009](../../../exp/1011_hexagon_npu/board_runs/009-hexagon-board/).
+
+## Final run (38329269229)
+
+| Step | Result | Measurement |
+| --- | --- | --- |
+| Identify | PASS | MAGIC `0x314E5848`, VERSION `0x00010001`, CAPS `0x0010087F` |
+| Scalar sort/sum program | PASS (vs ISS) | 14,810 instructions in 57,311 cycles, CPI 3.87; L1I 99.97 %, L1D 99.85 % hits |
+| INT8 saturating add, 512 elements | PASS, bit-exact (23 calls checked) | kernel 1,447 cycles with the resident `VectorOp` (1,702 in the self-test's one-shot path); 22.3x numpy on the A9 |
+| FP16 a*x+y, 512 elements | PASS, bit-exact (23 calls checked) | kernel 3,231 cycles resident (3,525 one-shot); 5.3x numpy |
+| Tensor ISA GEMMs | PASS | every case matches NumPy |
+| SmolLM2 | PASS | "The capital of France is Paris. Paris is a city located in the northern part of the country, and it is known"; prefill 2.33 tok/s, decode 1.45 tok/s; 3,025 NPU calls |
+
+Per-call time from Python, 512 elements:
+
+| Path | INT8 add | FP16 a*x+y |
+| --- | ---: | ---: |
+| One-shot (run 009 driver) | 1.79 ms | 1.67 ms |
+| One-shot (final driver) | 1.09 ms | 1.08 ms |
+| `VectorOp` steady state (median of 20) | 0.86 ms | 0.95 ms |
+| of which: copy into the pynq buffer + ARM cache flush | 0.28 ms | 0.28 ms |
+| DMA in / NPU run / DMA out + ARM cache invalidate | 0.12 / 0.11 / 0.41 ms | 0.12 / 0.13 / 0.32 ms |
+| numpy on the Cortex-A9 | 0.38 ms | 0.19 ms |
+| MMIO accesses per steady call | 9 W + 4 R | 9 W + 6 R |
+
+The NPU part of a call (DMA + kernel) is ~0.35 ms; the rest is the A9's
+cache maintenance on the pynq buffers. At 512 elements that still loses to
+numpy end to end; the kernel itself is 5-22x faster, so larger tensors or
+non-cacheable staging buffers (no flush/invalidate) are what make the vector
+unit pay off from Python.
+
+## First run (38184383844)
+
+### Self-test (`exp/1011_hexagon_npu/board/hx_selftest.py`)
 
 | Step | Result | Measurement |
 | --- | --- | --- |
@@ -21,7 +51,7 @@ detects that and uses the older behaviour.
 | FP16 a*x+y (a = -0.75), 512 elements | PASS: bit-exact | kernel 3,544 cycles (6.92 cycles/element, 14.4 MFLOP-pairs/s) |
 | Tensor unit (ISA GEMM checks, `exp/1007_sw_stack/board/isa_gemm.py`) | PASS: every case matches NumPy | e.g. 64 x 1536 x 576 at 2.87 GMAC/s, 197 x 64 x 147 at 2.40 GMAC/s; ABI 1.0 tile path still works before and after ISA programs |
 
-Comparison with the Cortex-A9 (numpy, same 512 elements):
+Comparison with the Cortex-A9 (first run) (numpy, same 512 elements):
 
 | Operation | NPU vector kernel | numpy on the A9 | Kernel speed-up | End to end from Python |
 | --- | ---: | ---: | ---: | ---: |
@@ -34,7 +64,7 @@ costs ~1.6 ms per call and dominates at 512 elements. Integration review
 round 3 targets that overhead (resident program, reused buffers); it is
 the main item for the next board run.
 
-## SmolLM2-135M-Instruct on the same overlay
+### SmolLM2-135M-Instruct on the same overlay
 
 | | |
 | --- | --- |
