@@ -1,0 +1,14 @@
+{
+  "openroad_image": "openroad/orfs@sha256:7f9c688e71cd49379b9e9a45a4558724e3eda501eaaaf11bc9b77382a3fe647b",
+  "openroad_version_reported": "unknown",
+  "openroad_binary_sha256": "73ad02748645cf9b52cf9220468e16c7427de1bca52d97f9a72f3670535be67e",
+  "verilator": "5.006 2023-01-22 rev (Debian 5.006-3)",
+  "yosys": "0.23 git sha1 7ce5011c24b",
+  "abc": "UC Berkeley ABC 1.01 compiled Feb 7 2023 01:39:45",
+  "helper_python": "3.11.2",
+  "host_python": "3.12",
+  "package_installs": "none; standard-library-only scripts",
+  "python_environment": "exp/fp32_multipier/.venv (Linux environment)",
+  "helper_container": "codex-sandbox-agent-workspace",
+  "power": "OpenSTA vectorless estimate at each virtual-clock target period; no measured switching traces"
+}

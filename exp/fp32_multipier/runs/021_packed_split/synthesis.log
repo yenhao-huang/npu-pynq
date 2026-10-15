@@ -1,0 +1,863 @@
+["docker", "exec", "-w", "/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier", "codex-sandbox-agent-workspace", "yosys", "-s", "/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/synth.ys"]
+
+ /----------------------------------------------------------------------------\
+ |                                                                            |
+ |  yosys -- Yosys Open SYnthesis Suite                                       |
+ |                                                                            |
+ |  Copyright (C) 2012 - 2020  Claire Xenia Wolf <claire@yosyshq.com>         |
+ |                                                                            |
+ |  Permission to use, copy, modify, and/or distribute this software for any  |
+ |  purpose with or without fee is hereby granted, provided that the above    |
+ |  copyright notice and this permission notice appear in all copies.         |
+ |                                                                            |
+ |  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES  |
+ |  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF          |
+ |  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR   |
+ |  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES    |
+ |  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN     |
+ |  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF   |
+ |  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.            |
+ |                                                                            |
+ \----------------------------------------------------------------------------/
+
+ Yosys 0.23 (git sha1 7ce5011c24b)
+
+
+-- Executing script file `/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/synth.ys' --
+
+1. Executing Verilog-2005 frontend: /workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv
+Parsing SystemVerilog input from `/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv' to AST representation.
+Generating RTLIL representation for module `\fp12_mul'.
+Successfully finished Verilog frontend.
+
+2. Executing HIERARCHY pass (managing design hierarchy).
+
+2.1. Analyzing design hierarchy..
+Top module:  \fp12_mul
+
+2.2. Analyzing design hierarchy..
+Top module:  \fp12_mul
+Removed 0 unused modules.
+
+3. Executing SYNTH pass.
+
+3.1. Executing HIERARCHY pass (managing design hierarchy).
+
+3.1.1. Analyzing design hierarchy..
+Top module:  \fp12_mul
+
+3.1.2. Analyzing design hierarchy..
+Top module:  \fp12_mul
+Removed 0 unused modules.
+
+3.2. Executing PROC pass (convert processes to netlists).
+
+3.2.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+3.2.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Marked 7 switch rules as full_case in process $proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12 in module fp12_mul.
+Removed a total of 0 dead cases.
+
+3.2.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 0 redundant assignments.
+Promoted 8 assignments to connections.
+
+3.2.4. Executing PROC_INIT pass (extract init attributes).
+
+3.2.5. Executing PROC_ARST pass (detect async resets in processes).
+
+3.2.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 0 switches.
+<suppressed ~7 debug messages>
+
+3.2.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+     1/7: $3\y[11:0]
+     2/7: $2\y[11:0]
+     3/7: $1\y[11:0]
+     4/7: $1\mag[10:0]
+     5/7: $1\sf[6:0]
+     6/7: $1\nf[6:0]
+     7/7: $1\k[3:0]
+
+3.2.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+No latch inferred for signal `\fp12_mul.\y' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+No latch inferred for signal `\fp12_mul.\k' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+No latch inferred for signal `\fp12_mul.\ex' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+No latch inferred for signal `\fp12_mul.\nf' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+No latch inferred for signal `\fp12_mul.\sf' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+No latch inferred for signal `\fp12_mul.\f' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+No latch inferred for signal `\fp12_mul.\mag' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+No latch inferred for signal `\fp12_mul.\unrounded' from process `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+
+3.2.9. Executing PROC_DFF pass (convert process syncs to FFs).
+
+3.2.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+3.2.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Found and cleaned up 7 empty switches in `\fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+Removing empty process `fp12_mul.$proc$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:14$12'.
+Cleaned up 7 empty switches.
+
+3.2.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+<suppressed ~36 debug messages>
+
+3.3. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 0 unused cells and 63 unused wires.
+<suppressed ~1 debug messages>
+
+3.5. Executing CHECK pass (checking for obvious problems).
+Checking module fp12_mul...
+Found and reported 0 problems.
+
+3.6. Executing OPT pass (performing simple optimizations).
+
+3.6.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.6.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+<suppressed ~75 debug messages>
+Removed a total of 25 cells.
+
+3.6.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+3.6.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.6.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.6.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.6.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 0 unused cells and 25 unused wires.
+<suppressed ~1 debug messages>
+
+3.6.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.6.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+3.6.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+3.6.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.6.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.6.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.6.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.6.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.6.16. Finished OPT passes. (There is nothing left to do.)
+
+3.7. Executing FSM pass (extract and optimize FSM).
+
+3.7.1. Executing FSM_DETECT pass (finding FSMs in design).
+
+3.7.2. Executing FSM_EXTRACT pass (extracting FSM from design).
+
+3.7.3. Executing FSM_OPT pass (simple optimizations of FSMs).
+
+3.7.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.7.5. Executing FSM_OPT pass (simple optimizations of FSMs).
+
+3.7.6. Executing FSM_RECODE pass (re-assigning FSM state encoding).
+
+3.7.7. Executing FSM_INFO pass (dumping all available information on FSM cells).
+
+3.7.8. Executing FSM_MAP pass (mapping FSMs to basic logic).
+
+3.8. Executing OPT pass (performing simple optimizations).
+
+3.8.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.8.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.8.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+3.8.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.8.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.8.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.8.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.8.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.8.9. Finished OPT passes. (There is nothing left to do.)
+
+3.9. Executing WREDUCE pass (reducing word size of cells).
+Removed top 1 bits (of 6) from mux cell fp12_mul.$ternary$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:5$3 ($mux).
+Removed top 1 bits (of 6) from mux cell fp12_mul.$ternary$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:5$5 ($mux).
+Removed top 2 bits (of 7) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:6$6 ($add).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:6$6 ($add).
+Removed top 1 bits (of 7) from port Y of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:6$6 ($add).
+Removed top 4 bits (of 14) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:9$11 ($add).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$13 ($add).
+Converting cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$13 ($add) from signed to unsigned.
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$13 ($add).
+Removed top 1 bits (of 5) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$13 ($add).
+Removed top 1 bits (of 7) from port B of cell fp12_mul.$sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$14 ($sub).
+Removed top 30 bits (of 32) from port B of cell fp12_mul.$lt$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:60$97 ($lt).
+Removed top 10 bits (of 11) from port B of cell fp12_mul.$add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:62$101 ($add).
+Removed top 26 bits (of 32) from port B of cell fp12_mul.$ge$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:63$102 ($ge).
+Removed top 1 bits (of 12) from mux cell fp12_mul.$procmux$131 ($mux).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$138_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$procmux$138_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$139_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$procmux$139_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$140_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$procmux$140_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$141_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$procmux$141_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$142_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$procmux$142_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$143_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$procmux$143_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$144_CMP0 ($eq).
+Removed top 2 bits (of 7) from port B of cell fp12_mul.$procmux$144_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$145_CMP0 ($eq).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$procmux$145_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$146_CMP0 ($eq).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$procmux$146_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$147_CMP0 ($eq).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$procmux$147_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$148_CMP0 ($eq).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$procmux$148_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$149_CMP0 ($eq).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$procmux$149_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$150_CMP0 ($eq).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$procmux$150_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$151_CMP0 ($eq).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$procmux$151_CMP0 ($eq).
+Removed top 1 bits (of 7) from port A of cell fp12_mul.$procmux$152_CMP0 ($eq).
+Removed top 3 bits (of 7) from port B of cell fp12_mul.$procmux$152_CMP0 ($eq).
+Removed top 1 bits (of 4) from port B of cell fp12_mul.$procmux$161_CMP0 ($eq).
+Removed top 1 bits (of 4) from port B of cell fp12_mul.$procmux$162_CMP0 ($eq).
+Removed top 12 bits (of 13) from port B of cell fp12_mul.$procmux$166_CMP0 ($eq).
+Removed top 11 bits (of 12) from port B of cell fp12_mul.$procmux$167_CMP0 ($eq).
+Removed top 10 bits (of 11) from port B of cell fp12_mul.$procmux$168_CMP0 ($eq).
+Removed top 9 bits (of 10) from port B of cell fp12_mul.$procmux$169_CMP0 ($eq).
+Removed top 8 bits (of 9) from port B of cell fp12_mul.$procmux$170_CMP0 ($eq).
+Removed top 7 bits (of 8) from port B of cell fp12_mul.$procmux$171_CMP0 ($eq).
+Removed top 6 bits (of 7) from port B of cell fp12_mul.$procmux$172_CMP0 ($eq).
+Removed top 5 bits (of 6) from port B of cell fp12_mul.$procmux$173_CMP0 ($eq).
+Removed top 4 bits (of 5) from port B of cell fp12_mul.$procmux$174_CMP0 ($eq).
+Removed top 3 bits (of 4) from port B of cell fp12_mul.$procmux$175_CMP0 ($eq).
+Removed top 2 bits (of 3) from port B of cell fp12_mul.$procmux$176_CMP0 ($eq).
+Removed top 1 bits (of 2) from port B of cell fp12_mul.$procmux$177_CMP0 ($eq).
+Removed top 1 bits (of 12) from mux cell fp12_mul.$procmux$128 ($mux).
+Removed top 1 bits (of 6) from wire fp12_mul.ax.
+Removed top 1 bits (of 6) from wire fp12_mul.bx.
+Removed top 1 bits (of 7) from wire fp12_mul.es.
+
+3.10. Executing PEEPOPT pass (run peephole optimizers).
+
+3.11. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 0 unused cells and 3 unused wires.
+<suppressed ~1 debug messages>
+
+3.12. Executing ALUMACC pass (create $alu and $macc cells).
+Extracting $alu and $macc cells in module fp12_mul:
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$13 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:6$6 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:62$101 ($add).
+  creating $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:9$11 ($add).
+  creating $macc model for $mul$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:9$10 ($mul).
+  creating $macc model for $mul$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:9$9 ($mul).
+  creating $macc model for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$14 ($sub).
+  merging $macc model for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$13 into $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$14.
+  merging $macc model for $mul$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:9$9 into $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:9$11.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:62$101.
+  creating $alu model for $macc $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:6$6.
+  creating $macc cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:9$11: $auto$alumacc.cc:365:replace_macc$182
+  creating $macc cell for $mul$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:9$10: $auto$alumacc.cc:365:replace_macc$183
+  creating $macc cell for $sub$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:31$14: $auto$alumacc.cc:365:replace_macc$184
+  creating $alu model for $ge$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:63$102 ($ge): new $alu
+  creating $alu model for $lt$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:60$97 ($lt): new $alu
+  creating $alu cell for $lt$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:60$97: $auto$alumacc.cc:485:replace_alu$187
+  creating $alu cell for $ge$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:63$102: $auto$alumacc.cc:485:replace_alu$200
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:6$6: $auto$alumacc.cc:485:replace_alu$211
+  creating $alu cell for $add$/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/design.sv:62$101: $auto$alumacc.cc:485:replace_alu$214
+  created 4 $alu and 3 $macc cells.
+
+3.13. Executing SHARE pass (SAT-based resource sharing).
+
+3.14. Executing OPT pass (performing simple optimizations).
+
+3.14.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+<suppressed ~2 debug messages>
+
+3.14.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.14.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+3.14.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.14.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.14.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.14.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 3 unused cells and 5 unused wires.
+<suppressed ~5 debug messages>
+
+3.14.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.14.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+3.14.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+3.14.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.14.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.14.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.14.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.14.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.14.16. Finished OPT passes. (There is nothing left to do.)
+
+3.15. Executing MEMORY pass.
+
+3.15.1. Executing OPT_MEM pass (optimize memories).
+Performed a total of 0 transformations.
+
+3.15.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
+Performed a total of 0 transformations.
+
+3.15.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
+
+3.15.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
+
+3.15.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+
+3.15.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.15.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
+
+3.15.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
+Performed a total of 0 transformations.
+
+3.15.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.15.10. Executing MEMORY_COLLECT pass (generating $mem cells).
+
+3.16. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.17. Executing OPT pass (performing simple optimizations).
+
+3.17.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+<suppressed ~2 debug messages>
+
+3.17.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+<suppressed ~3 debug messages>
+Removed a total of 1 cells.
+
+3.17.3. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.17.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 5 unused cells and 6 unused wires.
+<suppressed ~6 debug messages>
+
+3.17.5. Finished fast OPT passes.
+
+3.18. Executing MEMORY_MAP pass (converting memories to logic and flip-flops).
+
+3.19. Executing OPT pass (performing simple optimizations).
+
+3.19.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.19.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.19.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fp12_mul..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+3.19.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fp12_mul.
+Performed a total of 0 changes.
+
+3.19.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+Removed a total of 0 cells.
+
+3.19.6. Executing OPT_SHARE pass.
+
+3.19.7. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.19.8. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+
+3.19.9. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+
+3.19.10. Finished OPT passes. (There is nothing left to do.)
+
+3.20. Executing TECHMAP pass (map to technology primitives).
+
+3.20.1. Executing Verilog-2005 frontend: /usr/bin/../share/yosys/techmap.v
+Parsing Verilog input from `/usr/bin/../share/yosys/techmap.v' to AST representation.
+Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
+Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
+Generating RTLIL representation for module `\_90_simplemap_logic_ops'.
+Generating RTLIL representation for module `\_90_simplemap_compare_ops'.
+Generating RTLIL representation for module `\_90_simplemap_various'.
+Generating RTLIL representation for module `\_90_simplemap_registers'.
+Generating RTLIL representation for module `\_90_shift_ops_shr_shl_sshl_sshr'.
+Generating RTLIL representation for module `\_90_shift_shiftx'.
+Generating RTLIL representation for module `\_90_fa'.
+Generating RTLIL representation for module `\_90_lcu'.
+Generating RTLIL representation for module `\_90_alu'.
+Generating RTLIL representation for module `\_90_macc'.
+Generating RTLIL representation for module `\_90_alumacc'.
+Generating RTLIL representation for module `\$__div_mod_u'.
+Generating RTLIL representation for module `\$__div_mod_trunc'.
+Generating RTLIL representation for module `\_90_div'.
+Generating RTLIL representation for module `\_90_mod'.
+Generating RTLIL representation for module `\$__div_mod_floor'.
+Generating RTLIL representation for module `\_90_divfloor'.
+Generating RTLIL representation for module `\_90_modfloor'.
+Generating RTLIL representation for module `\_90_pow'.
+Generating RTLIL representation for module `\_90_pmux'.
+Generating RTLIL representation for module `\_90_demux'.
+Generating RTLIL representation for module `\_90_lut'.
+Successfully finished Verilog frontend.
+
+3.20.2. Continuing TECHMAP pass.
+Using extmapper simplemap for cells of type $xor.
+Using extmapper simplemap for cells of type $logic_not.
+Using extmapper simplemap for cells of type $mux.
+Using template $paramod$2f5fb04daf2da94d981bf9455fa4454c6ec8b705\_90_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $reduce_bool.
+Using extmapper maccmap for cells of type $macc.
+  add \es (6 bits, unsigned)
+  add \k (4 bits, unsigned)
+  add 7'1100101 (7 bits, unsigned)
+  add { \ma [6] \a [5:0] } * { \mb [6] \b [5:3] } (7x4 bits, unsigned)
+Using extmapper simplemap for cells of type $and.
+Using extmapper simplemap for cells of type $or.
+Using extmapper simplemap for cells of type $reduce_or.
+Using template $paramod$6f78f06913b17543b88acaa0968bdd56337a4e9b\_90_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $reduce_and.
+  add { \ma [6] \a [5:0] } * \b [2:0] (7x3 bits, unsigned)
+  add { \hi 3'000 } (14 bits, unsigned)
+Using template $paramod$0cf90cc92a8a726f7480da3c1dd521ff92701be4\_90_alu for cells of type $alu.
+Using template $paramod$719aadea7a94d31a13cd25a777432aacb0e462b5\_90_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $logic_or.
+Using extmapper simplemap for cells of type $eq.
+Using extmapper simplemap for cells of type $logic_and.
+Using template $paramod$bf9a6aad4c9603c218b6b0be41de41e6ed43614c\_90_pmux for cells of type $pmux.
+Using template $paramod$6ddbcbf6a7078b8fb095edf35f4797a7479a675d\_90_pmux for cells of type $pmux.
+Using template $paramod$9398518f3a66906c93ac7eaad9a961f31111e0c1\_90_pmux for cells of type $pmux.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000001011 for cells of type $lcu.
+Using extmapper simplemap for cells of type $pos.
+Using extmapper simplemap for cells of type $not.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000111 for cells of type $fa.
+Using template $paramod$dbcdc7e8aa1a4080cea2deda6fdc8772064f4d90\_90_alu for cells of type $alu.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000001011 for cells of type $fa.
+Using template $paramod$ec32b97001540459632a2df9accd677d3703ea0f\_90_alu for cells of type $alu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000000110 for cells of type $lcu.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000001110 for cells of type $fa.
+Using template $paramod$091610cd349a68bd5539cffd7126f0d76e9bca00\_90_alu for cells of type $alu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000000010 for cells of type $lcu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000000111 for cells of type $lcu.
+Using template $paramod\_90_lcu\WIDTH=32'00000000000000000000000000001110 for cells of type $lcu.
+No more expansions possible.
+<suppressed ~1302 debug messages>
+
+3.21. Executing OPT pass (performing simple optimizations).
+
+3.21.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fp12_mul.
+<suppressed ~788 debug messages>
+
+3.21.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fp12_mul'.
+<suppressed ~615 debug messages>
+Removed a total of 205 cells.
+
+3.21.3. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.21.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fp12_mul..
+Removed 48 unused cells and 639 unused wires.
+<suppressed ~49 debug messages>
+
+3.21.5. Finished fast OPT passes.
+
+3.22. Executing HIERARCHY pass (managing design hierarchy).
+
+3.22.1. Analyzing design hierarchy..
+Top module:  \fp12_mul
+
+3.22.2. Analyzing design hierarchy..
+Top module:  \fp12_mul
+Removed 0 unused modules.
+
+3.23. Printing statistics.
+
+=== fp12_mul ===
+
+   Number of wires:                392
+   Number of wire bits:           1628
+   Number of public wires:          22
+   Number of public wire bits:     168
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               1053
+     $_AND_                        363
+     $_MUX_                         85
+     $_NOT_                         77
+     $_OR_                         408
+     $_XOR_                        120
+
+3.24. Executing CHECK pass (checking for obvious problems).
+Checking module fp12_mul...
+Found and reported 0 problems.
+
+4. Executing ABC pass (technology mapping using ABC).
+
+4.1. Extracting gate netlist of module `\fp12_mul' to `<abc-temp-dir>/input.blif'..
+Extracted 1053 gates and 1079 wires to a netlist network with 24 inputs and 12 outputs.
+
+4.1.1. Executing ABC.
+Running ABC command: "berkeley-abc" -s -f <abc-temp-dir>/abc.script 2>&1
+ABC: ABC command line: "source <abc-temp-dir>/abc.script".
+ABC: 
+ABC: + read_blif <abc-temp-dir>/input.blif 
+ABC: + read_lib -w /workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/build/pdk/asap7_rvt_tt.lib 
+ABC: Parsing finished successfully.  Parsing time =     0.27 sec
+ABC: Library "asap7sc7p5t_AO_RVT_TT_nldm_211120" from "/workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/build/pdk/asap7_rvt_tt.lib" has 169 cells (0 skipped: 0 seq; 0 tri-state; 0 no func; 0 dont_use).  Time =     0.38 sec
+ABC: Memory =   61.70 MB. Time =     0.38 sec
+ABC: Warning: Detected 2 multi-output gates (for example, "FAx1_ASAP7_75t_R").
+ABC: + read_constr -v /workspace/npu/npu_repo_in_pynq/exp/fp32_multipier/runs/021_packed_split/abc.constr 
+ABC: Setting driving cell to be "BUFx2_ASAP7_75t_R".
+ABC: Setting output load to be 3.898000.
+ABC: + strash 
+ABC: + &get -n 
+ABC: + &fraig -x 
+ABC: + &put 
+ABC: + scorr 
+ABC: Warning: The network is combinational (run "fraig" or "fraig_sweep").
+ABC: + dc2 
+ABC: + dretime 
+ABC: + retime -o -D 700 
+ABC: + strash 
+ABC: + &get -n 
+ABC: + &dch -f 
+ABC: + &nf -D 700 
+ABC: + &put 
+ABC: + buffer 
+ABC: + upsize -D 700 
+ABC: + dnsize -D 700 
+ABC: + stime -p 
+ABC: WireLoad = "none"  Gates =    505 (  6.7 %)   Cap =  1.6 ff ( 11.1 %)   Area =       47.11 ( 70.9 %)   Delay =  1158.22 ps  ( 11.9 %)               
+ABC: Path  0 --      20 : 0   10 pi                        A =   0.00  Df =  12.5   -1.5 ps  S =  28.4 ps  Cin =  0.0 ff  Cout =   5.6 ff  Cmax =   0.0 ff  G =    0  
+ABC: Path  1 --      43 : 2    2 NAND2xp5_ASAP7_75t_R      A =   0.06  Df =  35.2   -0.8 ps  S =  31.3 ps  Cin =  0.5 ff  Cout =   1.9 ff  Cmax =  23.0 ff  G =  374  
+ABC: Path  2 --      44 : 2    1 XOR2xp5_ASAP7_75t_R       A =   0.13  Df =  68.5   -4.6 ps  S =  36.6 ps  Cin =  1.0 ff  Cout =   1.5 ff  Cmax =  23.0 ff  G =  157  
+ABC: Path  3 --      45 : 2    2 XNOR2x1_ASAP7_75t_R       A =   0.17  Df =  95.9   -4.7 ps  S =  26.0 ps  Cin =  1.5 ff  Cout =   1.3 ff  Cmax =  46.1 ff  G =   84  
+ABC: Path  4 --     109 : 2    2 XNOR2xp5_ASAP7_75t_R      A =   0.13  Df = 127.3   -4.7 ps  S =  46.6 ps  Cin =  0.9 ff  Cout =   2.1 ff  Cmax =  23.0 ff  G =  216  
+ABC: Path  5 --     132 : 2    1 XOR2xp5_ASAP7_75t_R       A =   0.13  Df = 164.1  -12.2 ps  S =  40.1 ps  Cin =  1.0 ff  Cout =   1.5 ff  Cmax =  23.0 ff  G =  157  
+ABC: Path  6 --     133 : 2    2 XNOR2x1_ASAP7_75t_R       A =   0.17  Df = 195.8  -12.2 ps  S =  44.2 ps  Cin =  1.5 ff  Cout =   2.6 ff  Cmax =  46.1 ff  G =  174  
+ABC: Path  7 --     148 : 2    1 XNOR2x1_ASAP7_75t_R       A =   0.17  Df = 223.4  -14.1 ps  S =  24.9 ps  Cin =  1.5 ff  Cout =   1.0 ff  Cmax =  46.1 ff  G =   61  
+ABC: Path  8 --     149 : 2    2 XNOR2xp5_ASAP7_75t_R      A =   0.13  Df = 253.7  -13.1 ps  S =  44.8 ps  Cin =  0.9 ff  Cout =   2.1 ff  Cmax =  23.0 ff  G =  215  
+ABC: Path  9 --     168 : 3    2 MAJIxp5_ASAP7_75t_R       A =   0.10  Df = 295.9  -18.5 ps  S =  50.3 ps  Cin =  0.9 ff  Cout =   2.2 ff  Cmax =  23.0 ff  G =  242  
+ABC: Path 10 --     169 : 1    2 INVx2_ASAP7_75t_R         A =   0.06  Df = 312.6  -19.8 ps  S =  18.7 ps  Cin =  1.2 ff  Cout =   1.9 ff  Cmax =  92.2 ff  G =  161  
+ABC: Path 11 --     170 : 3    4 MAJx2_ASAP7_75t_R         A =   0.13  Df = 343.0  -15.8 ps  S =  19.8 ps  Cin =  0.9 ff  Cout =   2.9 ff  Cmax =  92.2 ff  G =  327  
+ABC: Path 12 --     177 : 5    4 A2O1A1O1Ixp25_ASAP7_75t_R A =   0.13  Df = 384.7   -3.6 ps  S =  99.4 ps  Cin =  0.5 ff  Cout =   3.3 ff  Cmax =  23.0 ff  G =  606  
+ABC: Path 13 --     191 : 4    9 O2A1O1Ixp5_ASAP7_75t_R    A =   0.12  Df = 455.8   -7.8 ps  S = 116.9 ps  Cin =  0.7 ff  Cout =   6.3 ff  Cmax =  23.0 ff  G =  884  
+ABC: Path 14 --     214 : 2    8 XOR2x2_ASAP7_75t_R        A =   0.16  Df = 516.2  -13.3 ps  S =  24.1 ps  Cin =  0.9 ff  Cout =   3.7 ff  Cmax =  92.2 ff  G =  403  
+ABC: Path 15 --     219 : 5    6 NOR5xp2_ASAP7_75t_R       A =   0.10  Df = 608.9  -58.0 ps  S = 203.6 ps  Cin =  0.5 ff  Cout =   4.3 ff  Cmax =  23.0 ff  G =  893  
+ABC: Path 16 --     257 : 4    5 A2O1A1Ixp33_ASAP7_75t_R   A =   0.09  Df = 702.0  -99.1 ps  S = 119.3 ps  Cin =  0.5 ff  Cout =   4.2 ff  Cmax =  23.0 ff  G =  773  
+ABC: Path 17 --     286 : 4    4 NAND4xp75_ASAP7_75t_R     A =   0.20  Df = 739.4 -102.9 ps  S =  49.0 ps  Cin =  1.5 ff  Cout =   2.4 ff  Cmax =  46.1 ff  G =  166  
+ABC: Path 18 --     289 : 3    4 NAND3xp33_ASAP7_75t_R     A =   0.07  Df = 770.4  -14.7 ps  S =  42.2 ps  Cin =  0.5 ff  Cout =   1.7 ff  Cmax =  23.0 ff  G =  347  
+ABC: Path 19 --     298 : 5    5 A2O1A1O1Ixp25_ASAP7_75t_R A =   0.13  Df = 831.5   -8.5 ps  S = 103.8 ps  Cin =  0.5 ff  Cout =   3.5 ff  Cmax =  23.0 ff  G =  644  
+ABC: Path 20 --     314 : 4    3 O2A1O1Ixp33_ASAP7_75t_R   A =   0.09  Df = 870.9   -5.4 ps  S =  58.7 ps  Cin =  0.5 ff  Cout =   1.6 ff  Cmax =  23.0 ff  G =  293  
+ABC: Path 21 --     381 : 4    3 O2A1O1Ixp5_ASAP7_75t_R    A =   0.12  Df = 905.8   -6.1 ps  S =  44.2 ps  Cin =  0.7 ff  Cout =   1.7 ff  Cmax =  23.0 ff  G =  236  
+ABC: Path 22 --     406 : 1   10 BUFx3_ASAP7_75t_R         A =   0.09  Df = 937.0   -6.0 ps  S =  18.2 ps  Cin =  0.6 ff  Cout =   4.5 ff  Cmax =  92.2 ff  G =  708  
+ABC: Path 23 --     412 : 5    5 A2O1A1O1Ixp25_ASAP7_75t_R A =   0.13  Df = 983.9   -5.3 ps  S = 101.2 ps  Cin =  0.5 ff  Cout =   3.4 ff  Cmax =  23.0 ff  G =  633  
+ABC: Path 24 --     467 : 4    5 NOR4xp75_ASAP7_75t_R      A =   0.20  Df =1018.8   -0.7 ps  S =  54.7 ps  Cin =  1.5 ff  Cout =   2.3 ff  Cmax =  46.1 ff  G =  159  
+ABC: Path 25 --     515 : 4    5 AND4x2_ASAP7_75t_R        A =   0.12  Df =1070.7  -23.5 ps  S =  26.6 ps  Cin =  0.6 ff  Cout =   3.5 ff  Cmax =  92.2 ff  G =  614  
+ABC: Path 26 --     537 : 5    2 NAND5xp2_ASAP7_75t_R      A =   0.10  Df =1102.4  -36.8 ps  S =  55.0 ps  Cin =  0.5 ff  Cout =   1.0 ff  Cmax =  92.2 ff  G =  210  
+ABC: Path 27 --     539 : 3    1 AO21x2_ASAP7_75t_R        A =   0.10  Df =1158.2  -13.1 ps  S =  22.9 ps  Cin =  0.6 ff  Cout =   3.9 ff  Cmax =  92.2 ff  G =  690  
+ABC: Start-point = pi19 (\b [3]).  End-point = po10 (\y [10]).
+ABC: + write_blif <abc-temp-dir>/output.blif 
+
+4.1.2. Re-integrating ABC results.
+ABC RESULTS:   INVx1_ASAP7_75t_R cells:        2
+ABC RESULTS:   OR5x1_ASAP7_75t_R cells:        2
+ABC RESULTS:   BUFx2_ASAP7_75t_R cells:        1
+ABC RESULTS:   NAND2x1_ASAP7_75t_R cells:        2
+ABC RESULTS:   XNOR2x1_ASAP7_75t_R cells:       13
+ABC RESULTS:   AND2x4_ASAP7_75t_R cells:        1
+ABC RESULTS:   XOR2x1_ASAP7_75t_R cells:        2
+ABC RESULTS:   XNOR2x2_ASAP7_75t_R cells:        4
+ABC RESULTS:   INVx2_ASAP7_75t_R cells:        1
+ABC RESULTS:   AOI32xp33_ASAP7_75t_R cells:        1
+ABC RESULTS:   AO211x2_ASAP7_75t_R cells:        1
+ABC RESULTS:   XOR2x2_ASAP7_75t_R cells:        3
+ABC RESULTS:   NOR2x1_ASAP7_75t_R cells:        1
+ABC RESULTS:   OA31x2_ASAP7_75t_R cells:        1
+ABC RESULTS:   NOR3x1_ASAP7_75t_R cells:        1
+ABC RESULTS:   NOR5xp2_ASAP7_75t_R cells:        4
+ABC RESULTS:   NAND3x1_ASAP7_75t_R cells:        1
+ABC RESULTS:   NAND4xp75_ASAP7_75t_R cells:        1
+ABC RESULTS:   AO31x2_ASAP7_75t_R cells:        1
+ABC RESULTS:   AND4x1_ASAP7_75t_R cells:        2
+ABC RESULTS:   MAJx2_ASAP7_75t_R cells:        7
+ABC RESULTS:   MAJIxp5_ASAP7_75t_R cells:       20
+ABC RESULTS:   HB1xp67_ASAP7_75t_R cells:        6
+ABC RESULTS:   AO32x1_ASAP7_75t_R cells:        1
+ABC RESULTS:   OAI32xp33_ASAP7_75t_R cells:        1
+ABC RESULTS:   NAND4xp25_ASAP7_75t_R cells:        4
+ABC RESULTS:   NAND2xp5_ASAP7_75t_R cells:       11
+ABC RESULTS:   OAI31xp33_ASAP7_75t_R cells:        7
+ABC RESULTS:   BUFx3_ASAP7_75t_R cells:        1
+ABC RESULTS:   OR2x2_ASAP7_75t_R cells:        6
+ABC RESULTS:   AND5x1_ASAP7_75t_R cells:        3
+ABC RESULTS:   OA21x2_ASAP7_75t_R cells:        3
+ABC RESULTS:   INVxp67_ASAP7_75t_R cells:        3
+ABC RESULTS:   AOI222xp33_ASAP7_75t_R cells:        1
+ABC RESULTS:   NAND3xp33_ASAP7_75t_R cells:       16
+ABC RESULTS:   AOI321xp33_ASAP7_75t_R cells:        1
+ABC RESULTS:   AO221x1_ASAP7_75t_R cells:        1
+ABC RESULTS:   AOI31xp33_ASAP7_75t_R cells:        9
+ABC RESULTS:   NOR4xp75_ASAP7_75t_R cells:        1
+ABC RESULTS:   AO21x1_ASAP7_75t_R cells:        5
+ABC RESULTS:   NAND2xp33_ASAP7_75t_R cells:       50
+ABC RESULTS:   OAI211xp5_ASAP7_75t_R cells:        6
+ABC RESULTS:   OAI22xp33_ASAP7_75t_R cells:        7
+ABC RESULTS:   INVxp33_ASAP7_75t_R cells:       20
+ABC RESULTS:   OA211x2_ASAP7_75t_R cells:        3
+ABC RESULTS:   AOI21xp33_ASAP7_75t_R cells:       20
+ABC RESULTS:   NOR2xp33_ASAP7_75t_R cells:       34
+ABC RESULTS:   AOI211xp5_ASAP7_75t_R cells:        7
+ABC RESULTS:   AOI22xp33_ASAP7_75t_R cells:       13
+ABC RESULTS:   AOI221xp5_ASAP7_75t_R cells:       12
+ABC RESULTS:   OAI221xp5_ASAP7_75t_R cells:       14
+ABC RESULTS:   AND4x2_ASAP7_75t_R cells:        1
+ABC RESULTS:   NOR3xp33_ASAP7_75t_R cells:       12
+ABC RESULTS:   OR4x1_ASAP7_75t_R cells:        4
+ABC RESULTS:   OR3x1_ASAP7_75t_R cells:        4
+ABC RESULTS:   O2A1O1Ixp33_ASAP7_75t_R cells:        6
+ABC RESULTS:   A2O1A1O1Ixp25_ASAP7_75t_R cells:        4
+ABC RESULTS:   OAI21xp5_ASAP7_75t_R cells:        2
+ABC RESULTS:   NOR4xp25_ASAP7_75t_R cells:        3
+ABC RESULTS:   AOI21xp5_ASAP7_75t_R cells:        1
+ABC RESULTS:   AND3x4_ASAP7_75t_R cells:        1
+ABC RESULTS:   O2A1O1Ixp5_ASAP7_75t_R cells:        3
+ABC RESULTS:   XNOR2xp5_ASAP7_75t_R cells:       43
+ABC RESULTS:   AOI21x1_ASAP7_75t_R cells:        1
+ABC RESULTS:   AND3x1_ASAP7_75t_R cells:        5
+ABC RESULTS:   A2O1A1Ixp33_ASAP7_75t_R cells:        7
+ABC RESULTS:   OAI21x1_ASAP7_75t_R cells:        1
+ABC RESULTS:   NAND5xp2_ASAP7_75t_R cells:        4
+ABC RESULTS:   OAI21xp33_ASAP7_75t_R cells:       18
+ABC RESULTS:   AO21x2_ASAP7_75t_R cells:        1
+ABC RESULTS:   XOR2xp5_ASAP7_75t_R cells:       30
+ABC RESULTS:   AND2x2_ASAP7_75t_R cells:       16
+ABC RESULTS:        internal signals:     1043
+ABC RESULTS:           input signals:       24
+ABC RESULTS:          output signals:       12
+Removing temp directory.
+Removed 0 unused cells and 419 unused wires.
+
+5. Executing Liberty frontend.
+Imported 169 cell types from liberty file.
+
+6. Executing CHECK pass (checking for obvious problems).
+Checking module fp12_mul...
+Found and reported 0 problems.
+
+7. Printing statistics.
+
+=== fp12_mul ===
+
+   Number of wires:                502
+   Number of wire bits:            565
+   Number of public wires:           9
+   Number of public wire bits:      72
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                505
+     A2O1A1Ixp33_ASAP7_75t_R         7
+     A2O1A1O1Ixp25_ASAP7_75t_R       4
+     AND2x2_ASAP7_75t_R             16
+     AND2x4_ASAP7_75t_R              1
+     AND3x1_ASAP7_75t_R              5
+     AND3x4_ASAP7_75t_R              1
+     AND4x1_ASAP7_75t_R              2
+     AND4x2_ASAP7_75t_R              1
+     AND5x1_ASAP7_75t_R              3
+     AO211x2_ASAP7_75t_R             1
+     AO21x1_ASAP7_75t_R              5
+     AO21x2_ASAP7_75t_R              1
+     AO221x1_ASAP7_75t_R             1
+     AO31x2_ASAP7_75t_R              1
+     AO32x1_ASAP7_75t_R              1
+     AOI211xp5_ASAP7_75t_R           7
+     AOI21x1_ASAP7_75t_R             1
+     AOI21xp33_ASAP7_75t_R          20
+     AOI21xp5_ASAP7_75t_R            1
+     AOI221xp5_ASAP7_75t_R          12
+     AOI222xp33_ASAP7_75t_R          1
+     AOI22xp33_ASAP7_75t_R          13
+     AOI31xp33_ASAP7_75t_R           9
+     AOI321xp33_ASAP7_75t_R          1
+     AOI32xp33_ASAP7_75t_R           1
+     BUFx2_ASAP7_75t_R               1
+     BUFx3_ASAP7_75t_R               1
+     HB1xp67_ASAP7_75t_R             6
+     INVx1_ASAP7_75t_R               2
+     INVx2_ASAP7_75t_R               1
+     INVxp33_ASAP7_75t_R            20
+     INVxp67_ASAP7_75t_R             3
+     MAJIxp5_ASAP7_75t_R            20
+     MAJx2_ASAP7_75t_R               7
+     NAND2x1_ASAP7_75t_R             2
+     NAND2xp33_ASAP7_75t_R          50
+     NAND2xp5_ASAP7_75t_R           11
+     NAND3x1_ASAP7_75t_R             1
+     NAND3xp33_ASAP7_75t_R          16
+     NAND4xp25_ASAP7_75t_R           4
+     NAND4xp75_ASAP7_75t_R           1
+     NAND5xp2_ASAP7_75t_R            4
+     NOR2x1_ASAP7_75t_R              1
+     NOR2xp33_ASAP7_75t_R           34
+     NOR3x1_ASAP7_75t_R              1
+     NOR3xp33_ASAP7_75t_R           12
+     NOR4xp25_ASAP7_75t_R            3
+     NOR4xp75_ASAP7_75t_R            1
+     NOR5xp2_ASAP7_75t_R             4
+     O2A1O1Ixp33_ASAP7_75t_R         6
+     O2A1O1Ixp5_ASAP7_75t_R          3
+     OA211x2_ASAP7_75t_R             3
+     OA21x2_ASAP7_75t_R              3
+     OA31x2_ASAP7_75t_R              1
+     OAI211xp5_ASAP7_75t_R           6
+     OAI21x1_ASAP7_75t_R             1
+     OAI21xp33_ASAP7_75t_R          18
+     OAI21xp5_ASAP7_75t_R            2
+     OAI221xp5_ASAP7_75t_R          14
+     OAI22xp33_ASAP7_75t_R           7
+     OAI31xp33_ASAP7_75t_R           7
+     OAI32xp33_ASAP7_75t_R           1
+     OR2x2_ASAP7_75t_R               6
+     OR3x1_ASAP7_75t_R               4
+     OR4x1_ASAP7_75t_R               4
+     OR5x1_ASAP7_75t_R               2
+     XNOR2x1_ASAP7_75t_R            13
+     XNOR2x2_ASAP7_75t_R             4
+     XNOR2xp5_ASAP7_75t_R           43
+     XOR2x1_ASAP7_75t_R              2
+     XOR2x2_ASAP7_75t_R              3
+     XOR2xp5_ASAP7_75t_R            30
+
+   Chip area for module '\fp12_mul': 47.107980
+
+8. Executing Verilog backend.
+
+8.1. Executing BMUXMAP pass.
+
+8.2. Executing DEMUXMAP pass.
+Dumping module `\fp12_mul'.
+
+9. Executing JSON backend.
+
+End of script. Logfile hash: 4313f986be, CPU: user 1.45s system 0.20s, MEM: 127.11 MB peak
+Yosys 0.23 (git sha1 7ce5011c24b)
+Time spent: 29% 1x abc (0 sec), 28% 2x read_liberty (0 sec), ...

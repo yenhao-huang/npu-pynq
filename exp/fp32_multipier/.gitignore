@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+build/
+acceptance.json
+results.csv
+*_verification.json
+runs/*
+!runs/[0-9][0-9][0-9]_*/
+runs/[0-9][0-9][0-9]_*/*
+!runs/[0-9][0-9][0-9]_*/design.sv
+!runs/[0-9][0-9][0-9]_*/metrics.json
+!runs/[0-9][0-9][0-9]_*/synthesis.log
+!runs/[0-9][0-9][0-9]_*/sta.log
+!runs/[0-9][0-9][0-9]_*/simulation.log
+!runs/[0-9][0-9][0-9]_*/gate_simulation.log

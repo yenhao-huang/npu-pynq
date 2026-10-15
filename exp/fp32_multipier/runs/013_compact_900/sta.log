@@ -1,0 +1,91 @@
+["docker", "run", "--rm", "--network", "none", "--mount", "type=bind,source=C:\\Users\\User\\Desktop\\agent_workspace\\npu\\npu_repo_in_pynq\\exp\\fp32_multipier,target=/exp", "--mount", "type=bind,source=C:\\Users\\User\\Desktop\\agent_workspace\\npu\\npu_repo_in_pynq\\external\\OpenROAD-flow-scripts\\flow\\platforms\\asap7,target=/pdk,readonly", "--entrypoint", "bash", "openroad/orfs@sha256:7f9c688e71cd49379b9e9a45a4558724e3eda501eaaaf11bc9b77382a3fe647b", "-lc", "source /OpenROAD-flow-scripts/env.sh && openroad -exit /exp/runs/013_compact_900/sta.tcl"]
+OPENROAD: /OpenROAD-flow-scripts/tools/OpenROAD
+OpenROAD unknown 
+Features included (+) or not (-): -GPU +GUI -Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+[INFO ODB-0227] LEF file: /pdk/lef/asap7_tech_1x_201209.lef, created 30 layers, 9 vias
+[INFO ODB-0227] LEF file: /pdk/lef/asap7sc7p5t_28_R_1x_220121a.lef, created 212 library cells
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 865739, timing group from output port.
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 865772, timing group from output port.
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 865805, timing group from output port.
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 865838, timing group from output port.
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 865871, timing group from output port.
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 865904, timing group from output port.
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 865937, timing group from output port.
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 867333, timing group from output port.
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 867366, timing group from output port.
+[WARNING STA-1212] /exp/build/pdk/asap7_rvt_tt.lib line 867399, timing group from output port.
+ time 1ps
+ capacitance 1fF
+ resistance 1kohm
+ voltage 1v
+ current 1mA
+ power 1pW
+ distance 1um
+Startpoint: a[9] (input port clocked by virtual)
+Endpoint: y[9] (output port clocked by virtual)
+Path Group: virtual
+Path Type: max
+
+      Delay        Time   Description
+-----------------------------------------------------------------
+   0.000000    0.000000   clock virtual (rise edge)
+   0.000000    0.000000   clock network delay (ideal)
+   0.000000    0.000000 v input external delay
+   0.000000    0.000000 v a[9] (in)
+  74.881348   74.881348 ^ _0622_/Y (NOR5xp2_ASAP7_75t_R)
+  37.247574  112.128922 v _0661_/Y (OAI21xp33_ASAP7_75t_R)
+  39.520443  151.649353 v _0663_/Y (AO22x1_ASAP7_75t_R)
+  24.925741  176.575104 v _0666_/Y (AO21x1_ASAP7_75t_R)
+  34.750523  211.325623 ^ _0677_/Y (AOI21xp33_ASAP7_75t_R)
+  22.178843  233.504471 v _0688_/Y (XNOR2xp5_ASAP7_75t_R)
+  33.973076  267.477539 v _0689_/Y (XNOR2xp5_ASAP7_75t_R)
+  28.255814  295.733368 v _0691_/Y (XOR2xp5_ASAP7_75t_R)
+  30.260405  325.993774 v _0738_/Y (XNOR2xp5_ASAP7_75t_R)
+  35.081520  361.075287 v _0770_/Y (XNOR2xp5_ASAP7_75t_R)
+  31.726511  392.801788 ^ _0773_/Y (A2O1A1O1Ixp25_ASAP7_75t_R)
+  27.021414  419.823212 v _0774_/Y (NOR2xp33_ASAP7_75t_R)
+ 113.728836  533.552063 ^ _0791_/Y (XNOR2xp5_ASAP7_75t_R)
+  81.203323  614.755371 v _0793_/Y (NOR2xp33_ASAP7_75t_R)
+  43.344105  658.099487 v _0840_/Y (AND4x1_ASAP7_75t_R)
+  43.399342  701.498779 ^ _0866_/Y (AOI211xp5_ASAP7_75t_R)
+  30.092596  731.591431 v _0869_/Y (NOR2xp33_ASAP7_75t_R)
+  44.487968  776.079346 ^ _0916_/Y (A2O1A1O1Ixp25_ASAP7_75t_R)
+  47.429173  823.508545 v _0918_/Y (O2A1O1Ixp33_ASAP7_75t_R)
+  77.274742  900.783264 ^ _0930_/Y (OAI31xp33_ASAP7_75t_R)
+  50.294380  951.077637 ^ _0934_/Y (AND2x2_ASAP7_75t_R)
+  48.627659  999.705322 v _0943_/Y (OAI21xp33_ASAP7_75t_R)
+  91.056717 1090.762085 ^ _0961_/Y (NOR4xp25_ASAP7_75t_R)
+  39.320435 1130.082520 v _1007_/Y (AOI211xp5_ASAP7_75t_R)
+  63.209770 1193.292236 ^ _1036_/Y (AOI31xp33_ASAP7_75t_R)
+  34.057980 1227.350220 v _1039_/Y (NAND4xp25_ASAP7_75t_R)
+  47.870819 1275.221069 ^ _1048_/Y (OAI211xp5_ASAP7_75t_R)
+  86.393890 1361.614990 v _1053_/Y (OAI31xp33_ASAP7_75t_R)
+  92.864830 1454.479736 ^ _1243_/Y (NAND2xp33_ASAP7_75t_R)
+   0.000000 1454.479736 ^ y[9] (out)
+            1454.479736   data arrival time
+
+ 900.000000  900.000000   clock virtual (rise edge)
+   0.000000  900.000000   clock network delay (ideal)
+   0.000000  900.000000   clock reconvergence pessimism
+   0.000000  900.000000   output external delay
+             900.000000   data required time
+-----------------------------------------------------------------
+             900.000000   data required time
+            -1454.479736   data arrival time
+-----------------------------------------------------------------
+            -554.479736   slack (VIOLATED)
+
+
+Group                       Internal       Switching         Leakage           Total
+                               Power           Power           Power           Power (Watts)
+------------------------------------------------------------------------------------
+Sequential           0.000000000e+00 0.000000000e+00 0.000000000e+00 0.000000000e+00   0.0%
+Combinational        1.535606425e-04 2.555059036e-04 2.868229210e-08 4.090952571e-04 100.0%
+Clock                0.000000000e+00 0.000000000e+00 0.000000000e+00 0.000000000e+00   0.0%
+Macro                0.000000000e+00 0.000000000e+00 0.000000000e+00 0.000000000e+00   0.0%
+Pad                  0.000000000e+00 0.000000000e+00 0.000000000e+00 0.000000000e+00   0.0%
+------------------------------------------------------------------------------------
+Total                1.535606425e-04 2.555059036e-04 2.868229210e-08 4.090952571e-04 100.0%
+                               37.5%           62.5%            0.0%

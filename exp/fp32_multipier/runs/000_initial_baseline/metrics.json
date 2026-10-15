@@ -1,0 +1,8 @@
+{
+  "name": "000_initial_baseline",
+  "mode": "baseline",
+  "mul": "operator",
+  "lzd": "priority",
+  "status": "failed",
+  "error": "Initial terminal-observed exhaustive simulation failed at a=001 b=001 expected=000 actual=001 checks=4098. Archived original RTL; replaced rtl/baseline.sv with the verified 001 snapshot. No PPA measured."
+}
