@@ -225,7 +225,7 @@ the vectorized integer reference, not the FP32 path.
 | Corpus | `EliSchwartz/imagenet-sample-images`, 1000 JPEGs, one per class |
 | Preprocessing | Resize shorter side to 256 (bilinear), center crop 224, `/255`, ImageNet mean/std |
 | FP32 path | `torchvision.models.resnet18`, eval mode |
-| INT8 path | `src/export/torchvision_resnet18.py` for the graph, `src/test/model/quantized_graph_reference.py` for execution |
+| INT8 path | `src/deprecate/export/torchvision_resnet18.py` for the graph, `src/test/model/quantized_graph_reference.py` for execution |
 | Quantization | Per-output-channel symmetric INT8 weights, per-tensor symmetric INT8 activations, Q1.31 requantization, INT32 accumulator |
 
 **The corpus is not the ImageNet-1K validation set.** It is a curated
@@ -244,7 +244,7 @@ noise of each other.
 **Simulation only.** Every number here was produced on a host CPU through the
 integer reference. None of it is physical PYNQ-Z1 evidence.
 
-**`src/model/operators.py::conv2d_int8` cannot be used for dataset evaluation.**
+**`src/deprecate/model/operators.py::conv2d_int8` cannot be used for dataset evaluation.**
 It is a per-MAC Python loop, correct but far too slow for 1000 images. The
 vectorized `quantized_graph_reference.py` is used instead, and
 `test_vectorized_reference_matches_approved_scalar_operators` pins the two

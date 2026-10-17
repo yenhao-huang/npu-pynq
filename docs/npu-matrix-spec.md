@@ -105,3 +105,69 @@ next Vivado build.
 These figures establish build feasibility for the PYNQ-Z1 target. A physical
 matrix smoke test is still required for each release artifact because the
 repository does not treat implementation evidence as board evidence.
+
+## Instruction-stream front end (ABI 1.1)
+
+ABI 1.1 adds capability bit 6, `ISA_FRONTEND`: the NPU fetches and executes a
+program from DDR instead of having the ARM sequence every tile. The register
+and DMA path of ABI 1.0 is unchanged and still works; while a program is in
+flight (`ISA_STATUS.BUSY`), the front end owns the matrix controller and the DMA
+streams are held off.
+
+```text
+            AXI-Lite (GP0)                         AXI4 master (HP0, 64-bit)
+                 |                                        ^   ^   |
+   PROG_ADDR/LEN, DATA_BASE, START                        |   |   |
+                 v                                        |   |   v
+   +-------------------+   +------------------+   +-------+---+-------+
+   | IF  npu_isa_fetch | ->| ID npu_isa_decode| ->| EX  npu_isa_lsu   |
+   | PC, 32-word queue |   | shape, A/B/C     |   | A,B tiles -> s_axis
+   | 16-beat bursts    |   | offsets, REPEAT  |   | m_axis -> C tile   |
+   +-------------------+   +------------------+   +---------+---------+
+                                    | START, M/N/K          |
+                                    v                       v
+                           npu_matrix_controller + 16 x 16 systolic array
+```
+
+The instruction set is defined once, in `src/isa/isa.py`; `src/isa/sim.py` is
+its bit-accurate simulator and `src/isa/layout.py` the tiled-GEMM layout that
+the compiler, runtimes and testbench share. Each instruction is one 64-bit
+word with the opcode in bits [63:56]:
+
+| Opcode | Mnemonic | Operands | Effect |
+| --- | --- | --- | --- |
+| 0x00 | NOP | | |
+| 0x01 | END | | wait until every job is written back, then DONE and IRQ |
+| 0x02 | FENCE | | wait until every job is written back |
+| 0x10 | SHAPE | m [31:24], n [23:16], k [15:0] | job shape |
+| 0x11-0x13 | ADDR_A/B/C | offset [31:0], 8-byte aligned | tile offsets from DATA_BASE |
+| 0x14 | INCR | a [15:0], b [31:16], c [47:32], in 8-byte units | post-increments |
+| 0x15 | REPEAT | count [31:0] | execute the next word count times |
+| 0x20 | GEMM | flags [2:0] = inc C, B, A | `C[m,n] = A[m,k] @ B[k,n]`, then advance the flagged offsets |
+
+A GEMM reads the dense row-major INT8 tiles at `DATA_BASE + a` and
+`DATA_BASE + b` and writes the dense INT32 result at `DATA_BASE + c`. `REPEAT n`
+followed by a post-incrementing GEMM walks a row of `n` tiles in two words.
+Jobs pipeline through the controller's two-entry queue; the load/store unit
+keeps up to eight read and eight write bursts outstanding, each at most 16
+beats and never crossing a 128-byte line.
+
+| Offset | Register | Access | Meaning |
+| --- | --- | --- | --- |
+| 0x40 | ISA_CONTROL | W | bit 0 START (ignored while BUSY) |
+| 0x44 | ISA_STATUS | R | bit 0 RUNNING, 1 DONE, 2 ERROR, 3 BUSY |
+| 0x48 | PROG_ADDR | RW | physical address of word 0, 8-byte aligned |
+| 0x4C | PROG_LEN | RW | program length in words; fetch never reads past it |
+| 0x50 | DATA_BASE | RW | physical address that tile offsets are relative to |
+| 0x54 | ISA_ERROR | R | 0x10 illegal opcode, 0x11 bad shape, 0x12 misaligned, 0x13 AXI read, 0x14 AXI write, 0x15 fetch; 1-6 forward the controller's code |
+| 0x58 | ISA_PC | R | words consumed by decode |
+| 0x5C | ISA_JOBS | R | jobs written back by the last program |
+| 0x60 | ISA_CYCLES | R | cycles the last program ran |
+| 0x64 | ISA_INSTRUCTIONS | R | words decoded by the last program |
+| 0x68 | ISA_VERSION | R | 1 |
+
+`tb_npu_isa_frontend` runs encoder-generated programs on the full 16 x 16
+accelerator against an AXI memory with random back-pressure, and compares all
+of memory with the simulator's result. An AXI error response or a controller
+error stops decode; the jobs already issued drain before BUSY falls. Recovery
+from an AXI error is a bitstream reload.

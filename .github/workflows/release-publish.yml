@@ -72,6 +72,9 @@ jobs:
           # The assets are the ones cd.yml attached; publishing must not invent any.
           for asset in \
             "npu-resnet18-${TAG}.zip" \
+            "npu-smollm-${TAG}.tar.gz" \
+            "SMOLLM_SHA256SUMS" \
+            "smollm-interactive.json" \
             "SHA256SUMS" \
             "resnet18-image-acceptance.json"
           do

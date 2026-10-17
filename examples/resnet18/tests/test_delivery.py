@@ -24,9 +24,9 @@ CD_DEPLOYER = (
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from src.export.resnet import export_model
-from src.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
-from src.runtime.model import NPUModelRuntime, load_model_package
+from src.deprecate.export.resnet import export_model
+from src.deprecate.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
+from src.deprecate.runtime.model import NPUModelRuntime, load_model_package
 from src.runtime.verify_overlay import write_manifest
 from src.test.tests.resnet18_fixture import (
     make_reduced_resnet18_graph,

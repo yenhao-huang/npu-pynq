@@ -34,7 +34,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from src.export.torchvision_resnet18 import (
+from src.deprecate.export.torchvision_resnet18 import (
     _conv_specs,
     _folded_convolutions,
     load_checkpoint,

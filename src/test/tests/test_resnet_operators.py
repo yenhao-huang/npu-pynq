@@ -2,8 +2,8 @@ import unittest
 
 import numpy as np
 
-from src.model.numeric import INT32_MAX
-from src.model.operators import (
+from src.deprecate.model.numeric import INT32_MAX
+from src.deprecate.model.operators import (
     conv2d_int8,
     flatten_int8,
     fully_connected_int8,

@@ -36,8 +36,8 @@ try:
 except ModuleNotFoundError:  # deployed standalone package layout
     from run_on_board import _array_sha256, _sha256, _write_new
 
-from src.export.imagenet import decode_logits, input_scale, load_class_names
-from src.runtime import (
+from src.deprecate.export.imagenet import decode_logits, input_scale, load_class_names
+from src.deprecate.runtime import (
     NPURuntime,
     NPUModelRuntime,
     load_model_package,

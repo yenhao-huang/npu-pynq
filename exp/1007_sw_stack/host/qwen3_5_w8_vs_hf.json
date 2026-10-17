@@ -1,0 +1,40 @@
+[
+  {
+    "prompt": "The capital of France is",
+    "ours": " Paris is the capital of France.\nThe capital of France is Paris.\n",
+    "hf": " Paris.\nThe capital of France is Paris.\nThe capital of France is",
+    "greedy_agree": "1/16",
+    "logit_cosine": 0.9983804225921631,
+    "prompt_tokens": 5,
+    "generated_tokens": 16,
+    "prefill_seconds": 2.587,
+    "decode_seconds": 3.752,
+    "prefill_tok_per_s": 1.933,
+    "decode_tok_per_s": 4.264,
+    "npu": {
+      "calls": 1649,
+      "jobs": 3120656,
+      "cycles": 0,
+      "macs": 20246429696
+    }
+  },
+  {
+    "prompt": "def fibonacci(n):\n    ",
+    "ours": " if n <= 0:\n         return 0\n     elif n ==",
+    "hf": " if n <= 1:\n         return n\n     return fibonacci(n-",
+    "greedy_agree": "4/16",
+    "logit_cosine": 0.9957271218299866,
+    "prompt_tokens": 6,
+    "generated_tokens": 16,
+    "prefill_seconds": 2.596,
+    "decode_seconds": 3.781,
+    "prefill_tok_per_s": 2.311,
+    "decode_tok_per_s": 4.232,
+    "npu": {
+      "calls": 1649,
+      "jobs": 3120656,
+      "cycles": 0,
+      "macs": 20246429696
+    }
+  }
+]

@@ -13,7 +13,8 @@ on-board runtime.
 | `src/hw/constraints/` | `.xdc` timing and pin constraints | yes |
 | `src/hw/vivado_tcl/<design>/` | project-regenerating Tcl | yes |
 | `src/test/` | Makefile, golden model, cocotb tests, vectors | yes (not `build/`, not `waves/`) |
-| `src/export/` | trained model to NPU executable format | yes |
+| `src/deprecate/` | archived pre-MLIR model, export, and runtime implementation | yes |
+| `src/compiler/`, `src/inference/`, `src/models/` | current model compiler and inference stack | yes |
 | `src/runtime/` | on-board overlay loading and execution | yes |
 | `examples/` | demos built on export and runtime | yes |
 | `tools/ic/` | agent-facing lint/sim/debug/view/synth toolchain | yes |
@@ -44,7 +45,7 @@ and on what may not be added.
   `vivado -mode batch -source src/hw/vivado_tcl/<design>/build_overlay.tcl`,
   and attach bitstreams to a GitHub Release.
 - `src/test/model/` defines the numeric contract that `src/hw/` implements and
-  `src/export/` must match: quantization, rounding, saturation, accumulator
+  `src/deprecate/export/` must match: quantization, rounding, saturation, accumulator
   width and overflow. Change it only deliberately; both sides depend on it.
 - Dependencies point one way. `examples/` may import from `src/`; nothing under
   `src/` may import from `examples/`.

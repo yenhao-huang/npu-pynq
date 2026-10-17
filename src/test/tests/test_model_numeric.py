@@ -1,6 +1,6 @@
 import unittest
 
-from src.model import numeric as production_numeric
+from src.deprecate.model import numeric as production_numeric
 from src.test.model import numeric as compatibility_numeric
 
 
