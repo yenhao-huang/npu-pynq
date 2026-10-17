@@ -2,6 +2,10 @@
 
 Goal: [goal.md](goal.md). How to rerun everything: [Reproduce.md](Reproduce.md).
 
+Progress aligned on 2026-10-09 with PR #126 at
+`778c90c5d8340c362972a627c18eb27580d2251c`. The local follow-up branch
+`npu/issue119-b` adds the official INT8 path below; it has not been pushed.
+
 ## What was built
 
 ```text
@@ -27,6 +31,27 @@ run:      Cortex-A9 code runs the CPU work and calls npu_rt, which hands
 | Qwen3-0.6B | PASS: W8A8 598 MB; board build W4A8 g64 + AWQ, 398 MB streamed | PASS: answers "Paris" (thinking mode), 5.0 tok/s; FP32 equals Transformers (rel err 2e-6) | see [board.md](details/board.md) |
 | ResNet-18 | PASS: W8A8, 21 NPU tasks, 12 MB | PASS: 5/5 gallery images, top-1 = TorchVision FP32 | see [board.md](details/board.md) |
 
+### Official SmolLM2 INT8 follow-up
+
+- **Compiled physical acceptance PASS:** run `compiled-board-20261009-04`
+  executed all eight notebook cells with 35/35 independent audit gates.
+  ONNX frontend -> MLIR -> ISA lowering -> LLVM ARM -> `CompiledModel` is active;
+  float kernels remain explicit native ORT 1.20.1 calls.
+- Every logit and token in the 24-step trace exactly matches the unchanged full
+  ARM ONNX oracle, separate ARM compiled ISA simulator and reset/repeat.
+  Original quantization is retained; QKV/gate-up fusion reduces 210 contractions
+  to 120 per forward. The run recorded 842,400 physical jobs and 453,076,654 cycles.
+- TTFT **12.8602 s**, TPOT **1.5432 s/token**, throughput **0.6480 tokens/s**.
+  These are recorded generation timings; initial smoke prefill was 26.62 s.
+- **Shared source physical check PASS:** a separate process generated from a
+  board directory containing only `src/`, with no `exp/`, using independent
+  package and overlay assets. Seven focused Linux regressions passed.
+- Exact compiled prefill lengths are 36, 40 and 42 chat tokens. Other lengths
+  require compilation; arbitrary chunks would change official DQL semantics.
+
+Details: [official-int8.md](details/official-int8.md) and
+[CompiledResult.md](../../../exp/1007_sw_stack/deploy/CompiledResult.md).
+
 Further architectures on the same operators: Qwen3-MoE (sparse expert
 dispatch, rel err 1.2e-6) and Qwen3.5-0.8B (Gated DeltaNet linear attention,
 rel err 2.7e-6).
@@ -43,5 +68,8 @@ wherever the float paths coincide; see [quantization.md](details/quantization.md
 
 ## Open items
 
-- Board columns: [board.md](details/board.md) records the physical runs.
-- Vivado timing of the ISA overlay at 100 MHz is reported there too.
+- Complete the cancelled automated campaign for the original W8+AWQ SmolLM2,
+  Qwen3 and ResNet-18 packages; the manual compiled official ONNX milestone
+  does not substitute for that campaign.
+- Collect routed 100 MHz timing evidence for the ISA overlay and completed
+  automated board workflow results; see [board.md](details/board.md).

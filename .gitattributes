@@ -1,3 +1,5 @@
 src/test/vectors/*.txt text eol=lf
 # This pinned metadata is byte-validated as canonical JSON on Windows and PYNQ.
 examples/resnet18/model-source.json text eol=lf
+exp/1007_sw_stack/deploy/scripts/*.sh text eol=lf
+src/runtime/build_onnxruntime*.sh text eol=lf

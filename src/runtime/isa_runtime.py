@@ -12,10 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import time
 from typing import Any, Callable
-
 import numpy as np
-
 from src.isa import isa, layout
+
 
 REG_VERSION = 0x04
 REG_CAPABILITIES = 0x08
@@ -118,3 +117,53 @@ def gemm(device: IsaDevice, allocate: Callable[..., Any], a: np.ndarray, b: np.n
     finally:
         data.freebuffer()
         program.freebuffer()
+
+
+class NpuGemm:
+    def __init__(self, overlay):
+        from pynq import allocate
+        self.allocate = allocate
+        self.device = IsaDevice(overlay)
+        self.data = allocate(shape=(4 << 20,), dtype=np.uint8)
+        self.program = allocate(shape=(4096,), dtype=np.uint64)
+        self.stats = {"calls": 0, "jobs": 0, "cycles": 0, "instructions": 0}
+
+    def __call__(self, a, b):
+        m, k = a.shape
+        plan = layout.plan_gemm(m, b.shape[1], k, self.device.limits)
+        b_base = isa.align(plan.a_bytes, 64)
+        # Partial outputs are retained for each K chunk, then reduced exactly.
+        stage = (len(self.data) - b_base - plan.c_bytes - 64)
+        if stage < plan.b_panel:
+            if m > self.device.limits.rows:
+                # Quantization was already computed over the complete activation.
+                # Splitting integer rows preserves that scale and zero point exactly.
+                return np.concatenate([self(a[start:start+self.device.limits.rows],b)
+                                       for start in range(0,m,self.device.limits.rows)],axis=0)
+            raise MemoryError("GEMM activation/output exceeds the bounded CMA window")
+        packed = layout.pack_b(plan, b)
+        ab = layout.pack_a(plan, a).view(np.uint8)
+        c_base = isa.align(b_base + min(stage, plan.b_bytes), 64)
+        self.data[:len(ab)] = ab
+        partial = np.zeros((plan.kt, plan.m, plan.n), np.int32)
+        for lo, hi in plan.segments(c_base - b_base):
+            size = (hi - lo) * plan.b_panel
+            self.data[b_base:b_base+size] = packed[lo*plan.b_panel:hi*plan.b_panel].view(np.uint8)
+            words = layout.encode(plan, 0, b_base, c_base, lo, hi) + [isa.end()]
+            if len(words) > len(self.program):
+                raise MemoryError("GEMM program exceeds instruction window")
+            self.program[:len(words)] = words
+            self.data[:c_base+plan.c_bytes].flush()
+            self.program[:len(words)].flush()
+            stats = self.device.run(self.program.physical_address, len(words), self.data.physical_address)
+            self.data[c_base:c_base+plan.c_bytes].invalidate()
+            values = layout.unpack_c(plan, np.asarray(self.data[c_base:c_base+plan.c_bytes]))
+            partial[:, :, lo*plan.tn:min(hi*plan.tn, plan.n)] = values[:, :, lo*plan.tn:min(hi*plan.tn, plan.n)]
+            for key in ("jobs", "cycles", "instructions"):
+                self.stats[key] += getattr(stats, key)
+        self.stats["calls"] += 1
+        return partial.sum(axis=0, dtype=np.int64).astype(np.int32)
+
+    def close(self):
+        self.data.freebuffer()
+        self.program.freebuffer()

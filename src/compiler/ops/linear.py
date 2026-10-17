@@ -10,12 +10,12 @@ back separately (npu.matmul planes), so per-group scales stay exact.
 from __future__ import annotations
 
 from dataclasses import dataclass
-
 import numpy as np
-
 from src.compiler.mlir_builder import Region, Value, identity_map, map_of
 from src.compiler.ops import core
 from src.compiler.ops.context import Ctx
+from src.compiler.mlir_builder import identity_map, map_of, memref_type
+
 
 EPS = 1e-8
 
@@ -172,3 +172,77 @@ def ref_linear(x: np.ndarray, w: QuantizedWeight, bias: np.ndarray | None = None
     if bias is not None:
         y = y + bias[None, :]
     return y.astype(np.float32)
+
+
+def native(ctx, name, inputs, outputs):
+    """Keep native reads in tensor SSA until function-boundary bufferization.
+
+    Early to_buffer casts hide later residual reads from One-Shot Bufferize:
+    tensor.empty destinations can then reuse and overwrite those activations.
+    External tensor arguments with explicit read access retain those use chains.
+    """
+    b = ctx.b
+    buffers = []
+    for value in inputs:
+        if value.type.startswith('tensor<'):
+            typ = memref_type([-1] * value.rank, value.dtype).replace('memref<','tensor<')
+            value = b.op(f'tensor.cast {value} : {value.type} to {typ}',typ)
+        elif value.type.startswith('memref<'):
+            typ = memref_type([-1] * value.rank, value.dtype)
+            value = b.op(f'memref.cast {value} : {value.type} to {typ}', typ)
+        buffers.append(value)
+    results = []
+    for shape, dtype in outputs:
+        typ = memref_type(shape, dtype)
+        result = b.op(f'memref.alloc() : {typ}', typ)
+        results.append(result)
+        dynamic = memref_type([-1] * len(shape), dtype)
+        buffers.append(b.op(f'memref.cast {result} : {typ} to {dynamic}', dynamic))
+    declared = getattr(ctx.graph, '_native_symbols', set())
+    if name not in declared:
+        signature = ', '.join(f'%a{i}: {a.type}'+
+            (' {bufferization.access = "read"}' if a.type.startswith('tensor<') else '')
+            for i, a in enumerate(buffers))
+        ctx.graph.module.add_raw(f'  func.func private @{name}({signature}) attributes {{llvm.emit_c_interface}}\n')
+        declared.add(name)
+        ctx.graph._native_symbols = declared
+    b.call(name, buffers)
+    return [b.to_tensor(result) for result in results]
+
+
+def quantize(ctx, x):
+    q, scale, zero = native(ctx, 'onnx_quant', [x],
+        [(x.shape, 'i8'), ([1], 'f32'), ([1], 'i8')])
+    return q, scale, zero
+
+
+def projection(ctx, activation, name, weight, scales):
+    """Fuse original output columns, preserving UINT8 zero-point corrections."""
+    b = ctx.b
+    q, xs, zero = activation
+    m, k = q.shape
+    weight = np.asarray(weight, np.int8)
+    n = weight.shape[1]
+    centered = b.elementwise([q], 'i8', lambda r:
+        r.trunci(r.subi(r.cast('arith.extui', r.args[0], 'i32'), r.const(128, 'i32'))))
+    wq = ctx.weight(name + '.q', weight)
+    sums = ctx.weight(name + '.sum', weight.sum(axis=0, dtype=np.int32))
+    ws = ctx.weight(name + '.scale', np.asarray(scales, np.float32))
+    acc = b.matmul(centered, wq, b.fill(0, [m, n], 'i32'))
+
+    def finish(r):
+        value, column_sum, az, act_scale, weight_scale = r.args[:5]
+        az = r.cast('arith.extui', az, 'i32')
+        correction = r.muli(r.subi(r.const(128, 'i32'), az), column_sum)
+        integer = r.addi(value, correction)
+        scale = r.binary('arith.mulf', act_scale, weight_scale, fast=False)
+        return r.binary('arith.mulf', r.sitofp(integer), scale, fast=False)
+
+    return b.elementwise([acc, sums, zero, xs, ws], 'f32', finish,
+        maps=[identity_map(2), map_of(2, ['d1']), map_of(2, ['0']),
+              map_of(2, ['0']), map_of(2, ['d1'])])
+
+
+def multiply(b, x, y):
+    return b.elementwise([x, y], 'f32', lambda r:
+        r.binary('arith.mulf', r.args[0], r.args[1], fast=False))

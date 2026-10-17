@@ -40,6 +40,19 @@ Rules:
   scripts may validate inputs, execute board tests non-interactively, and
   collect evidence. Example-local deployment wrappers only transfer files for
   a later human-run notebook or CLI validation.
+- SmolLM CD builds the pinned official INT8 ONNX through the shared MLIR/LLVM
+  compiler from the release commit. `.github/cd/smollm.py` seals model files and
+  requires all 32 frozen interactive token IDs and exact text, physical backend
+  and MMIO, positive NPU jobs/cycles and zero errors. The baseline must not be
+  regenerated from a candidate. See `docs/acceptance/smollm-onnx.md` for
+  the prompt, reference provenance and runner configuration.
+- Configure `PYNQ_SMOLLM_REMOTE_ROOT` in `pynq-z1-production`; preflight must
+  reject missing or invalid deployment paths before expensive builds. SmolLM
+  uses the same run's verified ISA overlay and a new immutable deployment
+  directory, with detached execution and durable JSON evidence.
+- Draft and public releases also require the SmolLM model archive,
+  `SMOLLM_SHA256SUMS` and `smollm-interactive.json` from the same successful CD
+  run. Failure of deterministic generation prevents draft creation.
 - The Vivado job must build from the release branch commit, verify the BIT, HWH,
   provenance manifest, and implementation evidence, and assemble the standalone
   matrix and ResNet-18 packages with a checksum file. Every checkout in CD names
