@@ -74,7 +74,15 @@ def bytes_to_unicode() -> dict[int, str]:
 class Tokenizer:
     def __init__(self, path: str | Path) -> None:
         path = Path(path)
-        spec = json.loads((path / "tokenizer.json" if path.is_dir() else path).read_text())
+        self.default_system = None
+        config_path = (path if path.is_dir() else path.parent) / 'tokenizer_config.json'
+        if config_path.is_file():
+            config = json.loads(config_path.read_text(encoding='utf-8'))
+            prefix = re.search(r'<\|im_start\|>system\n(.*?)<\|im_end\|>',
+                               config.get('chat_template', ''), re.DOTALL)
+            if prefix:
+                self.default_system = prefix.group(1)
+        spec = json.loads((path / "tokenizer.json" if path.is_dir() else path).read_text(encoding="utf-8"))
         model = spec["model"]
         if model["type"] != "BPE":
             raise ValueError("only BPE tokenizers are supported")
@@ -175,9 +183,20 @@ class Tokenizer:
     def chat(self, messages: list[dict[str, str]], add_generation_prompt: bool = True,
              think: bool | None = None) -> str:
         """ChatML, the template SmolLM2-Instruct and Qwen share."""
+        if self.default_system and messages and messages[0]['role'] != 'system':
+            messages = [{'role':'system', 'content':self.default_system}, *messages]
         text = "".join(f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n" for m in messages)
         if add_generation_prompt:
             text += "<|im_start|>assistant\n"
             if think is False:
                 text += "<think>\n\n</think>\n\n"
         return text
+
+
+SYSTEM = 'You are a helpful AI assistant named SmolLM, trained by Hugging Face'
+
+
+def __getattr__(name):
+    if name == 'OfficialTokenizer':
+        return Tokenizer
+    raise AttributeError(name)

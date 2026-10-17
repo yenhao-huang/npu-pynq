@@ -238,16 +238,21 @@ jobs:
     needs: validate-source
     runs-on: [self-hosted, pynq-z1]
     timeout-minutes: 5
+    environment: pynq-z1-production
     # Exactly the host and user every board step uses, so a preflight pass
     # means the board steps can reach the same board.
     env:
       PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
       PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}
+      PYNQ_SMOLLM_REMOTE_ROOT: ${{ vars.PYNQ_SMOLLM_REMOTE_ROOT }}
     steps:
       - name: Check the board and everything the board steps run there
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
+          if (-not $env:PYNQ_SMOLLM_REMOTE_ROOT -or $env:PYNQ_SMOLLM_REMOTE_ROOT -notmatch '^/[A-Za-z0-9._/-]+$' -or $env:PYNQ_SMOLLM_REMOTE_ROOT -match '/\.\.?(/|$)') {
+            throw 'Set a valid absolute PYNQ_SMOLLM_REMOTE_ROOT in the production environment'
+          }
           foreach ($tool in 'ssh', 'scp', 'tar') {
             if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
               Write-Host "::error::$tool is not on this runner's PATH"
@@ -554,8 +559,75 @@ jobs:
             build/cd/npu-resnet18-${{ needs.validate-source.outputs.release_tag }}.zip
             build/cd/SHA256SUMS
 
+  build-smollm:
+    needs: [validate-source, preflight-vivado, preflight-board]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-source.outputs.release_commit }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the shared compiler toolchain
+        run: |
+          set -euo pipefail
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" | sudo tee /etc/apt/sources.list.d/llvm22.list
+          sudo apt-get update -q
+          sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake ninja-build gcc-arm-linux-gnueabihf
+          python -m pip install numpy==1.26.4 onnx==1.17.0 onnxruntime==1.20.1
+      - name: Reuse the pinned ARM runtime build
+        id: ort-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: build/smollm-ort
+          key: smollm-ort-arm-${{ runner.arch }}-${{ hashFiles('src/runtime/build_onnxruntime_arm.sh') }}
+      - name: Cross-build Cortex-A9 ONNX Runtime from pinned sources
+        if: steps.ort-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p build/smollm-ort
+          docker run --rm --mount "type=bind,source=$PWD/build/smollm-ort,target=/work" \
+            --mount "type=bind,source=$PWD/src/runtime/build_onnxruntime_arm.sh,target=/build.sh,readonly" \
+            ubuntu:22.04 bash /build.sh
+          sudo chown -R "$(id -u):$(id -g)" build/smollm-ort
+      - uses: actions/cache/save@v4
+        if: steps.ort-cache.outputs.cache-hit != 'true'
+        with:
+          path: build/smollm-ort
+          key: ${{ steps.ort-cache.outputs.cache-primary-key }}
+      - name: Compile the pinned model from this release's source
+        env:
+          NPU_BUILD_JOBS: '2'
+          CMAKE_GENERATOR: Ninja
+        run: |
+          set -euo pipefail
+          python -m src.inference.cli prepare-onnx fetch --model-dir build/smollm-input
+          mkdir -p build/smollm-input/onnx-runtime
+          cp build/smollm-ort/libonnxruntime.so.1.20.1 build/smollm-ort/onnxruntime_c_api.h build/smollm-input/onnx-runtime/
+          arm-linux-gnueabihf-gcc -std=c11 -O2 -fPIC -Wall -Wextra \
+            -I build/smollm-input/onnx-runtime -c src/runtime/c/onnx_compiled_ops.c \
+            -o build/onnx_compiled_ops.o
+          python -m src.inference.cli export smollm \
+            --source build/smollm-input/onnx/model_int8.onnx --native-object build/onnx_compiled_ops.o \
+            --out build/smollm-package --prefill-lengths 36,40,42
+          python -m unittest src.test.tests.test_compiler -v
+          python .github/cd/smollm.py seal --package build/smollm-package \
+            --commit '${{ needs.validate-source.outputs.release_commit }}' --tag '${{ needs.validate-source.outputs.release_tag }}'
+          mkdir -p build/smollm-release
+          tar -czf 'build/smollm-release/npu-smollm-${{ needs.validate-source.outputs.release_tag }}.tar.gz' -C build/smollm-package .
+          cd build/smollm-release
+          sha256sum *.tar.gz > SMOLLM_SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smollm-model-${{ needs.validate-source.outputs.release_tag }}
+          path: build/smollm-release/
+          if-no-files-found: error
+
   board-validation:
-    needs: [validate-source, build-overlay]
+    needs: [validate-source, build-overlay, build-smollm]
     runs-on: [self-hosted, pynq-z1]
     timeout-minutes: 240
     environment: pynq-z1-production
@@ -662,15 +734,49 @@ jobs:
               '-RemoteRoot', $env:PYNQ_RESNET18_REMOTE_ROOT)
           exit $LASTEXITCODE
 
+      - name: Download the compiled SmolLM package
+        uses: actions/download-artifact@v4
+        with:
+          name: smollm-model-${{ needs.validate-source.outputs.release_tag }}
+          path: build/smollm-download
+
+      - name: Download the same release's ISA overlay
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-build-${{ needs.validate-source.outputs.release_tag }}
+          path: build/smollm-overlay
+
+      - name: SmolLM deterministic physical generation stage
+        shell: pwsh
+        env:
+          PYNQ_SMOLLM_REMOTE_ROOT: ${{ vars.PYNQ_SMOLLM_REMOTE_ROOT }}
+        run: |
+          if (-not $env:PYNQ_SMOLLM_REMOTE_ROOT) { throw 'Set PYNQ_SMOLLM_REMOTE_ROOT in the production environment' }
+          $tag = '${{ needs.validate-source.outputs.release_tag }}'
+          $archive = "build/smollm-download/npu-smollm-$tag.tar.gz"
+          $expected = ((Get-Content build/smollm-download/SMOLLM_SHA256SUMS) -split '\s+')[0]
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'SmolLM archive checksum mismatch' }
+          & .github/cd/invoke_reported.ps1 -Title 'board: SmolLM deterministic generation' `
+            -Script .github/cd/smollm_accept.ps1 -ArgumentList @(
+              '-ModelArchive', $archive, '-OverlayDirectory', 'build/smollm-overlay/artifacts',
+              '-SourceCommit', '${{ needs.validate-source.outputs.release_commit }}',
+              '-ReleaseTag', $tag, '-DeploymentId', '${{ github.run_id }}-${{ github.run_attempt }}',
+              '-BoardHost', $env:PYNQ_BOARD_HOST, '-BoardUser', $env:PYNQ_BOARD_USER,
+              '-RemoteRoot', $env:PYNQ_SMOLLM_REMOTE_ROOT, '-EvidencePath', 'build/board/smollm-interactive.json')
+          exit $LASTEXITCODE
+
       - name: Retain board evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: npu-board-${{ needs.validate-source.outputs.release_tag }}
           if-no-files-found: error
-          path: build/board/resnet18-image-acceptance.json
+          path: |
+            build/board/resnet18-image-acceptance.json
+            build/board/smollm-interactive.json
 
   publish-draft:
-    needs: [validate-source, host-checks, build-model, build-overlay, board-validation]
+    needs: [validate-source, host-checks, build-model, build-overlay, build-smollm, board-validation]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -704,6 +810,12 @@ jobs:
              build/overlay/reports/build_evidence.txt \
              build/release/
 
+      - name: Download the validated SmolLM package
+        uses: actions/download-artifact@v4
+        with:
+          name: smollm-model-${{ needs.validate-source.outputs.release_tag }}
+          path: build/release
+
       - name: Download board acceptance evidence
         uses: actions/download-artifact@v4
         with:
@@ -718,8 +830,10 @@ jobs:
           set -euo pipefail
           cd build/release
           sha256sum --check --strict SHA256SUMS
+          sha256sum --check --strict SMOLLM_SHA256SUMS
           test -s "npu-resnet18-${TAG}.zip"
           test -s resnet18-image-acceptance.json
+          python -c 'import json; r=json.load(open("smollm-interactive.json")); assert r["success"] and r["backend"] == 1 and r["mmio"] and len(r["ids"]) == 32'
 
       - name: Publish the validated draft Release
         shell: bash
@@ -755,6 +869,9 @@ jobs:
             build/release/npu_matrix.manifest.json \
             build/release/build_evidence.txt \
             build/release/resnet18-image-acceptance.json \
+            build/release/smollm-interactive.json \
+            build/release/npu-smollm-"$TAG".tar.gz \
+            build/release/SMOLLM_SHA256SUMS \
             build/release/SHA256SUMS
 
       - name: Say what to do next

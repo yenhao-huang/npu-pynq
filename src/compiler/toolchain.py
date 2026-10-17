@@ -13,10 +13,11 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from typing import Sequence
 
 REPO = Path(__file__).resolve().parents[2]
 NPU_OPT_SOURCE = REPO / "src/compiler/mlir"
-NPU_OPT_BUILD = REPO / "build/npu-opt"
+NPU_OPT_BUILD = Path(os.environ.get("NPU_OPT_BUILD", str(REPO / "build/npu-opt")))
 RUNTIME_C = REPO / "src/runtime/c/npu_rt.c"
 
 LLVM_CANDIDATES = (
@@ -117,7 +118,8 @@ def npu_opt() -> str:
     if (bin_dir / "clang++").exists():
         configure += [f"-DCMAKE_CXX_COMPILER={bin_dir / 'clang++'}", f"-DCMAKE_C_COMPILER={bin_dir / 'clang'}"]
     run(configure, "configuring npu-opt")
-    run(["cmake", "--build", str(NPU_OPT_BUILD), "-j", str(os.cpu_count() or 4)], "building npu-opt")
+    jobs = int(os.environ.get("NPU_BUILD_JOBS", str(os.cpu_count() or 4)))
+    run(["cmake", "--build", str(NPU_OPT_BUILD), "-j", str(jobs)], "building npu-opt")
     return str(exe)
 
 
@@ -173,7 +175,7 @@ def lower(module: Path, out: Path, weights: Path, programs: Path, rows: int = 16
          "--canonicalize", "-o", str(out)], "npu-lower")
 
 
-def codegen(module: Path, workdir: Path, tgt: Target) -> Path:
+def codegen(module: Path, workdir: Path, tgt: Target, extra_objects: Sequence[Path] = ()) -> Path:
     """CPU code for ``tgt``: MLIR -> LLVM IR -> object -> shared library."""
     workdir.mkdir(parents=True, exist_ok=True)
     llvm_mlir = workdir / f"{tgt.name}.llvm.mlir"
@@ -194,10 +196,11 @@ def codegen(module: Path, workdir: Path, tgt: Target) -> Path:
     library = workdir / tgt.library
     if "apple" in tgt.triple:
         run([tool("clang"), f"--target={tgt.triple}", "-dynamiclib", "-o", str(library),
-             str(obj), str(rt_obj)], "linking")
+             str(obj), str(rt_obj), *map(str, extra_objects)], "linking")
     elif tgt.name == "host":
-        run([tool("clang"), "-shared", "-o", str(library), str(obj), str(rt_obj), "-lm"], "linking")
+        run([tool("clang"), "-shared", "-o", str(library), str(obj), str(rt_obj),
+             *map(str, extra_objects), "-lm"], "linking")
     else:
         run([*lld(), "-shared", "--hash-style=both", "-soname", tgt.library, "-o", str(library),
-             str(obj), str(rt_obj)], "linking")
+             str(obj), str(rt_obj), *map(str, extra_objects)], "linking")
     return library

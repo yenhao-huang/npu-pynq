@@ -403,7 +403,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             for step in jobs["board-validation"]["steps"]
             if ".ps1" in step.get("run", "") and "-Script" in step.get("run", "")
         ]
-        self.assertEqual(len(board_runs), 3)
+        self.assertEqual(len(board_runs), 4)
         for run in board_runs:
             self.assertIn(".github/cd/invoke_reported.ps1", run)
         self.assertTrue((REPOSITORY_ROOT / ".github" / "cd" / "invoke_reported.ps1").is_file())
@@ -431,7 +431,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         draft = cd["jobs"]["publish-draft"]
         self.assertEqual(
             set(draft["needs"]),
-            {"validate-source", "host-checks", "build-model", "build-overlay", "board-validation"},
+            {"validate-source", "host-checks", "build-model", "build-overlay", "build-smollm", "board-validation"},
         )
         self.assertEqual(draft["permissions"]["contents"], "write")
         self.assertIn("--draft", self.cd)

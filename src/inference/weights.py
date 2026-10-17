@@ -1,4 +1,4 @@
-"""Read Hugging Face checkpoints (safetensors) without third-party packages.
+"""Read safetensors checkpoints and ONNX initializers through shared weight access.
 
 A safetensors file is an 8-byte little-endian header length, a JSON header
 mapping tensor names to dtype/shape/byte ranges, then the raw data. Tensors
@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import struct
+import os
 
 import numpy as np
 
@@ -64,6 +65,50 @@ class SafeTensors:
 
     def __getitem__(self, name: str) -> np.ndarray:
         return self.get(name)
+
+
+class OnnxWeights:
+    """Read initializer arrays without changing their dtype or quantization."""
+    def __init__(self, path: str | Path):
+        import onnx
+        from onnx import numpy_helper
+        self.model = onnx.load(path)
+        self.arrays = {t.name:numpy_helper.to_array(t) for t in self.model.graph.initializer}
+
+    def keys(self):
+        return list(self.arrays)
+
+    def __contains__(self, name):
+        return name in self.arrays
+
+    def get(self, name):
+        return self.arrays[name]
+
+    def __getitem__(self, name):
+        return self.get(name)
+
+
+def load_weights(path: str | Path):
+    """Use the same initializer interface for ONNX and safetensors sources."""
+    path = Path(path)
+    return OnnxWeights(path) if path.suffix == '.onnx' else SafeTensors(path)
+
+
+def onnx_asset_dir(root: str | Path, name: str) -> Path:
+    """Resolve current asset names, accepting pre-rename local model stores."""
+    root = Path(root)
+    current = root / name
+    legacy = {'onnx':'official-onnx', 'onnx-graph':'official-graph',
+              'onnx-ops':'official-ort-ops', 'onnx-runtime':'official-ort'}
+    previous = root / legacy.get(name, name)
+    return previous if not current.exists() and previous.exists() else current
+
+
+def model_env(name: str):
+    """Read canonical model settings, with old notebook settings as fallback."""
+    legacy = {'NPU_ONNX_MODEL':'NPU_OFFICIAL_MODEL',
+              'NPU_COMPILED_PACKAGE':'NPU_OFFICIAL_COMPILED'}
+    return os.environ.get(name, os.environ.get(legacy.get(name, name)))
 
 
 def resolve_hf(model_id_or_path: str) -> Path:

@@ -1,6 +1,9 @@
 # Reproduce the software-stack goal (#119)
 
-All commands run from the repository root of `npu/issue119-a`.
+All commands run from the repository root. The compiled-stack commands use
+PR #126 (`npu/issue119-a`); the official INT8 follow-up is currently local on
+`npu/issue119-b`, based on PR #126 commit
+`778c90c5d8340c362972a627c18eb27580d2251c`.
 
 ## 1. Toolchain
 
@@ -99,3 +102,67 @@ ls build/deploy/results/*/results/                      # board.log, isa_gemm.js
 ```
 
 `--dry-run` before the command prints the plan only.
+
+## 8. Official SmolLM2 INT8 shared-source follow-up
+
+This prepares the unchanged official ONNX model and executes its integer
+contractions through the ISA runtime with ORT floating-point operators. It is
+separate from the MLIR/LLVM compiled-package route above. Runtime and model
+preparation do not require the experiment directory.
+
+```bash
+python -m pip install -r exp/1007_sw_stack/deploy/requirements-host.txt
+export NPU_ONNX_MODEL=/path/to/smollm2-official
+python -m src.inference.cli prepare-onnx prepare
+python -m src.inference.cli reference --backend cpu \
+  --prompt "Explain why the sky is blue in simple words." --max-new-tokens 24
+python -m unittest src.test.tests.test_compiler -v
+```
+
+Build and stage the ARM runtime, prepared model and matching ISA overlay as
+described in [the shared-source instructions](../../acceptance/smollm-onnx.md).
+On the board, set `NPU_ONNX_MODEL` and `NPU_OVERLAY`, compile the bridge,
+then run the source-only entry point:
+
+```bash
+bash src/runtime/build_onnxruntime_bridge.sh
+python -m src.inference.cli reference --backend pynq \
+  --prompt "write a paragraph about npu" --max-new-tokens 32
+```
+
+The notebook demo is
+[`examples/smollm_onnx/smollm_onnx.ipynb`](../../../examples/smollm_onnx/smollm_onnx.ipynb).
+Keep model/runtime/overlay assets outside `exp/` so that deleting experiment
+directories preserves this entry point. Read the PYNQ connection password from
+`.env` through `PYNQ_PASSWORD`. Historical board evidence and current verification
+limits are recorded in [official-int8.md](details/official-int8.md).
+
+## 9. Compiled official SmolLM ONNX on PYNQ
+
+Follow the MLIR/LLVM section in
+[shared-source instructions](../../acceptance/smollm-onnx.md) to compile the
+pinned official model. Keep the package and matching ISA overlay outside `exp/`.
+On the root PYNQ kernel, the shared source entry point is:
+
+```bash
+export XILINX_XRT=/usr
+python -m src.inference.cli run --chat --stream --backend pynq --package "$COMPILED_PACKAGE" \
+  --overlay "$NPU_OVERLAY" --prompt "write a paragraph about npu" \
+  --max-new-tokens 32
+```
+
+For the exact eight-cell acceptance notebook, use
+`exp/1007_sw_stack/deploy/scripts/build_compiled_notebook.py`,
+`execute_official_notebook.py --run-id <run-id>`, then
+`audit_compiled_notebook.py --run-id <run-id>` on the board. The notebook checks
+`data/official-arm-oracle` and its runtime/reference hashes, not the separate
+host x86 oracle. The compiled CPU reference runs in another process so it
+cannot reconfigure the parent physical runtime.
+
+Run `python -m unittest src.test.tests.test_compiler -v` in an LLVM 22 environment.
+The source-only demo now uses `NPU_COMPILED_PACKAGE`. Default prefill
+specializations are exactly 36, 40 and 42 complete chat tokens; unsupported
+lengths require compilation rather than quantization-changing chunks.
+
+Successful run: `compiled-board-20261009-04`, 35/35 gates;
+[full compiled evidence](../../../exp/1007_sw_stack/deploy/CompiledResult.md).

@@ -17,11 +17,14 @@ from __future__ import annotations
 
 import ctypes
 import json
+import hashlib
+from types import SimpleNamespace
 from pathlib import Path
 import sys
 from typing import Any
-
 import numpy as np
+import ctypes as c
+
 
 MASK32 = 0xFFFFFFFF
 # Pretend physical addresses for the simulator; any distinct 32-bit ranges do.
@@ -143,19 +146,50 @@ class CmaBuffer:
 
 class CompiledModel:
     def __init__(self, package: str | Path, backend: str = "sim", *, overlay: Any = None,
-                 stream_weights: bool | None = None) -> None:
+                 stream_weights: bool | None = None, target: str | None = None) -> None:
         self.root = Path(package)
         self.manifest = json.loads((self.root / "manifest.json").read_text())
+        meta = self.manifest['meta']
+        for name, expected in meta.get('native_kernel_hashes', {}).items():
+            if hashlib.sha256((self.root / name).read_bytes()).hexdigest() != expected:
+                raise ValueError('Native kernel identity differs: ' + name)
+        self.hooks = meta.get('runtime_hooks', {})
+        # Packages exported before runtime hooks became part of ModelGraph.
+        if not self.hooks and meta.get('native_float_runtime') == 'onnxruntime-1.20.1':
+            self.hooks = {'preload':['libonnxruntime.so.1.20.1'],
+                'initialize':'official_compiled_init', 'initialize_path':'float-ops',
+                'reset':'official_compiled_clear', 'status':'official_compiled_status',
+                'error':'official_ort_error'}
+        self.dependencies = [ctypes.CDLL(str((self.root / name).resolve()), mode=ctypes.RTLD_GLOBAL)
+                             for name in self.hooks.get('preload', ())]
         self.backend = backend
-        target = "pynq" if backend == "pynq" else "host"
+        target = target or ("pynq" if backend == "pynq" else "host")
+        if target not in self.manifest['libraries'] and len(self.manifest['libraries']) == 1:
+            target = next(iter(self.manifest['libraries']))
         library = self.root / self.manifest["libraries"][target]
-        if backend == "pynq":
+        if target == "pynq":
             # The model leaves libm/libgcc symbols for the loader to resolve.
             for dep in ("libm.so.6", "libgcc_s.so.1"):
                 ctypes.CDLL(dep, mode=ctypes.RTLD_GLOBAL)
         self.lib = ctypes.CDLL(str(library))
         self.lib.npu_rt_stats.restype = ctypes.POINTER(NpuStats)
         self._setup_npu(overlay, stream_weights)
+        if self.hooks:
+            error = getattr(self.lib, self.hooks['error'])
+            error.restype = ctypes.c_char_p
+            self.native_error = error
+            self.native_status = getattr(self.lib, self.hooks['status'])
+            self.native_status.restype = ctypes.c_int
+            initialize = getattr(self.lib, self.hooks['initialize'])
+            initialize.argtypes = [ctypes.c_char_p]
+            initialize.restype = ctypes.c_int
+            if initialize(str((self.root / self.hooks['initialize_path']).resolve()).encode()):
+                raise RuntimeFault(error().decode())
+
+    def reset(self):
+        """Reset optional native operator state before a new generation."""
+        if self.hooks:
+            getattr(self.lib, self.hooks['reset'])()
 
     # ------------------------------------------------------------------ npu
     def _setup_npu(self, overlay: Any, stream_weights: bool | None) -> None:
@@ -169,6 +203,8 @@ class CompiledModel:
         io_bytes = max([t["c_base"] + t["c_bytes"] for t in tasks], default=64)
         stage_bytes = max([g["b_bytes"] for g in segments], default=8)
         weight_bytes = weights_path.stat().st_size
+        if stream_weights is None:
+            stream_weights = weight_bytes > self.manifest.get('resident_limit', 96 << 20)
         if packed:
             stream_weights = True  # packed INT4 blocks are widened into the stage window
 
@@ -264,6 +300,7 @@ class CompiledModel:
     def call(self, name: str, *args: Any) -> None:
         """Call ``name`` through its C interface. Arrays pass as memrefs, the
         string "weights" as the weight arena, ints as index scalars."""
+        self.reset()
         fn = getattr(self.lib, f"_mlir_ciface_{name}")
         c_args = []
         keep = []
@@ -280,6 +317,8 @@ class CompiledModel:
                 raise TypeError(f"unsupported argument {type(arg)}")
         fn.restype = None
         fn(*c_args)
+        if self.hooks and self.native_status():
+            raise RuntimeFault(self.native_error().decode())
         stats = self.lib.npu_rt_stats().contents
         if stats.error:
             raise RuntimeFault(f"NPU task {stats.error_program} failed with ISA error 0x{stats.error:02x}")
@@ -287,3 +326,93 @@ class CompiledModel:
 
 def platform_backend() -> str:
     return "pynq" if sys.platform.startswith("linux") and Path("/etc/profile.d/pynq_venv.sh").exists() else "sim"
+
+
+ORT_OPS = {'SimplifiedLayerNormalization', 'SkipSimplifiedLayerNormalization',
+           'DynamicQuantizeLinear', 'RotaryEmbedding', 'GroupQueryAttention', 'Sigmoid'}
+
+
+class OrtOperators:
+    def __init__(self, directory):
+        import onnxruntime as ort
+        opts = ort.SessionOptions()
+        opts.intra_op_num_threads = 1
+        opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
+        self.sessions = {key: ort.InferenceSession(str(Path(directory)/(key+'.onnx')),opts,
+                                                  providers=['CPUExecutionProvider']) for key in ORT_OPS}
+
+    def __call__(self, op, args):
+        session = self.sessions[op]
+        inputs = {'x'+str(i):np.asarray(v) for i,v in enumerate(args) if v is not None}
+        values = session.run(None, inputs)
+        # Restore omitted optional slots so graph-output positions remain unchanged.
+        slots = {'y'+str(i):v for i,v in zip([int(o.name[1:]) for o in session.get_outputs()],values)}
+        maximum = max(int(n[1:]) for n in slots)
+        result = tuple(slots.get('y'+str(i)) for i in range(maximum+1))
+        return result[0] if len(result)==1 else result
+
+
+class Output(c.Structure):
+    _fields_ = [('data',c.c_void_p),('dimensions',c.c_int64*8),('rank',c.c_size_t),
+                ('type',c.c_int),('value',c.c_void_p)]
+
+
+class NativeOrtOperators:
+    def __init__(self,directory,library):
+        self.lib = c.CDLL(str(library))
+        prefix = 'onnx_ort_' if hasattr(self.lib, 'onnx_ort_version') else 'official_ort_'
+        self.bridge = SimpleNamespace(**{name:getattr(self.lib, prefix+name) for name in
+            ('version','output_size','create','error','run','free_outputs','close')})
+        self.bridge.version.restype=c.c_char_p
+        self.version=self.bridge.version().decode()
+        assert self.version=='1.20.1', 'Unexpected ONNX Runtime version: '+self.version
+        self.bridge.output_size.restype = c.c_size_t
+        assert self.bridge.output_size()==c.sizeof(Output), 'ORT bridge struct ABI mismatch'
+        self.bridge.create.argtypes = [c.c_char_p]
+        self.bridge.create.restype = c.c_void_p
+        self.bridge.error.restype = c.c_char_p
+        self.bridge.run.argtypes = [c.c_void_p,c.c_size_t,c.POINTER(c.c_char_p),
+            c.POINTER(c.c_void_p),c.POINTER(c.c_size_t),c.POINTER(c.POINTER(c.c_int64)),
+            c.POINTER(c.c_size_t),c.POINTER(c.c_int),c.c_size_t,c.POINTER(c.c_char_p),c.POINTER(Output)]
+        self.bridge.free_outputs.argtypes = [c.c_size_t,c.POINTER(Output)]
+        self.bridge.close.argtypes = [c.c_void_p]
+        self.sessions = {}
+        for op in ORT_OPS:
+            session = self.bridge.create(str(Path(directory)/(op+'.onnx')).encode())
+            if not session:
+                self.close()
+                raise RuntimeError(self.bridge.error().decode())
+            self.sessions[op] = session
+
+    def __call__(self,op,args):
+        arrays = [(i,np.ascontiguousarray(v) if np.asarray(v).ndim else np.asarray(v))
+                  for i,v in enumerate(args) if v is not None]
+        n = len(arrays)
+        names = (c.c_char_p*n)(*[('x'+str(i)).encode() for i,_ in arrays])
+        data = (c.c_void_p*n)(*[v.ctypes.data for _,v in arrays])
+        sizes = (c.c_size_t*n)(*[v.nbytes for _,v in arrays])
+        storage = [(c.c_int64*v.ndim)(*v.shape) for _,v in arrays]
+        shapes = (c.POINTER(c.c_int64)*n)(*[c.cast(s,c.POINTER(c.c_int64)) for s in storage])
+        ranks = (c.c_size_t*n)(*[v.ndim for _,v in arrays])
+        codes = {np.dtype('float32'):1,np.dtype('int64'):7,np.dtype('int32'):6,np.dtype('uint8'):2}
+        types = (c.c_int*n)(*[codes[v.dtype] for _,v in arrays])
+        indices = [0,3] if op=='SkipSimplifiedLayerNormalization' else [0,1,2] if op in ('DynamicQuantizeLinear','GroupQueryAttention') else [0]
+        out_names = (c.c_char_p*len(indices))(*[('y'+str(i)).encode() for i in indices])
+        outputs = (Output*len(indices))()
+        failed = self.bridge.run(self.sessions[op],n,names,data,sizes,shapes,ranks,types,len(indices),out_names,outputs)
+        try:
+            if failed: raise RuntimeError(self.bridge.error().decode())
+            values = [None]*(max(indices)+1)
+            kinds = {1:c.c_float,2:c.c_uint8,6:c.c_int32,7:c.c_int64}
+            for slot,item in zip(indices,outputs):
+                shape = tuple(item.dimensions[:item.rank])
+                length = int(np.prod(shape))
+                pointer = c.cast(item.data,c.POINTER(kinds[item.type]))
+                values[slot] = np.ctypeslib.as_array(pointer,shape=(length,)).reshape(shape).copy()
+            return values[0] if len(values)==1 else tuple(values)
+        finally:
+            self.bridge.free_outputs(len(indices),outputs)
+
+    def close(self):
+        for session in self.sessions.values(): self.bridge.close(session)
+        self.sessions.clear()
