@@ -1,0 +1,61 @@
+{
+  "prompt": "Write a paragraph about a neural processing unit (NPU).",
+  "output_ids": [
+    49,
+    8844,
+    4604,
+    2723,
+    365,
+    26282,
+    69,
+    25,
+    314,
+    253,
+    1502,
+    282,
+    2583,
+    8578,
+    338,
+    3078,
+    1096,
+    281,
+    253,
+    970,
+    338,
+    38262,
+    260,
+    970,
+    260,
+    1205,
+    2106,
+    3078,
+    1096,
+    30,
+    657,
+    314
+  ],
+  "output": "A neural processing unit (NPU) is a type of computer hardware that processes information in a way that mimics the way the human brain processes information. It is",
+  "stats": {
+    "prompt_tokens": 42,
+    "generated_tokens": 32,
+    "prefill_seconds": 63.1802,
+    "decode_seconds": 97.75,
+    "prefill_tok_per_s": 0.665,
+    "decode_tok_per_s": 0.327,
+    "npu": {
+      "calls": 4114,
+      "jobs": 1414944,
+      "cycles": 0,
+      "macs": 9349890048
+    }
+  },
+  "runtime": {
+    "calls": 4114,
+    "jobs": 1414944,
+    "cycles": 0,
+    "macs": 9349890048,
+    "polls": 0,
+    "error": 0,
+    "error_program": -1
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-25",
+  "status": "PASS",
+  "source_files_modified_by_this_task": 0,
+  "original_source_files_checked": 280,
+  "original_source_fingerprint_sha256": "d02985c1316b4600f33883c22d91208d3dec666a24da81224414bf4f0e754ee3",
+  "layers": 30,
+  "options": {
+    "chunk": 16,
+    "max_seq": 512,
+    "bits": 8,
+    "group": 64,
+    "embed_bits": 8,
+    "kv": "f32",
+    "attention": "online",
+    "awq": false,
+    "layers": null,
+    "limits": {
+      "rows": 16,
+      "columns": 16,
+      "max_k": 256
+    }
+  },
+  "npu": {
+    "tasks": 242,
+    "segments": 254,
+    "program_words": 6848,
+    "jobs_total": 83232
+  },
+  "weights_bytes": 135570176,
+  "compile_seconds": {
+    "partition": 1.6766075429914054,
+    "pack_weights": 2.2339161160052754,
+    "npu_lower": 1.2663758540002163,
+    "codegen_host": 10.079962100979174,
+    "codegen_pynq": 8.710599098005332
+  },
+  "overlay_sha256": "bd6b8f44f2b25445aef61e7692beda62d85a35a84ccbf6448ce40ca4cc12f3db",
+  "hwh_sha256": "8ba3849b16c63faba539511c997a400f8b1f64c4f7f8707fae0f4a5af9d46748",
+  "remote": "/home/xilinx/jupyter_notebooks/smollm-safetensors-20261025/npu_matrix",
+  "raw_prompt_reference_match": false,
+  "acceptance_passed": true,
+  "notebook_code_cells_executed": 5,
+  "generated_tokens": 32,
+  "reference_backend": "ARM ISA simulator",
+  "reference_match": true,
+  "runtime": {
+    "calls": 4114,
+    "jobs": 1414944,
+    "cycles": 726804984,
+    "macs": 9349890048,
+    "polls": 45042401,
+    "error": 0,
+    "error_program": -1
+  },
+  "stats": {
+    "prompt_tokens": 42,
+    "generated_tokens": 32,
+    "prefill_seconds": 13.9108,
+    "decode_seconds": 22.2282,
+    "prefill_tok_per_s": 3.019,
+    "decode_tok_per_s": 1.44,
+    "npu": {
+      "calls": 4114,
+      "jobs": 1414944,
+      "cycles": 726804984,
+      "macs": 9349890048
+    }
+  }
+}

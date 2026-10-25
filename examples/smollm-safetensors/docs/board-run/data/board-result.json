@@ -1,0 +1,37 @@
+{
+  "success": false,
+  "reference_checked": true,
+  "reference_match": false,
+  "prompt": "write a paragraph about npu",
+  "output_ids": [
+    4413,
+    101
+  ],
+  "output": "npu",
+  "stats": {
+    "prompt_tokens": 15,
+    "generated_tokens": 2,
+    "prefill_seconds": 8.6983,
+    "decode_seconds": 1.3937,
+    "prefill_tok_per_s": 1.724,
+    "decode_tok_per_s": 1.435,
+    "npu": {
+      "calls": 363,
+      "jobs": 124848,
+      "cycles": 79673841,
+      "macs": 1995964416
+    }
+  },
+  "runtime": {
+    "calls": 363,
+    "jobs": 124848,
+    "cycles": 79673841,
+    "macs": 1995964416,
+    "polls": 4912865,
+    "error": 0,
+    "error_program": -1
+  },
+  "checkpoint_sha256": "5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c",
+  "layers": 30,
+  "backend": "pynq"
+}
