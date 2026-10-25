@@ -251,8 +251,8 @@ file copy -force $hwh_source [file join $artifact_dir npu_matrix.hwh]
 
 set source_commit unknown
 catch {set source_commit [string trim [exec git -C $repo_root rev-parse HEAD]]}
-set verifier [file join $repo_root src runtime verify_overlay.py]
-if {[catch {exec python $verifier --write-manifest \
+set verifier [file join $repo_root src runtime npu overlay build.py]
+if {[catch {exec python $verifier \
     --source-commit $source_commit --vivado-version [version -short] \
     --array-size $array_size $artifact_dir} verify_output]} {
     error "overlay provenance verification failed: $verify_output"

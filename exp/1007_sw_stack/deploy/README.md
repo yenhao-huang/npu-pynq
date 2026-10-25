@@ -102,7 +102,7 @@ python -m unittest src.test.tests.test_compiler -v
 
 ## Current compiled official-model acceptance
 
-The named notebook now uses MLIR/LLVM ARM entry points through `CompiledModel`,
+The named notebook now uses MLIR/LLVM ARM entry points through `Package`,
 with explicit native ORT float kernels. Run `scripts/build_compiled_notebook.py`
 to generate this version, `scripts/execute_official_notebook.py --run-id <id>`
 to execute all cells, and `scripts/audit_compiled_notebook.py --run-id <id>` for

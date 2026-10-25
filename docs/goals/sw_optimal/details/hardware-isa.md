@@ -2,8 +2,8 @@
 
 ## Instruction set
 
-One definition, `src/isa/isa.py`; the RTL decoder, the C++ encoder
-(`src/compiler/mlir/lib/NpuEncoder.cpp`) and the C runtime's simulator are
+One definition, `src/vendors/npu_pynq/isa/isa.py`; the RTL decoder, the C++ encoder
+(`src/vendors/npu_pynq/compiler/mlir/lib/NpuEncoder.cpp`) and the C runtime's simulator are
 checked against it (`src/test/tests/test_isa.py`, `test_compiler.py`).
 
 | Opcode | Mnemonic | Operands | Effect |

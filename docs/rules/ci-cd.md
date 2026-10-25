@@ -84,7 +84,7 @@ Rules:
   inputs. `build-overlay` reuses the `npu-build-<tag>` artifact of the newest
   run on the same release branch whose `build-overlay` succeeded, but only if
   the overlay verifies, its commit is an ancestor of the release commit, and
-  `src/hw` and `src/runtime/verify_overlay.py` are identical between the two.
+  `src/hw` and `src/vendors/npu_pynq/driver/overlay/` are identical between the two.
   Otherwise Vivado runs. The reused overlay must bring every Vivado report the
   ResNet-18 package needs; an older artifact that holds only
   `build_evidence.txt` has the rest recovered from that run's own ResNet-18

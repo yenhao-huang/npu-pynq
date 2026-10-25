@@ -5,8 +5,8 @@ import sys
 import numpy as np
 root=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(root))
-from src.inference.engine import ONNXReferenceEngine
-from src.runtime.compiled import NativeOrtOperators
+from src.test.model.onnx_reference import ONNXReferenceEngine
+from src.runtime.cpu.ort import NativeOrtOperators
 from acceptance import PROMPT
 deploy=root/'exp/1007_sw_stack/deploy'
 run=deploy/'runs'/sys.argv[1]
@@ -14,7 +14,7 @@ ops=NativeOrtOperators(deploy/'packages/onnx-ops',deploy/'packages/onnx-runtime/
 npu=None
 if '--physical-reference' in sys.argv:
     from pynq import Overlay
-    from src.runtime.isa_runtime import NpuGemm
+    from src.vendors.npu_pynq.driver.isa import NpuGemm
     npu=NpuGemm(Overlay(str(deploy/'hardware/overlay/npu_matrix.bit'),download=False))
 engine=ONNXReferenceEngine(deploy,integer_gemm=npu,float_ops=ops)
 suffixes=['input_layernorm/output_0','input_layernorm/output_3',

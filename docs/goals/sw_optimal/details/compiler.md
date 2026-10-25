@@ -1,17 +1,17 @@
 # MLIR + LLVM compiler (#121)
 
 ```text
-model frontend (src/models/<model>) -> linalg-on-tensors MLIR + npu.weight     (src/compiler/ops)
+model frontend (src/export/graphs/<model>) -> linalg-on-tensors MLIR + npu.weight     (src/export/compilers/mlir/ops)
   npu-opt --npu-partition    INT8 contractions on weights -> npu.matmul         = NPU task
                              everything else stays linalg/arith/math/scf        = CPU task
   pack weights               NPU-read weights as B tiles (INT4: two per byte)
   npu-opt --npu-lower        npu.matmul -> ISA program(s) + call @npu_rt_gemm   = NPU instruction encoder
   mlir-opt                   fuse elementwise, one-shot-bufferize, dealloc, loops, LLVM dialect
   mlir-translate, llc        LLVM IR -> armv7a hard-float NEON (Cortex-A9) | arm64 host
-  link                       + src/runtime/c/npu_rt.c -> pynq/model.so | host/model.dylib
+  link                       + src/vendors/npu_pynq/driver/npu_rt.c -> pynq/model.so | host/model.dylib
 ```
 
-## The npu dialect and passes (`src/compiler/mlir`)
+## The npu dialect and passes (`src/vendors/npu_pynq/compiler/mlir`)
 
 - `npu.weight %arena "name"`: a named tensor in the weight arena. The exporter
   decides the bytes after partitioning, so a weight only the NPU reads is
@@ -22,14 +22,14 @@ model frontend (src/models/<model>) -> linalg-on-tensors MLIR + npu.weight     (
 - `--npu-partition` matches `linalg.matmul` (i8 x i8 -> i32, rhs a weight)
   and the group-wise contraction tagged `npu.group_size`, and writes a JSON
   report (NPU tasks; remaining CPU linalg ops).
-- `--npu-lower` plans tiles (C++ port of `src/isa/layout.py`), splits a task
+- `--npu-lower` plans tiles (C++ port of `src/vendors/npu_pynq/isa/layout.py`), splits a task
   into column *segments* of at most 4 MiB of weights (each its own program
   over a contiguous block), records ADDR_B relocations, and replaces the
   task by `npu_rt_gemm(id, A, partials)`.
 
 ## Execution model
 
-The board runtime (`src/runtime/compiled.py` + `npu_rt.c`) puts programs and
+The board runtime (`src/runtime/core/package.py` + `npu_rt.c`) puts programs and
 tiles in CMA, relocates every ADDR_B word to where its weight block lives,
 and per call packs A, runs each segment program on the NPU (or the C ISA
 simulator on the host), and unpacks the INT32 planes. Weights are either

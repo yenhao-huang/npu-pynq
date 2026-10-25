@@ -22,7 +22,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
 if str(EXAMPLE_ROOT) not in sys.path:
     sys.path.insert(0, str(EXAMPLE_ROOT))
 
-from src.runtime.verify_overlay import write_manifest
+from src.vendors.npu_pynq.driver.overlay.build import write_manifest
 from src.test.tests.test_verify_overlay import HWH
 
 
@@ -132,8 +132,12 @@ class StandalonePackageTests(unittest.TestCase):
             "run_on_board.py",
             "runtime/matrix_multiplication.py",
             "src/runtime/__init__.py",
-            "src/runtime/npu.py",
-            "src/runtime/verify_overlay.py",
+            "src/vendors/__init__.py",
+            "src/vendors/npu_pynq/__init__.py",
+            "src/vendors/npu_pynq/driver/__init__.py",
+            "src/vendors/npu_pynq/driver/dma.py",
+            "src/vendors/npu_pynq/driver/overlay/__init__.py",
+            "src/vendors/npu_pynq/driver/overlay/verify.py",
             "artifacts/npu_matrix.bit",
             "artifacts/npu_matrix.hwh",
             "artifacts/npu_matrix.manifest.json",
@@ -150,7 +154,7 @@ class StandalonePackageTests(unittest.TestCase):
         imported = subprocess.run(
             [sys.executable, "-c",
              "from src.runtime import load_pynq_runtime; "
-             "from src.runtime.verify_overlay import verify_artifacts; "
+             "from src.vendors.npu_pynq.driver.overlay.verify import verify_artifacts; "
              "from runtime.matrix_multiplication import TiledMatrixMultiplier"],
             cwd=self.output_dir, env=environment, capture_output=True, text=True,
         )
@@ -506,7 +510,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         retained = steps["Retain overlay and build evidence"]["with"]["path"]
         self.assertIn("reports/*.rpt", retained)
         decide = steps["Decide whether the candidate overlay can be reused"]["run"]
-        for marker in ("verify_overlay.py", "recover_overlay_reports.py", "merge-base --is-ancestor", "git diff --quiet", "src/hw"):
+        for marker in ("overlay/verify.py", "recover_overlay_reports.py", "merge-base --is-ancestor", "git diff --quiet", "src/hw"):
             self.assertIn(marker, decide)
         self.assertEqual(
             steps["Build routed overlay and bitstream"]["if"],
@@ -585,18 +589,17 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         run = "\n".join(str(step.get("run", "")) for step in build["steps"])
         for script in (
             "download_model.py",
-            "download_calibration.py",
             "convert_model.py",
-            "verify_model.py",
             "download_demo_assets.py",
-            "prepare_demo_image.py",
+            "run_on_board.py --backend sim",
             "download_gallery.py",
             "package_example.py --check-only",
         ):
             with self.subTest(script=script):
                 self.assertIn(script, run)
         # The host must already classify the demo correctly, before Vivado.
-        self.assertIn("host_top_k", run)
+        self.assertIn("--expected-class Samoyed", run)
+        self.assertIn("llvm-22", run)
         self.assertIn("build-model", jobs["build-overlay"]["needs"])
         self.assertIn("build-model", jobs["publish-draft"]["needs"])
         # No machine-local model path, and no external acceptance bundle.

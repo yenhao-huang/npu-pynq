@@ -31,7 +31,7 @@ REPO = DEPLOY.parents[2]
 sys.path.insert(0,str(REPO)); sys.path.insert(0,str(DEPLOY/'scripts'))
 from acceptance import memory, save, sha256, PROMPT, MAX_NEW
 from official_acceptance import SOURCE_SHA256, trace, compare
-from src.inference.engine import LLMEngine
+from src.runtime.core.engine import LLMEngine
 import subprocess
 from official_npu import NpuGemm
 assert os.geteuid()==0, 'Use the authorized root PYNQ kernel.'
@@ -67,7 +67,7 @@ def metrics_table(rows):
 md('## 1. Load the FPGA and verify signed integer arithmetic')
 code('''
 from pynq import Overlay
-from src.runtime.isa_runtime import REG_ISA_STATUS, STATUS_RUNNING, STATUS_BUSY
+from src.vendors.npu_pynq.driver.isa import REG_ISA_STATUS, STATUS_RUNNING, STATUS_BUSY
 existing = Overlay(str(DEPLOY/'hardware/overlay/npu_matrix.bit'),download=False)
 assert not existing.npu_accelerator_0.read(REG_ISA_STATUS) & (STATUS_RUNNING|STATUS_BUSY), 'NPU is busy.'
 overlay = Overlay(str(DEPLOY/'hardware/overlay/npu_matrix.bit'))
@@ -88,11 +88,11 @@ code('''
 npu.close()
 start=time.monotonic()
 engine=LLMEngine(PACKAGE,overlay=overlay)
-engine.model.lib.onnx_ort_version.restype=__import__('ctypes').c_char_p
-runtime=engine.model.lib.npu_rt_stats().contents
+engine.package.lib.onnx_ort_version.restype=__import__('ctypes').c_char_p
+runtime=engine.package.lib.npu_rt_stats().contents
 assert runtime.backend==1 and runtime.mmio
 load_result={'seconds':time.monotonic()-start,'memory':memory(),'max_seq':engine.max_seq,
-             'onnxruntime_version':engine.model.lib.onnx_ort_version().decode(),
+             'onnxruntime_version':engine.package.lib.onnx_ort_version().decode(),
              'compiled_pipeline':meta['compiled_pipeline'],'runtime_backend':runtime.backend,
              'runtime_mmio':bool(runtime.mmio),'fused_projections':120,
              'library_sha256':sha256(PACKAGE/compiled_manifest['libraries']['pynq']),
@@ -148,7 +148,7 @@ save(RUN/'full-onnx-comparison.json',full_onnx_comparison)
 display(comparison,full_onnx_comparison)
 assert comparison['token_ids_equal'] and comparison['max_abs_error']==0
 assert full_onnx_comparison['token_ids_equal'] and full_onnx_comparison['logits_allclose']
-assert engine.model.lib.npu_rt_stats().contents.backend==1
+assert engine.package.lib.npu_rt_stats().contents.backend==1
 plt.figure(figsize=(9,3)); plt.plot(comparison['per_step_max_abs_error'],marker='o')
 plt.xlabel('Token step'); plt.ylabel('Maximum absolute logit error'); plt.title('Physical NPU versus ARM CPU'); plt.show()
 ''')
@@ -156,14 +156,14 @@ md('## 6. Repeat from reset and report the gates')
 code('''
 repeat=trace(engine,RUN,'repeat')
 repeat_comparison=compare(RUN/'repeat.npz',RUN/'generation.npz')
-from src.isa.layout import plan_gemm
+from src.vendors.npu_pynq.isa.layout import plan_gemm
 expected_jobs=sum(plan_gemm(t['m'],t['n'],t['k']).jobs
-    for t in engine.model.tasks if t['m']==len(result['prompt_ids']))
+    for t in engine.package.tasks if t['m']==len(result['prompt_ids']))
 expected_jobs+=(MAX_NEW-1)*sum(plan_gemm(t['m'],t['n'],t['k']).jobs
-    for t in engine.model.tasks if t['m']==1)
+    for t in engine.package.tasks if t['m']==1)
 verdict={'official_source':info['source_sha256']==SOURCE_SHA256,'full_30_layers':info['layers']==30,
          'unchanged_onnx_oracle':full_onnx_comparison['token_ids_equal'] and full_onnx_comparison['logits_allclose'],
-         'compiled_runtime':engine.model.lib.npu_rt_stats().contents.backend==1,
+         'compiled_runtime':engine.package.lib.npu_rt_stats().contents.backend==1,
          'integer_exact':all(c['exact'] for c in arithmetic),'generated_24':len(result['ids'])==MAX_NEW,
          'hardware_active':result['npu']['jobs']>0 and result['npu']['cycles']>0,
          'all_integer_nodes_physical':result['npu']['calls']==MAX_NEW*meta['integer_projections_per_forward'],

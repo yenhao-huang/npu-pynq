@@ -33,7 +33,7 @@ def arm_inputs():
     BUILD.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / "scripts/official_ort_full_reference.c", BUILD / "onnx_ort_full_reference.c")
     shutil.copy2(ROOT / "scripts/run_arm_ort_oracle.sh", BUILD / "run_arm_ort_oracle.sh")
-    shutil.copy2(REPO / "src/runtime/c/onnx_ort_bridge.c", BUILD / "onnx_ort_bridge.c")
+    shutil.copy2(REPO / "src/runtime/cpu/onnx_ort_bridge.c", BUILD / "onnx_ort_bridge.c")
     shutil.copy2(REPO / "src/runtime/build_onnxruntime_arm.sh", BUILD / "build_ort_arm.sh")
     shutil.copy2(source, BUILD / source.name)
     np.asarray(summary["prompt_ids"], dtype="<i8").tofile(BUILD / "prompt_ids.bin")

@@ -22,7 +22,7 @@ from src.compiler.ops.linear import quantize_weight  # noqa: E402
 from src.inference.quant import awq as AWQ  # noqa: E402
 from src.inference.quant.evaluate import EVAL_TEXT, compare_logits  # noqa: E402
 from src.inference.quant.fakequant import quantize_model  # noqa: E402
-from src.inference.tokenizer import Tokenizer  # noqa: E402
+from src.runtime.core.tokenizer import Tokenizer  # noqa: E402
 from src.inference.weights import resolve_hf  # noqa: E402
 from src.inference.graph import choose_group  # noqa: E402
 from src.models import load  # noqa: E402

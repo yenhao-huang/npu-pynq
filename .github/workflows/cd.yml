@@ -82,7 +82,7 @@ jobs:
 
       - name: Install Python test dependencies
         run: |
-          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml pillow
 
       - name: Lint RTL
         run: make -C src/test lint
@@ -150,44 +150,38 @@ jobs:
             --extra-index-url https://download.pytorch.org/whl/cpu \
             -r examples/resnet18/requirements-convert.txt
 
-      - name: Download the pinned checkpoint and calibration images
+      - name: Install LLVM 22 for ahead-of-time ResNet18 export
+        run: |
+          set -euo pipefail
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          . /etc/os-release
+          echo "deb http://apt.llvm.org/${VERSION_CODENAME}/ llvm-toolchain-${VERSION_CODENAME}-22 main" | sudo tee /etc/apt/sources.list.d/llvm22.list
+          sudo apt-get update -q
+          sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake
+
+      - name: Download the pinned checkpoint and demo assets
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
           step "download_model" python examples/resnet18/scripts/download_model.py
-          step "download_calibration" python examples/resnet18/scripts/download_calibration.py
-
-      - name: Convert to the NPU package
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          . "$RUNNER_TEMP/step.sh"
-          step "convert_model" python examples/resnet18/scripts/convert_model.py
-
-      - name: Validate against the independent integer reference
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          . "$RUNNER_TEMP/step.sh"
-          step "verify_model" python examples/resnet18/scripts/verify_model.py --software-timeout 7200
-
-      - name: Prepare the demo input and the bundled gallery
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          . "$RUNNER_TEMP/step.sh"
           step "download_demo_assets" python examples/resnet18/scripts/download_demo_assets.py
-          step "prepare_demo_image" python examples/resnet18/scripts/prepare_demo_image.py --software-timeout 7200
           step "download_gallery" python examples/resnet18/scripts/download_gallery.py
 
-      # The board refuses a demo it classifies wrongly, but only after hours of
-      # Vivado and an hour of inference. The host record already knows.
-      - name: Require the host to classify the demo correctly
-        shell: python
+      - name: Compile ResNet18 ahead of time for host and PYNQ
+        if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
-          import json, sys
-          record = json.load(open("examples/resnet18/model/resnet18.demo.json", encoding="utf-8"))
-          top, expected = record["host_top_k"][0], record["expected"]
-          print(f"host top-1: {top['name']} ({top['probability']:.2%})")
-          if expected is not None and top["index"] != expected["index"]:
-              sys.exit(f"host predicts {top['name']!r}, the demo expects {expected['name']!r}")
+          . "$RUNNER_TEMP/step.sh"
+          step "compile_model" python examples/resnet18/scripts/convert_model.py
+
+      - name: Validate the compiled host model on the real image
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          . "$RUNNER_TEMP/step.sh"
+          step "host_image" python examples/resnet18/run_on_board.py --backend sim \
+            --package examples/resnet18/model/aot \
+            --image examples/resnet18/model/demo-image.jpg \
+            --labels examples/resnet18/model/imagenet-classes.txt \
+            --expected-class Samoyed --evidence examples/resnet18/model/host-image.json
 
       - name: Confirm the workspace is package-ready
         run: python examples/resnet18/package_example.py --check-only
@@ -384,7 +378,7 @@ jobs:
             $reason = 'it was not downloaded completely'
           }
           if (-not $reason) {
-            python src/runtime/verify_overlay.py "$root/artifacts"
+            python src/vendors/npu_pynq/driver/overlay/verify.py "$root/artifacts"
             if ($LASTEXITCODE -ne 0) { $reason = 'it does not verify' }
           }
           if (-not $reason) {
@@ -400,7 +394,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { $reason = "$built is not an ancestor of $release" }
           }
           if (-not $reason) {
-            git diff --quiet $built $release -- src/hw src/runtime/verify_overlay.py
+            git diff --quiet $built $release -- src/hw src/vendors/npu_pynq/driver/overlay
             if ($LASTEXITCODE -ne 0) { $reason = "hardware sources changed since $built" }
           }
           if ($reason) {
@@ -427,7 +421,7 @@ jobs:
       - name: Verify BIT HWH and provenance manifest
         shell: pwsh
         run: |
-          python src/runtime/verify_overlay.py `
+          python src/vendors/npu_pynq/driver/overlay/verify.py `
             build/vivado/npu_matrix_16x16/artifacts
           if ($LASTEXITCODE -ne 0) {
             throw "overlay verification failed with exit code $LASTEXITCODE"
@@ -462,7 +456,7 @@ jobs:
             Write-Host "::error title=overlay reuse::cached overlay commit $built is not an ancestor of $release"
             exit 1
           }
-          git diff --quiet $built $release -- src/hw src/runtime/verify_overlay.py
+          git diff --quiet $built $release -- src/hw src/vendors/npu_pynq/driver/overlay
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error title=overlay reuse::hardware sources changed since $built"
             exit 1
@@ -475,7 +469,7 @@ jobs:
         run: |
           $tag = '${{ needs.validate-source.outputs.release_tag }}'
           $commit = '${{ needs.validate-source.outputs.release_commit }}'
-          $package = "mount/matrix-multiplication/$tag"
+          $package = "dist/matrix-multiplication/$tag"
           $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
           $output = python examples/matrix-multiplication/package_example.py `
@@ -604,13 +598,13 @@ jobs:
           CMAKE_GENERATOR: Ninja
         run: |
           set -euo pipefail
-          python -m src.inference.cli prepare-onnx fetch --model-dir build/smollm-input
+          python -m src.export.cli prepare-onnx fetch --model-dir build/smollm-input
           mkdir -p build/smollm-input/onnx-runtime
           cp build/smollm-ort/libonnxruntime.so.1.20.1 build/smollm-ort/onnxruntime_c_api.h build/smollm-input/onnx-runtime/
           arm-linux-gnueabihf-gcc -std=c11 -O2 -fPIC -Wall -Wextra \
-            -I build/smollm-input/onnx-runtime -c src/runtime/c/onnx_compiled_ops.c \
+            -I build/smollm-input/onnx-runtime -c src/runtime/cpu/onnx_ops.c \
             -o build/onnx_compiled_ops.o
-          python -m src.inference.cli export smollm \
+          python -m src.export.cli export smollm \
             --source build/smollm-input/onnx/model_int8.onnx --native-object build/onnx_compiled_ops.o \
             --out build/smollm-package --prefill-lengths 36,40,42
           python -m unittest src.test.tests.test_compiler -v

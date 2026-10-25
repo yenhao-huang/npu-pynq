@@ -51,10 +51,10 @@ host and the PYNQ-Z1, generates text / classifies the gallery on the host,
 and records the results. Single models:
 
 ```bash
-python -m src.inference.cli export smollm --out build/pkg/smollm --awq            # W8A8 + AWQ
-python -m src.inference.cli export qwen3  --out build/pkg/qwen3 --bits 4 --group 64 --awq --kv int8
-python -m src.inference.cli export resnet18 --out build/pkg/resnet18
-python -m src.inference.cli run build/pkg/smollm --prompt "What is the capital of France?" --chat --stream
+python -m src.export.cli export smollm --out build/pkg/smollm --awq            # W8A8 + AWQ
+python -m src.export.cli export qwen3  --out build/pkg/qwen3 --bits 4 --group 64 --awq --kv int8
+python -m src.export.cli export resnet18 --out build/pkg/resnet18
+python -m src.runtime.cli run build/pkg/smollm --prompt "What is the capital of France?" --chat --stream
 ```
 
 Other models: `qwen3_5` (hybrid linear attention, `Qwen/Qwen3.5-0.8B`) and
@@ -113,8 +113,8 @@ preparation do not require the experiment directory.
 ```bash
 python -m pip install -r exp/1007_sw_stack/deploy/requirements-host.txt
 export NPU_ONNX_MODEL=/path/to/smollm2-official
-python -m src.inference.cli prepare-onnx prepare
-python -m src.inference.cli reference --backend cpu \
+python -m src.export.cli prepare-onnx prepare
+python -m src.runtime.cli reference --backend cpu \
   --prompt "Explain why the sky is blue in simple words." --max-new-tokens 24
 python -m unittest src.test.tests.test_compiler -v
 ```
@@ -126,7 +126,7 @@ then run the source-only entry point:
 
 ```bash
 bash src/runtime/build_onnxruntime_bridge.sh
-python -m src.inference.cli reference --backend pynq \
+python -m src.runtime.cli reference --backend pynq \
   --prompt "write a paragraph about npu" --max-new-tokens 32
 ```
 
@@ -146,7 +146,7 @@ On the root PYNQ kernel, the shared source entry point is:
 
 ```bash
 export XILINX_XRT=/usr
-python -m src.inference.cli run --chat --stream --backend pynq --package "$COMPILED_PACKAGE" \
+python -m src.runtime.cli run --chat --stream --backend pynq --package "$COMPILED_PACKAGE" \
   --overlay "$NPU_OVERLAY" --prompt "write a paragraph about npu" \
   --max-new-tokens 32
 ```

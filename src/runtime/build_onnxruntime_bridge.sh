@@ -11,7 +11,7 @@ test -f "$TASK_ORT/libonnxruntime.so.1.20.1"
 test -f "$TASK_ORT/onnxruntime_c_api.h"
 ln -sfn libonnxruntime.so.1.20.1 "$TASK_ORT/libonnxruntime.so.1"
 gcc -std=c11 -O2 -shared -fPIC -Wall -Wextra \
-  -I "$TASK_ORT" "$TASK_SOURCE/c/onnx_ort_bridge.c" \
+  -I "$TASK_ORT" "$TASK_SOURCE/cpu/onnx_ort_bridge.c" \
   -L "$TASK_ORT" -l:libonnxruntime.so.1.20.1 -Wl,-rpath,'$ORIGIN' \
   -o "$TASK_ORT/libonnx_ort_bridge.so"
 ldd "$TASK_ORT/libonnx_ort_bridge.so"

@@ -4,11 +4,11 @@ Everything the models compute is compiled; Python only schedules.
 
 | Piece | Where | Evidence |
 | --- | --- | --- |
-| Weight loading (safetensors, bf16) | `src/inference/weights.py` | unit test |
-| Tokenizer (byte-level BPE, special tokens, NFC, Digits) | `src/inference/tokenizer.py` | identical ids to HF `tokenizers` on 9 tricky strings, SmolLM2 and Qwen3.5, with and without `regex` |
-| Prefill / decode | `src/inference/graph.py`, `engine.py` | separate entry points; prefill runs 16-token causal chunks; prefill and decode logits identical (max diff 0.0) |
-| KV cache | `src/compiler/ops/attention.py` | FP32 or INT8 (+ per position/head scale) |
-| Sampling | `src/inference/sampling.py` | greedy, temperature, top-k, top-p, min-p, repetition penalty |
+| Weight loading (safetensors, bf16) | `src/export/core/model_loader.py` | unit test |
+| Tokenizer (byte-level BPE, special tokens, NFC, Digits) | `src/runtime/core/tokenizer.py` | identical ids to HF `tokenizers` on 9 tricky strings, SmolLM2 and Qwen3.5, with and without `regex` |
+| Prefill / decode | `src/export/core/graph.py`, `src/runtime/core/engine.py` | separate entry points; prefill runs 16-token causal chunks; prefill and decode logits identical (max diff 0.0) |
+| KV cache | `src/export/compilers/mlir/ops/attention.py` | FP32 or INT8 (+ per position/head scale) |
+| Sampling | `src/runtime/core/sampling.py` | greedy, temperature, top-k, top-p, min-p, repetition penalty |
 
 ## Architectures (all operators shared, each model its own package)
 

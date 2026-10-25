@@ -25,7 +25,7 @@ $overlay = (Resolve-Path -LiteralPath $OverlayDirectory).Path
 foreach ($name in 'npu_matrix.bit','npu_matrix.hwh','npu_matrix.manifest.json') {
     if (-not (Test-Path -LiteralPath "$overlay/$name" -PathType Leaf)) { throw "Missing $name" }
 }
-Checked python @("$repo/src/runtime/verify_overlay.py", $overlay)
+Checked python @("$repo/src/vendors/npu_pynq/driver/overlay/verify.py", $overlay)
 $remote = $RemoteRoot.TrimEnd('/') + "/releases/$ReleaseTag-$DeploymentId"
 if ($remote -match '/\.\.?(/|$)') { throw 'Remote root cannot contain traversal' }
 Write-Host "SmolLM $SourceCommit -> ${BoardUser}@${BoardHost}:$remote"

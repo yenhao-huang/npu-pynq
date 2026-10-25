@@ -1,2 +1,2 @@
 /* Compatibility include for historical experiment builds. */
-#include "../../../../src/runtime/c/onnx_ort_bridge.c"
+#include "../../../../src/runtime/cpu/onnx_ort_bridge.c"

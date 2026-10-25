@@ -4,7 +4,7 @@ import sys
 import numpy as np
 root=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(root))
-from src.inference.graph import ONNXGraph
+from src.test.model.onnx_reference import ONNXGraph
 r=root/'exp/1007_sw_stack/deploy/runs/compiled-diagnose-02'
 g=ONNXGraph(root/'exp/1007_sw_stack/deploy/packages/onnx-graph')
 w=g.weights

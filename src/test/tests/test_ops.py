@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.compiler import toolchain
+from src.export.compilers.mlir import toolchain
 
 try:
     toolchain.llvm_bin()
@@ -18,10 +18,11 @@ except toolchain.ToolchainError:
 
 def compile_host(build, args, root):
     """``build(ctx, values)`` emits a function over memref ``args`` [(name, type)]."""
-    from src.compiler.export import ModelGraph, export
-    from src.compiler.mlir_builder import ModuleBuilder
-    from src.compiler.ops.context import Ctx
-    from src.runtime.compiled import CompiledModel
+    from src.export.core.graph import ModelGraph
+    from src.export.cli import export
+    from src.export.compilers.mlir.builder import ModuleBuilder
+    from src.export.compilers.mlir.ops.context import Ctx
+    from src.runtime.core.package import Package
 
     mod = ModuleBuilder()
     f = mod.func("forward", [("ws", "memref<?xi8>"), *args])
@@ -30,14 +31,14 @@ def compile_host(build, args, root):
     build(ctx, {name: f.arg(name) for name, _ in args})
     f.emit("return")
     pkg = export(graph, Path(root) / "pkg", targets=("host",))
-    return CompiledModel(pkg, "sim")
+    return Package(pkg, "sim")
 
 
 @unittest.skipUnless(HAVE_LLVM, "LLVM 22 with MLIR is not installed")
 class AttentionTest(unittest.TestCase):
     def run_case(self, cfg, steps):
-        from src.compiler.mlir_builder import memref_type
-        from src.compiler.ops import attention as A
+        from src.export.compilers.mlir.builder import memref_type
+        from src.export.compilers.mlir.ops import attention as A
 
         T, H, HK, D = cfg.tokens, cfg.heads, cfg.kv_heads, cfg.head_dim
         shapes = cfg.cache_shapes()
@@ -70,7 +71,7 @@ class AttentionTest(unittest.TestCase):
                 np.testing.assert_allclose(out, ref, rtol=2e-4, atol=2e-4)
 
     def test_variants(self):
-        from src.compiler.ops.attention import AttnConfig
+        from src.export.compilers.mlir.ops.attention import AttnConfig
 
         for mode in ("naive", "online"):
             for kv in ("f32", "int8"):
@@ -85,9 +86,9 @@ class AttentionTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_LLVM, "LLVM 22 with MLIR is not installed")
 class ElementwiseOpsTest(unittest.TestCase):
     def test_rmsnorm_softmax_silu_rope_and_tied_lookup(self):
-        from src.compiler.mlir_builder import memref_type
-        from src.compiler.ops import core, embedding as E, linear as L
-        from src.isa import isa
+        from src.export.compilers.mlir.builder import memref_type
+        from src.export.compilers.mlir.ops import core, embedding as E, linear as L
+        from src.vendors.npu_pynq.isa import isa
 
         rng = np.random.default_rng(3)
         T, heads, D, S, hidden, vocab = 3, 4, 16, 32, 300, 70
@@ -137,7 +138,7 @@ class ElementwiseOpsTest(unittest.TestCase):
 
 class FrameworkTest(unittest.TestCase):
     def test_sampling(self):
-        from src.inference.sampling import Sampler, SamplingParams
+        from src.runtime.core.sampling import Sampler, SamplingParams
 
         logits = np.array([0.0, 3.0, 1.0, 2.9])
         self.assertEqual(Sampler(SamplingParams())(logits, []), 1)
@@ -150,7 +151,7 @@ class FrameworkTest(unittest.TestCase):
     def test_safetensors_reader(self):
         import json
         import struct
-        from src.inference.weights import SafeTensors
+        from src.export.core.model_loader import SafeTensors
 
         a = np.arange(6, dtype=np.float32).reshape(2, 3)
         bf16 = (a.view(np.uint32) >> 16).astype(np.uint16)
@@ -160,14 +161,14 @@ class FrameworkTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "m.safetensors"
             path.write_bytes(struct.pack("<Q", len(blob)) + blob + a.tobytes() + bf16.tobytes())
-            st = SafeTensors(path)
-            np.testing.assert_array_equal(st["a"], a)
-            np.testing.assert_array_equal(st["b"], a)
+            with SafeTensors(path) as st:
+                np.testing.assert_array_equal(st["a"], a)
+                np.testing.assert_array_equal(st["b"], a)
 
     def test_tokenizer_round_trip_without_regex_package(self):
         import json
         import sys
-        from src.inference.tokenizer import Tokenizer, bytes_to_unicode
+        from src.runtime.core.tokenizer import Tokenizer, bytes_to_unicode
 
         enc = bytes_to_unicode()
         vocab = {enc[b]: b for b in range(256)}
@@ -196,8 +197,8 @@ class FrameworkTest(unittest.TestCase):
 @unittest.skipUnless(HAVE_LLVM, "LLVM 22 with MLIR is not installed")
 class LinearAttentionTest(unittest.TestCase):
     def test_gated_delta_rule_with_carried_state(self):
-        from src.compiler.mlir_builder import memref_type
-        from src.compiler.ops import linear_attention as G
+        from src.export.compilers.mlir.builder import memref_type
+        from src.export.compilers.mlir.ops import linear_attention as G
 
         for tokens in (1, 3):
             with self.subTest(tokens=tokens):

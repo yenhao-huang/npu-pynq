@@ -5,7 +5,7 @@
 // physical matrix job per GEMM execution. REPEAT n makes the following word
 // execute n times; for GEMM that is n jobs, walking tiles by post-increment.
 // FENCE and END wait until the execute stage has written every job back.
-// Opcodes and error codes match src/isa/isa.py.
+// Opcodes and error codes match src/vendors/npu_pynq/isa/isa.py.
 module npu_isa_decode #(
     parameter integer ROWS = 16,
     parameter integer COLUMNS = 16,

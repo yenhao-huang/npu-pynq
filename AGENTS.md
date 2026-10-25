@@ -13,8 +13,9 @@ on-board runtime.
 | `src/hw/constraints/` | `.xdc` timing and pin constraints | yes |
 | `src/hw/vivado_tcl/<design>/` | project-regenerating Tcl | yes |
 | `src/test/` | Makefile, golden model, cocotb tests, vectors | yes (not `build/`, not `waves/`) |
-| `src/deprecate/` | archived pre-MLIR model, export, and runtime implementation | yes |
-| `src/compiler/`, `src/inference/`, `src/models/` | current model compiler and inference stack | yes |
+| `src/jit/` | optional self-contained just-in-time model, export, runtime and examples | yes |
+| `src/vendors/<vendor>/` | one accelerator's ISA, compiler backend, and board driver; imported by export and runtime | yes |
+| `src/export/` | host-side model export: frontends, quantization, MLIR/LLVM compiler | yes |
 | `src/runtime/` | on-board overlay loading and execution | yes |
 | `examples/` | demos built on export and runtime | yes |
 | `tools/ic/` | agent-facing lint/sim/debug/view/synth toolchain | yes |
@@ -25,7 +26,7 @@ on-board runtime.
 | `.codex/skills/deploy/` | setup and deployment skills | yes |
 | `.codex/skills/custom/ic_design/` | repository-specific IC design skills | yes |
 | `openspec/` | change proposals and specifications | yes |
-| `mount/` | deploy staging, mirrored to the board | no, empty by design |
+| `dist/` | deploy staging, mirrored to the board | no, empty by design |
 | `.ic/` | run store written by `tools/ic` | no, machine-local |
 | `vivado_projects/`, `results/` | Vivado output | no |
 
@@ -45,11 +46,15 @@ and on what may not be added.
   `vivado -mode batch -source src/hw/vivado_tcl/<design>/build_overlay.tcl`,
   and attach bitstreams to a GitHub Release.
 - `src/test/model/` defines the numeric contract that `src/hw/` implements and
-  `src/deprecate/export/` must match: quantization, rounding, saturation, accumulator
+  `src/jit/export/` must match: quantization, rounding, saturation, accumulator
   width and overflow. Change it only deliberately; both sides depend on it.
 - Dependencies point one way. `examples/` may import from `src/`; nothing under
   `src/` may import from `examples/`.
-- `mount/` holds build products staged for the board. Nothing is authored
+- Before creating or updating anything under `examples/`, read
+  [docs/rules/filetree.md](docs/rules/filetree.md) and follow its example
+  structure, platform README, generated-artifact, and notebook requirements.
+  Keep the Linux, native Windows, and macOS guides consistent with the change.
+- `dist/` holds build products staged for the board. Nothing is authored
   there; it is empty in a clean checkout.
 - Every RTL change needs a corresponding testbench change, or a note in the
   commit explaining why coverage is unchanged.

@@ -16,7 +16,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from src.compiler.export import export  # noqa: E402
-from src.inference.engine import LLMEngine  # noqa: E402
+from src.runtime.core.engine import LLMEngine  # noqa: E402
 from src.inference.graph import LLMOptions  # noqa: E402
 from src.inference.weights import resolve_hf  # noqa: E402
 from src.models.qwen3_5 import model as M  # noqa: E402

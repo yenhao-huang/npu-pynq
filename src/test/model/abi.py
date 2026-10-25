@@ -19,7 +19,7 @@ class Capability(IntFlag):
     STREAM_TLAST = 1 << 3
     CYCLE_COUNTER = 1 << 4
     PIPELINED_JOBS = 1 << 5
-    #: ABI 1.1: the NPU fetches and decodes an instruction stream (src/isa)
+    #: ABI 1.1: the NPU fetches and decodes an instruction stream (src/vendors/npu_pynq/isa)
     #: from DDR through its own AXI4 master; see IsaRegister.
     ISA_FRONTEND = 1 << 6
 

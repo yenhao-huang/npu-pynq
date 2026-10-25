@@ -17,7 +17,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from src.runtime.verify_overlay import verify_artifacts
+from src.vendors.npu_pynq.driver.overlay.verify import verify_artifacts
 
 
 PACKAGE_LABEL_PATTERN = re.compile(
@@ -37,8 +37,12 @@ SOURCE_FILES = {
     "examples/matrix-multiplication/runtime/npu_package_init.py": (
         "src/runtime/__init__.py"
     ),
-    "src/runtime/npu.py": "src/runtime/npu.py",
-    "src/runtime/verify_overlay.py": "src/runtime/verify_overlay.py",
+    "src/vendors/__init__.py": "src/vendors/__init__.py",
+    "src/vendors/npu_pynq/__init__.py": "src/vendors/npu_pynq/__init__.py",
+    "src/vendors/npu_pynq/driver/__init__.py": "src/vendors/npu_pynq/driver/__init__.py",
+    "src/vendors/npu_pynq/driver/dma.py": "src/vendors/npu_pynq/driver/dma.py",
+    "src/vendors/npu_pynq/driver/overlay/__init__.py": "src/vendors/npu_pynq/driver/overlay/__init__.py",
+    "src/vendors/npu_pynq/driver/overlay/verify.py": "src/vendors/npu_pynq/driver/overlay/verify.py",
 }
 ARTIFACT_FILES = (
     "npu_matrix.bit",
@@ -193,7 +197,7 @@ def main() -> int:
     release_tag = arguments.release_tag or f"local-{source_commit[:8]}"
     output_dir = (
         arguments.output_dir
-        or repository_root / "mount" / "matrix-multiplication" / release_tag
+        or repository_root / "dist" / "matrix-multiplication" / release_tag
     ).resolve()
 
     build_package(

@@ -1,0 +1,8 @@
+- [x] Preserve the existing issue-119-a working tree and record the design.
+- [x] Move optional JIT, consumers, tests, references and delivery helpers.
+- [x] Implement AOT image runtime and retain the six notebook stages.
+- [x] Verify active suites with JIT physically absent.
+- [x] Check optional JIT and legacy demo regressions.
+- [x] Compile host and ARM ResNet18 packages and compare host output to NumPy.
+- [x] Run the notebook on physical PYNQ and collect all block durations.
+- [x] Finish Result.md and Reproduce.md with reproducible evidence.

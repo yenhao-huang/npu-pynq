@@ -9,7 +9,7 @@ Progress aligned on 2026-10-09 with PR #126 at
 ## What was built
 
 ```text
-compile:  model (src/models/*) -> MLIR (linalg + npu dialect) -> npu-partition
+compile:  model (src/export/graphs/*) -> MLIR (linalg + npu dialect) -> npu-partition
             |- CPU task -> bufferize -> LLVM IR -> llc (Cortex-A9, NEON)  \
             `- NPU task -> NPU instruction encoder -> ISA program          > one package
 run:      Cortex-A9 code runs the CPU work and calls npu_rt, which hands
@@ -35,7 +35,7 @@ run:      Cortex-A9 code runs the CPU work and calls npu_rt, which hands
 
 - **Compiled physical acceptance PASS:** run `compiled-board-20261009-04`
   executed all eight notebook cells with 35/35 independent audit gates.
-  ONNX frontend -> MLIR -> ISA lowering -> LLVM ARM -> `CompiledModel` is active;
+  ONNX frontend -> MLIR -> ISA lowering -> LLVM ARM -> `Package` is active;
   float kernels remain explicit native ORT 1.20.1 calls.
 - Every logit and token in the 24-step trace exactly matches the unchanged full
   ARM ONNX oracle, separate ARM compiled ISA simulator and reset/repeat.

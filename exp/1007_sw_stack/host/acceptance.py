@@ -20,7 +20,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO))
 
-from src.inference.engine import LLMEngine  # noqa: E402
+from src.runtime.core.engine import LLMEngine  # noqa: E402
 
 PROMPT = "What is the capital of France?"
 

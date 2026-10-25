@@ -20,7 +20,7 @@ for import_root in (REPOSITORY_ROOT, PACKAGE_ROOT):
 
 from runtime.matrix_multiplication import TiledMatrixMultiplier
 from src.runtime import load_pynq_runtime
-from src.runtime.verify_overlay import verify_artifacts
+from src.vendors.npu_pynq.driver.overlay.verify import verify_artifacts
 
 
 PASS_MARKER = "PASS: Phase 1C matrix multiplication example"

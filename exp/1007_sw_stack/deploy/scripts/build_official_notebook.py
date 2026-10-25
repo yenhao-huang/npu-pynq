@@ -57,7 +57,7 @@ def metrics_table(rows):
 md('## 1. Load the FPGA and verify signed integer arithmetic')
 code('''
 from pynq import Overlay
-from src.runtime.isa_runtime import REG_ISA_STATUS, STATUS_RUNNING, STATUS_BUSY
+from src.vendors.npu_pynq.driver.isa import REG_ISA_STATUS, STATUS_RUNNING, STATUS_BUSY
 existing = Overlay(str(DEPLOY/'hardware/overlay/npu_matrix.bit'),download=False)
 assert not existing.npu_accelerator_0.read(REG_ISA_STATUS) & (STATUS_RUNNING|STATUS_BUSY), 'NPU is busy.'
 overlay = Overlay(str(DEPLOY/'hardware/overlay/npu_matrix.bit'))
@@ -135,7 +135,7 @@ md('## 6. Repeat from reset and report the gates')
 code('''
 repeat=trace(engine,RUN,'repeat')
 repeat_comparison=compare(RUN/'repeat.npz',RUN/'generation.npz')
-from src.isa.layout import plan_gemm
+from src.vendors.npu_pynq.isa.layout import plan_gemm
 expected_jobs=0
 for node in manifest['nodes']:
     if node['op']=='MatMulInteger':

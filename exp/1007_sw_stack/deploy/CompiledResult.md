@@ -41,7 +41,7 @@ graph run recorded TTFT 41.22 s and TPOT 17.15 s/token; these are separate runs.
 ## Execution and provenance
 
 `src/models/smollm/official.py` reads the pinned official ONNX and emits tensor
-MLIR through existing `npu-partition`, `npu-lower`, LLVM ARM and `CompiledModel`.
+MLIR through existing `npu-partition`, `npu-lower`, LLVM ARM and `Package`.
 There is no Python interpretation of the model graph in this engine. Dynamic
 UINT8 activation quantization, original INT8 projection weights, zero-point
 correction and scale multiplication order are retained. Float RMSNorm, DQL,

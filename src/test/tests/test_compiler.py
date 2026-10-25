@@ -8,20 +8,21 @@ import tempfile
 import unittest
 from pathlib import Path
 import numpy as np
-from src.compiler import toolchain
-from src.isa import isa, layout
+from src.export.compilers.mlir import toolchain
+from src.vendors.npu_pynq.isa import isa, layout
 import os
 import shutil
 import subprocess
 import sys
-from src.inference.graph import ONNXGraph
-from src.inference.tokenizer import Tokenizer
-from src.inference.tokenizer import bytes_to_unicode
-from src.compiler.export import ModelGraph, export
-from src.compiler.mlir_builder import ModuleBuilder
-from src.compiler.ops.context import Ctx
-from src.compiler.ops.linear import projection, native, multiply
-from src.runtime.compiled import CompiledModel
+from src.test.model.onnx_reference import ONNXGraph
+from src.runtime.core.tokenizer import Tokenizer
+from src.runtime.core.tokenizer import bytes_to_unicode
+from src.export.core.graph import ModelGraph
+from src.export.cli import export
+from src.export.compilers.mlir.builder import ModuleBuilder
+from src.export.compilers.mlir.ops.context import Ctx
+from src.export.compilers.mlir.ops.linear import projection, native, multiply
+from src.runtime.core.package import Package
 
 
 try:
@@ -32,10 +33,10 @@ except toolchain.ToolchainError:
 
 
 def build_mlp(m, k, h, n, bits2, group2, rng):
-    from src.compiler.export import ModelGraph
-    from src.compiler.mlir_builder import ModuleBuilder, memref_type
-    from src.compiler.ops import core, linear as L
-    from src.compiler.ops.context import Ctx
+    from src.export.core.graph import ModelGraph
+    from src.export.compilers.mlir.builder import ModuleBuilder, memref_type
+    from src.export.compilers.mlir.ops import core, linear as L
+    from src.export.compilers.mlir.ops.context import Ctx
 
     w1 = L.quantize_weight(rng.normal(size=(h, k)).astype(np.float32) * 0.05, 8)
     w2 = L.quantize_weight(rng.normal(size=(n, h)).astype(np.float32) * 0.1, bits2, group=group2)
@@ -66,14 +67,14 @@ class CompilerTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def compile_and_run(self, bits2, group2, targets=("host",)):
-        from src.compiler.export import export
-        from src.runtime.compiled import CompiledModel
+        from src.export.cli import export
+        from src.runtime.core.package import Package
 
         rng = np.random.default_rng(bits2)
         m, k, h, n = 5, 300, 48, 40
         graph, reference = build_mlp(m, k, h, n, bits2, group2, rng)
         pkg = export(graph, self.root / f"mlp{bits2}", targets=targets)
-        model = CompiledModel(pkg, "sim")
+        model = Package(pkg, "sim")
         x = rng.normal(size=(m, k)).astype(np.float32)
         out = np.zeros((m, n), np.float32)
         model.call("forward", "weights", x, out)
@@ -90,8 +91,8 @@ class CompilerTest(unittest.TestCase):
                 self.assertEqual(report["npu_tasks"][1]["source"], "grouped" if bits == 4 else "linalg.matmul")
 
     def test_streamed_segments_and_packed_int4(self):
-        from src.compiler.export import export
-        from src.runtime.compiled import CompiledModel
+        from src.export.cli import export
+        from src.runtime.core.package import Package
 
         rng = np.random.default_rng(11)
         m, k, h, n = 3, 300, 64, 200
@@ -102,7 +103,7 @@ class CompilerTest(unittest.TestCase):
         manifest = json.loads((pkg / "manifest.json").read_text())
         self.assertTrue(manifest["weight_layouts"]["fc2.q"].startswith("npu_b4"))
         x = rng.normal(size=(m, k)).astype(np.float32)
-        model = CompiledModel(pkg, "sim")
+        model = Package(pkg, "sim")
         self.assertTrue(model.stream_weights, "packed INT4 weights must stream")
         out = np.zeros((m, n), np.float32)
         model.call("forward", "weights", x, out)
@@ -111,7 +112,7 @@ class CompilerTest(unittest.TestCase):
         graph, reference = build_mlp(m, k, h, n, 8, 0, rng)
         pkg = export(graph, self.root / "w8", targets=("host",), segment_bytes=2048)
         for stream in (False, True):
-            model = CompiledModel(pkg, "sim", stream_weights=stream)
+            model = Package(pkg, "sim", stream_weights=stream)
             out = np.zeros((m, n), np.float32)
             model.call("forward", "weights", x, out)
             np.testing.assert_allclose(out, reference(x), rtol=1e-5, atol=1e-5)
@@ -231,14 +232,16 @@ class ONNXSourceIndependenceTest(unittest.TestCase):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source, target)
             env = dict(os.environ, PYTHONPATH=str(isolated))
-            for command in ((), ("run",), ("reference",), ("prepare-onnx",), ("export",)):
-                result = subprocess.run([sys.executable, '-m', 'src.inference.cli', *command, '--help'],
+            for module, command in (('src.export.cli', ()), ('src.export.cli', ("prepare-onnx",)),
+                                    ('src.export.cli', ("export",)), ('src.runtime.cli', ()),
+                                    ('src.runtime.cli', ("run",)), ('src.runtime.cli', ("reference",))):
+                result = subprocess.run([sys.executable, '-m', module, *command, '--help'],
                     cwd=isolated, env=env, capture_output=True, text=True, timeout=30)
                 self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([sys.executable, '-c',
-                'from src.runtime.isa_runtime import NpuGemm; '
-                'from src.runtime.compiled import NativeOrtOperators; '
-                'from src.inference.engine import LLMEngine'],
+                'from src.vendors.npu_pynq.driver.isa import NpuGemm; '
+                'from src.runtime.cpu.ort import NativeOrtOperators; '
+                'from src.runtime.core.engine import LLMEngine'],
                 cwd=isolated, env=env, capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((isolated / 'exp').exists())
@@ -250,7 +253,7 @@ class ONNXCompiledQuantizationTest(unittest.TestCase):
             toolchain.llvm_bin()
         except toolchain.ToolchainError:
             self.skipTest('LLVM 22 with MLIR is unavailable')
-        from src.compiler.mlir_builder import identity_map
+        from src.export.compilers.mlir.builder import identity_map
         graph=ModelGraph('onnx-native-residual',ModuleBuilder())
         f=graph.module.func('run',[('ws','memref<?xi8>'),('x','memref<3x7xf32>'),
                                  ('out','memref<3x7xf32>')])
@@ -277,7 +280,7 @@ void _mlir_ciface_onnx_test_add(M *x,M *y,M *z) {
             toolchain.run([toolchain.tool('clang'),'-O2','-fPIC','-c',str(c),'-o',str(obj)],
                           'compiling test native kernels')
             package=export(graph,root/'package',targets=('host',),extra_objects={'host':(obj,)})
-            model=CompiledModel(package)
+            model=Package(package)
             x=np.arange(21,dtype=np.float32).reshape(3,7)/4
             actual=np.empty_like(x)
             model.call('run','weights',x,actual)
@@ -304,7 +307,7 @@ void _mlir_ciface_onnx_test_add(M *x,M *y,M *z) {
         xs=np.asarray([.03125],np.float32)
         with tempfile.TemporaryDirectory() as tmp:
             package=export(graph,Path(tmp)/'package',targets=('host',))
-            model=CompiledModel(package,'sim')
+            model=Package(package,'sim')
             for zero in (0,127,128,130,255):
                 with self.subTest(zero=zero):
                     actual=np.empty((3,9),np.float32)
@@ -323,8 +326,8 @@ class SharedExportEngineTest(unittest.TestCase):
         except toolchain.ToolchainError:
             self.skipTest('LLVM 22 with MLIR is unavailable')
         import struct
-        from src.inference.engine import LLMEngine
-        from src.inference.graph import LLMOptions
+        from src.runtime.core.engine import LLMEngine
+        from src.export.core.graph import LLMOptions
         rng = np.random.default_rng(119)
         cfg = dict(hidden_size=8, intermediate_size=16, num_attention_heads=2,
                    num_key_value_heads=1, num_hidden_layers=1, rms_norm_eps=1e-5,
@@ -361,7 +364,7 @@ class SharedExportEngineTest(unittest.TestCase):
             self.assertTrue(np.isfinite(engine.logits).all())
             self.assertGreater(stats.npu['jobs'],0)
             # Read an original commit's placeholder state ABI as well.
-            manifest = engine.model.manifest
+            manifest = engine.package.manifest
             manifest['entry_points']['decode'] = ['weights','state','token','pos','logits']
             manifest['entry_points']['prefill'] = ['weights','state','tokens','pos','last','logits']
             repeated, _, _ = engine.generate([1,2,3,4],max_new_tokens=3)
@@ -373,11 +376,11 @@ class SharedExportEngineTest(unittest.TestCase):
 
     def test_auto_onnx_source_uses_common_model_builder(self):
         from unittest.mock import patch
-        from src.models.smollm import model
-        from src.inference.graph import LLMOptions
-        from src.inference.engine import LLMEngine
-        with patch.object(model,'_build_quantized_onnx',return_value=('graph','source_model')) as build, \
-             patch('src.compiler.export.attach_float_runtime'), \
+        from src.export.graphs.smollm import model
+        from src.export.core.graph import LLMOptions
+        from src.runtime.core.engine import LLMEngine
+        with patch.object(model,'build_quantized_onnx',return_value=('graph','source_model')) as build, \
+             patch('src.export.core.onnx_source.attach_float_runtime'), \
              patch.object(model,'Config',return_value='config'), \
              patch.object(Path,'read_text',return_value='{}'):
             graph, cfg = model.build('assets/onnx/model_int8.onnx',

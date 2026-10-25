@@ -44,7 +44,7 @@ def tree(package):
 
 def identity(package):
     manifest = json.loads((package / 'manifest.json').read_text(encoding='utf-8'))
-    source = json.loads((REPO / 'src/compiler/onnx-source.json').read_text(encoding='utf-8'))
+    source = json.loads((REPO / 'src/export/graphs/smollm/onnx-source.json').read_text(encoding='utf-8'))
     meta = manifest['meta']
     if (not (meta['family'] == 'official-smollm-onnx' or
              (meta['family'] == 'llama' and meta.get('source_format') == 'onnx')) or meta['layers'] != 30
@@ -84,7 +84,7 @@ def check_output(ids, text):
 
 def accept(args):
     from pynq import Overlay
-    from src.inference.engine import LLMEngine
+    from src.runtime.core.engine import LLMEngine
     package = args.package.resolve()
     release = verify(package, args.commit, args.tag)
     overlay_path = args.overlay.resolve()
@@ -100,19 +100,19 @@ def accept(args):
     try:
         overlay = Overlay(str(overlay_path))
         engine = LLMEngine(package, backend='pynq', overlay=overlay)
-        before = engine.model.stats()
+        before = engine.package.stats()
         ids, text, stats = engine.generate(PROMPT, max_new_tokens=32, chat=True,
             on_token=lambda _, piece: print(piece, end='', flush=True))
         print(flush=True)
-        after = engine.model.stats()
+        after = engine.package.stats()
         runtime = {k: after[k] - before[k] for k in ('calls', 'jobs', 'cycles', 'macs')}
         runtime.update(error=after['error'], error_program=after['error_program'])
         # The runtime exposes its selected backend and actual MMIO pointer.
-        context = engine.model.lib.npu_rt_stats().contents
+        context = engine.package.lib.npu_rt_stats().contents
         evidence.update(ids=ids, text=text, stats=stats, runtime=runtime,
                         backend=context.backend, mmio=int(context.mmio or 0))
         check_output(ids, text)
-        if (engine.model.backend != 'pynq' or context.backend != 1 or not context.mmio
+        if (engine.package.backend != 'pynq' or context.backend != 1 or not context.mmio
                 or runtime['calls'] != 32 * 120 or runtime['jobs'] <= 0
                 or runtime['cycles'] <= 0 or runtime['error'] != 0):
             raise ValueError('Physical NPU execution was not proven')

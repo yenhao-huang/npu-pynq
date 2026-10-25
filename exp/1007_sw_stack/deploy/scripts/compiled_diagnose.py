@@ -8,9 +8,9 @@ import numpy as np
 
 root=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(root))
-from src.inference.engine import LLMEngine
-from src.inference.engine import ONNXReferenceEngine
-from src.runtime.compiled import NativeOrtOperators
+from src.runtime.core.engine import LLMEngine
+from src.test.model.onnx_reference import ONNXReferenceEngine
+from src.runtime.cpu.ort import NativeOrtOperators
 from acceptance import PROMPT
 deploy=root/'exp/1007_sw_stack/deploy'
 run=deploy/'runs/compiled-diagnose-02'
@@ -30,7 +30,7 @@ engine=LLMEngine(package,overlay=overlay)
 ids=engine.tokenizer.encode(engine.tokenizer.chat([{'role':'user','content':PROMPT}]))
 engine.prefill(ids)
 print('Compiled first token',engine.logits.argmax(),flush=True)
-for b in (engine.model.io,engine.model.stage,engine.model.words):
+for b in (engine.package.io,engine.package.stage,engine.package.words):
     if b is not None: b.buffer.freebuffer()
 del engine
 ops=NativeOrtOperators(deploy/'packages/onnx-ops',deploy/'packages/onnx-runtime/libonnx_ort_bridge.so')

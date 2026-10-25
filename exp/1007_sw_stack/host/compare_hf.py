@@ -15,7 +15,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from src.inference.engine import LLMEngine  # noqa: E402
+from src.runtime.core.engine import LLMEngine  # noqa: E402
 from src.inference.weights import resolve_hf  # noqa: E402
 
 PROMPTS = ["The capital of France is", "def fibonacci(n):\n    ", "In a distant galaxy, scientists discovered"]

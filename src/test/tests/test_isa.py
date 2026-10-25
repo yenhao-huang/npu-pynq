@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from src.isa import isa, layout, sim
+from src.vendors.npu_pynq.isa import isa, layout, sim
 
 
 def run_gemm(m, n, k, limits=isa.Limits(), tk=None, seed=0):

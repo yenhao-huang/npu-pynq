@@ -18,14 +18,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 
 def run_llm(name, package, overlay, prompt, max_new, report):
-    from src.inference.engine import LLMEngine
+    from src.runtime.core.engine import LLMEngine
 
     t = time.monotonic()
     engine = LLMEngine(package, "pynq", overlay=overlay)
     load = time.monotonic() - t
     ids, text, stats = engine.generate(prompt, max_new, chat=True)
     report[name] = {"prompt": prompt, "output": text, "output_ids": ids, "load_seconds": load,
-                    "stream_weights": engine.model.stream_weights, **stats.as_dict()}
+                    "stream_weights": engine.package.stream_weights, **stats.as_dict()}
     print(name, json.dumps(report[name], ensure_ascii=False), flush=True)
     return bool(ids)
 
@@ -33,10 +33,10 @@ def run_llm(name, package, overlay, prompt, max_new, report):
 def run_resnet(package, overlay, gallery, report):
     from PIL import Image
     from src.models.resnet18 import model as R
-    from src.runtime.compiled import CompiledModel
+    from src.runtime.core.package import Package
 
     labels = json.loads((Path(package) / "labels.json").read_text()) if (Path(package) / "labels.json").exists() else None
-    model = CompiledModel(package, "pynq", overlay=overlay)
+    model = Package(package, "pynq", overlay=overlay)
     rows = []
     for path in sorted(Path(gallery).glob("*.jpg")):
         x = R.preprocess(Image.open(path))

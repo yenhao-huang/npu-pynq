@@ -5,7 +5,7 @@ import sys
 import numpy as np
 root=Path(__file__).resolve().parents[4]
 sys.path.insert(0,str(root))
-from src.runtime.compiled import NativeOrtOperators
+from src.runtime.cpu.ort import NativeOrtOperators
 deploy=root/'exp/1007_sw_stack/deploy'
 r=deploy/'runs/compiled-diagnose-02'
 index=json.loads((r/'reference-full-index.json').read_text())

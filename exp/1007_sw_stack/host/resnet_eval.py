@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO))
 
 from src.models.resnet18 import model as R  # noqa: E402
-from src.runtime.compiled import CompiledModel  # noqa: E402
+from src.runtime.core.package import Package  # noqa: E402
 
 
 def gallery(cache: Path) -> list[tuple[str, Path]]:
@@ -61,7 +61,7 @@ def main() -> int:
     ref = torchvision.models.resnet18()
     ref.load_state_dict(torch.load(R._find_source(R.DEFAULT_SOURCE), weights_only=True))
     ref.eval()
-    model = CompiledModel(args.package, "sim")
+    model = Package(args.package, "sim")
     rows = []
     for expected, path in gallery(Path(args.images)):
         x = R.preprocess(Image.open(path))

@@ -129,8 +129,8 @@ streams are held off.
                            npu_matrix_controller + 16 x 16 systolic array
 ```
 
-The instruction set is defined once, in `src/isa/isa.py`; `src/isa/sim.py` is
-its bit-accurate simulator and `src/isa/layout.py` the tiled-GEMM layout that
+The instruction set is defined once, in `src/vendors/npu_pynq/isa/isa.py`; `src/vendors/npu_pynq/isa/sim.py` is
+its bit-accurate simulator and `src/vendors/npu_pynq/isa/layout.py` the tiled-GEMM layout that
 the compiler, runtimes and testbench share. Each instruction is one 64-bit
 word with the opcode in bits [63:56]:
 

@@ -14,8 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from pynq import Overlay, allocate  # noqa: E402
 
-from src.runtime.isa_runtime import IsaDevice, gemm  # noqa: E402
-from src.runtime.npu import NPURuntime  # noqa: E402
+from src.vendors.npu_pynq.driver.isa import IsaDevice, gemm  # noqa: E402
+from src.vendors.npu_pynq.driver.dma import NPURuntime  # noqa: E402
 
 
 def main() -> int:

@@ -56,22 +56,38 @@ npu_repo_in_pynq/
 |   |   |   `-- test_*.py
 |   |   |-- vectors/
 |   |   `-- waves/
-|   |-- isa/                     NPU instruction set: spec, layout, simulator
-|   |   `-- *.py
-|   |-- compiler/                MLIR + LLVM compiler (model -> CPU code + ISA programs)
-|   |   |-- mlir/                out-of-tree MLIR project: npu dialect, passes, npu-opt
-|   |   |-- ops/                 operator library shared by every model
-|   |   `-- *.py                 builder, toolchain driver, exporter
-|   |-- deprecate/               archived pre-MLIR model, export, and runtime code
+|   |-- vendors/                 one folder per accelerator; imported by export and runtime, imports neither
+|   |   `-- npu_pynq/
+|   |       |-- isa/             NPU instruction set: spec, layout, simulator; imports nothing
+|   |       |-- compiler/        passes, weight packing, CPU target parameters; imports isa/ only
+|   |       |   `-- mlir/        out-of-tree MLIR project: npu dialect, passes, npu-opt
+|   |       `-- driver/          ISA drivers (Python and C), buffers, placement, ABI, DMA; imports isa/ only
+|   |           `-- overlay/     build.py writes the BIT/HWH manifest; verify.py checks it before loading
+|   |-- export/                  host-side model -> package (CPU code + ISA programs); needs MLIR/LLVM
+|   |   |-- cli.py               export() pipeline and the export command line
+|   |   |-- core/                model loading, per-layer weight quantization, ModelGraph, ONNX sources
+|   |   |-- quant/               quantization numerics (int8.py) and AWQ / fake-quant tools
+|   |   |-- graphs/              one frontend per model (smollm, qwen3, resnet18, ...)
+|   |   |-- compilers/mlir/      target-independent MLIR builder, operator library, LLVM toolchain
+|   |   `-- targets.py           target registry: wires each src/vendors/<vendor>/compiler to the toolchain
+|   |-- jit/                     optional, self-contained just-in-time stack
 |   |   |-- model/               numeric and ResNet model contracts
 |   |   |-- export/              legacy ResNet package exporter
-|   |   `-- runtime/             legacy model execution and acceptance
-|   `-- runtime/
-|       |-- c/                   C NPU runtime linked into every compiled model
-|       `-- *.py
+|   |   |-- runtime/             interpreter, local DMA/overlay, acceptance
+|   |   |-- examples/resnet18/    original JIT notebook and delivery helpers
+|   |   |-- tests/               JIT-specific regression tests
+|   |   |-- reference/           independent quantized graph reference
+|   |   `-- delivery/            frozen optional JIT delivery helpers
+|   `-- runtime/                 board-side execution; never imports src/export
+|       |-- core/                generation loop, package loading, tokenizer, sampling
+|       |-- cpu/                 work the Cortex-A9 computes: ONNX Runtime float operators (Python and C)
+|       |-- cli.py               run and reference command line
+|       `-- *.sh                 ONNX Runtime build scripts
 |-- examples/
 |   `-- <example>/
-|       |-- README.md
+|       |-- README.md            Linux/Bash build and deployment guide (required)
+|       |-- README.win.md        native Windows PowerShell guide (required)
+|       |-- README.macos.md      macOS Terminal guide (required)
 |       |-- *.ipynb
 |       |-- *-source.json        pinned download metadata
 |       |-- QUICKSTART.md          three-step board quick start
@@ -154,7 +170,7 @@ npu_repo_in_pynq/
 |   |-- changes/
 |   `-- specs/
 |-- .ic/                        run store, not tracked
-`-- mount/
+`-- dist/
 ```
 
 The ONNX-MLIR integration under `src/export/compilers/onnx_mlir/` owns pinned
@@ -173,31 +189,81 @@ Native compiler overrides are explicitly unverified.
 the numpy golden reference, `cocotb/` are the Python tests that compare RTL
 against it, and `Makefile` is what CI invokes.
 
-`src/isa/` is the single definition of the NPU instruction set: `isa.py`
-encodes and decodes it, `layout.py` fixes how a tiled GEMM maps onto DDR, and
-`sim.py` is the bit-accurate simulator the RTL, runtimes and compiler are
-checked against. RTL opcodes must match it; `src/test/tests/test_isa.py`
-enforces that.
+`src/vendors/` holds everything specific to one accelerator, one folder per
+vendor, as a layer below both `src/export/` and `src/runtime/`: both import
+it, and it imports neither. Inside a vendor, `isa/` is the specification and
+imports nothing; `compiler/` (the export side) and `driver/` (the board side)
+each import `isa/` but never each other, so the board package ships `isa/` and
+`driver/` without the compiler. `python -m unittest
+src.test.tests.test_vendor_boundary` enforces these edges. A new accelerator is
+one new folder here plus one registry line in `src/export/targets.py`.
 
-`src/compiler/` turns a model graph into a package: `npu-opt` (built from
-`src/compiler/mlir/` with CMake against LLVM 22) partitions INT8 contractions
-onto the NPU and encodes them as ISA programs; upstream MLIR and LLVM compile
-the rest for the Cortex-A9 or the host. `src/runtime/c/npu_rt.c` is linked
-into every compiled model; `src/runtime/compiled.py` loads a package on the
-host (simulated NPU) or the board.
+`src/vendors/npu_pynq/isa/` is the single definition of the NPU instruction
+set: `isa.py` encodes and decodes it, `layout.py` fixes how a tiled GEMM maps
+onto DDR, and `sim.py` is the bit-accurate simulator the RTL, runtimes and
+compiler are checked against. RTL opcodes must match it;
+`src/test/tests/test_isa.py` enforces that. `compiler/` holds the `npu-opt`
+MLIR project and the partition and lower passes, NPU weight tiling and the
+Cortex-A9 target parameters; the LLVM toolchain is passed in by
+`src/export/targets.py`. `driver/` drives the NPU on the board: the Python
+and C ISA drivers, CMA buffers, program placement, the ctypes ABI, the legacy
+ABI 1.0 DMA runtime in `dma.py`, and `overlay/`, which writes the overlay
+manifest after Vivado and verifies it before the board loads the bitstream.
 
-`src/deprecate/` contains the pre-MLIR model contracts, ResNet exporter, and
-model runtime. Existing examples and release packages import these modules
-directly. New software features belong in `src/compiler/`, `src/inference/`,
-and `src/models/`.
+`src/export/` turns a model into a package on the host. A frontend in
+`graphs/<model>/` reads the source through `core/` and builds a `ModelGraph`
+from the operators in `compilers/mlir/ops/`. `npu-opt` (built from
+`src/vendors/npu_pynq/compiler/mlir/` with CMake against LLVM 22) partitions
+INT8 contractions onto the NPU and encodes them as ISA programs; upstream MLIR
+and LLVM compile the rest for the Cortex-A9 or the host. A new model adds one
+folder under `graphs/` and one registry line in `graphs/__init__.py`; a new
+target adds one vendor under `src/vendors/` and one line in `targets.py`.
+Imports point down: `cli.py` may import anything, `graphs/` and `targets.py`
+import `core/`, `quant/`, `compilers/` and `src/vendors/`, and `core/` and
+`compilers/` import none of them. `src/vendors/npu_pynq/driver/npu_rt.c` is
+linked into every compiled model; `src/runtime/core/package.py` loads a
+package on the host (simulated NPU) or the board.
 
-`src/runtime/` holds the active compiled-model and ISA runtimes and overlay access.
+`src/jit/` owns the optional just-in-time quantized graph interpreter, its
+exporter, numeric contracts, examples, references, focused tests and delivery
+helpers. It imports no other source packages. Active source, tests, public
+examples and delivery workflows must not import it: removing `src/jit` must
+leave AOT export and inference functional. Check both boundaries with
+`python -m unittest src.test.tests.test_jit_boundary` and execute active tests
+with JIT physically absent. The hardware numeric reference remains independently
+available under `src/test/model/numeric.py`; its contract is unchanged.
+
+`src/runtime/` runs packages on the board. `core/` is the inference path:
+`engine.py` schedules prefill, decode and sampling, and `package.py` loads a
+compiled package and calls its entry points, driving the NPU through
+`src/vendors/npu_pynq/driver/`; `cpu/` holds
+the float operators the Cortex-A9 runs through ONNX Runtime. The ONNX golden
+reference that interprets the source graph without the compiler lives in
+`src/test/model/onnx_reference.py`.
 
 `examples/` consumes the three above. Nothing under `src/` may import from it.
 An example owns its application-specific runtime, notebooks, package builder,
 board acceptance entry point, deployment wrapper, and focused host tests. The
-package builder may copy an explicit allowlist of shared `src/runtime/` modules
+package builder may copy an explicit allowlist of shared `src/runtime/` and
+`src/vendors/<vendor>/{isa,driver}/` modules
 into generated deploy output, but those copies are never committed.
+Every directory directly under `examples/` must provide these three guides:
+
+- `README.md`: the default Linux/Bash build and deployment instructions.
+- `README.win.md`: native Windows PowerShell instructions that do not require
+  WSL or Git Bash for local commands.
+- `README.macos.md`: macOS Terminal instructions using Bash or zsh.
+
+All three guides link to one another, use commands appropriate to their host
+shell, and clearly distinguish local commands from Linux commands run on the
+board through SSH. State prerequisites and unsupported build steps explicitly;
+when another build host is required, explain which matching artifacts to
+obtain and how to deploy them from the documented platform. Do not imply
+unsupported native toolchain availability. Stage deployable packages under
+`dist/`; keep generated files ignored. Each guide ends the user workflow with
+the example's notebook and explains the relationship to release CD. When an
+example changes, review all three guides and update affected instructions.
+
 Every user-facing example includes an `.ipynb` demo, committed output-free so
 the file stays diffable. `examples/resnet18/resnet18.ipynb` is the one
 exception: it is committed with the outputs of a real PYNQ-Z1 run, so the
@@ -207,7 +273,13 @@ intend to publish. The notebook
 is the canonical human validation entry point: its README may prepare and
 deploy inputs, but must ultimately direct the user to the notebook. CLI board
 entry points support the notebook and automation; they do not replace the
-human demo. Download and conversion commands belong under its `scripts/`;
+human demo. Every example's `README.md` must let a reader build and deploy it
+from scratch, following the section order of
+`examples/matrix-multiplication/README.md`: requirements, one-time board
+preparation where needed, overlay build, model build, packaging, deployment and
+the board test, notebook handoff, and how release CD runs the same steps.
+Commands are copyable from the repository root, and a step that needs
+credentials or non-interactive sudo says so. Download and conversion commands belong under its `scripts/`;
 generated checkpoints, converted model packages, corpora, and model evidence
 go under its `model/` workspace and remain ignored except for `.gitkeep`.
 A `*-source.json` file pins one download set by URL, length, SHA-256, and
@@ -288,7 +360,7 @@ and use descriptive, stable file names.
 changelog. Agents may read it, but every mutation requires explicit human
 confirmation for the exact proposed batch under `docs/rules/human-docs.md`.
 
-`mount/` is empty in a clean checkout. It receives build products staged for
+`dist/` is empty in a clean checkout. It receives build products staged for
 the board and nothing is authored there.
 
 ## Rules
@@ -307,7 +379,7 @@ runs in CI.
 
 `src/test/model/` defines the numeric contract: quantization, rounding
 direction, saturation bounds, accumulator width and overflow behaviour. When
-`src/deprecate/export/` starts depending on it, promote it to `src/deprecate/model/` rather than
+`src/jit/export/` starts depending on it, promote it to `src/jit/model/` rather than
 letting production code import from a test directory.
 
 `src/test/waves/` and `src/test/build/` are generated. Only
@@ -355,6 +427,12 @@ ResNet-18 times.
 harness, licensed task inputs, tests, and selected acceptance examples.
 `analysis/` regenerates aggregate metrics from a local `results/` archive.
 The archive and generated `evidence/` stay ignored.
+
+`exp/.docs/goals/jit-independent-and-aot-support-resent18/` records the
+user-requested JIT isolation and ResNet18 AOT campaign: design, experiment
+scripts, Result.md, Reproduce.md and compact acceptance evidence. Downloaded
+models and compiler products remain ignored under `examples/resnet18/model/`
+and `build/`; no BIT/HWH files are versioned there.
 
 ## Not in this repository
 

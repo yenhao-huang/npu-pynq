@@ -21,7 +21,7 @@ with original official quantization semantics and independent ARM oracle checks.
    Provide decode plus explicit supported prefill specializations and reject
    unsupported lengths rather than silently changing quantization.
 5. Extend existing codegen to link the native operator bridge; load compiled
-   packages with `CompiledModel`. Keep model assets independent of `exp/`.
+   packages with `Package`. Keep model assets independent of `exp/`.
 6. Adapt the named notebook to compiled generation and preserve all eight
    executable gates, independent full ARM oracle, physical jobs and saved outputs.
 

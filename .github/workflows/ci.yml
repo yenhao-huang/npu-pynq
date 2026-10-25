@@ -25,7 +25,7 @@ jobs:
 
       - name: Install Python test dependencies
         run: |
-          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml pillow
 
       - name: Run host model and example suites
         run: make -C src/test model PYTHON=python3

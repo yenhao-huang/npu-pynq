@@ -21,7 +21,7 @@ open.
 
 | Gate | Result | Scope |
 | --- | --- | --- |
-| Official model identity | PASS | HF revision `12fd25f77366fa6b3b4b768ec3050bf629380bac`; 137,147,867 bytes; SHA-256 pinned in `src/compiler/onnx-source.json` |
+| Official model identity | PASS | HF revision `12fd25f77366fa6b3b4b768ec3050bf629380bac`; 137,147,867 bytes; SHA-256 pinned in `src/export/graphs/smollm/onnx-source.json` |
 | Lossless export | PASS | All 698 initializer tensors retain original bytes |
 | Physical generation | PASS | Run `official-board-20261009-02`: 24/24 tokens match unchanged full ARM ONNX; maximum logit error `3.1948089599609375e-05`, fixed `rtol=atol=1e-3` |
 | CPU integer comparison / reset-repeat | PASS | Every token and logit exactly equal to physical execution |
@@ -42,9 +42,9 @@ Raw model binaries, outputs and logs remain outside the patch.
 
 ## Source ownership after PR alignment
 
-- `src/compiler/export.py`: pinned download, lossless export and operator
+- `src/export/core/onnx_source.py`: pinned download, lossless export and operator
   preparation. This follows PR #126's removal of the legacy `src/export` tree.
-- `src/inference/{engine,graph,tokenizer,cli}.py`: graph execution, official tokenizer, prefill/decode,
+- `src/runtime/core/{engine,tokenizer}.py`, `src/export/core/graph.py`, `src/{export,runtime}/cli.py`: graph execution, official tokenizer, prefill/decode,
   KV state, generation, ORT bindings and CLI.
 - `src/runtime/`: physical integer GEMMs, native C bridge and ARM build scripts.
 - `examples/smollm_onnx/`: user-facing notebook; imports shared source only.
@@ -58,7 +58,7 @@ Model/runtime/overlay assets must remain outside the experiment directory.
 ## Compiled official-model follow-up: PASS
 
 Run `compiled-board-20261009-04` executed the ONNX frontend, existing NPU MLIR
-partition/lower, LLVM ARM library and `CompiledModel` on PYNQ-Z1. All eight cells,
+partition/lower, LLVM ARM library and `Package` on PYNQ-Z1. All eight cells,
 four figures, interactive generation and 35 independent audit gates passed.
 Every 24-step token and logit exactly matches unchanged full ARM ONNX,
 separate compiled ARM CPU ISA simulation and reset/repeat (max error 0).
@@ -72,8 +72,8 @@ separate compiled ARM CPU ISA simulation and reset/repeat (max error 0).
 - Seven focused Linux regressions PASS, including actual compiled UINT8
   arithmetic and residual buffer lifetime.
 
-`src/models/smollm/model.py` and `src/inference/cli.py` own the
-frontend/build command; `src/inference/engine.py` and
+`src/export/graphs/smollm/model.py` and `src/export/cli.py` own the
+frontend/build command; `src/runtime/core/engine.py` and
 `compiled_cli.py` own compiled generation. Native float kernels are explicit
 ORT external calls; this is not a claim that every float op is LLVM arithmetic.
 Exact prefill lengths 36, 40 and 42 are compiled, with context capacity 512.
