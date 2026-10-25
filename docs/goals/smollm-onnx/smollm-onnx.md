@@ -11,18 +11,18 @@ This patch builds on the ISA and inference modules in PR #126.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/inference/{engine,graph,tokenizer,cli}.py` | Graph execution, ONNX tokenizer, KV cache, generation and shared CLI |
-| `src/runtime/compiled.py` | Compiled package loading and native ORT bindings |
-| `src/runtime/isa_runtime.py` | Bounded CMA allocation and physical integer GEMMs |
-| `src/runtime/c/onnx_ort_bridge.c` | Native ARM ONNX Runtime C bridge |
+| `src/runtime/core/{engine,tokenizer}.py`, `src/export/core/graph.py`, `src/{export,runtime}/cli.py` | Graph execution, ONNX tokenizer, KV cache, generation and the export and runtime CLIs |
+| `src/runtime/core/package.py` | Compiled package loading and native ORT bindings |
+| `src/vendors/npu_pynq/driver/isa.py` | Bounded CMA allocation and physical integer GEMMs |
+| `src/runtime/cpu/onnx_ort_bridge.c` | Native ARM ONNX Runtime C bridge |
 | `src/runtime/build_onnxruntime_arm.sh` | Pinned Cortex-A9 ONNX Runtime cross build |
 | `src/runtime/build_onnxruntime_bridge.sh` | Native board bridge build |
-| `src/compiler/export.py` | Pinned downloads, lossless tensor export, verification and operator session export |
-| `src/models/smollm/model.py` | Official ONNX frontend into the existing NPU MLIR compiler |
-| `src/inference/cli.py` | ARM compiled package with explicit native float kernels |
-| `src/runtime/c/onnx_compiled_ops.c` | Native float ABI called by compiled ARM entry points |
-| `src/inference/engine.py` | Direct `CompiledModel` prefill/decode and generation |
-| `src/compiler/onnx-source.json` | Upstream revision, byte lengths and SHA-256 values |
+| `src/export/core/onnx_source.py` | Pinned downloads, lossless tensor export, verification and operator session export |
+| `src/export/graphs/smollm/model.py` | Official ONNX frontend into the existing NPU MLIR compiler |
+| `src/export/cli.py` | ARM compiled package with explicit native float kernels |
+| `src/runtime/cpu/onnx_ops.c` | Native float ABI called by compiled ARM entry points |
+| `src/runtime/core/engine.py` | Direct `Package` prefill/decode and generation |
+| `src/export/graphs/smollm/onnx-source.json` | Upstream revision, byte lengths and SHA-256 values |
 | `src/test/tests/test_compiler.py` | Quantization, mapping, tokenizer and source independence regressions |
 
 The old experiment entry points call these modules. They contain no separate
@@ -37,9 +37,9 @@ external shared model store. The examples below use ignored deploy staging.
 
 ```powershell
 python -m pip install numpy==1.26.4 onnx==1.17.0 onnxruntime==1.20.1
-$env:NPU_ONNX_MODEL = "$PWD/mount/smollm2-onnx"
-python -m src.inference.cli prepare-onnx prepare
-python -m src.inference.cli reference --backend cpu --prompt "Explain why the sky is blue." --max-new-tokens 24
+$env:NPU_ONNX_MODEL = "$PWD/dist/smollm2-onnx"
+python -m src.export.cli prepare-onnx prepare
+python -m src.runtime.cli reference --backend cpu --prompt "Explain why the sky is blue." --max-new-tokens 24
 ```
 
 `prepare` downloads only the pinned upstream files, checks their identities,
@@ -67,8 +67,8 @@ initial build can take hours. Copy its `libonnxruntime.so.1.20.1` and
 For example, from the repository root on the host:
 
 ```powershell
-New-Item -ItemType Directory -Force mount/onnx-runtime-build | Out-Null
-$taskOutput = (Resolve-Path mount/onnx-runtime-build).Path
+New-Item -ItemType Directory -Force dist/onnx-runtime-build | Out-Null
+$taskOutput = (Resolve-Path dist/onnx-runtime-build).Path
 $taskScript = (Resolve-Path src/runtime/build_onnxruntime_arm.sh).Path
 docker run --name smollm-ort-arm-build --mount "type=bind,source=$taskOutput,target=/work" --mount "type=bind,source=$taskScript,target=/build.sh,readonly" ubuntu:22.04 bash /build.sh
 New-Item -ItemType Directory -Force "$env:NPU_ONNX_MODEL/onnx-runtime" | Out-Null
@@ -86,7 +86,7 @@ Load any connection password from `.env` through `PYNQ_PASSWORD`.
 export NPU_ONNX_MODEL=/path/to/smollm2-onnx
 export NPU_OVERLAY=/path/to/npu_matrix.bit
 bash src/runtime/build_onnxruntime_bridge.sh
-python -m src.inference.cli reference --backend pynq \
+python -m src.runtime.cli reference --backend pynq \
   --prompt "write a paragraph about npu" --max-new-tokens 32
 ```
 
@@ -106,9 +106,9 @@ generation cell is editable. The equivalent board API is:
 import os
 from pathlib import Path
 from pynq import Overlay
-from src.inference.engine import ONNXReferenceEngine
-from src.runtime.compiled import NativeOrtOperators
-from src.runtime.isa_runtime import NpuGemm
+from src.test.model.onnx_reference import ONNXReferenceEngine
+from src.runtime.cpu.ort import NativeOrtOperators
+from src.vendors.npu_pynq.driver.isa import NpuGemm
 
 model = Path(os.environ["NPU_ONNX_MODEL"])
 ops = NativeOrtOperators(model / "onnx-ops",
@@ -146,7 +146,7 @@ Relocation checks passed on 2026-10-09:
 
 ## MLIR/LLVM compiled upstream ONNX model
 
-The compiled frontend is `src/models/smollm/model.py`. It imports the pinned
+The compiled frontend is `src/export/graphs/smollm/model.py`. It imports the pinned
 ONNX weights and emits the forward graph into the existing MLIR NPU partition,
 ISA lowering and LLVM ARM pipeline. `LLMEngine` calls compiled ARM
 entry points directly. Native ORT 1.20.1 float kernels are explicit external
@@ -159,9 +159,9 @@ operator object and the compiled package in an LLVM 22 environment:
 
 ```bash
 arm-linux-gnueabihf-gcc -std=c11 -O2 -fPIC \
-  -I "$MODEL_DIR/onnx-runtime" -c src/runtime/c/onnx_compiled_ops.c \
+  -I "$MODEL_DIR/onnx-runtime" -c src/runtime/cpu/onnx_ops.c \
   -o /tmp/onnx_compiled_ops.o
-python -m src.inference.cli export smollm --source "$MODEL_DIR/onnx/model_int8.onnx" \
+python -m src.export.cli export smollm --source "$MODEL_DIR/onnx/model_int8.onnx" \
   --out "$COMPILED_PACKAGE" --native-object /tmp/onnx_compiled_ops.o \
   --prefill-lengths 36,40,42
 ```
@@ -170,7 +170,7 @@ Keep the compiled package and matching ISA overlay outside `exp/`. On the board:
 
 ```bash
 export XILINX_XRT=/usr
-python -m src.inference.cli run --chat --backend pynq \
+python -m src.runtime.cli run --chat --backend pynq \
   --package "$COMPILED_PACKAGE" --overlay "$NPU_OVERLAY" \
   --prompt "write a paragraph about npu" --max-new-tokens 32
 ```
@@ -209,20 +209,20 @@ existing engine. The unchanged operator interpreter is the explicit reference
 path. Native C kernels retain their ABI and quantization semantics.
 
 ```bash
-python -m src.inference.cli prepare-onnx prepare --model-dir "$MODEL_DIR"
-python -m src.inference.cli export smollm \
+python -m src.export.cli prepare-onnx prepare --model-dir "$MODEL_DIR"
+python -m src.export.cli export smollm \
   --source "$MODEL_DIR/onnx/model_int8.onnx" --native-object "$NATIVE_OBJECT" --out "$PACKAGE"
-python -m src.inference.cli run "$PACKAGE" --backend pynq --overlay "$OVERLAY" \
+python -m src.runtime.cli run "$PACKAGE" --backend pynq --overlay "$OVERLAY" \
   --chat --stream --prompt "write a paragraph about npu" --max-new 24
 ```
 
 ## Release CD: deterministic interactive generation
 
 The source interface now follows commit `778c90c5d8340c362972a627c18eb27580d2251c`:
-`src.inference.cli` calls `src.compiler.export.export()` for every format.
+`src.export.cli` calls `src.export.cli.export()` for every format.
 The exporter accepts an existing `ModelGraph` or a source path plus a model
-frontend. `src.models.smollm.model.build()` detects ONNX and safetensors sources,
-and `src.inference.weights.load_weights()` supplies their initializer arrays.
+frontend. `src.export.graphs.smollm.model.build()` detects ONNX and safetensors sources,
+and `src.export.core.model_loader.load_weights()` supplies their initializer arrays.
 Both frontends produce `ModelGraph` and use the same partition, weight packing,
 ISA lowering, LLVM code generation and manifest packaging. The quantized ONNX
 frontend supports the pinned SmolLM topology; this is not an arbitrary ONNX
@@ -230,9 +230,9 @@ graph importer. It retains original quantization and native float operator
 semantics rather than requantizing into checkpoint arithmetic.
 
 Both packages use `LLMEngine`, `Tokenizer`, `Sampler`, `GenerationStats` and
-`CompiledModel`. Entry-point argument names and full-prompt prefill lengths
+`Package`. Entry-point argument names and full-prompt prefill lengths
 are metadata, not a second engine. Native dependencies and operator lifecycle
-hooks are handled by `CompiledModel`; the tokenizer reads the ChatML default
+hooks are handled by `Package`; the tokenizer reads the ChatML default
 system prefix from `tokenizer_config.json`. The original scalar-token ABI and
 legacy `state` placeholder remain readable. Historical names remain readable for saved notebooks; canonical callers use
 `LLMEngine` and `Tokenizer`.
@@ -240,7 +240,7 @@ legacy `state` placeholder remain readable. Historical names remain readable for
 Canonical calls use no official format branch:
 
 ```python
-from src.compiler.export import export
+from src.export.cli import export
 export('/path/to/model.safetensors', '/path/to/checkpoint-package', model='smollm')
 export('/path/to/model_int8.onnx', '/path/to/onnx-package', model='smollm',
        native_object='/path/to/arm-native-kernels.o')
@@ -252,7 +252,7 @@ The `reference` command remains an independent diagnostic interpreter.
 `--format onnx` is optional for `.onnx` sources.
 
 The common exporter rebuilt the full ONNX package in
-`mount/smollm-unified-20261010/`. MLIR, ARM library, weights and ISA programs
+`dist/smollm-unified-20261010/`. MLIR, ARM library, weights and ISA programs
 are byte-identical to the accepted package; only manifest metadata changed.
 Physical run `cd-smollm-unified-20261010` used the shared engine and rebuilt
 package metadata, matching all 32 frozen IDs/text with 1,101,600 jobs and zero
@@ -313,8 +313,8 @@ This local run used uncommitted integration source and previously built model
 assets; it is not evidence of a fresh release build or a GitHub CD run.
 
 The obsolete `src/model/` and `src/export/` directories contained only ignored
-Python bytecode caches and were removed. Keep active `src/models/`,
-`src/compiler/export.py` and archived `src/deprecate/` sources; existing examples
+Python bytecode caches and were removed. Keep active `src/export/graphs/`,
+`src/export/` and archived `src/deprecate/` sources; existing examples
 still depend on the archive.
 
 ## ONNX naming
