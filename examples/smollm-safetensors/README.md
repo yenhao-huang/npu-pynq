@@ -4,10 +4,12 @@
 
 ## Validation status
 
-**PASS on PYNQ-Z1, 2026-10-25.** All five notebook code cells completed in a
+**Initial validation passed on PYNQ-Z1, 2026-10-25.** All five code cells completed in a
 fresh root kernel. The notebook loaded 272 tensors from the full 30-layer
 checkpoint and generated 32 tokens matching the independent ARM ISA reference.
 The physical NPU reported 4,114 calls, 1,414,944 jobs and zero ISA errors.
+The current notebook is simplified to load and run, without deployment hashes
+or reference-token checks; it has not been rerun on the board after that edit.
 No shared source was changed. See [board evidence and limitations](docs/board-run/README.md).
 
 The validated notebook is deployed at:
@@ -25,12 +27,12 @@ W8A8 linear/embedding weights and FP32 KV cache. No ONNX model or JIT interprete
 is used. The host compiles safetensors into an AOT package; the board notebook
 reads the original safetensors and runs that package on the physical NPU.
 
-Host frontend: Python 3.12+, NumPy, nbformat. Compiler: Linux with LLVM/MLIR 22,
+Host frontend: Python 3.12+ and NumPy. Compiler: Linux with LLVM/MLIR 22,
 Clang, lld, CMake and a C++ compiler. The existing source does not provide a
-native Windows compiler target. macOS frontend staging is supported; use a
-Linux compiler host for the documented ARM package workflow.
+native Windows compiler target. Run the source CLI on a Linux compiler host;
+Windows and macOS can deploy the resulting ARM package.
 
-Board: PYNQ-Z1, PYNQ Python with NumPy, nbformat, nbclient, ipykernel, root kernel,
+Board: PYNQ-Z1, PYNQ Python with NumPy, ipykernel, root kernel,
 SSH access, and enough SD space for the original 269 MB checkpoint plus the
 136 MB compiled weights. Commands below start at the repository root.
 Model assets and generated graph files stay ignored in `model/`; deployment
@@ -41,7 +43,7 @@ Create a local Python environment before the commands below:
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install numpy==1.26.4 nbformat==5.10.4
+python -m pip install numpy==1.26.4
 ```
 
 Install the LLVM/MLIR 22 and CMake build prerequisites described in the
@@ -74,28 +76,45 @@ The package geometry check rejects a mismatched overlay. Copy the pair to
 On Linux with Python 3.12 and LLVM 22 installed:
 
 ```bash
-python examples/smollm-safetensors/scripts/download_model.py
+curl --fail --location --retry 3 --create-dirs --output "examples/smollm-safetensors/model/checkpoint/#1" "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f77366fa6b3b4b768ec3050bf629380bac/{config.json,tokenizer.json,tokenizer_config.json,model.safetensors}"
 export NPU_LLVM_BIN=/usr/lib/llvm-22/bin
 export NPU_BUILD_JOBS=4
-python examples/smollm-safetensors/scripts/convert_model.py build
+export NPU_SMOLLM_CHECKPOINT="$PWD/examples/smollm-safetensors/model/checkpoint"
+export NPU_COMPILED_PACKAGE="$PWD/dist/smollm-safetensors/package"
+
+python -m src.export.cli export smollm \
+  --format safetensors --source "$NPU_SMOLLM_CHECKPOINT" \
+  --out "$NPU_COMPILED_PACKAGE" --targets host,pynq \
+  --bits 8 --embed-bits 8 --kv f32 --attention online \
+  --chunk 16 --max-seq 512
+
+cp "$NPU_SMOLLM_CHECKPOINT/tokenizer_config.json" "$NPU_COMPILED_PACKAGE/"
 ```
 
-For a split frontend/compiler workflow, use `stage` on a Python 3.12 host,
-transfer `examples/smollm-safetensors/model/graph/` and `model/checkpoint/` to
-the same paths on the Linux compiler host, then run `compile`. The interchange
-contains MLIR, JSON and NumPy arrays; it does not modify shared source.
-The compile phase also works with Python 3.11 and NumPy.
+The single curl command downloads all four files at the pinned revision.
+Pinned file hashes are recorded in `model-source.json` for reference.
+The model is loaded, quantized and compiled directly by `src.export.cli`; no example-local
+Python build script or staged graph is required. Omitting `--layers` keeps all
+30 layers. The source frontend bundles `tokenizer.json`; copy the original
+`tokenizer_config.json` as shown so the runtime also applies the model's chat
+template. This copies a model asset without changing `src/`.
 
 ## Packaging
 
-```bash
-python examples/smollm-safetensors/package_example.py \
-  --overlay build/smollm-safetensors/npu_matrix.bit
-```
+Use a new deployment directory and copy the runtime, model, notebook and overlay
+in nine lines. Shared source files are copied unchanged.
 
-The destination must be unused. The package builder copies shared source byte
-for byte, checkpoint, compiled package, notebook and overlay, and seals their
-hashes in `deployment.json`. It does not include JIT or the compiler toolchain.
+```bash
+board=dist/smollm-safetensors/board
+mkdir -p "$board/src/vendors/npu_pynq" "$board/src/export/core"
+cp -R dist/smollm-safetensors/package "$board/"
+cp -R examples/smollm-safetensors/model/checkpoint "$board/"
+cp examples/smollm-safetensors/smollm_safetensors.ipynb "$board/"
+cp -R src/runtime "$board/src/"
+cp -R src/vendors/npu_pynq/isa src/vendors/npu_pynq/driver "$board/src/vendors/npu_pynq/"
+cp src/export/core/model_loader.py "$board/src/export/core/"
+cp build/smollm-safetensors/npu_matrix.bit build/smollm-safetensors/npu_matrix.hwh "$board/"
+```
 
 ## Deployment and board test
 
@@ -104,7 +123,7 @@ ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/smollm-safetensors'
 scp -r dist/smollm-safetensors/board/. \
   xilinx@192.168.2.99:~/jupyter_notebooks/smollm-safetensors/
 ssh -t xilinx@192.168.2.99 \
-  'cd ~/jupyter_notebooks/smollm-safetensors && sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 execute_notebook.py'
+  'cd ~/jupyter_notebooks/smollm-safetensors && sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli run package --backend pynq --overlay npu_matrix.bit --chat --stream --prompt "Write a paragraph about a neural processing unit (NPU)." --max-new 32'
 ```
 
 ## Notebook handoff
@@ -112,18 +131,10 @@ ssh -t xilinx@192.168.2.99 \
 Open `smollm_safetensors.ipynb` in the deployed directory through the board's
 Jupyter server. Select the root PYNQ Python kernel and choose **Run All**.
 Defaults are relative to the notebook directory; `NPU_SMOLLM_DEMO` can override
-it. The notebook verifies every sealed file, reads actual safetensors tensor
-values, loads all 30 compiled layers, generates 32 tokens, compares the default
-prompt against the ARM ISA reference and requires physical NPU calls/jobs with
-zero ISA errors. Prompt and generation length are editable.
-The final cell releases CMA buffers.
-
-`execute_notebook.py` runs that same notebook in a fresh kernel and writes
-`smollm_safetensors.executed.ipynb`, including failures. `result.json` records
-checkpoint identity, generated tokens, timings and NPU counters. Keep the
-repository notebook output-free; executed outputs are deployment artifacts.
-Generation is greedy. Successful execution proves model loading and physical
-execution; response quality is not evaluated by this example.
+it. The notebook loads the original safetensors, opens the compiled full model
+and physical overlay, then streams a generated response and prints runtime
+statistics. Edit the prompt and token limit in the generation cell. The final
+cell releases CMA buffers. Keep the repository notebook output-free.
 
 ## Release CD
 
