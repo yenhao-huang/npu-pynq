@@ -1,0 +1,412 @@
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+import zipfile
+
+import numpy as np
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
+EXAMPLE_ROOT = REPOSITORY_ROOT / "src" / "jit" / "examples" / "resnet18"
+CD_DEPLOYER = (
+    REPOSITORY_ROOT / "src" / "jit" / "delivery" / "resnet18_deploy.ps1"
+)
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from src.jit.export.resnet import export_model
+from src.jit.model.package import REQUIRED_ABI_MAJOR, REQUIRED_CAPABILITIES
+from src.jit.runtime.model import NPUModelRuntime, load_model_package
+from src.jit.runtime.overlay.build import write_manifest
+from src.jit.tests.resnet18_fixture import (
+    make_reduced_resnet18_graph,
+    write_canonical_json,
+    write_deterministic_npz,
+)
+from src.jit.tests.test_verify_overlay import HWH
+
+
+def load_module(name: str, path: Path):
+    specification = importlib.util.spec_from_file_location(name, path)
+    if specification is None or specification.loader is None:
+        raise AssertionError(f"cannot import {path}")
+    module = importlib.util.module_from_spec(specification)
+    sys.modules[name] = module
+    specification.loader.exec_module(module)
+    return module
+
+
+def digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+class MatrixFake:
+    abi_major = REQUIRED_ABI_MAJOR
+    capabilities = REQUIRED_CAPABILITIES
+    max_m = 2
+    max_n = 2
+    max_k = 256
+
+    def __init__(self, cycles=5):
+        self.cycles = cycles
+
+    def run(self, a, b, **_timeouts):
+        if _timeouts.get("hardware_timeout_cycles") == 1:
+            raise TimeoutError("injected physical accelerator timeout")
+        self.last_metrics = SimpleNamespace(cycles=self.cycles)
+        return np.asarray(a, dtype=np.int32) @ np.asarray(b, dtype=np.int32)
+
+
+class ResNet18DeliveryTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.artifacts = self.root / "artifacts"
+        self.reports = self.root / "reports"
+        self.bundle_root = self.root / "bundle"
+        self.artifacts.mkdir()
+        self.reports.mkdir()
+        self.bundle_root.mkdir()
+        (self.artifacts / "npu_matrix.bit").write_bytes(b"trusted-bit")
+        (self.artifacts / "npu_matrix.hwh").write_text(HWH, encoding="utf-8")
+        self.commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPOSITORY_ROOT,
+            text=True,
+        ).strip()
+        write_manifest(
+            self.artifacts,
+            source_commit=self.commit,
+            vivado_version="2026.1",
+        )
+        self._write_reports()
+        self.graph = make_reduced_resnet18_graph("delivery")
+        package = export_model(self.graph, self.bundle_root / "model")
+        model = load_model_package(package.manifest_path)
+        inputs = np.stack(
+            (
+                np.full((1, 8, 8, 1), -1, dtype=np.int8),
+                np.full((1, 8, 8, 1), 2, dtype=np.int8),
+            )
+        )
+        runtime = NPUModelRuntime(MatrixFake(), model)
+        outputs = np.stack([
+            runtime.run({self.graph.inputs[0]: source}).outputs[self.graph.outputs[0]]
+            for source in inputs
+        ])
+        corpus = self.bundle_root / "corpus.npz"
+        write_deterministic_npz(
+            corpus,
+            {
+                "expected_outputs": outputs,
+                "inputs": inputs,
+                "labels": np.argmax(outputs.reshape(2, -1), axis=1).astype(np.int64),
+                "sample_ids": np.array(["a", "b"]),
+            },
+        )
+        self.descriptor = self.bundle_root / "acceptance.json"
+        write_canonical_json(
+            self.descriptor,
+            {
+                "assets": {
+                    "corpus": self.asset(corpus),
+                    "model_manifest": self.asset(package.manifest_path),
+                    "model_payload": self.asset(package.payload_path),
+                },
+                "capture_tensors": [],
+                "class_count": 2,
+                "format": {"major": 1, "minor": 0},
+                "magic": "NPU_RESNET18_ACCEPTANCE",
+                "reference": {
+                    "framework": "fixture",
+                    "model_id": "reduced-resnet18",
+                    "preprocessing_id": "signed-int8-v1",
+                    "version": "1",
+                },
+                "sample_count": 2,
+                "thresholds": {
+                    "exact_output_min": 1.0,
+                    "require_cycles": True,
+                    "top1_min": 1.0,
+                },
+            },
+        )
+        self.packager = load_module(
+            "resnet18_package_example", EXAMPLE_ROOT / "package_example.py"
+        )
+        self.board = load_module(
+            "resnet18_run_on_board", EXAMPLE_ROOT / "run_on_board.py"
+        )
+
+    def _write_reports(self):
+        evidence = (
+            "vivado=2026.1\n"
+            "part=xc7z020clg400-1\n"
+            "wns=0.250\n"
+            "setup_failing_paths=0\n"
+            "drc_errors=0\n"
+            f"bit={self.artifacts / 'npu_matrix.bit'}\n"
+            f"hwh={self.artifacts / 'npu_matrix.hwh'}\n"
+            f"source_commit={self.commit}\n"
+        )
+        (self.reports / "build_evidence.txt").write_text(evidence, encoding="utf-8")
+        for name in self.report_names()[1:]:
+            (self.reports / name).write_text(f"trusted {name}\n", encoding="utf-8")
+
+    @staticmethod
+    def report_names():
+        return (
+            "build_evidence.txt", "drc_routed.rpt", "route_status.rpt",
+            "timing_summary_routed.rpt", "utilization_impl.rpt",
+            "utilization_synth.rpt",
+        )
+
+    @staticmethod
+    def asset(path):
+        return {
+            "bytes": path.stat().st_size,
+            "filename": path.name,
+            "sha256": digest(path),
+        }
+
+    def build(self, path: Path):
+        return self.packager.build_archive(
+            repository_root=REPOSITORY_ROOT,
+            artifact_dir=self.artifacts,
+            report_dir=self.reports,
+            descriptor_path=self.descriptor,
+            output_archive=path,
+            release_tag="v0.2.0",
+            source_commit=self.commit,
+        )
+
+    def extract(self, archive: Path) -> Path:
+        target = self.root / f"extract-{archive.stem}"
+        with zipfile.ZipFile(archive) as stream:
+            stream.extractall(target)
+        return target
+
+    def test_reports_of_a_reused_overlay_are_recovered_from_its_package(self):
+        recovery = load_module(
+            "recover_overlay_reports",
+            REPOSITORY_ROOT / "src" / "jit" / "delivery" / "recover_overlay_reports.py",
+        )
+        archive = self.root / "candidate.zip"
+        self.build(archive)
+        reused = self.root / "reused-reports"
+        reused.mkdir()
+        shutil.copy2(self.reports / "build_evidence.txt", reused)
+        written = recovery.recover(archive, self.artifacts, reused)
+        self.assertEqual(written, list(recovery.REQUIRED_REPORTS[1:]))
+        for name in recovery.REQUIRED_REPORTS:
+            self.assertEqual(
+                (reused / name).read_bytes(), (self.reports / name).read_bytes()
+            )
+        # Another build's evidence binds nothing, and nothing is written.
+        other = self.root / "other-reports"
+        other.mkdir()
+        (other / "build_evidence.txt").write_text("another build\n", encoding="utf-8")
+        with self.assertRaises(recovery.RecoveryError):
+            recovery.recover(archive, self.artifacts, other)
+        self.assertEqual(sorted(p.name for p in other.iterdir()), ["build_evidence.txt"])
+
+    def test_a_reused_overlay_is_recorded_as_the_overlay_source(self):
+        release = "f" * 40
+        with self.assertRaises(self.packager.ResNet18PackageError):
+            self.packager.build_archive(
+                repository_root=REPOSITORY_ROOT,
+                artifact_dir=self.artifacts,
+                report_dir=self.reports,
+                descriptor_path=self.descriptor,
+                output_archive=self.root / "mismatch.zip",
+                release_tag="v0.2.0",
+                source_commit=release,
+            )
+        manifest = self.packager.build_archive(
+            repository_root=REPOSITORY_ROOT,
+            artifact_dir=self.artifacts,
+            report_dir=self.reports,
+            descriptor_path=self.descriptor,
+            output_archive=self.root / "reused.zip",
+            release_tag="v0.2.0",
+            source_commit=release,
+            overlay_commit=self.commit,
+        )
+        self.assertEqual(manifest["source_commit"], release)
+        self.assertEqual(manifest["overlay"]["source_commit"], self.commit)
+
+    def test_archive_is_reproducible_allowlisted_and_path_free(self):
+        first = self.root / "first.zip"
+        second = self.root / "second.zip"
+        manifest = self.build(first)
+        self.build(second)
+        self.assertEqual(first.read_bytes(), second.read_bytes())
+        with zipfile.ZipFile(first) as archive:
+            names = archive.namelist()
+            self.assertEqual(names, sorted(names))
+            self.assertIn("resnet18.ipynb", names)
+            self.assertTrue(all(not name.startswith(("/", "\\")) for name in names))
+            self.assertNotIn(str(REPOSITORY_ROOT).encode(), first.read_bytes())
+        self.assertEqual(manifest["vivado_gates"]["drc_errors"], 0)
+        report_records = json.loads(
+            zipfile.ZipFile(first).read("reports/reports.manifest.json")
+        )["files"]
+        self.assertEqual(
+            [record["path"] for record in report_records],
+            sorted(self.report_names()),
+        )
+
+    def test_notebook_is_well_formed_and_uses_public_runtime(self):
+        notebook_path = EXAMPLE_ROOT / "resnet18.ipynb"
+        notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+        self.assertEqual(notebook["nbformat"], 4)
+        code_cells = [
+            cell for cell in notebook["cells"] if cell["cell_type"] == "code"
+        ]
+        self.assertGreaterEqual(len(code_cells), 4)
+        # Committed outputs are allowed here; see docs/rules/filetree.md.
+        for cell in code_cells:
+            self.assertIsInstance(cell.get("outputs"), list)
+            self.assertIsInstance(cell.get("execution_count"), (int, type(None)))
+        source = "\n".join(
+            "".join(cell.get("source", [])) for cell in notebook["cells"]
+        )
+        for required in (
+            "load_model_package",
+            "load_pynq_runtime",
+            "NPUModelRuntime",
+            "physical_jobs",
+            "decode_logits",
+        ):
+            self.assertIn(required, source)
+        for forbidden in (".mmio", "sendchannel", "recvchannel", "allocate("):
+            self.assertNotIn(forbidden, source)
+
+    def test_package_verification_precedes_board_execution(self):
+        archive = self.root / "package.zip"
+        self.build(archive)
+        extracted = self.extract(archive)
+        verified = self.board.verify_package_tree(
+            extracted,
+            archive_path=archive,
+            expected_archive_sha256=digest(archive),
+        )
+        evidence = self.board.execute_board_acceptance(
+            verified,
+            MatrixFake(),
+            evidence_path=extracted / "board-evidence.json",
+        )
+        self.assertEqual(evidence["evidence_type"], "board-acceptance")
+        self.assertEqual(evidence["provenance"]["physical"]["limits"], [2, 2, 256])
+        self.assertEqual(
+            evidence["provenance"]["recovery_probe"]["kind"],
+            "physical-accelerator-timeout",
+        )
+        self.assertEqual(len(evidence["provenance"]["reports"]), 6)
+        self.assertGreater(evidence["performance"]["physical_cycles"], 0)
+
+        unexpected = extracted / "unexpected.py"
+        unexpected.write_text("pass\n", encoding="utf-8")
+        with self.assertRaisesRegex(self.board.BoardAcceptanceError, "unexpected"):
+            self.board.verify_package_tree(
+                extracted,
+                archive_path=archive,
+                expected_archive_sha256=digest(archive),
+            )
+
+    def test_archive_or_report_gate_failure_publishes_nothing(self):
+        archive = self.root / "package.zip"
+        self.build(archive)
+        extracted = self.extract(archive)
+        with self.assertRaisesRegex(self.board.BoardAcceptanceError, "archive digest"):
+            self.board.verify_package_tree(
+                extracted,
+                archive_path=archive,
+                expected_archive_sha256="0" * 64,
+            )
+        (self.reports / "build_evidence.txt").write_text(
+            (self.reports / "build_evidence.txt").read_text(encoding="utf-8").replace(
+                "drc_errors=0", "drc_errors=1"
+            ),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(self.packager.ResNet18PackageError, "gates"):
+            self.build(self.root / "failed.zip")
+        self.assertFalse((self.root / "failed.zip").exists())
+
+    def test_deployment_dry_run_has_no_network_effect(self):
+        powershell = shutil.which("pwsh") or shutil.which("powershell")
+        self.assertIsNotNone(powershell)
+        archive = self.root / "package.zip"
+        self.build(archive)
+        result = subprocess.run(
+            [
+                str(powershell), "-NoProfile", "-File",
+                str(CD_DEPLOYER),
+                "-PackageArchive", str(archive),
+                "-ReleaseTag", "v0.2.0",
+                "-DeploymentId", "dry-run",
+                "-DryRun",
+            ],
+            cwd=REPOSITORY_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("no network command was executed", result.stdout)
+
+    def test_deployment_proves_the_tree_before_promotion(self):
+        script = CD_DEPLOYER.read_text(encoding="utf-8")
+        proof = script.index("--archive-sha256 '$archiveDigest'")
+        verify_only = script.index("--verify-only")
+        promotion = script.index("mv '$remoteStaging' '$remoteDeployment'")
+        self.assertLess(proof, promotion)
+        self.assertLess(verify_only, promotion)
+
+    def test_verify_only_proves_the_tree_and_runs_nothing(self):
+        archive = self.root / "package.zip"
+        self.build(archive)
+        extracted = self.root / "verify-only"
+        with zipfile.ZipFile(archive) as bundle:
+            bundle.extractall(extracted)
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(extracted)
+        command = [
+            sys.executable, "-B", str(extracted / "run_on_board.py"),
+            "--package-root", str(extracted),
+            "--package-archive", str(archive),
+            "--archive-sha256", digest,
+            "--verify-only",
+        ]
+        result = subprocess.run(
+            command, cwd=extracted, env=environment,
+            check=False, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("matches the published archive", result.stdout)
+        self.assertEqual(
+            sorted(path.name for path in extracted.glob("*evidence*.json")), []
+        )
+        (extracted / "artifacts" / "npu_matrix.hwh").write_bytes(b"tampered")
+        tampered = subprocess.run(
+            command, cwd=extracted, env=environment,
+            check=False, capture_output=True, text=True,
+        )
+        self.assertNotEqual(tampered.returncode, 0)
+
+
+if __name__ == "__main__":
+    unittest.main()
