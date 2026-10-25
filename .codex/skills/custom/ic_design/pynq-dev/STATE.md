@@ -1,5 +1,24 @@
 # PYNQ Development State
 
+Run ID: issue119-onnx-mlir-20261025
+Instance: `.codex/skills/custom/ic_design/pynq-dev`
+Started: 2026-10-25
+Scope: Implement the approved ONNX-MLIR plan, starting with compatibility and import.
+OpenSpec change: `incorporate-onnx-mlir`
+
+Last updated: 2026-10-25
+
+| Step | Status | Evidence | Notes |
+| --- | --- | --- | --- |
+| 0. Define Scope | completed | Approved plan: `docs/plans/onnx-mlir-incoporate/plan.md`; user requested implementation. | Existing #119 is open, assigned to yenhao-huang, claimed by agent a; branch `npu/issue119-a` in its dedicated worktree. No new branch or commit. |
+| 1. Read Context and Rules | completed | Read skills, convention, filetree, state/environment, matrix, validation, and issue rules. | Export/compiler and eventual runtime/examples/board affected. Large pre-existing staged/unstaged changes are preserved. |
+| 2. Prepare OpenSpec Change | completed | OpenSpec 1.15.0 strict validation passed; apply instructions report ready; all returned context files read. | Selected change: `incorporate-onnx-mlir`, 0/11 tasks complete. |
+| 3. Implement | blocked | Tasks 1.1-1.3 completed: new `src/export/compilers/onnx_mlir/`, focused import tests, `docs/onnx-mlir/README.md`, and filetree documentation. | Task 1.4: pinned upstream image lacks ARM target; LLVM 24/22 interchange unverified. Production export, vendor, driver, RTL and ORT sources unchanged by this run. |
+| 4. Validate | blocked | 18 focused/import/boundary tests passed with `NPU_TEST_ONNX_MLIR=1`; existing compiler/boundary tests: 19 run, 8 skipped (native LLVM absent). Real pinned SmolLM2 import succeeded, producing `build/onnx-mlir/smollm-import/model.onnx.mlir`; source hash matches pin. Strict OpenSpec validation passed. | ARM Sigmoid object generation fails: `No available targets are compatible with triple armv7-unknown-linux-gnueabihf`. Full numeric, partition and board gates outstanding. RTL lint/sim not applicable to this import-only change; no push requested. |
+| 5. Handoff | completed | OpenSpec records 3/11 tasks complete, remaining gates explicit. Tool and command documentation in `docs/onnx-mlir/README.md`. User authorized a local commit containing only this change. | Next: provide an ARM-enabled compiler build and prove the unchanged NPU input boundary before production integration. No push/PR/merge. |
+
+## Previous Run Record
+
 Run ID: issue47-real-resnet18-20260903
 Instance: `.codex/skills/custom/ic_design/pynq-dev`
 Started: 2026-09-03T23:42:00+08:00

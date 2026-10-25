@@ -157,6 +157,13 @@ npu_repo_in_pynq/
 `-- mount/
 ```
 
+The ONNX-MLIR integration under `src/export/compilers/onnx_mlir/` owns pinned
+compiler invocation, source inventory, and compatibility diagnostics. It imports
+neither model frontends nor vendor modules. The standalone import stage does
+not replace production export. Tool builds and generated IR stay ignored under
+`build/`; instructions and compatibility evidence live under `docs/onnx-mlir/`.
+Native compiler overrides are explicitly unverified.
+
 ## What each directory is for
 
 `src/hw/` is the NPU itself: everything Vivado reads. `rtl/` is synthesized;
