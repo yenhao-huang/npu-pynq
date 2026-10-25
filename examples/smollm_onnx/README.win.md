@@ -18,6 +18,43 @@ Keep the source checkout at the same commit as the package. The board needs
 PYNQ, XRT and its existing Python environment.
 Windows Vivado supports overlay builds. Native Windows AOT compilation is not supported by the current host target; use Linux for model compilation and the ARM ONNX Runtime build. No local Linux shell is needed for the deployment below.
 
+## Optional ONNX-MLIR import check
+
+The production package still uses the ORT bridge. The new ONNX-MLIR path can
+inventory and import the source to MLIR from native PowerShell, but it does
+not yet produce an ARM/NPU package. The pinned compiler uses LLVM 24, lacks
+an ARM target, and leaves 151 custom operations requiring conversion. The
+existing NPU toolchain uses LLVM 22; interchange remains unverified.
+
+For this local check, use Python 3.10–3.12 and Docker Desktop with Linux
+containers. If you already have a Python environment with ONNX 1.17.0, use
+that interpreter instead of creating the environment below. The original
+ONNX source is required; the compiled deployment package is not its replacement.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install onnx==1.17.0
+$env:NPU_ONNX_MODEL = Join-Path $PWD 'dist/smollm2-onnx'
+.\.venv\Scripts\python.exe -m src.export.cli prepare-onnx fetch
+$onnxMlirImage = (Get-Content -Raw src/export/compilers/onnx_mlir/toolchain.json | ConvertFrom-Json).image
+docker pull --platform linux/amd64 $onnxMlirImage
+.\.venv\Scripts\python.exe -m src.export.compilers.onnx_mlir.pipeline `
+  --source "$env:NPU_ONNX_MODEL/onnx/model_int8.onnx" `
+  --out build/onnx-mlir/smollm-inspect --inventory-only
+.\.venv\Scripts\python.exe -m src.export.compilers.onnx_mlir.pipeline `
+  --source "$env:NPU_ONNX_MODEL/onnx/model_int8.onnx" `
+  --out build/onnx-mlir/smollm-import-check
+```
+
+Use new or empty output directories. Check `inventory.json` for conversion
+gaps and `import.json` for the stage result. A successful import emits
+`model.onnx.mlir`, but `compile_ready` remains false; partition, codegen, and
+board validation remain `not-run`. Nothing is dispatched to the FPGA.
+
+See the [import guide](../../docs/onnx-mlir/README.md) and
+[integration plan](../../docs/plans/onnx-mlir-incoporate/plan.md). Continue with
+the Linux-built production package for deployment and notebook validation.
+
 ## 1. Check inputs and deploy
 
 ```powershell

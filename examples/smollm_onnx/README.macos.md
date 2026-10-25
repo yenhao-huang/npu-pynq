@@ -18,6 +18,46 @@ Keep the source checkout at the same commit as the package. The board needs
 PYNQ, XRT and its existing Python environment.
 [AMD lists Windows and Linux as supported Vivado hosts](https://docs.amd.com/r/en-US/ug973-vivado-release-notes-install-license/Supported-Operating-Systems). Build the overlay on Linux; this guide deploys the prepared package from macOS without installing Vivado on the Mac.
 
+## Optional ONNX-MLIR import check
+
+The production package still uses the ORT bridge. The new ONNX-MLIR path
+inventories and imports the source to MLIR; it does not yet produce an
+ARM/NPU package. The pinned compiler uses LLVM 24, lacks an ARM target, and
+leaves 151 custom operations requiring conversion. The existing NPU toolchain
+uses LLVM 22; interchange remains unverified.
+
+For a local check, use Python 3.10–3.12 and Docker Desktop. The pinned image
+targets `linux/amd64`; Apple Silicon requires working amd64 container
+emulation. This import path has been tested on Windows with Linux containers,
+not on macOS. Keep using the Linux build guide for the production package.
+The original ONNX source is required in addition to any compiled package.
+
+Use an existing environment with ONNX 1.17.0, or create one:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install onnx==1.17.0
+export NPU_ONNX_MODEL="$PWD/dist/smollm2-onnx"
+.venv/bin/python -m src.export.cli prepare-onnx fetch
+onnx_mlir_image="$(.venv/bin/python -c 'import json; print(json.load(open("src/export/compilers/onnx_mlir/toolchain.json"))["image"])')"
+docker pull --platform linux/amd64 "$onnx_mlir_image"
+.venv/bin/python -m src.export.compilers.onnx_mlir.pipeline \
+  --source "$NPU_ONNX_MODEL/onnx/model_int8.onnx" \
+  --out build/onnx-mlir/smollm-inspect --inventory-only
+.venv/bin/python -m src.export.compilers.onnx_mlir.pipeline \
+  --source "$NPU_ONNX_MODEL/onnx/model_int8.onnx" \
+  --out build/onnx-mlir/smollm-import-check
+```
+
+Use new or empty output directories. `inventory.json` records conversion gaps;
+successful import produces `model.onnx.mlir`, `compiler.log`, and `import.json`.
+`compile_ready` remains false; partition, codegen, and board validation remain
+`not-run`. Nothing is dispatched to the FPGA.
+
+See the [import guide](../../docs/onnx-mlir/README.md) and
+[integration plan](../../docs/plans/onnx-mlir-incoporate/plan.md). Use the complete
+Linux-built package below for deployment and notebook validation.
+
 ## 1. Check inputs and deploy
 
 ```bash

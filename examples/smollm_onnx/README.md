@@ -6,8 +6,22 @@ This example compiles the pinned upstream SmolLM2 INT8 ONNX model ahead of time
 and generates text on the PYNQ-Z1 with the 16 x 16 ISA overlay. Integer
 contractions run on the NPU; floating-point operators run on the Cortex-A9
 through a pinned ARM build of ONNX Runtime 1.20.1. The graph keeps the model's
-original quantization. Run all commands from the repository root in Bash.
-On Windows, use a WSL Bash terminal with the required tools available there.
+original quantization. Run the production build commands below from the
+repository root in Bash on Linux. Native Windows and macOS deployment and
+optional import checks are covered by the linked platform guides.
+
+## Compiler status
+
+| Path | Current behavior |
+| --- | --- |
+| Production package, steps 1–5 | Existing SmolLM frontend, MLIR/LLVM 22, NPU ISA programs, and ARM ONNX Runtime 1.20.1 |
+| Optional ONNX-MLIR import | Produces ONNX dialect MLIR and diagnostics; does not produce a runnable package |
+
+The upstream ONNX-MLIR integration has imported the pinned model successfully.
+It still needs conversions for 151 custom operations, an ARM-enabled compiler
+build, and verification of the LLVM 24/22 interchange boundary. Keep the ORT
+build and bridge steps below for production inference. Import checks do not
+change the overlay, dispatch work to the NPU, or replace release acceptance.
 
 ## Requirements
 
@@ -85,20 +99,57 @@ export NPU_ONNX_MODEL="$PWD/dist/smollm2-onnx"
 python -m src.export.cli prepare-onnx prepare
 ```
 
-`prepare` downloads only the pinned upstream files into `$NPU_ONNX_MODEL`,
-checks their SHA-256 values, and exports the native ONNX Runtime operator
-sessions. Check generation on the host with the reference interpreter:
+`prepare` downloads the pinned upstream files into `$NPU_ONNX_MODEL` and checks
+their sizes and SHA-256 values. It extracts `onnx-graph/graph.json` and
+`onnx-graph/tensors.bin`, verifies the tensors against the source, and creates
+operator models under `onnx-ops/` for ONNX Runtime. The JSON graph is not MLIR;
+this step does not compile CPU code or NPU instructions.
+
+Check generation on the host with the reference interpreter:
 
 ```bash
 python -m src.runtime.cli reference --backend cpu \
   --prompt "Explain why the sky is blue." --max-new-tokens 24
 ```
 
+### Optional: inspect the ONNX-MLIR import
+
+After preparing the model, run these commands locally in the same Python
+environment. Docker must be running with Linux containers. The image is pinned
+by digest in the repository; pull it once before importing:
+
+```bash
+onnx_mlir_image="$(python -c 'import json; print(json.load(open("src/export/compilers/onnx_mlir/toolchain.json"))["image"])')"
+docker pull --platform linux/amd64 "$onnx_mlir_image"
+python -m src.export.compilers.onnx_mlir.pipeline \
+  --source "$NPU_ONNX_MODEL/onnx/model_int8.onnx" \
+  --out build/onnx-mlir/smollm-inspect --inventory-only
+python -m src.export.compilers.onnx_mlir.pipeline \
+  --source "$NPU_ONNX_MODEL/onnx/model_int8.onnx" \
+  --out build/onnx-mlir/smollm-import-check
+```
+
+Use new or empty output directories on each run. `inventory.json` records
+operators, shapes, attributes, and conversion gaps. A successful import also
+produces `model.onnx.mlir`, `compiler.log`, and `import.json`. The report keeps
+`compile_ready` false and partition/codegen/board validation as `not-run`;
+custom operations can remain as `onnx.Custom` in this IR.
+
+For a source-only investigation, `prepare-onnx fetch` can download the original
+assets without generating the ORT operator models. Complete `prepare-onnx
+prepare` before returning to the production build below. See the
+[import tool guide](../../docs/onnx-mlir/README.md) for verified results and the
+[integration plan](../../docs/plans/onnx-mlir-incoporate/plan.md) for remaining work.
+
 ## 3. Build ONNX Runtime for the Cortex-A9
 
 `src/runtime/build_onnxruntime_arm.sh` cross-builds the pinned ONNX Runtime for
 Cortex-A9 NEON hard-float in an Ubuntu 22.04 container. The first build can
 take hours.
+
+This builds the reusable execution library for CPU operators, not the model or
+FPGA logic. The `.so` is loaded on the board; the C header is used to compile
+the bridge in the next step. No files are transferred to the board here.
 
 ```bash
 mkdir -p dist/onnx-runtime-build
@@ -112,8 +163,7 @@ cp "$out/libonnxruntime.so.1.20.1" "$out/onnxruntime_c_api.h" "$NPU_ONNX_MODEL/o
 
 ## 4. Compile the package
 
-In the LLVM 22 environment, compile the native float operators and then the
-model:
+In the LLVM 22 environment, compile the C bridge object and then the model:
 
 ```bash
 export NPU_ONNX_MODEL="$PWD/dist/smollm2-onnx"
@@ -126,10 +176,19 @@ python -m src.export.cli export smollm \
   --out dist/smollm-package --prefill-lengths 36,40,42
 ```
 
+The SmolLM frontend constructs MLIR, then the existing partition pass selects
+NPU contractions. NPU lowering emits ISA programs and packs their weights.
+CPU code generation emits ARM code and links the bridge object so selected
+CPU operations can call ONNX Runtime. This production command does not yet
+use the optional upstream ONNX-MLIR importer.
+
 The package holds the ARM library, ISA programs, the original INT8 weights, the
 native float operator models and the ARM ONNX Runtime library. ONNX dynamic
 quantization scales over the whole prompt, so the runtime accepts only the
 compiled chat prompt lengths (`--prefill-lengths`, default 36, 40 and 42).
+These lengths count input tokens, not newly generated tokens. At runtime,
+compiled ARM code executes CPU work and submits NPU programs through the
+driver; CPU/NPU partition is already decided during compilation.
 
 ## 5. Deploy and run
 
@@ -138,6 +197,8 @@ Copy `src/`, the package and the overlay to the board:
 ```bash
 ssh xilinx@192.168.2.99 "mkdir -p ~/jupyter_notebooks/npu-smollm"
 scp -r src dist/smollm-package xilinx@192.168.2.99:~/jupyter_notebooks/npu-smollm/
+scp examples/smollm_onnx/smollm_onnx.ipynb \
+  xilinx@192.168.2.99:~/jupyter_notebooks/npu-smollm/
 scp build/vivado/npu_matrix_16x16/artifacts/npu_matrix.bit \
   build/vivado/npu_matrix_16x16/artifacts/npu_matrix.hwh \
   xilinx@192.168.2.99:~/jupyter_notebooks/npu-smollm/
