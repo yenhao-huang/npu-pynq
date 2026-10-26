@@ -36,6 +36,8 @@ and on what may not be added.
 
 ## Rules
 
+- planning document default at C:/Users/User/Desktop/agent_workspace/npu/npu_repo_in_pynq
+- Load the PYNQ password from the `PYNQ_PASSWORD` environment variable in the `.env` file.
 - Write in English: documentation, code comments and docstrings, commit
   messages, and issue and pull-request bodies. Quoted tool output, log
   excerpts, error strings, and a person's own words are reproduced verbatim in
@@ -94,6 +96,14 @@ and on what may not be added.
 
 Full Git rules:
 [docs/rules/git/](docs/rules/git/) — branches, commits, pull requests, issues.
+
+## GitHub authentication on Windows
+
+- The regular Windows `User` account has the persistent `gh` login. Codex's
+  `CodexSandboxOffline` account may report an invalid token after a restart.
+- If `gh auth status` fails in the sandbox, check it again with approved host-user
+  command execution and use that context for authorized GitHub operations.
+  Do not repeatedly log in inside the sandbox or expose tokens in chat.
 
 ## Commands
 
