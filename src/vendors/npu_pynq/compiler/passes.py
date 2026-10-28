@@ -1,5 +1,8 @@
-"""The NPU passes in ``npu-opt``: ``partition`` picks which contractions run
-on the NPU, ``lower`` turns them into ISA programs and C runtime calls.
+"""The NPU passes in ``npu-opt``. ``partition`` picks which contractions run
+on the NPU and splits the module into an NPU subgraph (``npu.module``) and a
+host subgraph that reaches it through ``npu.call``. The two are then lowered
+independently: ``encode`` turns the NPU subgraph into ISA programs, and
+``lower_host`` turns the host subgraph's task calls into C runtime calls.
 
 The LLVM toolchain belongs to src/export, which passes in how to find LLVM
 (``llvm_bin``) and how to run a tool (``run``); this module imports neither.
@@ -44,9 +47,15 @@ class NpuOpt:
         self.run([self.npu_opt(), str(module), f"--npu-partition=report={report} max-k={max_k}", "-o", str(out)],
                  "npu-partition")
 
-    def lower(self, module: Path, out: Path, weights: Path, programs: Path, rows: int = 16,
-              columns: int = 16, max_k: int = 256, segment_bytes: int = 4 << 20) -> None:
+    def encode(self, module: Path, out: Path, weights: Path, programs: Path, rows: int = 16,
+               columns: int = 16, max_k: int = 256, segment_bytes: int = 4 << 20) -> None:
+        """NPU subgraph: ISA programs at ``programs``.bin/.json; ``out`` is the npu.module alone."""
         self.run([self.npu_opt(), str(module),
-                  f"--npu-lower=weights={weights} programs={programs} rows={rows} columns={columns} max-k={max_k}"
+                  f"--npu-encode=weights={weights} programs={programs} rows={rows} columns={columns} max-k={max_k}"
                   f" segment-bytes={segment_bytes}",
-                  "--canonicalize", "-o", str(out)], "npu-lower")
+                  "-o", str(out)], "npu-encode")
+
+    def lower_host(self, module: Path, out: Path, weights: Path) -> None:
+        """Host subgraph: npu.call -> npu_rt_gemm, weights bound to the arena, npu.module dropped."""
+        self.run([self.npu_opt(), str(module), f"--npu-lower-host=weights={weights}",
+                  "--canonicalize", "-o", str(out)], "npu-lower-host")

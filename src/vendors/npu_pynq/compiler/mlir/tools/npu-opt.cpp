@@ -1,6 +1,6 @@
 //===- npu-opt.cpp - NPU partitioning and lowering driver -----------------===//
 //
-// mlir-opt with the npu dialect and its two passes. Only the dialects the
+// mlir-opt with the npu dialect and its passes. Only the dialects the
 // passes read or create are registered; the standard bufferization and
 // LLVM lowering run in the upstream mlir-opt.
 //
@@ -29,7 +29,8 @@ int main(int argc, char **argv) {
                   mlir::math::MathDialect, mlir::memref::MemRefDialect,
                   mlir::scf::SCFDialect, mlir::tensor::TensorDialect>();
   mlir::npu::registerPartitionPass();
-  mlir::npu::registerLowerPass();
+  mlir::npu::registerEncodePass();
+  mlir::npu::registerHostLowerPass();
   mlir::registerCanonicalizerPass();
   mlir::registerCSEPass();
   return mlir::asMainReturnCode(

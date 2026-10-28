@@ -1,8 +1,12 @@
 //===- NpuOps.td - NPU dialect ---------------------------------*- tablegen -*-===//
 //
-// Two ops are enough to split a model between the Cortex-A9 and the NPU:
-// npu.weight names a slice of the weight arena, and npu.matmul is an NPU
-// task. Everything else stays in upstream dialects and becomes CPU code.
+// npu.weight names a slice of the weight arena and npu.matmul is an NPU
+// task. --npu-partition outlines every task into a function inside one
+// npu.module (the NPU subgraph) and leaves an npu.call to it in the model's
+// functions (the host subgraph). Everything else stays in upstream dialects
+// and becomes CPU code. The two subgraphs are then lowered independently:
+// --npu-encode turns the npu.module into ISA programs, --npu-lower-host turns
+// each npu.call into a call to the C runtime.
 //
 //===----------------------------------------------------------------------===//
 
@@ -10,6 +14,7 @@
 #define NPU_OPS
 
 include "mlir/IR/OpBase.td"
+include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def Npu_Dialect : Dialect {
@@ -51,6 +56,37 @@ def Npu_MatmulOp : Npu_Op<"matmul", [Pure]> {
     $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($partials)
   }];
   let hasVerifier = 1;
+}
+
+def Npu_TaskModuleOp : Npu_Op<"module", [IsolatedFromAbove, SymbolTable, Symbol,
+                                     NoRegionArguments, NoTerminator,
+                                     SingleBlock]> {
+  let summary = "The NPU subgraph: one function per NPU task";
+  let description = [{
+    Holds the functions `--npu-partition` outlined, one per npu.matmul.
+    Each is `(lhs: tensor<MxKxi8>, arena: memref<?xi8>) -> tensor<KtxMxNxi32>`
+    with an `npu.task_id` attribute, and its body is the task's npu.weight
+    and npu.matmul. The host reaches a task only through npu.call and that
+    signature, so the module is lowered on its own.
+  }];
+  let arguments = (ins SymbolNameAttr:$sym_name);
+  let regions = (region SizedRegion<1>:$bodyRegion);
+  let assemblyFormat = "$sym_name attr-dict-with-keyword $bodyRegion";
+}
+
+def Npu_CallOp : Npu_Op<"call",
+    [DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+  let summary = "Run one NPU task from the host subgraph";
+  let description = [{
+    `npu.call @npu::@task_3(%lhs, %arena)` stands for the task's result in
+    the host subgraph. `--npu-lower-host` replaces it with a call to the C
+    runtime, `npu_rt_gemm(task id, A, partials)`.
+  }];
+  let arguments = (ins SymbolRefAttr:$callee, Variadic<AnyType>:$args);
+  let results = (outs Variadic<AnyType>:$results);
+  let assemblyFormat = [{
+    $callee `(` $args `)` attr-dict `:` functional-type($args, $results)
+  }];
 }
 
 #endif // NPU_OPS

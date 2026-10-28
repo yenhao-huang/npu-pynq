@@ -26,8 +26,9 @@ build/pkg/smollm/
 │  └─ model.so            Cortex-A9 版，含編譯出的 CPU 計算與 C runtime
 └─ ir/                    預設保留，方便檢查編譯過程
    ├─ model.mlir          原始計算圖
-   ├─ partitioned.mlir    CPU/NPU 分工後
-   ├─ lowered.mlir        NPU 工作改成 runtime 呼叫後
+   ├─ partitioned.mlir    CPU/NPU 分工後：host subgraph + npu.module（NPU subgraph）
+   ├─ npu.mlir            NPU subgraph（只剩 npu.module），由此產生 programs
+   ├─ host.mlir           host subgraph，npu.call 改成 runtime 呼叫後
    ├─ weights.json        編譯時使用的權重 offset 表
    ├─ host/               主機版的 LLVM 中間產物
    └─ pynq/               Cortex-A9 版的 LLVM 中間產物
@@ -83,17 +84,20 @@ export(graph, out, targets=("host", "pynq")) # src/export/cli.py
       │    └─ graph.module.render() → ir/model.mlir
       ├─ 決定 CPU / NPU 分工 (line 107–110)
       │    └─ 挑出 NPU 能做的矩陣乘法，改成 npu.matmul (call src/vendors/npu_pynq/compiler/mlir/tools/npu-opt.cpp)
+      │    ├─ 每個 npu.matmul 外提 (outline) 到 npu.module @npu（NPU subgraph），
+      │    │  原位置換成 npu.call @npu::@task_N（host subgraph）
       │    └─ npu-partition → ir/partitioned.mlir、partition.json
-      ├─ 打包權重 (line 113–118)
+      ├─ 打包權重
       │    ├─ NPU 使用的權重：沿 K、N 切成 tiles，每個 tile 內按 row-major 排放
       │    ├─ 其他權重：維持原本的 dense row-major 排放
       │    └─ 產生 weights.bin、ir/weights.json
-      ├─ 產生 NPU 指令 (line 120–124)
-      │    ├─ npu-lower 將 npu.matmul 換成 ISA 呼叫
-      │    └─ 產生 ir/lowered.mlir、programs.bin、programs.json
-      ├─ 編譯 CPU 程式 (line 126–135)
-      │    ├─ host → host/model.dylib 或 model.so
-      │    └─ PYNQ → pynq/model.so
+      ├─ 兩個 subgraph 各自 lower（同時進行）
+      │    ├─ NPU subgraph：npu-encode 將每個 task 編成 ISA
+      │    │    └─ 產生 ir/npu.mlir、programs.bin、programs.json
+      │    └─ host subgraph：npu-lower-host 將 npu.call 換成 call @npu_rt_gemm(task id, ...)
+      │         ├─ 產生 ir/host.mlir
+      │         ├─ host → host/model.dylib 或 model.so
+      │         └─ PYNQ → pynq/model.so
       ├─ 複製 graph.files 中的附帶檔案，例如 tokenizer.json (line 137–138)
       ├─ 寫入 manifest.json (line 139–157)
       └─ 回傳套件目錄 out (line 164)

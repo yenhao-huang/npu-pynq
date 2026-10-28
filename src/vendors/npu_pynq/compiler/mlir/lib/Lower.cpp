@@ -1,20 +1,29 @@
-//===- Lower.cpp - NPU tasks to ISA programs and runtime calls ------------===//
+//===- Lower.cpp - lower the NPU and host subgraphs -----------------------===//
 //
-// --npu-lower finishes the NPU side of compilation:
+// --npu-partition leaves two subgraphs in one module: the npu.module of
+// outlined NPU tasks, and the model's functions, which reach each task only
+// through npu.call. Each subgraph has its own pass, and neither reads what
+// the other produces:
 //
-//   * npu.weight becomes a view of the weight arena at the offset the
-//     exporter chose (weights=<table.json>, {"name": byte offset}).
-//   * every npu.matmul is planned into tiles and encoded into an ISA program
-//     (the "NPU instruction encoder"), written to programs=<prefix>.bin with
-//     its plan and relocations in <prefix>.json, and replaced by
+// --npu-encode (NPU subgraph) plans every task function into tiles and
+//   encodes it as ISA programs (the "NPU instruction encoder"), written to
+//   programs=<prefix>.bin with plans and relocations in <prefix>.json. The
+//   program id is the function's npu.task_id. ADDR_B words hold offsets
+//   within the task's weight block; the loader relocates them to wherever
+//   the block sits in DDR. The output IR is the npu.module alone.
+//
+// --npu-lower-host (host subgraph) replaces every npu.call with
 //
 //         %a = memref.alloc   <- the task's INT8 left operand
-//         call @npu_rt_gemm(program id, %a, %partials)
+//         call @npu_rt_gemm(task id, %a, %partials)
 //         %partials as a tensor
 //
-// The runtime packs %a into A tiles, starts the program, and unpacks the
-// INT32 partial planes. ADDR_B words hold offsets within the task's weight
-// block; the loader relocates them to wherever the block sits in DDR.
+//   binds each remaining npu.weight to a view of the weight arena at the
+//   offset the exporter chose (weights=<table.json>, {"name": byte offset}),
+//   and drops the npu.module. The runtime packs %a into A tiles, starts the
+//   program, and unpacks the INT32 partial planes.
+//
+// The only contract between the two is the task function signature and id.
 //
 //===----------------------------------------------------------------------===//
 
@@ -61,36 +70,8 @@ struct Program {
   std::vector<Segment> segments;
 };
 
-struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(LowerPass)
-
-  LowerPass() = default;
-  LowerPass(const LowerPass &other) : PassWrapper(other) {}
-
-  StringRef getArgument() const final { return "npu-lower"; }
-  StringRef getDescription() const final {
-    return "Encode NPU tasks as ISA programs and bind weights to the arena";
-  }
-  void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<arith::ArithDialect, bufferization::BufferizationDialect,
-                    func::FuncDialect, memref::MemRefDialect>();
-  }
-
-  Option<std::string> weights{*this, "weights",
-                              llvm::cl::desc("Weight offset table (JSON)")};
-  Option<std::string> programs{*this, "programs",
-                               llvm::cl::desc("Output prefix for programs")};
-  Option<int64_t> rows{*this, "rows", llvm::cl::init(16)};
-  Option<int64_t> columns{*this, "columns", llvm::cl::init(16)};
-  Option<int64_t> maxK{*this, "max-k", llvm::cl::init(256)};
-  Option<int64_t> segmentBytes{
-      *this, "segment-bytes",
-      llvm::cl::desc("Largest weight block one program may read"),
-      llvm::cl::init(4 << 20)};
-
-  std::map<std::string, int64_t> offsets;
-
-  LogicalResult loadWeights(ModuleOp module) {
+LogicalResult loadWeightTable(ModuleOp module, StringRef weights,
+                              std::map<std::string, int64_t> &offsets) {
     auto buffer = llvm::MemoryBuffer::getFile(weights);
     if (!buffer)
       return module.emitError("cannot read weight table ") << weights;
@@ -111,35 +92,74 @@ struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
     return success();
   }
 
-  func::FuncOp declareRuntime(ModuleOp module) {
-    if (auto fn = module.lookupSymbol<func::FuncOp>(kGemmFn))
-      return fn;
-    OpBuilder b = OpBuilder::atBlockBegin(module.getBody());
-    MLIRContext *ctx = module.getContext();
-    auto i8buf = MemRefType::get({ShapedType::kDynamic}, IntegerType::get(ctx, 8));
-    auto i32buf = MemRefType::get({ShapedType::kDynamic}, IntegerType::get(ctx, 32));
-    auto type = b.getFunctionType({b.getI32Type(), i8buf, i32buf}, {});
-    auto fn = func::FuncOp::create(b, module.getLoc(), kGemmFn, type);
-    fn.setPrivate();
-    fn->setAttr("llvm.emit_c_interface", b.getUnitAttr());
-    return fn;
+// The task functions of the npu.module, indexed by npu.task_id; ids must
+// be 0..n-1 because the runtime's program table is indexed by them.
+LogicalResult collectTasks(ModuleOp module, SmallVector<func::FuncOp> &tasks) {
+  auto npuModule = module.lookupSymbol<TaskModuleOp>(kNpuModuleName);
+  if (!npuModule)
+    return success();
+  for (auto fn : npuModule.getOps<func::FuncOp>()) {
+    auto id = fn->getAttrOfType<IntegerAttr>(kTaskIdAttr);
+    if (!id)
+      return fn.emitError("NPU task has no ") << kTaskIdAttr;
+    int64_t index = id.getInt();
+    if (index < 0)
+      return fn.emitError("negative task id");
+    if (static_cast<int64_t>(tasks.size()) <= index)
+      tasks.resize(index + 1);
+    if (tasks[index])
+      return fn.emitError("duplicate task id ") << index;
+    tasks[index] = fn;
   }
+  for (auto [index, fn] : llvm::enumerate(tasks))
+    if (!fn)
+      return npuModule.emitError("missing task id ") << index;
+  return success();
+}
+
+struct EncodePass : public PassWrapper<EncodePass, OperationPass<ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(EncodePass)
+
+  EncodePass() = default;
+  EncodePass(const EncodePass &other) : PassWrapper(other) {}
+
+  StringRef getArgument() const final { return "npu-encode"; }
+  StringRef getDescription() const final {
+    return "Encode the npu.module's tasks as ISA programs";
+  }
+
+  Option<std::string> weights{*this, "weights",
+                              llvm::cl::desc("Weight offset table (JSON)")};
+  Option<std::string> programs{*this, "programs",
+                               llvm::cl::desc("Output prefix for programs")};
+  Option<int64_t> rows{*this, "rows", llvm::cl::init(16)};
+  Option<int64_t> columns{*this, "columns", llvm::cl::init(16)};
+  Option<int64_t> maxK{*this, "max-k", llvm::cl::init(256)};
+  Option<int64_t> segmentBytes{
+      *this, "segment-bytes",
+      llvm::cl::desc("Largest weight block one program may read"),
+      llvm::cl::init(4 << 20)};
 
   void runOnOperation() override {
     ModuleOp module = getOperation();
-    if (failed(loadWeights(module)))
+    std::map<std::string, int64_t> offsets;
+    if (failed(loadWeightTable(module, weights, offsets)))
+      return signalPassFailure();
+    SmallVector<func::FuncOp> tasks;
+    if (failed(collectTasks(module, tasks)))
       return signalPassFailure();
     Limits limits{rows, columns, maxK};
     std::vector<uint64_t> words;
     std::vector<Program> table;
 
-    SmallVector<MatmulOp> tasks;
-    module.walk([&](MatmulOp op) { tasks.push_back(op); });
-    func::FuncOp gemmFn;
-    if (!tasks.empty())
-      gemmFn = declareRuntime(module);
-
-    for (MatmulOp op : tasks) {
+    for (func::FuncOp fn : tasks) {
+      SmallVector<MatmulOp> matmuls;
+      fn.walk([&](MatmulOp op) { matmuls.push_back(op); });
+      if (matmuls.size() != 1) {
+        fn.emitError("an NPU task must hold exactly one npu.matmul");
+        return signalPassFailure();
+      }
+      MatmulOp op = matmuls.front();
       auto weight = op.getRhs().getDefiningOp<WeightOp>();
       std::string name = weight.getName().str();
       auto found = offsets.find(name);
@@ -148,7 +168,6 @@ struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
         return signalPassFailure();
       }
       auto lhsType = op.getLhs().getType();
-      auto partialsType = op.getPartials().getType();
       int64_t m = lhsType.getDimSize(0), k = lhsType.getDimSize(1);
       int64_t n = op.getRhs().getType().getDimSize(1);
       GemmPlan plan = GemmPlan::make(m, n, k, limits, op.getTk());
@@ -173,64 +192,12 @@ struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
         program.segments.push_back(seg);
       }
       table.push_back(program);
-
-      OpBuilder b(op);
-      Location loc = op.getLoc();
-      auto aType = MemRefType::get(lhsType.getShape(), lhsType.getElementType());
-      auto cType = MemRefType::get(partialsType.getShape(),
-                                   partialsType.getElementType());
-      Value a = memref::AllocOp::create(b, loc, aType);
-      bufferization::MaterializeInDestinationOp::create(b, loc, op.getLhs(), a)
-          .setWritable(true);
-      Value c = memref::AllocOp::create(b, loc, cType);
-      Value aFlat = memref::CollapseShapeOp::create(
-          b, loc, a, SmallVector<ReassociationIndices>{{0, 1}});
-      Value cFlat = memref::CollapseShapeOp::create(
-          b, loc, c, SmallVector<ReassociationIndices>{{0, 1, 2}});
-      auto fnType = gemmFn.getFunctionType();
-      Value aDyn = memref::CastOp::create(b, loc, fnType.getInput(1), aFlat);
-      Value cDyn = memref::CastOp::create(b, loc, fnType.getInput(2), cFlat);
-      Value id = arith::ConstantIntOp::create(b, loc, program.id, 32);
-      func::CallOp::create(b, loc, gemmFn, ValueRange{id, aDyn, cDyn});
-      auto result = bufferization::ToTensorOp::create(b, loc, partialsType, c);
-      result.setRestrict(true);
-      result.setWritable(true);
-      op.getPartials().replaceAllUsesWith(result.getResult());
-      op.erase();
     }
 
-    SmallVector<WeightOp> weightOps;
-    module.walk([&](WeightOp op) { weightOps.push_back(op); });
-    for (WeightOp op : weightOps) {
-      if (op->use_empty()) {
+    // The output is the NPU subgraph alone.
+    for (Operation &op : llvm::make_early_inc_range(*module.getBody()))
+      if (!isa<TaskModuleOp>(op))
         op.erase();
-        continue;
-      }
-      std::string name = op.getName().str();
-      auto found = offsets.find(name);
-      if (found == offsets.end()) {
-        op.emitError("weight '") << name << "' has no offset";
-        return signalPassFailure();
-      }
-      auto arena = dyn_cast<MemRefType>(op.getArena().getType());
-      if (!arena || arena.getRank() != 1 ||
-          !arena.getElementType().isInteger(8) || !arena.getLayout().isIdentity()) {
-        op.emitError("the weight arena must be a 1-D i8 memref");
-        return signalPassFailure();
-      }
-      auto tensorType = cast<RankedTensorType>(op.getResult().getType());
-      OpBuilder b(op);
-      Location loc = op.getLoc();
-      Value offset = arith::ConstantIndexOp::create(b, loc, found->second);
-      auto viewType = MemRefType::get(tensorType.getShape(),
-                                      tensorType.getElementType());
-      Value view = memref::ViewOp::create(b, loc, viewType, op.getArena(),
-                                          offset, ValueRange{});
-      auto tensor = bufferization::ToTensorOp::create(b, loc, tensorType, view);
-      tensor.setRestrict(true);
-      op.getResult().replaceAllUsesWith(tensor.getResult());
-      op.erase();
-    }
 
     if (programs.empty())
       return;
@@ -294,6 +261,127 @@ struct LowerPass : public PassWrapper<LowerPass, OperationPass<ModuleOp>> {
   }
 };
 
+struct HostLowerPass
+    : public PassWrapper<HostLowerPass, OperationPass<ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(HostLowerPass)
+
+  HostLowerPass() = default;
+  HostLowerPass(const HostLowerPass &other) : PassWrapper(other) {}
+
+  StringRef getArgument() const final { return "npu-lower-host"; }
+  StringRef getDescription() const final {
+    return "Replace NPU task calls with runtime calls and bind weights";
+  }
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<arith::ArithDialect, bufferization::BufferizationDialect,
+                    func::FuncDialect, memref::MemRefDialect>();
+  }
+
+  Option<std::string> weights{*this, "weights",
+                              llvm::cl::desc("Weight offset table (JSON)")};
+
+  func::FuncOp declareRuntime(ModuleOp module) {
+    if (auto fn = module.lookupSymbol<func::FuncOp>(kGemmFn))
+      return fn;
+    OpBuilder b = OpBuilder::atBlockBegin(module.getBody());
+    MLIRContext *ctx = module.getContext();
+    auto i8buf = MemRefType::get({ShapedType::kDynamic}, IntegerType::get(ctx, 8));
+    auto i32buf = MemRefType::get({ShapedType::kDynamic}, IntegerType::get(ctx, 32));
+    auto type = b.getFunctionType({b.getI32Type(), i8buf, i32buf}, {});
+    auto fn = func::FuncOp::create(b, module.getLoc(), kGemmFn, type);
+    fn.setPrivate();
+    fn->setAttr("llvm.emit_c_interface", b.getUnitAttr());
+    return fn;
+  }
+
+  void runOnOperation() override {
+    ModuleOp module = getOperation();
+    std::map<std::string, int64_t> offsets;
+    if (failed(loadWeightTable(module, weights, offsets)))
+      return signalPassFailure();
+
+    SmallVector<CallOp> calls;
+    module.walk([&](CallOp op) { calls.push_back(op); });
+    func::FuncOp gemmFn;
+    if (!calls.empty())
+      gemmFn = declareRuntime(module);
+
+    for (CallOp op : calls) {
+      auto task = SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
+          op, op.getCallee());
+      if (!task || op.getArgs().empty() || op.getResults().size() != 1) {
+        op.emitError("expected an NPU task call (lhs, arena) -> partials");
+        return signalPassFailure();
+      }
+      int64_t taskId = task->getAttrOfType<IntegerAttr>(kTaskIdAttr).getInt();
+      Value lhs = op.getArgs().front();
+      Value partials = op.getResult(0);
+      auto lhsType = cast<RankedTensorType>(lhs.getType());
+      auto partialsType = cast<RankedTensorType>(partials.getType());
+      OpBuilder b(op);
+      Location loc = op.getLoc();
+      auto aType = MemRefType::get(lhsType.getShape(), lhsType.getElementType());
+      auto cType = MemRefType::get(partialsType.getShape(),
+                                   partialsType.getElementType());
+      Value a = memref::AllocOp::create(b, loc, aType);
+      bufferization::MaterializeInDestinationOp::create(b, loc, lhs, a)
+          .setWritable(true);
+      Value c = memref::AllocOp::create(b, loc, cType);
+      Value aFlat = memref::CollapseShapeOp::create(
+          b, loc, a, SmallVector<ReassociationIndices>{{0, 1}});
+      Value cFlat = memref::CollapseShapeOp::create(
+          b, loc, c, SmallVector<ReassociationIndices>{{0, 1, 2}});
+      auto fnType = gemmFn.getFunctionType();
+      Value aDyn = memref::CastOp::create(b, loc, fnType.getInput(1), aFlat);
+      Value cDyn = memref::CastOp::create(b, loc, fnType.getInput(2), cFlat);
+      Value id = arith::ConstantIntOp::create(b, loc, taskId, 32);
+      func::CallOp::create(b, loc, gemmFn, ValueRange{id, aDyn, cDyn});
+      auto result = bufferization::ToTensorOp::create(b, loc, partialsType, c);
+      result.setRestrict(true);
+      result.setWritable(true);
+      partials.replaceAllUsesWith(result.getResult());
+      op.erase();
+    }
+    if (auto npuModule = module.lookupSymbol<TaskModuleOp>(kNpuModuleName))
+      npuModule.erase();
+
+    SmallVector<WeightOp> weightOps;
+    module.walk([&](WeightOp op) { weightOps.push_back(op); });
+    for (WeightOp op : weightOps) {
+      if (op->use_empty()) {
+        op.erase();
+        continue;
+      }
+      std::string name = op.getName().str();
+      auto found = offsets.find(name);
+      if (found == offsets.end()) {
+        op.emitError("weight '") << name << "' has no offset";
+        return signalPassFailure();
+      }
+      auto arena = dyn_cast<MemRefType>(op.getArena().getType());
+      if (!arena || arena.getRank() != 1 ||
+          !arena.getElementType().isInteger(8) || !arena.getLayout().isIdentity()) {
+        op.emitError("the weight arena must be a 1-D i8 memref");
+        return signalPassFailure();
+      }
+      auto tensorType = cast<RankedTensorType>(op.getResult().getType());
+      OpBuilder b(op);
+      Location loc = op.getLoc();
+      Value offset = arith::ConstantIndexOp::create(b, loc, found->second);
+      auto viewType = MemRefType::get(tensorType.getShape(),
+                                      tensorType.getElementType());
+      Value view = memref::ViewOp::create(b, loc, viewType, op.getArena(),
+                                          offset, ValueRange{});
+      auto tensor = bufferization::ToTensorOp::create(b, loc, tensorType, view);
+      tensor.setRestrict(true);
+      op.getResult().replaceAllUsesWith(tensor.getResult());
+      op.erase();
+    }
+
+  }
+};
+
 } // namespace
 
-void mlir::npu::registerLowerPass() { PassRegistration<LowerPass>(); }
+void mlir::npu::registerEncodePass() { PassRegistration<EncodePass>(); }
+void mlir::npu::registerHostLowerPass() { PassRegistration<HostLowerPass>(); }

@@ -1,6 +1,7 @@
 //===- NpuDialect.cpp - NPU dialect ---------------------------------------===//
 #include "Npu/NpuDialect.h"
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OpImplementation.h"
 
@@ -36,6 +37,18 @@ LogicalResult MatmulOp::verify() {
     return emitOpError("result must be ") << kt << "x" << m << "x" << n;
   if (!getRhs().getDefiningOp<WeightOp>())
     return emitOpError("rhs must be an npu.weight");
+  return success();
+}
+
+LogicalResult CallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+  auto fn = symbolTable.lookupNearestSymbolFrom<func::FuncOp>(*this, getCallee());
+  if (!fn)
+    return emitOpError("no NPU task named ") << getCallee();
+  if (TypeRange(fn.getFunctionType().getInputs()) != TypeRange(getArgs().getTypes()) ||
+      TypeRange(fn.getFunctionType().getResults()) != TypeRange(getResults().getTypes()))
+    return emitOpError("operand or result types differ from ") << getCallee();
+  if (!fn->hasAttr(kTaskIdAttr))
+    return emitOpError("callee has no ") << kTaskIdAttr;
   return success();
 }
 

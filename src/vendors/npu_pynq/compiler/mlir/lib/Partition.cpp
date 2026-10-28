@@ -7,9 +7,24 @@
 //   linalg.generic {npu.group_size = g} (C[c,m,n] += X[m,c*g+j] * W[c*g+j,n])
 //                                              ->  npu.matmul {tk = g} + add
 //
-// Everything else stays in upstream dialects and becomes Cortex-A9 code. The
-// report option writes which weights the NPU reads (so the exporter stores
-// them as B tiles) and what was left on the CPU.
+// Everything else stays in upstream dialects and becomes Cortex-A9 code.
+//
+// It then splits the module into two subgraphs. Each npu.matmul, in module
+// order, is outlined into a function of one npu.module (the NPU subgraph)
+// and replaced by an npu.call (the host subgraph):
+//
+//   %p = npu.matmul %x, %w {tk}       ->  %p = npu.call @npu::@task_3(%x, %arena)
+//
+//   npu.module @npu {
+//     func.func @task_3(%x: tensor<MxKxi8>, %arena: memref<?xi8>)
+//         -> tensor<KtxMxNxi32> attributes {npu.task_id = 3} {
+//       %w = npu.weight %arena "name"; %p = npu.matmul %x, %w {tk}; return %p
+//     }
+//   }
+//
+// The task id is the program id the C runtime runs. The report option writes
+// which weights the NPU reads (so the exporter stores them as B tiles) and
+// what was left on the CPU.
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,6 +32,7 @@
 #include "Npu/NpuPasses.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
@@ -59,8 +75,8 @@ struct PartitionPass
     return "Move INT8 contractions on weights to the NPU";
   }
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<NpuDialect, linalg::LinalgDialect, arith::ArithDialect,
-                    tensor::TensorDialect>();
+    registry.insert<NpuDialect, func::FuncDialect, linalg::LinalgDialect,
+                    arith::ArithDialect, tensor::TensorDialect>();
   }
 
   Option<std::string> report{*this, "report",
@@ -162,6 +178,52 @@ struct PartitionPass
     return success();
   }
 
+  // Move every NPU task into its own function of the npu.module, in module
+  // order, and leave an npu.call behind.
+  LogicalResult outline(ModuleOp module) {
+    if (module.lookupSymbol(kNpuModuleName))
+      return module.emitError("module already has an npu.module");
+    SmallVector<MatmulOp> matmuls;
+    module.walk([&](MatmulOp op) { matmuls.push_back(op); });
+    if (matmuls.empty())
+      return success();
+    MLIRContext *ctx = module.getContext();
+    OpBuilder mb = OpBuilder::atBlockEnd(module.getBody());
+    auto npuModule = TaskModuleOp::create(mb, module.getLoc(), kNpuModuleName);
+    npuModule.getBodyRegion().emplaceBlock();
+    OpBuilder fb = OpBuilder::atBlockEnd(&npuModule.getBodyRegion().front());
+    for (auto [id, op] : llvm::enumerate(matmuls)) {
+      auto weight = op.getRhs().getDefiningOp<WeightOp>();
+      Value arena = weight.getArena();
+      Location loc = op.getLoc();
+      std::string name = "task_" + std::to_string(id);
+      auto type = FunctionType::get(
+          ctx, {op.getLhs().getType(), arena.getType()},
+          {op.getPartials().getType()});
+      auto fn = func::FuncOp::create(fb, loc, name, type);
+      fn->setAttr(kTaskIdAttr, fb.getI64IntegerAttr(id));
+      Block *body = fn.addEntryBlock();
+      OpBuilder b = OpBuilder::atBlockEnd(body);
+      auto w = WeightOp::create(b, weight.getLoc(), weight.getType(),
+                                body->getArgument(1), weight.getNameAttr());
+      auto task = MatmulOp::create(b, loc, op.getPartials().getType(),
+                                   body->getArgument(0), w.getResult(),
+                                   op.getTkAttr());
+      func::ReturnOp::create(b, loc, task.getResult());
+
+      OpBuilder hb(op);
+      auto callee = SymbolRefAttr::get(
+          ctx, kNpuModuleName, {FlatSymbolRefAttr::get(ctx, name)});
+      auto call = CallOp::create(hb, loc, TypeRange{op.getPartials().getType()},
+                                 callee, ValueRange{op.getLhs(), arena});
+      op.getPartials().replaceAllUsesWith(call.getResult(0));
+      op->erase();
+      if (weight->use_empty())
+        weight->erase();
+    }
+    return success();
+  }
+
   void runOnOperation() override {
     ModuleOp module = getOperation();
     tasks.clear();
@@ -177,6 +239,8 @@ struct PartitionPass
     for (auto op : grouped)
       if (failed(rewriteGrouped(op)))
         return signalPassFailure();
+    if (failed(outline(module)))
+      return signalPassFailure();
 
     if (report.empty())
       return;

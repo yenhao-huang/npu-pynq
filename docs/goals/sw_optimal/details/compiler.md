@@ -4,8 +4,13 @@
 model frontend (src/export/graphs/<model>) -> linalg-on-tensors MLIR + npu.weight     (src/export/compilers/mlir/ops)
   npu-opt --npu-partition    INT8 contractions on weights -> npu.matmul         = NPU task
                              everything else stays linalg/arith/math/scf        = CPU task
+                             outline: npu.matmul -> npu.module @npu (NPU subgraph),
+                             npu.call @npu::@task_N in the model (host subgraph)
   pack weights               NPU-read weights as B tiles (INT4: two per byte)
-  npu-opt --npu-lower        npu.matmul -> ISA program(s) + call @npu_rt_gemm   = NPU instruction encoder
+  NPU subgraph:
+    npu-opt --npu-encode     task functions -> ISA program(s)                   = NPU instruction encoder
+  host subgraph (concurrently):
+    npu-opt --npu-lower-host npu.call -> call @npu_rt_gemm(task id, A, partials)
   mlir-opt                   fuse elementwise, one-shot-bufferize, dealloc, loops, LLVM dialect
   mlir-translate, llc        LLVM IR -> armv7a hard-float NEON (Cortex-A9) | arm64 host
   link                       + src/vendors/npu_pynq/driver/npu_rt.c -> pynq/model.so | host/model.dylib
@@ -19,13 +24,24 @@ model frontend (src/export/graphs/<model>) -> linalg-on-tensors MLIR + npu.weigh
 - `npu.matmul %lhs, %rhs {tk}` -> `tensor<Kt x M x N x i32>`: the K-chunked
   partial products. Keeping the planes apart is what makes group-wise INT4
   exact on an INT8 array: the CPU scales each plane by its group's scale.
+- `npu.module @npu` holds one `func.func @task_N(lhs, arena) -> partials`
+  per NPU task, tagged `npu.task_id = N`; `npu.call @npu::@task_N(...)` is
+  how the host subgraph reaches it. The task signature and id are the only
+  contract between the two subgraphs.
 - `--npu-partition` matches `linalg.matmul` (i8 x i8 -> i32, rhs a weight)
-  and the group-wise contraction tagged `npu.group_size`, and writes a JSON
-  report (NPU tasks; remaining CPU linalg ops).
-- `--npu-lower` plans tiles (C++ port of `src/vendors/npu_pynq/isa/layout.py`), splits a task
-  into column *segments* of at most 4 MiB of weights (each its own program
-  over a contiguous block), records ADDR_B relocations, and replaces the
-  task by `npu_rt_gemm(id, A, partials)`.
+  and the group-wise contraction tagged `npu.group_size`, outlines each
+  resulting npu.matmul (in module order) into the npu.module, and writes a
+  JSON report (NPU tasks; remaining CPU linalg ops).
+- `--npu-encode` (NPU subgraph) plans tiles (C++ port of
+  `src/vendors/npu_pynq/isa/layout.py`), splits a task into column
+  *segments* of at most 4 MiB of weights (each its own program over a
+  contiguous block), and records ADDR_B relocations. Its IR output
+  (`ir/npu.mlir`) is the npu.module alone.
+- `--npu-lower-host` (host subgraph) replaces each `npu.call` by
+  `npu_rt_gemm(task id, A, partials)`, binds the remaining weights to arena
+  views, and drops the npu.module (`ir/host.mlir`, then LLVM codegen).
+- The export runs the two subgraph pipelines concurrently; they meet at run
+  time, when `npu_rt_gemm(id)` runs program `id`.
 
 ## Execution model
 

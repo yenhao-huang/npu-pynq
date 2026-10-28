@@ -80,6 +80,23 @@ class CompilerTest(unittest.TestCase):
         model.call("forward", "weights", x, out)
         return pkg, out, reference(x), model.stats()
 
+    def test_partition_splits_npu_and_host_subgraphs(self):
+        pkg, _, _, _ = self.compile_and_run(4, 16)
+        ir = pkg / "ir"
+        tasks = json.loads((pkg / "programs.json").read_text())["tasks"]
+        parted, npu, host = ((ir / f).read_text() for f in ("partitioned.mlir", "npu.mlir", "host.mlir"))
+        # Partition leaves one npu.call per task and every npu.matmul inside the npu.module.
+        self.assertEqual(parted.count("npu.call @npu::@task_"), len(tasks))
+        self.assertEqual(parted.count("npu.matmul"), len(tasks))
+        self.assertGreater(len(tasks), 0)
+        # The NPU subgraph is the npu.module alone; the host subgraph keeps no npu ops.
+        self.assertEqual(npu.count("npu.matmul"), len(tasks))
+        self.assertNotIn("npu.call", npu)
+        self.assertNotIn("func.func @forward", npu)
+        for op in ("npu.module", "npu.call", "npu.matmul", "npu.weight"):
+            self.assertNotIn(op, host)
+        self.assertEqual(host.count("call @npu_rt_gemm("), len(tasks))
+
     def test_w8_and_w4_mlp_match_numpy_on_the_simulated_npu(self):
         for bits, group in ((8, 0), (4, 16)):
             with self.subTest(bits=bits):

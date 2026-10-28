@@ -2,10 +2,15 @@
 command line that drives it.
 
     model frontend (src/export/graphs) -> MLIR (linalg on tensors, npu.weight)
-      npu-opt --npu-partition        which contractions become NPU tasks
+      npu-opt --npu-partition        which contractions become NPU tasks; split into
+                                     an NPU subgraph (npu.module) and a host subgraph
       pack weights                   B tiles for NPU-read weights, dense otherwise
-      npu-opt --npu-lower            ISA programs + runtime calls
-      mlir-opt / mlir-translate / llc / link, once per target
+      NPU subgraph:  npu-opt --npu-encode       tasks -> ISA programs
+      host subgraph: npu-opt --npu-lower-host   npu.call -> npu_rt_gemm(task id, ...)
+                     mlir-opt / mlir-translate / llc / link, once per target
+
+The two subgraph pipelines share only the task signatures and ids, and run
+concurrently. They meet at run time, when npu_rt_gemm(id) runs program id.
 
 The package directory is self-contained: ``Package`` (src/runtime) loads it
 on either platform.
@@ -21,6 +26,7 @@ import json
 from pathlib import Path
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence
 
 from src.export.core.graph import LLMOptions, ModelGraph
@@ -90,7 +96,8 @@ def export(graph: ModelGraph | str | Path | None, out: str | Path, targets: Sequ
     if frontend_seconds is not None:
         timings['frontend'] = frontend_seconds
 
-    # Write the model graph as MLIR, then choose which matmuls run on the NPU.
+    # Write the model graph as MLIR, choose which matmuls run on the NPU, and
+    # split the module into the NPU and host subgraphs.
     t = time.monotonic()
     source = work / "model.mlir"
     source.write_text(graph.module.render())
@@ -102,6 +109,8 @@ def export(graph: ModelGraph | str | Path | None, out: str | Path, targets: Sequ
     timings["partition"] = time.monotonic() - t
 
     # Pack NPU weights as tiles and record every weight's offset in the arena.
+    # Both subgraphs read the offsets: the NPU programs for B tiles, the host
+    # code for every other weight.
     t = time.monotonic()
     blob, offsets, layouts = pack_weights(graph.weights, graph.meta, report, limits)
     (out / "weights.bin").write_bytes(blob)
@@ -109,24 +118,38 @@ def export(graph: ModelGraph | str | Path | None, out: str | Path, targets: Sequ
     table.write_text(json.dumps(offsets))
     timings["pack_weights"] = time.monotonic() - t
 
-    # Turn NPU tasks into ISA programs and calls to the C runtime.
-    t = time.monotonic()
-    lowered = work / "lowered.mlir"
-    npu_opt.lower(parted, lowered, table, out / "programs", limits.rows, limits.columns, limits.max_k,
-                 segment_bytes)
-    timings["npu_lower"] = time.monotonic() - t
-
-    # Compile the remaining CPU operations for each requested platform.
-    libraries = {}
-    for name in targets:
+    def npu_branch() -> dict[str, float]:
+        # NPU subgraph: each task function becomes an ISA program.
         t = time.monotonic()
-        tgt = target(name)
-        lib = toolchain.codegen(lowered, work / name, tgt, objects.get(name, ()), runtime_c=RUNTIME_C)
-        dest = out / name / tgt.library
-        dest.parent.mkdir(exist_ok=True)
-        shutil.copy2(lib, dest)
-        libraries[name] = f"{name}/{tgt.library}"
-        timings[f"codegen_{name}"] = time.monotonic() - t
+        npu_opt.encode(parted, work / "npu.mlir", table, out / "programs", limits.rows, limits.columns,
+                       limits.max_k, segment_bytes)
+        return {"npu_encode": time.monotonic() - t}
+
+    def host_branch() -> tuple[dict[str, float], dict[str, str]]:
+        # Host subgraph: task calls become runtime calls, then CPU code per platform.
+        times = {}
+        t = time.monotonic()
+        host = work / "host.mlir"
+        npu_opt.lower_host(parted, host, table)
+        times["host_lower"] = time.monotonic() - t
+        libraries = {}
+        for name in targets:
+            t = time.monotonic()
+            tgt = target(name)
+            lib = toolchain.codegen(host, work / name, tgt, objects.get(name, ()), runtime_c=RUNTIME_C)
+            dest = out / name / tgt.library
+            dest.parent.mkdir(exist_ok=True)
+            shutil.copy2(lib, dest)
+            libraries[name] = f"{name}/{tgt.library}"
+            times[f"codegen_{name}"] = time.monotonic() - t
+        return times, libraries
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        npu_job = pool.submit(npu_branch)
+        host_job = pool.submit(host_branch)
+        timings.update(npu_job.result())
+        host_times, libraries = host_job.result()
+        timings.update(host_times)
 
     # Bundle the compiled libraries, weights, programs, and model metadata.
     for dest, src in graph.files.items():
