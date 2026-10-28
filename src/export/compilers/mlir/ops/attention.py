@@ -81,11 +81,19 @@ class _K:
         self.raw(text)
 
 
-def kernel_text(c: AttnConfig) -> str:
+def kernel_text(c: AttnConfig, *, fastmath: bool = True, fused: bool = False,
+                exp_function: str | None = None, sum_lanes: int = 1,
+                decode_group4: bool = False) -> str:
+    """Generate the default fast kernel or explicitly rounded CPU arithmetic.
+
+    Imported quantized graphs select fixed softmax lanes and four-term decode
+    products so small rounding changes do not cross quantization thresholds.
+    Other frontends retain their existing default arithmetic.
+    """
     T, H, HK, D, L, S = c.tokens, c.heads, c.kv_heads, c.head_dim, c.layers, c.max_seq
     group = H // HK
     scale = c.scale if c.scale is not None else 1.0 / np.sqrt(D)
-    f = "fastmath<fast>"
+    f = "fastmath<fast>" if fastmath else ""
     qt = memref_type([T, H, D], "f32")
     kt = memref_type([T, HK, D], "f32")
     shapes = c.cache_shapes()
@@ -161,8 +169,11 @@ def kernel_text(c: AttnConfig) -> str:
         w.depth += 1
         qv = w.v(f"memref.load %q[{t}, {hq}, %d] : {qt}")
         kv = load_kv("%kc", "%ksc", j, h, "%d")
-        prod = w.v(f"arith.mulf {qv}, {kv} {f} : f32")
-        acc2 = w.v(f"arith.addf %acc, {prod} {f} : f32")
+        if fused:
+            acc2 = w.v(f"math.fma {qv}, {kv}, %acc : f32")
+        else:
+            prod = w.v(f"arith.mulf {qv}, {kv} {f} : f32")
+            acc2 = w.v(f"arith.addf %acc, {prod} {f} : f32")
         w.raw(f"scf.yield {acc2} : f32")
         w.close()
         ks = kv_scale("%ksc", j, h)
@@ -173,6 +184,11 @@ def kernel_text(c: AttnConfig) -> str:
     # 2. Causal attention: query t sees positions 0 .. pos+t.
     if c.mode == "naive":
         scores = w.v(f"memref.alloca() : memref<{S}xf32>")
+        if sum_lanes not in (1, 8):
+            raise ValueError('Softmax accumulation requires one or eight lanes')
+        if sum_lanes == 8:
+            lanes = w.v('memref.alloca() : memref<8xf32>')
+            i8 = w.v('arith.constant 8 : index')
     w.open(f"scf.for %t = {i0} to {iT} step {i1}")
     p = w.v("arith.addi %pos, %t : index")
     p1 = w.v(f"arith.addi {p}, {i1} : index")
@@ -190,27 +206,86 @@ def kernel_text(c: AttnConfig) -> str:
         m2 = w.v(f"arith.maximumf %m, {s} : f32")
         w.raw(f"scf.yield {m2} : f32")
         w.close()
+        if sum_lanes == 8:
+            w.open(f'scf.for %lane = {i0} to {i8} step {i1}')
+            w.raw(f'memref.store {zero}, {lanes}[%lane] : memref<8xf32>')
+            w.close()
         tot = w.v(f"scf.for %j = {i0} to {n} step {i1} iter_args(%l = {zero}) -> (f32) {{")
         w.depth += 1
         s = w.v(f"memref.load {scores}[%j] : memref<{S}xf32>")
-        e = w.v(f"math.exp {w.v(f'arith.subf {s}, {mx} : f32')} {f} : f32")
+        shifted = w.v(f'arith.subf {s}, {mx} : f32')
+        e = (w.v(f'func.call @{exp_function}({shifted}) : (f32) -> f32') if exp_function
+             else w.v(f'math.exp {shifted} {f} : f32'))
         w.raw(f"memref.store {e}, {scores}[%j] : memref<{S}xf32>")
-        l2 = w.v(f"arith.addf %l, {e} {f} : f32")
+        if sum_lanes == 8:
+            lane = w.v(f'arith.remui %j, {i8} : index')
+            previous = w.v(f'memref.load {lanes}[{lane}] : memref<8xf32>')
+            accumulated = w.v(f'arith.addf {previous}, {e} : f32')
+            w.raw(f'memref.store {accumulated}, {lanes}[{lane}] : memref<8xf32>')
+            l2 = '%l'
+        else:
+            l2 = w.v(f"arith.addf %l, {e} {f} : f32")
         w.raw(f"scf.yield {l2} : f32")
         w.close()
+        if sum_lanes == 8:
+            values = [w.v(f'memref.load {lanes}[{w.v(f"arith.constant {i} : index")}] : memref<8xf32>')
+                      for i in range(8)]
+            while len(values) > 1:
+                values = [w.v(f'arith.addf {values[i]}, {values[i+1]} : f32')
+                          for i in range(0, len(values), 2)]
+            tot = values[0]
         inv = w.v(f"arith.divf {one}, {tot} : f32")
-        w.open(f"scf.for %j = {i0} to {n} step {i1}")
-        pj = w.v(f"arith.mulf {w.v(f'memref.load {scores}[%j] : memref<{S}xf32>')}, {inv} {f} : f32")
-        vs = kv_scale("%vsc", "%j", h)
-        if vs:
-            pj = w.v(f"arith.mulf {pj}, {vs} {f} : f32")
-        w.open(f"scf.for %d = {i0} to {iD} step {i1}")
-        vv = load_kv("%vc", "%vsc", "%j", h, "%d")
-        o = w.v(f"memref.load %out[%t, %hq, %d] : {qt}")
-        o2 = w.v(f"arith.addf {o}, {w.v(f'arith.mulf {pj}, {vv} {f} : f32')} {f} : f32")
-        w.raw(f"memref.store {o2}, %out[%t, %hq, %d] : {qt}")
-        w.close()
-        w.close()
+        if decode_group4 and T == 1:
+            if c.kv != 'f32':
+                raise ValueError('Grouped decode accumulation requires FP32 KV')
+
+            def block(j, count):
+                w.open(f'scf.for %d = {i0} to {iD} step {i1}')
+                subtotal = None
+                for offset in range(count):
+                    index = j if offset == 0 else w.v(f'arith.addi {j}, {w.v(f"arith.constant {offset} : index")} : index')
+                    score = w.v(f'memref.load {scores}[{index}] : memref<{S}xf32>')
+                    probability = w.v(f'arith.mulf {score}, {inv} : f32')
+                    value = load_kv('%vc', '%vsc', index, h, '%d')
+                    product = w.v(f'arith.mulf {probability}, {value} : f32')
+                    subtotal = product if subtotal is None else w.v(f'arith.addf {subtotal}, {product} : f32')
+                previous = w.v(f'memref.load %out[%t, %hq, %d] : {qt}')
+                result = w.v(f'arith.addf {subtotal}, {previous} : f32')
+                w.raw(f'memref.store {result}, %out[%t, %hq, %d] : {qt}')
+                w.close()
+
+            i4 = w.v('arith.constant 4 : index')
+            i2 = w.v('arith.constant 2 : index')
+            remainder = w.v(f'arith.remui {n}, {i4} : index')
+            full = w.v(f'arith.subi {n}, {remainder} : index')
+            w.open(f'scf.for %j = {i0} to {full} step {i4}')
+            block('%j', 4)
+            w.close()
+            has_two = w.v(f'arith.cmpi uge, {remainder}, {i2} : index')
+            w.open(f'scf.if {has_two}')
+            block(full, 2)
+            w.close()
+            odd = w.v(f'arith.remui {remainder}, {i2} : index')
+            has_one = w.v(f'arith.cmpi ne, {odd}, {i0} : index')
+            w.open(f'scf.if {has_one}')
+            block(w.v(f'arith.subi {n}, {i1} : index'), 1)
+            w.close()
+        else:
+            w.open(f"scf.for %j = {i0} to {n} step {i1}")
+            pj = w.v(f"arith.mulf {w.v(f'memref.load {scores}[%j] : memref<{S}xf32>')}, {inv} {f} : f32")
+            vs = kv_scale("%vsc", "%j", h)
+            if vs:
+                pj = w.v(f"arith.mulf {pj}, {vs} {f} : f32")
+            w.open(f"scf.for %d = {i0} to {iD} step {i1}")
+            vv = load_kv("%vc", "%vsc", "%j", h, "%d")
+            o = w.v(f"memref.load %out[%t, %hq, %d] : {qt}")
+            if fused:
+                o2 = w.v(f"math.fma {pj}, {vv}, {o} : f32")
+            else:
+                o2 = w.v(f"arith.addf {o}, {w.v(f'arith.mulf {pj}, {vv} {f} : f32')} {f} : f32")
+            w.raw(f"memref.store {o2}, %out[%t, %hq, %d] : {qt}")
+            w.close()
+            w.close()
     else:
         res = w.vn(2, f"scf.for %j = {i0} to {n} step {i1} iter_args(%m = {ninf}, %l = {zero}) -> (f32, f32) {{")
         w.depth += 1

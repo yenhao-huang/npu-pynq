@@ -14,7 +14,6 @@ from acceptance import save, memory
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--arithmetic-only',action='store_true')
-parser.add_argument('--native-ort',action='store_true')
 args=parser.parse_args()
 
 overlay = Overlay(str(deploy / "hardware/overlay/npu_matrix.bit"), download=False)
@@ -32,18 +31,15 @@ if args.arithmetic_only:
     npu.close()
     sys.exit(0)
 float_ops=None
-if args.native_ort:
-    from onnx_ort_ctypes import NativeOrtOperators
-    float_ops=NativeOrtOperators(deploy/'packages/onnx-ops',deploy/'packages/onnx-runtime/libonnx_ort_bridge.so')
 engine = ONNXReferenceEngine(deploy,npu,float_ops)
 start = time.monotonic()
 ids = engine.tokenizer.encode(engine.tokenizer.chat([{"role":"user","content":"Explain why the sky is blue in simple words."}]))
 logits = engine.prefill(ids)
-out = deploy / ("runs/official-native-probe" if args.native_ort else "runs/official-probe")
+out = deploy / "runs/official-probe"
 out.mkdir(parents=True,exist_ok=True)
 np.save(out / "prefill.npy",logits)
 save(out / "probe.json",{"seconds":time.monotonic()-start,"prompt_ids":ids,
-                          "native_ort":args.native_ort,
+                          "float_reference":"numpy",
                           "first_token":int(logits[0].argmax()),"npu":npu.stats,"memory":memory()})
 print("PREFILL",time.monotonic()-start,engine.tokenizer.decode([int(logits[0].argmax())]), npu.stats, flush=True)
 npu.close()

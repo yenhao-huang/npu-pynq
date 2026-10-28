@@ -1,101 +1,57 @@
-# Compiled SmolLM2 on macOS
+# SmolLM2 ONNX on PYNQ-Z1 (macOS)
 
-Platform guides: [Linux](README.md) | [Windows (PowerShell)](README.win.md) | [macOS](README.macos.md).
+[WSL](README.md) | [macOS](README.macos.md)
 
-Run local commands from the repository root in the macOS Terminal (Bash or zsh). Commands after an interactive
-`ssh` login run in the board's Linux shell. Install Python 3 and make sure
-`ssh` and `scp` are available. Keep deployment products under `dist/`.
+Run host commands from the repository root in macOS Terminal. Obtain
+`dist/smollm-package/` from the [WSL compilation steps](README.md#1-fetch-and-compile)
+and supply the matching 16×16, MAX_K=256, ISA ABI 1.1 overlay pair. Keep the source
+checkout consistent with the package. The package compiles CPU operators to
+ARM32 and NPU contractions to ISA programs; the board does not need ONNX Runtime.
 
-## Requirements and build boundary
+This guide covers deployment from macOS. The compiler and physical acceptance
+for this revision were exercised from the Windows/Linux toolchain and PYNQ-Z1.
 
-First produce the model package with the [Linux build guide](README.md).
-Copy these matching products into this checkout:
-
-- `dist/smollm-package/`: the complete ARM compiled package, including its ONNX Runtime library.
-- `build/vivado/npu_matrix_16x16/artifacts/npu_matrix.bit` and `npu_matrix.hwh`: the matching ISA overlay.
-
-Keep the source checkout at the same commit as the package. The board needs
-PYNQ, XRT and its existing Python environment.
-[AMD lists Windows and Linux as supported Vivado hosts](https://docs.amd.com/r/en-US/ug973-vivado-release-notes-install-license/Supported-Operating-Systems). Build the overlay on Linux; this guide deploys the prepared package from macOS without installing Vivado on the Mac.
-
-## Optional ONNX-MLIR import check
-
-The production package still uses the ORT bridge. The new ONNX-MLIR path
-inventories and imports the source to MLIR; it does not yet produce an
-ARM/NPU package. The pinned compiler uses LLVM 24, lacks an ARM target, and
-leaves 151 custom operations requiring conversion. The existing NPU toolchain
-uses LLVM 22; interchange remains unverified.
-
-For a local check, use Python 3.10–3.12 and Docker Desktop. The pinned image
-targets `linux/amd64`; Apple Silicon requires working amd64 container
-emulation. This import path has been tested on Windows with Linux containers,
-not on macOS. Keep using the Linux build guide for the production package.
-The original ONNX source is required in addition to any compiled package.
-
-Use an existing environment with ONNX 1.17.0, or create one:
+## 1. Deploy
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install onnx==1.17.0
-export NPU_ONNX_MODEL="$PWD/dist/smollm2-onnx"
-.venv/bin/python -m src.export.cli prepare-onnx fetch
-onnx_mlir_image="$(.venv/bin/python -c 'import json; print(json.load(open("src/export/compilers/onnx_mlir/toolchain.json"))["image"])')"
-docker pull --platform linux/amd64 "$onnx_mlir_image"
-.venv/bin/python -m src.export.compilers.onnx_mlir.pipeline \
-  --source "$NPU_ONNX_MODEL/onnx/model_int8.onnx" \
-  --out build/onnx-mlir/smollm-inspect --inventory-only
-.venv/bin/python -m src.export.compilers.onnx_mlir.pipeline \
-  --source "$NPU_ONNX_MODEL/onnx/model_int8.onnx" \
-  --out build/onnx-mlir/smollm-import-check
-```
-
-Use new or empty output directories. `inventory.json` records conversion gaps;
-successful import produces `model.onnx.mlir`, `compiler.log`, and `import.json`.
-`compile_ready` remains false; partition, codegen, and board validation remain
-`not-run`. Nothing is dispatched to the FPGA.
-
-See the [import guide](../../docs/onnx-mlir/README.md) and
-[integration plan](../../docs/plans/onnx-mlir-incoporate/plan.md). Use the complete
-Linux-built package below for deployment and notebook validation.
-
-## 1. Check inputs and deploy
-
-```bash
+export NPU_BIT="$PWD/build/vivado/npu_matrix_16x16/artifacts/npu_matrix.bit"
+export NPU_HWH="$PWD/build/vivado/npu_matrix_16x16/artifacts/npu_matrix.hwh"
 test -f dist/smollm-package/manifest.json
-ssh xilinx@192.168.2.99 "mkdir -p ~/jupyter_notebooks/npu-smollm"
-scp -r src dist/smollm-package xilinx@192.168.2.99:~/jupyter_notebooks/npu-smollm/
-scp examples/smollm_onnx/smollm_onnx.ipynb xilinx@192.168.2.99:~/jupyter_notebooks/npu-smollm/
-scp build/vivado/npu_matrix_16x16/artifacts/npu_matrix.bit build/vivado/npu_matrix_16x16/artifacts/npu_matrix.hwh xilinx@192.168.2.99:~/jupyter_notebooks/npu-smollm/
+export BOARD=xilinx@192.168.2.99
+export REMOTE=/home/xilinx/jupyter_notebooks/npu-smollm
+ssh "$BOARD" "mkdir -p '$REMOTE'"
+tar --exclude='__pycache__' -cf - src/runtime src/vendors/__init__.py \
+  src/vendors/npu_pynq/__init__.py src/vendors/npu_pynq/isa src/vendors/npu_pynq/driver \
+  | ssh "$BOARD" "tar -xf - -C '$REMOTE'"
+scp -r dist/smollm-package "$BOARD:$REMOTE/"
+scp examples/smollm_onnx/smollm_onnx.ipynb "$BOARD:$REMOTE/"
+scp "$NPU_BIT" "$BOARD:$REMOTE/npu_matrix.bit"
+scp "$NPU_HWH" "$BOARD:$REMOTE/npu_matrix.hwh"
 ```
 
-## 2. Run on the board
+## 2. Generate on the board
 
-From Terminal, connect:
+These commands run in the board's Linux shell. Enter the sudo password when
+prompted. The board uses its existing PYNQ Python environment and XRT.
 
 ```bash
 ssh xilinx@192.168.2.99
-```
-
-The following commands run in the board's Linux shell. Enter the board sudo
-password when prompted:
-
-```bash
-cd ~/jupyter_notebooks/npu-smollm
+cd /home/xilinx/jupyter_notebooks/npu-smollm
 sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli run \
-  smollm-package --backend pynq --overlay npu_matrix.bit \
-  --chat --stream --prompt "write a paragraph about npu" --max-new 32
+  smollm-package --backend pynq --overlay npu_matrix.bit --chat --stream \
+  --prompt "Write a paragraph about a neural processing unit (NPU)." --max-new 32
 ```
 
-## 3. Notebook handoff
+## 3. Run the notebook
 
-Open <http://192.168.2.99:9090/notebooks/npu-smollm/smollm_onnx.ipynb> in the
-board's root PYNQ kernel. Set `NPU_REPO` to
-`/home/xilinx/jupyter_notebooks/npu-smollm`, `NPU_COMPILED_PACKAGE` to its
-`smollm-package` directory and `NPU_OVERLAY` to its `npu_matrix.bit` before
-running generation. Run CPU simulation in a separate process from physical
-inference. Only the compiled prefill lengths are accepted.
+Open [smollm_onnx.ipynb](smollm_onnx.ipynb) in the root PYNQ kernel at
+<http://192.168.2.99:9090/notebooks/npu-smollm/smollm_onnx.ipynb>.
+Run setup, generation and cleanup in order. Defaults are the notebook directory,
+`smollm-package/` and `npu_matrix.bit`. Override `NPU_REPO`,
+`NPU_COMPILED_PACKAGE` and `NPU_OVERLAY` in the kernel for another layout.
+The complete chat input length must be compiled; defaults are 36, 40 and 42.
 
-## Release CD
-
-See [Release CD](README.md#release-cd) for packaging, sealed hashes and the
-separate physical acceptance check. A successful file transfer is not acceptance.
+Physical acceptance passed all three prefill profiles and three decode steps
+each, with exact KV state and greedy tokens and maximum logit error `4.2e-5`.
+The [integration guide](../../docs/plans/onnx-mlir-incoporate/README.md) records
+the numerical and hardware evidence. The notebook is committed without outputs.

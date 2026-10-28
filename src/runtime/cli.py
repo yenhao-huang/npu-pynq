@@ -49,7 +49,7 @@ def cmd_run(args) -> int:
 
 def cmd_reference(args) -> int:
     from src.test.model.onnx_reference import ONNXReferenceEngine
-    from src.runtime.cpu.ort import OrtOperators, NativeOrtOperators
+    from src.runtime.cpu.ort import OrtOperators
     root = Path(args.model_dir).expanduser().resolve()
     if not (onnx_asset_dir(root, "onnx-graph")).is_dir():
         root /= "packages"
@@ -58,11 +58,6 @@ def cmd_reference(args) -> int:
         if args.backend == "pynq":
             from pynq import Overlay
             from src.vendors.npu_pynq.driver.isa import NpuGemm
-            runtime = onnx_asset_dir(root, 'onnx-runtime')
-            bridge = runtime / 'libonnx_ort_bridge.so'
-            if not bridge.exists():
-                bridge = runtime / 'libofficial_ort_bridge.so'
-            float_ops = NativeOrtOperators(onnx_asset_dir(root, 'onnx-ops'), bridge)
             gemm = NpuGemm(Overlay(args.overlay))
         else:
             float_ops = OrtOperators(onnx_asset_dir(root, "onnx-ops"))

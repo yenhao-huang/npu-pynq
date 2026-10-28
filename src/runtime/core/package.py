@@ -42,12 +42,6 @@ class Package:
             if hashlib.sha256((self.root / name).read_bytes()).hexdigest() != expected:
                 raise ValueError('Native kernel identity differs: ' + name)
         self.hooks = meta.get('runtime_hooks', {})
-        # Packages exported before runtime hooks became part of ModelGraph.
-        if not self.hooks and meta.get('native_float_runtime') == 'onnxruntime-1.20.1':
-            self.hooks = {'preload':['libonnxruntime.so.1.20.1'],
-                'initialize':'official_compiled_init', 'initialize_path':'float-ops',
-                'reset':'official_compiled_clear', 'status':'official_compiled_status',
-                'error':'official_ort_error'}
         self.dependencies = [ctypes.CDLL(str((self.root / name).resolve()), mode=ctypes.RTLD_GLOBAL)
                              for name in self.hooks.get('preload', ())]
         self.backend = backend

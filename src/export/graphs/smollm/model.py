@@ -56,7 +56,7 @@ def awq_spec(cfg: Config):
 
 
 def build(source: str = DEFAULT_SOURCE, opts: LLMOptions | None = None, awq=None,
-          source_format='auto', prefill_lengths=(36, 40, 42)):
+          source_format='auto', prefill_lengths=(36, 40, 42), onnx_import_dir=None):
     """Prepare SmolLM weights and build its prefill and decode graphs."""
     opts = opts or LLMOptions()
     source = str(source)
@@ -71,12 +71,8 @@ def build(source: str = DEFAULT_SOURCE, opts: LLMOptions | None = None, awq=None
         prepared = path.parent if path.suffix == '.onnx' else path
         nested = onnx_asset_dir(prepared, 'onnx')
         source_root = nested if nested.is_dir() else prepared
-        if source_root.name in ('onnx', 'official-onnx'):
-            prepared = source_root.parent
         graph, source_model = build_quantized_onnx(path if path.suffix == '.onnx' else source_root,
-                                      prefill_lengths, opts.max_seq, opts.layers or 30)
-        from src.export.core.onnx_source import attach_float_runtime
-        attach_float_runtime(graph, prepared, source_model)
+                                      prefill_lengths, opts.max_seq, opts.layers or 30, onnx_import_dir)
         return graph, Config(json.loads((source_root / 'config.json').read_text(encoding='utf-8')))
     if source_format != 'safetensors':
         raise ValueError('Unsupported SmolLM source format: ' + source_format)

@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import subprocess
 import uuid
+import hashlib
 
 
 PIN = json.loads(Path(__file__).with_name('toolchain.json').read_text(encoding='utf-8'))
@@ -25,14 +26,15 @@ class Compiler:
         source = source.resolve()
         output = output.resolve()
         if self.binary:
-            return [self.binary, '--EmitONNXIR', str(source), '-o', str(output / 'model')]
+            return [self.binary, '--EmitONNXIR', '--mlir-print-op-generic', str(source), '-o', str(output / 'model')]
         if ',' in str(source.parent) or ',' in str(output):
             raise ValueError('Docker bind paths containing commas are not supported')
         return ['docker', 'run', '--rm', '--pull=never', '--network=none',
                 '--platform=' + PIN['platform'],
                 '--mount', f'type=bind,source={source.parent},target=/input,readonly',
                 '--mount', f'type=bind,source={output},target=/output',
-                PIN['image'], '--EmitONNXIR', '/input/' + source.name, '-o', '/output/model']
+                PIN['image'], '--EmitONNXIR', '--mlir-print-op-generic',
+                '/input/' + source.name, '-o', '/output/model']
 
     def import_model(self, source: Path, output: Path) -> dict:
         command = self.command(source, output)
@@ -72,6 +74,10 @@ class Compiler:
         module = output / 'model.onnx.mlir'
         if not module.is_file() or module.stat().st_size == 0:
             raise OnnxMlirError(f'Compiler returned no nonempty ONNX MLIR module; see {log}')
-        return {'command': command, 'artifact': module.name, 'log': log.name,
+        digest = hashlib.sha256()
+        with module.open('rb') as stream:
+            for block in iter(lambda: stream.read(1 << 20), b''):
+                digest.update(block)
+        return {'command': command, 'artifact': module.name, 'artifact_sha256': digest.hexdigest(), 'log': log.name,
                 'toolchain': {'binary': self.binary, 'stage': 'import-only'} if self.binary else PIN,
                 'provenance': 'unverified-native' if self.binary else 'pinned-image'}

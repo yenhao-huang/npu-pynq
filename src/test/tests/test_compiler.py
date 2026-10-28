@@ -240,7 +240,7 @@ class ONNXSourceIndependenceTest(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([sys.executable, '-c',
                 'from src.vendors.npu_pynq.driver.isa import NpuGemm; '
-                'from src.runtime.cpu.ort import NativeOrtOperators; '
+                'from src.runtime.cpu.ort import OrtOperators; '
                 'from src.runtime.core.engine import LLMEngine'],
                 cwd=isolated, env=env, capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -380,13 +380,13 @@ class SharedExportEngineTest(unittest.TestCase):
         from src.export.core.graph import LLMOptions
         from src.runtime.core.engine import LLMEngine
         with patch.object(model,'build_quantized_onnx',return_value=('graph','source_model')) as build, \
-             patch('src.export.core.onnx_source.attach_float_runtime'), \
              patch.object(model,'Config',return_value='config'), \
              patch.object(Path,'read_text',return_value='{}'):
             graph, cfg = model.build('assets/onnx/model_int8.onnx',
-                                     opts=LLMOptions(),prefill_lengths=(42,))
+                                     opts=LLMOptions(),prefill_lengths=(42,),onnx_import_dir='prepared')
             self.assertEqual((graph,cfg),('graph','config'))
             self.assertEqual(build.call_args.args[1],(42,))
+            self.assertEqual(build.call_args.args[-1],'prepared')
 
 
 class SmolLMCDTest(unittest.TestCase):

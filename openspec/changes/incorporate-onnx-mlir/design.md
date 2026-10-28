@@ -2,11 +2,12 @@
 
 ## Context
 
-See proposal.md and `docs/plans/onnx-mlir-incoporate/plan.md`. The current frontend
-emits linalg tensor operations and external ORT calls. The unchanged NPU pass
-requires static INT8 linalg contractions whose right operand is `npu.weight`.
-The available compiler container has LLVM 22 and an ARM hard-float compiler;
-ONNX-MLIR is not installed there.
+See proposal.md and `docs/plans/onnx-mlir-incoporate/plan.md`. Before migration,
+the frontend emitted linalg tensor operations and external ORT calls. The
+unchanged NPU pass requires static INT8 linalg contractions whose right operand
+is `npu.weight`. The verified implementation uses a pinned LLVM 24 ONNX-MLIR
+importer, generic IR parsed by an export-side MLIR 22 adapter, and the existing
+LLVM 22 ARM-enabled code generator.
 
 ## Goals / Non-Goals
 
@@ -33,6 +34,10 @@ fallback to ORT, or an unverified claim of ARM32 or performance support.
    dialect is not assumed interchangeable with linalg/NPU dialect IR.
 6. Keep ONNX-MLIR CPU runtime support separate from the removed ORT session
    dependency. Any remaining runtime library must be explicitly packaged.
+7. Preserve fixed CPU rounding at quantization boundaries: ordered division,
+   full literal precision, explicit FMA, softmax accumulation lanes and grouped
+   decode products. Verify full-width operators and whole-model prefill/decode
+   against an independent unchanged-source reference before removing ORT.
 
 ## Risks / Trade-offs
 

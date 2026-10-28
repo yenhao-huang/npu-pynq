@@ -8,16 +8,16 @@ import sys
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 PROMPT = 'Write a paragraph about a neural processing unit (NPU).'
-# Frozen interactive result from compiled-board-20261009-04, independently
-# matched against unchanged full ARM ONNX (32 steps) in cd-smollm-20261010.
-# Never regenerate the baseline from the candidate under test. Changes require
-# an explicit reference review. This is reproducibility, not answer quality.
-EXPECTED_IDS = [62,16611,314,253,47333,282,6416,5290,338,6870,335,260,4604,
-                282,1205,1789,284,10115,4381,30,657,314,253,25000,1955,338,
-                11473,2728,282,2583,2092,28]
-EXPECTED_TEXT = ('NLP is a subfield of artificial intelligence that focuses on the '
-                 'processing of human language and reasoning tasks. It is a '
-                 'multidisciplinary field that combines elements of computer science,')
+# Reviewed from the unchanged full pinned ONNX with ORT 1.20.1 on 2026-10-25,
+# before checking the candidate's 32-token notebook run. Exact input IDs and
+# provenance are recorded in docs/plans/onnx-mlir-incoporate/acceptance.md.
+# Never regenerate this baseline from a candidate under test.
+EXPECTED_IDS = [49,25934,18784,4730,365,26282,69,25,314,253,1502,282,2583,817,
+                338,3078,1096,281,253,7623,5710,28,1015,2701,4604,4784,355,
+                21443,288,1477,253,3599]
+EXPECTED_TEXT = ('A Neural Processing Unit (NPU) is a type of computer system that '
+                 'processes information in a parallel manner, using multiple '
+                 'processing units or cores to perform a wide')
 
 
 def digest(path):
@@ -93,7 +93,7 @@ def accept(args):
     evidence = {'success': False, 'prompt': PROMPT, 'chat': True, 'max_new_tokens': 32,
                 'source_commit': args.commit, 'release_tag': args.tag,
                 'deployment_id': args.deployment_id,
-                'reference_run': 'compiled-board-20261009-04',
+                'reference_run': 'full-source-onnx-20261025',
                 'package_files': release['files'],
                 'overlay_sha256': digest(overlay_path),
                 'hwh_sha256': digest(overlay_path.with_suffix('.hwh'))}

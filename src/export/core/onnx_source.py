@@ -147,39 +147,3 @@ def export_sessions(graph, output):
                                   opset_imports=[helper.make_opsetid('',14),helper.make_opsetid('com.microsoft',1)])
         model.ir_version = 9
         onnx.save(model, output / (key+'.onnx'))
-
-
-def attach_float_runtime(graph, root, source_model):
-    """Attach native operator sessions to a frontend's ordinary ModelGraph."""
-    root = Path(root)
-    from types import SimpleNamespace
-    from onnx import helper, TensorProto, save
-    opdir = root/'onnx-compiled-ops'
-    nodes = [{'op':node.op_type,'inputs':list(node.input),'outputs':list(node.output),
-              'attrs':{a.name:helper.get_attribute_value(a) for a in node.attribute}}
-             for node in source_model.graph.node]
-    export_sessions(SimpleNamespace(manifest={'nodes':nodes}),opdir)
-    model = helper.make_model(helper.make_graph(
-        [helper.make_node('MatMul',['x0','x1'],['y0'])],'MatMul',
-        [helper.make_tensor_value_info('x0',TensorProto.FLOAT,None),
-         helper.make_tensor_value_info('x1',TensorProto.FLOAT,None)],
-        [helper.make_tensor_value_info('y0',TensorProto.FLOAT,None)]),
-        opset_imports=[helper.make_opsetid('',14)])
-    model.ir_version=9
-    save(model,opdir/'MatMul.onnx')
-    hashes={}
-    for path in sorted(opdir.glob('*.onnx')):
-        dest='float-ops/'+path.name
-        graph.files[dest]=path
-        hashes[dest]=hashlib.sha256(path.read_bytes()).hexdigest()
-    runtime=onnx_asset_dir(root, 'onnx-runtime')/'libonnxruntime.so.1.20.1'
-    graph.files[runtime.name]=runtime
-    hashes[runtime.name]=hashlib.sha256(runtime.read_bytes()).hexdigest()
-    graph.meta['native_kernel_hashes']=hashes
-    graph.meta['compiled_pipeline']='ONNX frontend -> MLIR -> npu-partition -> npu-lower -> LLVM ARM'
-    graph.meta['targets'] = ['pynq']
-    graph.meta['requires_native_object'] = ['pynq']
-    graph.meta['runtime_hooks'] = {
-        'preload': [runtime.name], 'initialize': 'onnx_compiled_init',
-        'initialize_path': 'float-ops', 'reset': 'onnx_compiled_clear',
-        'status': 'onnx_compiled_status', 'error': 'onnx_ort_error'}

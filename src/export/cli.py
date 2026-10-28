@@ -38,7 +38,7 @@ def export(graph: ModelGraph | str | Path | None, out: str | Path, targets: Sequ
            limits: isa.Limits = isa.Limits(), keep_ir: bool = True, segment_bytes: int = 4 << 20,
            extra_objects: dict[str, Sequence[Path]] | None = None, *, model: str | None = None,
            opts=None, source_format: str = 'auto', prefill_lengths=(36, 40, 42),
-           native_object: str | Path | None = None) -> Path:
+           native_object: str | Path | None = None, onnx_import_dir: str | Path | None = None) -> Path:
     """Compile a graph or model source through the same partition/lower pipeline.
 
     Model frontends own input formats; the compiler always consumes ModelGraph.
@@ -59,6 +59,7 @@ def export(graph: ModelGraph | str | Path | None, out: str | Path, targets: Sequ
                 (source_path.suffix == '.onnx' or (source_path/'model_int8.onnx').is_file()
                  or (onnx_asset_dir(source_path, 'onnx')/'model_int8.onnx').is_file())):
             kwargs['prefill_lengths'] = prefill_lengths
+            kwargs['onnx_import_dir'] = onnx_import_dir
         start = time.monotonic()
         graph, _ = load(model).build(**kwargs)
         frontend_seconds = time.monotonic() - start
@@ -172,7 +173,7 @@ def cmd_export(args) -> int:
     else:
         opts = _options(args)
     pkg = export(args.source or args.model_dir, args.out, model=args.model, opts=opts,
-                 source_format=args.format, native_object=args.native_object,
+                 source_format=args.format, native_object=args.native_object, onnx_import_dir=args.onnx_import_dir,
                  prefill_lengths=tuple(map(int, args.prefill_lengths.split(','))),
                  targets=args.targets.split(',') if args.targets else None)
     manifest = json.loads((pkg / "manifest.json").read_text())
@@ -191,7 +192,7 @@ def cmd_prepare_onnx(args) -> int:
         export_graph(root, ONNX_PIN)
     if args.phase in ("verify", "prepare"):
         print(json.dumps(verify_export(root), indent=2))
-    if args.phase in ("operators", "prepare"):
+    if args.phase == "operators":
         export_operators(root)
     return 0
 
@@ -201,6 +202,7 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     e = sub.add_parser("export")
     e.add_argument("model")
+    e.add_argument('--onnx-import-dir', help='Verified ONNX-MLIR import directory; otherwise import automatically')
     e.add_argument("--format", type=lambda s: {'checkpoint':'auto', 'official-onnx':'onnx'}.get(s, s),
                    choices=('auto', 'safetensors', 'onnx'), default='auto')
     e.add_argument("--model-dir", default=model_env("NPU_ONNX_MODEL"))

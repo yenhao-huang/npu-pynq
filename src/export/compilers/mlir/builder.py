@@ -54,7 +54,9 @@ def float_literal(value: float) -> str:
         return "0x7FC00000"
     if v in (float("inf"), float("-inf")):
         return "0x7F800000" if v > 0 else "0xFF800000"
-    return f"{v:.9e}"
+    # Preserve the Python literal before MLIR rounds it to the destination type.
+    # Truncating a double near an FP32 midpoint can choose the adjacent FP32.
+    return f"{v:.17e}"
 
 
 def _affine(dims: int, exprs: Iterable[str]) -> str:

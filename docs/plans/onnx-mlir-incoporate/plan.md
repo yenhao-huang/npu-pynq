@@ -1,7 +1,7 @@
 # Incorporate ONNX-MLIR into the SmolLM2 Export Pipeline
 
-Status: implementation started; source inventory and import are implemented.
-ARM code generation and the unchanged-NPU compatibility gate remain incomplete.
+Status: implemented, validated and deployed on physical PYNQ-Z1. Production
+ORT sources and dependencies have been removed after acceptance.
 
 ## Objective
 
@@ -15,44 +15,43 @@ No changes under `src/vendors/npu_pynq/` or `src/hw/` are planned.
 
 The requested plan directory is used explicitly instead of the usual dated
 plan filename convention. This document records design and implementation
-progress; it does not claim the production migration is complete.
+progress. Evidence and reproduction are recorded in [acceptance.md](acceptance.md).
 
 ## Planned Files and Directories
 
 ```text
 src/export/
-|-- cli.py                                  modify
-|-- core/
-|   `-- onnx_source.py                      modify
-|-- graphs/smollm/
-|   |-- model.py                            modify
-|   `-- onnx.py                             modify
-`-- compilers/onnx_mlir/                     add
-    |-- __init__.py
-    |-- toolchain.py
-    |-- pipeline.py
-    |-- support.py
-    |-- toolchain.json
-    `-- mlir/                               add if custom passes are needed
+|-- cli.py                                  modify: import/export orchestration
+|-- core/onnx_source.py                      modify: remove ORT attachment
+|-- graphs/smollm/{onnx,model}.py             modify: consume imported semantics
+|-- compilers/mlir/builder.py                modify: preserve literal precision
+|-- compilers/mlir/ops/attention.py           modify: optional fixed arithmetic
+`-- compilers/onnx_mlir/
+    |-- toolchain.{py,json}                 pinned invocation and provenance
+    |-- pipeline.py, support.py             import and inventory
+    |-- adapter.py                          source/IR identity and parsed graph
+    |-- lowering.py, math_kernels.py         verified CPU conversions
+    `-- mlir/
         |-- CMakeLists.txt
-        |-- include/
-        `-- lib/
+        `-- lib/Adapter.cpp                 MLIR 22 parser; no NPU passes
 
-src/runtime/core/
-`-- package.py                              review; modify only if necessary
+src/runtime/
+|-- core/package.py                         remove ORT-specific fallback
+|-- cli.py                                  reference consumer migration
+`-- cpu/ort.py                              retain optional Python host reference
 
-src/test/tests/
-|-- test_onnx_import.py                      add
-|-- test_onnx_lowering.py                    add
-`-- test_onnx_package.py                     add
+src/test/
+|-- onnx_mlir_acceptance.py                  independent host/physical acceptance
+`-- tests/{test_onnx_import,test_onnx_lowering,test_onnx_adapter,test_compiler}.py
 
 examples/smollm_onnx/
-|-- README.md                               modify
-|-- README.win.md                           modify
-`-- README.macos.md                         modify
+|-- README.md                               WSL guide
+|-- README.macos.md                         macOS deployment guide
+`-- smollm_onnx.ipynb                        output-free board demo
 
-docs/rules/
-`-- filetree.md                             modify
+.github/workflows/cd.yml                     compile without ARM ORT build
+.github/cd/smollm.py                         independently reviewed fixed reference
+docs/rules/filetree.md                      compiler/runtime responsibilities
 ```
 
 Remove the following files only after their production consumers have been
@@ -101,9 +100,8 @@ revise the deletion list explicitly. Keep generic package runtime hooks that
 other packages still require.
 
 The earlier file list omitted two integration points: `graphs/smollm/model.py`
-currently calls `attach_float_runtime`, and `core/onnx_source.py` implements
-that function and bundles the ORT library, operator models, and initialization
-hooks. Both must change to remove the production dependency.
+previously called `attach_float_runtime`, and `core/onnx_source.py` implemented
+that function and bundled ORT assets and hooks. Both were migrated.
 
 Exact C++ filenames will follow the passes proven necessary by the compatibility
 investigation. Do not create empty placeholder directories or duplicate upstream
@@ -124,7 +122,7 @@ Pinned ONNX model and source verification
           |                         |
   Selected NPU computations    Remaining CPU computations
           |                         |
-  Existing NPU lowering        ONNX-MLIR CPU lowering
+  Existing NPU lowering        Export-side CPU decomposition
           |                         |
   NPU programs and weights     LLVM and ARM code generation
           |                         |
@@ -274,7 +272,7 @@ depend on them; first migrate those consumers or revise the removal list.
 
 ### 6. Update Documentation and Complete Validation
 
-Update Linux, native Windows, and macOS guides consistently. State supported
+Update the WSL and macOS guides consistently with the current create-example rule. State supported
 build hosts and how other platforms obtain matching artifacts; do not imply
 native ARM cross-compilation is supported before it is tested. Preserve the
 notebook as the human validation entry point. Update `docs/rules/filetree.md`
@@ -311,27 +309,33 @@ unverified.
 
 ## Implementation Progress: 2026-10-25
 
-OpenSpec change: `incorporate-onnx-mlir`, tasks 1.1-1.3 complete (3/11 total).
+The pinned LLVM 24 importer emits generic ONNX IR, which the export-side MLIR 22
+adapter parses. The existing LLVM 22 toolchain generates ARM32 code. The import
+image's missing ARM backend does not require a vendor upgrade.
 
-Implemented source inventory and real ONNX-to-MLIR import under
-`src/export/compilers/onnx_mlir/`. A standalone module command exposes this
-boundary before production export integration. The pinned SmolLM2 model and
-a dynamic Sigmoid fixture both import successfully. Generated artifacts remain
-ignored under `build/onnx-mlir/`.
+Production export consumes imported operations, attributes and SSA edges before
+NPU partition. CPU normalization, quantization, rotary embedding, GQA, Sigmoid
+and the floating head compile to ordinary MLIR/LLVM operations. NPU programs,
+all 480 tasks, weights and layouts match the legacy path byte for byte.
 
-The consumer-facing production exporter is unchanged. The imported model still
-contains 151 custom operations requiring conversions. The pinned compiler image
-uses LLVM 24 and rejects ARM object generation because it lacks an ARM target;
-the existing NPU toolchain uses LLVM 22. Task 1.4 therefore remains blocked.
-An ARM-enabled compiler build and a verified IR adapter are required before
-continuing the production integration path. No vendor, ISA, RTL, or ORT source
-files were modified or removed by this implementation stage.
+Host and PYNQ-Z1 passed 12 numerical cases: each prefill profile 36/40/42 plus
+three decode steps. KV state and greedy IDs match exactly; max logit error is
+4.2e-5. The public notebook generated 32 independently verified tokens on the
+physical board. ONNX Runtime is absent from the board's PYNQ Python environment.
 
-Validation: 18 focused and boundary tests passed, including real Docker import.
-Existing compiler/boundary regressions ran 19 tests with 8 tool-dependent skips.
-Strict OpenSpec validation passed. CPU execution parity, NPU partition parity,
-and PYNQ-Z1 execution remain unverified.
+The four production ORT files and 13 unused ORT-only experiment build/debug
+wrappers were removed after board validation. Current export/runtime/CD paths
+have no consumers of them. The host Python ORT reference, board NumPy/NPU
+reference, source graph export and explicit `prepare-onnx operators` remain.
+Generic native objects and runtime hooks remain available to other callers.
+Existing downloaded artifacts and historical result records were preserved.
 
-See `docs/onnx-mlir/README.md` for commands, artifact meanings, pinned revisions,
-and the exact observed ARM compilation error. Before implementing the remaining
-production units, follow task 2.1's issue/sub-issue ownership gate.
+Sub-issues #139, #140 and #141 are assigned to yenhao-huang and claimed by
+agent a, with dedicated worktrees created from dev and advanced to the required
+#119 prerequisite. Integration stays in the existing #119 worktree.
+No vendor, ISA, driver or RTL source changed. No push, PR, merge or release
+was performed.
+
+See [README.md](README.md) for commands and [acceptance.md](acceptance.md) for
+numerical, physical, reference-review and removal evidence. OpenSpec tasks
+remain the authoritative completion checklist.

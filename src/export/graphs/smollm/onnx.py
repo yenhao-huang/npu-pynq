@@ -13,13 +13,16 @@ from src.export.compilers.mlir.ops import linear as L
 from src.export.compilers.mlir.ops.context import Ctx
 from src.export.core.graph import new_graph
 from src.export.core.model_loader import load_weights
+from src.export.compilers.onnx_mlir import adapter, lowering
+from src.export.compilers.mlir.ops.attention import AttnConfig
 
 ONNX_PIN = Path(__file__).with_name('onnx-source.json')
 
 
-def build_quantized_onnx(source, prefill_lengths=(36, 40, 42), max_seq=512, layers=30):
+def build_quantized_onnx(source, prefill_lengths=(36, 40, 42), max_seq=512, layers=30,
+                         onnx_import_dir=None):
     """Build SmolLM's graphs from the pinned INT8 ONNX export, keeping its
-    quantization unchanged; float operators run through ONNX Runtime."""
+    quantization unchanged; CPU operators compile from imported ONNX semantics."""
     source = Path(source)
     onnx_path = source if source.is_file() else source / 'model_int8.onnx'
     source = onnx_path.parent
@@ -27,6 +30,19 @@ def build_quantized_onnx(source, prefill_lengths=(36, 40, 42), max_seq=512, laye
     pinned = json.loads(ONNX_PIN.read_text())
     if digest != pinned['files']['model_int8.onnx']['sha256']:
         raise ValueError('This frontend requires the pinned pinned ONNX artifact')
+    imported, import_report, import_dir = adapter.load_imported(onnx_path, onnx_import_dir)
+    if len(imported['functions']) != 1:
+        raise ValueError('SmolLM import requires one main graph')
+    nodes = {node['attributes'].get('onnx_node_name'): node
+             for node in imported['functions'][0]['nodes']
+             if node['attributes'].get('onnx_node_name')}
+
+    def imported_node(name, operation):
+        node = nodes.get(name)
+        if node is None or node['op'] != operation:
+            raise ValueError('Imported SmolLM operation mismatch: ' + name)
+        return node
+
     weights = load_weights(onnx_path)
     model = weights.model
     integer = [n for n in model.graph.node if n.op_type == 'MatMulInteger']
@@ -39,9 +55,9 @@ def build_quantized_onnx(source, prefill_lengths=(36, 40, 42), max_seq=512, laye
     for layer in range(layers):
         for names in (('attn/q_proj', 'attn/k_proj', 'attn/v_proj'),
                       ('mlp/gate_proj', 'mlp/up_proj')):
-            nodes = [next(n for n in integer if n.name ==
-                f'/model/layers.{layer}/{name}/MatMul_quant') for name in names]
-            if len({(n.input[0], n.input[2]) for n in nodes}) != 1:
+            contractions = [imported_node(f'/model/layers.{layer}/{name}/MatMul_quant',
+                                         'onnx.MatMulInteger') for name in names]
+            if len({(n['inputs'][0], n['inputs'][2]) for n in contractions}) != 1:
                 raise ValueError('Fusion would change activation quantization')
     lengths = sorted(set(int(t) for t in prefill_lengths))
     if not lengths or any(t < 1 or t > max_seq for t in lengths):
@@ -72,6 +88,14 @@ def build_quantized_onnx(source, prefill_lengths=(36, 40, 42), max_seq=512, laye
                  ('logits',memref_type([1,vocab],'f32'))]
         b = graph.module.func(name, args)
         ctx = Ctx(b, graph, b.arg('ws'))
+
+        def custom(name, inputs, config=None):
+            return lowering.custom(ctx, imported_node(name, 'onnx.Custom'), inputs, config=config)
+
+        def quantize(name, value):
+            imported_node(name, 'onnx.DynamicQuantizeLinear')
+            return lowering.dynamic_quantize(b, value)
+
         token_tensor = b.to_tensor(b.arg('tokens'))
         head_value = ctx.weight('onnx.head', head)
         output = b.empty([t,hidden], 'f32')
@@ -85,36 +109,43 @@ def build_quantized_onnx(source, prefill_lengths=(36, 40, 42), max_seq=512, laye
 
         x = b.generic([], [output], [identity_map(2)], ['parallel','parallel'], lookup)[0]
         gamma = ctx.weight('l0.ln1', weights['model.layers.0.input_layernorm.weight'])
-        h = L.native(ctx, 'onnx_norm', [x,gamma], [([t,hidden],'f32')])[0]
+        h = custom('/model/layers.0/input_layernorm/LayerNorm', [x, gamma])[0]
         cos = ctx.weight('onnx.cos', weights['cos_cache'])
         sin = ctx.weight('onnx.sin', weights['sin_cache'])
         for i, group in enumerate(projections):
-            qkv = L.projection(ctx,L.quantize(ctx,h),f'l{i}.qkv',*group['qkv'])
+            prefix = f'/model/layers.{i}'
+            qkv = L.projection(ctx, quantize(prefix + '/input_layernorm/output_0_QuantizeLinear', h),
+                               f'l{i}.qkv', *group['qkv'])
             q = b.extract_slice(qkv,[0,0],[t,576])
             k = b.extract_slice(qkv,[0,576],[t,192])
             v = b.extract_slice(qkv,[0,768],[t,192])
-            q = L.native(ctx,'onnx_rope',[q,cos,sin,b.arg('pos')],[([t,576],'f32')])[0]
-            k = L.native(ctx,'onnx_rope',[k,cos,sin,b.arg('pos')],[([t,192],'f32')])[0]
-            attention = L.native(ctx,'onnx_attention',
-                [q,k,v,b.arg('key'),b.arg('value'),b.index(i),b.arg('pos')],
-                [([t,hidden],'f32')])[0]
-            o = L.projection(ctx,L.quantize(ctx,attention),f'l{i}.o',*group['o'])
+            q = custom(prefix + '/attn/q_rotary/RotaryEmbedding', [q, cos, sin, b.arg('pos')])[0]
+            k = custom(prefix + '/attn/k_rotary/RotaryEmbedding', [k, cos, sin, b.arg('pos')])[0]
+            attention = custom(prefix + '/attn/GroupQueryAttention',
+                [q, k, v, {'k': b.arg('key'), 'v': b.arg('value')}, b.index(i), b.arg('pos')],
+                AttnConfig(t, 9, 3, 64, layers, max_seq, mode='naive', scale=0.125))[0]
+            o = L.projection(ctx, quantize(prefix + '/attn/GroupQueryAttention/output_0_QuantizeLinear', attention),
+                             f'l{i}.o', *group['o'])
             gamma = ctx.weight(f'l{i}.ln2',weights[f'model.layers.{i}.post_attention_layernorm.weight'])
-            h, residual = L.native(ctx,'onnx_skip',[x,o,gamma],
-                                   [([t,hidden],'f32'),([t,hidden],'f32')])
-            gu = L.projection(ctx,L.quantize(ctx,h),f'l{i}.gu',*group['gu'])
+            h, residual = custom(prefix + '/post_attention_layernorm/SkipLayerNorm', [x, o, gamma])
+            gu = L.projection(ctx, quantize(prefix + '/post_attention_layernorm/output_0_QuantizeLinear', h),
+                              f'l{i}.gu', *group['gu'])
             gate = b.extract_slice(gu,[0,0],[t,inter])
             up = b.extract_slice(gu,[0,inter],[t,inter])
-            sigmoid = L.native(ctx,'onnx_sigmoid',[gate],[([t,inter],'f32')])[0]
+            sigmoid = lowering.elementwise(b, imported_node(prefix + '/mlp/act_fn/Sigmoid', 'onnx.Sigmoid'), [gate])
             act = L.multiply(b,L.multiply(b,gate,sigmoid),up)
-            down = L.projection(ctx,L.quantize(ctx,act),f'l{i}.down',*group['down'])
+            imported_node(prefix + '/mlp/down_proj/MatMul_quant', 'onnx.MatMulInteger')
+            imported_node(prefix + '/attn/o_proj/MatMul_quant', 'onnx.MatMulInteger')
+            down = L.projection(ctx, quantize(prefix + '/mlp/Mul/output_0_QuantizeLinear', act),
+                                f'l{i}.down', *group['down'])
             key = (f'model.layers.{i+1}.input_layernorm.weight' if i+1 < 30
                    else 'model.layers.30.final_norm_layernorm.weight')
             gamma = ctx.weight(f'l{i}.next_norm',weights[key])
-            h,x = L.native(ctx,'onnx_skip',[residual,down,gamma],
-                           [([t,hidden],'f32'),([t,hidden],'f32')])
+            next_norm = (f'/model/layers.{i+1}/input_layernorm/SkipLayerNorm' if i+1 < 30
+                         else '/model/layers.30/final_norm_layernorm/SkipLayerNorm')
+            h, x = custom(next_norm, [residual, down, gamma])
         last = b.extract_slice(h,[t-1,0],[1,hidden])
-        logits = L.native(ctx,'onnx_head',[last,head_value],[([1,vocab],'f32')])[0]
+        logits = b.matmul(last, head_value, b.fill(0.0, [1, vocab], 'f32'))
         b.store(logits,b.arg('logits'))
         b.emit('return')
         graph.entry_points[name] = ['weights','key','value','tokens','pos','logits']
@@ -122,8 +153,11 @@ def build_quantized_onnx(source, prefill_lengths=(36, 40, 42), max_seq=512, laye
         'state':[{'name':kind,'shape':cache_shape,'dtype':'f32'} for kind in ('key','value')],
         'vocab':vocab,'prefill_lengths':lengths,'layers':layers,
         'integer_projections_per_forward':4*layers,'original_integer_projections':7*layers,
-        'options':{'max_seq':max_seq},'native_float_runtime':'onnxruntime-1.20.1',
+        'options':{'max_seq':max_seq},'cpu_compiler':'onnx-mlir-import/llvm-22',
+        'onnx_import_sha256':import_report['artifact_sha256'],
         'fusions':['qkv','gate_up'],'onnx_quantization_unchanged':True})
     graph.files['tokenizer.json'] = source/'tokenizer.json'
     graph.files['tokenizer_config.json'] = source/'tokenizer_config.json'
+    graph.files['compiler/onnx-import.json'] = import_dir / 'import.json'
+    graph.files['compiler/onnx-graph.json'] = import_dir / 'graph.json'
     return graph, model

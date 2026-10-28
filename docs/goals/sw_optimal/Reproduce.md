@@ -105,27 +105,27 @@ ls build/deploy/results/*/results/                      # board.log, isa_gemm.js
 
 ## 8. Official SmolLM2 INT8 shared-source follow-up
 
-This prepares the unchanged official ONNX model and executes its integer
-contractions through the ISA runtime with ORT floating-point operators. It is
-separate from the MLIR/LLVM compiled-package route above. Runtime and model
-preparation do not require the experiment directory.
+The official ONNX model now uses ONNX-MLIR import before the unchanged NPU
+partition. CPU operations compile to ARM32 without production ORT. Follow the
+[WSL guide](../../../examples/smollm_onnx/README.md) or
+[macOS guide](../../../examples/smollm_onnx/README.macos.md) for deployment.
+The following commands retain the independent host reference.
 
 ```bash
 python -m pip install -r exp/1007_sw_stack/deploy/requirements-host.txt
 export NPU_ONNX_MODEL=/path/to/smollm2-official
 python -m src.export.cli prepare-onnx prepare
+python -m src.export.cli prepare-onnx operators
 python -m src.runtime.cli reference --backend cpu \
   --prompt "Explain why the sky is blue in simple words." --max-new-tokens 24
 python -m unittest src.test.tests.test_compiler -v
 ```
 
-Build and stage the ARM runtime, prepared model and matching ISA overlay as
-described in [the shared-source instructions](../../acceptance/smollm-onnx.md).
-On the board, set `NPU_ONNX_MODEL` and `NPU_OVERLAY`, compile the bridge,
-then run the source-only entry point:
+On the board, the optional graph reference uses NumPy floating operators and
+physical NPU integer contractions. Set `NPU_ONNX_MODEL` and `NPU_OVERLAY`, then
+run it independently of the compiled package:
 
 ```bash
-bash src/runtime/build_onnxruntime_bridge.sh
 python -m src.runtime.cli reference --backend pynq \
   --prompt "write a paragraph about npu" --max-new-tokens 32
 ```
