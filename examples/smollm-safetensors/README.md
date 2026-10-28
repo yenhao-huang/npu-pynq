@@ -46,8 +46,26 @@ source .venv/bin/activate
 python -m pip install numpy==1.26.4
 ```
 
-Install the LLVM/MLIR 22 and CMake build prerequisites described in the
-[existing compiler guide](../smollm_onnx/README.md#install-host-dependencies-ubuntu--wsl-ubuntu).
+Install LLVM/MLIR 22 and the build prerequisites (Ubuntu or WSL Ubuntu). Ubuntu
+24.04 does not ship LLVM 22, so it comes from the
+[official LLVM packages](https://apt.llvm.org/):
+
+```bash
+sudo apt install -y wget ca-certificates gnupg build-essential cmake ninja-build
+wget -O /tmp/npu-llvm.sh https://apt.llvm.org/llvm.sh
+sudo bash /tmp/npu-llvm.sh 22
+sudo apt install -y llvm-22 llvm-22-dev clang-22 lld-22 \
+  mlir-22-tools libmlir-22-dev gcc-arm-linux-gnueabihf
+```
+
+Verify the toolchain before building:
+
+```bash
+/usr/lib/llvm-22/bin/mlir-opt --version
+/usr/lib/llvm-22/bin/clang --version
+test -f /usr/lib/llvm-22/lib/cmake/mlir/MLIRConfig.cmake
+```
+
 Safetensors compilation does not need Docker or ONNX Runtime.
 
 ## One-time board preparation

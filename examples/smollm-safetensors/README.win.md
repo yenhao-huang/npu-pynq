@@ -47,7 +47,8 @@ python -m pip install numpy==1.26.4
 ```
 
 The separate Linux compiler host needs NumPy, LLVM/MLIR 22, clang, lld,
-CMake and a C++ compiler. See the [Linux guide](README.md) for prerequisites.
+CMake and a C++ compiler; WSL Ubuntu works. See the
+[Linux guide](README.md#requirements) for the LLVM 22 install commands.
 
 ## One-time board preparation
 
