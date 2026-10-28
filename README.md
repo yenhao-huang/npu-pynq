@@ -33,9 +33,9 @@ validation. Status: research and development.
 
 ## How to build
 
-This README and the main example guides use Linux Bash. Each example also
-provides `README.win.md` for native Windows PowerShell and `README.macos.md`
-for macOS Terminal, including platform build limitations. Run commands from
+This README uses Linux Bash. The main example guides provide `README.md` for
+WSL and `README.macos.md` for macOS Terminal, including platform build
+limitations. Run commands from
 the repository root unless a step says otherwise.
 The SmolLM build guide uses `dist/` for generated model assets and packages.
 

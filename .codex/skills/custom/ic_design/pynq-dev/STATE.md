@@ -1,21 +1,41 @@
 # PYNQ Development State
 
+Run ID: issue119-example-alignment-20261025
+Instance: `.codex/skills/custom/ic_design/pynq-dev`
+Started: 2026-10-25
+Scope: Align ResNet18 and matrix multiplication with create-example rules.
+OpenSpec change: `align-resnet-matrix-examples`
+Last updated: 2026-10-25
+
+| Step | Status | Evidence | Notes |
+| --- | --- | --- | --- |
+| 0. Define Scope | completed | User requested both examples follow create-example. | Existing claimed #119 integration worktree; no commit/push requested. |
+| 1. Read Context and Rules | completed | AGENTS, filetree, create-example, pynq-dev/dev and OpenSpec workflows read. | Preserve pre-existing staged and unstaged changes. |
+| 2. Prepare OpenSpec Change | completed | OpenSpec 1.15.0 apply ready, five tasks. | Pure relocation: skip_specs. |
+| 3. Implement | completed | Helpers relocated into export/runtime/test/CD; examples each retain two guides and one output-free notebook. CD, test discovery and active metadata callers updated. | Existing ignored model products and all pre-existing changes preserved. No hardware/vendor/numeric/human-doc edits. |
+| 4. Validate | completed | 170 software tests: 150 passed, 20 existing environment skips; 48 focused tests passed. Isolated packages, dry run, pinned sources, boundary checks, 14 links, nine Bash blocks, notebook AST/outputs, CD YAML/PowerShell passed. Strict OpenSpec and diff whitespace passed. | Physical ResNet CLI and revised six-stage notebook: Samoyed, 35174 jobs. Matrix runtime: three cases passed, tile counts 1/4/4. Full matrix notebook/manifest CLI not rerun: original reused-overlay build manifest unavailable. No fabricated provenance. |
+| 5. Handoff | completed | New board directory npu-example-alignment-20261025; 35 deployed source/notebook hashes checked. Full evidence and limits in openspec/changes/align-resnet-matrix-examples/acceptance.md. | No new Vivado/model build, macOS execution, release, commit, push, PR or archive. RTL gates not applicable: unchanged hardware and numerics. |
+
+## Previous Run Record
+
+
 Run ID: issue119-onnx-mlir-20261025
 Instance: `.codex/skills/custom/ic_design/pynq-dev`
 Started: 2026-10-25
-Scope: Implement the approved ONNX-MLIR plan, starting with compatibility and import.
+Scope: Complete the ONNX-MLIR migration, remove production ORT dependencies,
+deploy the package, and verify physical PYNQ-Z1 execution.
 OpenSpec change: `incorporate-onnx-mlir`
 
 Last updated: 2026-10-25
 
 | Step | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| 0. Define Scope | completed | Approved plan: `docs/plans/onnx-mlir-incoporate/plan.md`; user requested implementation. | Existing #119 is open, assigned to yenhao-huang, claimed by agent a; branch `npu/issue119-a` in its dedicated worktree. No new branch or commit. |
-| 1. Read Context and Rules | completed | Read skills, convention, filetree, state/environment, matrix, validation, and issue rules. | Export/compiler and eventual runtime/examples/board affected. Large pre-existing staged/unstaged changes are preserved. |
-| 2. Prepare OpenSpec Change | completed | OpenSpec 1.15.0 strict validation passed; apply instructions report ready; all returned context files read. | Selected change: `incorporate-onnx-mlir`, 0/11 tasks complete. |
-| 3. Implement | blocked | Tasks 1.1-1.3 completed: new `src/export/compilers/onnx_mlir/`, focused import tests, `docs/onnx-mlir/README.md`, and filetree documentation. | Task 1.4: pinned upstream image lacks ARM target; LLVM 24/22 interchange unverified. Production export, vendor, driver, RTL and ORT sources unchanged by this run. |
-| 4. Validate | blocked | 18 focused/import/boundary tests passed with `NPU_TEST_ONNX_MLIR=1`; existing compiler/boundary tests: 19 run, 8 skipped (native LLVM absent). Real pinned SmolLM2 import succeeded, producing `build/onnx-mlir/smollm-import/model.onnx.mlir`; source hash matches pin. Strict OpenSpec validation passed. | ARM Sigmoid object generation fails: `No available targets are compatible with triple armv7-unknown-linux-gnueabihf`. Full numeric, partition and board gates outstanding. RTL lint/sim not applicable to this import-only change; no push requested. |
-| 5. Handoff | completed | OpenSpec records 3/11 tasks complete, remaining gates explicit. Tool and command documentation in `docs/onnx-mlir/README.md`. User authorized a local commit containing only this change. | Next: provide an ARM-enabled compiler build and prove the unchanged NPU input boundary before production integration. No push/PR/merge. |
+| 0. Define Scope | completed | Approved plan and user continuation through successful deployment/run. #119 assigned to yenhao-huang, claimed by agent a. | Integration worktree `npu-issue119-a`; sub-issues #139/#140/#141 have separate claimed branches/worktrees created from dev and advanced to the required #119 prerequisite. |
+| 1. Read Context and Rules | completed | Repository and workspace AGENTS, applicable rules, pynq-dev/dev/OpenSpec/issue/deployment skills and references read. | Pre-existing staged/unstaged user changes preserved. No changes under docs/human, src/test/model, src/vendors or src/hw. |
+| 2. Prepare OpenSpec Change | completed | OpenSpec 1.15.0 apply-ready; strict validation passed. All 11 tasks verified. | Do not archive, push, open a PR or merge without the applicable request. |
+| 3. Implement | completed | Generic ONNX IR from pinned LLVM 24 importer parses with MLIR 22; production frontend consumes parsed IR before unchanged NPU partition. CPU operators, exact literals and fixed attention arithmetic compile to host/ARM. Four production ORT files and 13 unused ORT-only experiment wrappers removed after board validation. | Independent host ORT and NumPy/NPU references retained. WSL/macOS guides, output-free notebook, CD build and independently reviewed 32-token reference updated. |
+| 4. Validate | completed | Final software suite: 60 run, 59 passed, one real-Docker test skipped there; separate NPU_TEST_ONNX_MLIR=1 import suite: 14/14 passed. Full 480-task NPU byte/weight/layout parity. Host and physical board: all 12 prefill/decode cases passed, exact KV/greedy IDs, max logits error 4.2e-5. Physical notebook: 32 tokens exact, 3840 calls, 1101600 jobs, 577335014 cycles, zero error. | Eleven isolated CPU tests include full-width prefill/decode tails. ARM hard-float ELF/symbol audit passed. Docs: 23 links and 14 Bash blocks passed; example layout/AST/output checks, YAML parse, source-only entry points, OpenSpec strict validation and diff whitespace passed. RTL/synthesis not applicable; unchanged hardware and no push. |
+| 5. Handoff | completed | Deployed to `/home/xilinx/jupyter_notebooks/npu-onnx-mlir-20261025/`. Final 53 deployment hashes passed. After runtime cleanup, the public CLI ran physically and returned independent token 49 with 120 NPU calls and zero error. | ORT is absent from board PYNQ Python. Peak RSS 381280 KiB; observed prefills 30.879/17.094/17.719 s. Evidence: docs/plans/onnx-mlir-incoporate/acceptance.md and ignored build/onnx-mlir/*.json/logs. No commit, push, PR, merge, release or archive performed. |
 
 ## Previous Run Record
 

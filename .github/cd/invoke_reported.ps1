@@ -10,7 +10,7 @@ annotations are, so a failed step names its cause rather than only its exit code
 
 .EXAMPLE
 & .github/cd/invoke_reported.ps1 -Title 'board: matrix example' `
-    -Script examples/matrix-multiplication/deploy_release.ps1 `
+    -Script .github/cd/matrix_deploy.ps1 `
     -ArgumentList @('-PackagePath', 'build/cd-package', '-ReleaseTag', 'v1.0.6')
 #>
 [CmdletBinding()]

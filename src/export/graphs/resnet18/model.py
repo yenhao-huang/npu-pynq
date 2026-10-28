@@ -20,7 +20,7 @@ from src.export.compilers.mlir.builder import ModuleBuilder, memref_type
 from src.export.compilers.mlir.ops import conv as C, core, linear as L
 from src.export.compilers.mlir.ops.context import Ctx
 
-DEFAULT_SOURCE = "examples/resnet18/model/resnet18-f37072fd.pth"
+DEFAULT_SOURCE = "dist/resnet18/model/resnet18-f37072fd.pth"
 MEAN = np.array([0.485, 0.456, 0.406], np.float32)
 STD = np.array([0.229, 0.224, 0.225], np.float32)
 
@@ -37,7 +37,7 @@ def _find_source(source: str) -> Path:
     repo = Path(__file__).resolve().parents[4]
     if (repo / source).is_file():
         return repo / source
-    raise FileNotFoundError(f"{source}: run examples/resnet18/scripts/download_model.py first")
+    raise FileNotFoundError(f"{source}: run python -m src.export.graphs.resnet18.download_model first")
 
 
 def folded_convs(state: dict) -> dict[str, tuple[np.ndarray, np.ndarray]]:

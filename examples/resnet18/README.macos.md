@@ -1,47 +1,45 @@
-# ResNet18 on macOS
+# ResNet-18 on PYNQ-Z1 (macOS)
 
-Platform guides: [Linux](README.md) | [Windows (PowerShell)](README.win.md) | [macOS](README.macos.md).
+[WSL](README.md) | [macOS](README.macos.md)
 
-Run local commands from the repository root in the macOS Terminal (Bash or zsh). Commands after an interactive
-`ssh` login run in the board's Linux shell. Install Python 3 and make sure
-`ssh` and `scp` are available. Keep deployment products under `dist/`.
+Run local commands from the repository root in macOS Terminal with Python 3,
+OpenSSH and scp available. Obtain `dist/resnet18/npu-resnet18.zip` from the
+[WSL compilation steps](README.md#compile-and-package), or save a matching AOT
+release archive at that path. Build the overlay on a Windows/Linux Vivado host;
+this guide deploys the complete compiled archive from macOS. Native macOS
+execution of this revised guide has not been validated.
 
-## Requirements and build boundary
+## Deploy and run
 
-Use a compiled AOT archive produced by the [Linux build guide](README.md),
-or download the ResNet18 archive from a release containing the AOT example.
-An older JIT archive is not interchangeable. Save it as
-`dist/resnet18/npu-resnet18.zip`; retain the matching model, overlay and manifest.
-This guide covers native macOS deployment of that archive.
-[AMD lists Windows and Linux as supported Vivado hosts](https://docs.amd.com/r/en-US/ug973-vivado-release-notes-install-license/Supported-Operating-Systems); macOS cannot run Vivado natively. Use a Linux build host for the complete overlay and AOT package.
-
-## 1. Prepare the board once
-
-Run the following locally; the quoted command installs missing notebook
-dependencies in the board's PYNQ environment. SSH may ask for the sudo password.
+Use the archive produced by the WSL guide or a release archive containing the AOT model,
+matching ISA ABI 1.1 overlay and delivery manifest. An older JIT package is not
+interchangeable. Run these commands locally from the repository root:
 
 ```bash
-ssh -t xilinx@192.168.2.99 "sudo /usr/local/share/pynq-venv/bin/python3 -m pip install pillow matplotlib ipywidgets"
+export BOARD=xilinx@192.168.2.99
+export REMOTE=/home/xilinx/jupyter_notebooks/npu-resnet18
+scp dist/resnet18/npu-resnet18.zip "$BOARD:~/jupyter_notebooks/"
+ssh "$BOARD" "mkdir -p '$REMOTE' && /usr/local/share/pynq-venv/bin/python3 -m zipfile -e /home/xilinx/jupyter_notebooks/npu-resnet18.zip '$REMOTE'"
+ssh -t "$BOARD" "cd '$REMOTE' && sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.image_cli --package-root . --expected-class Samoyed --evidence image-acceptance.json"
 ```
 
-## 2. Check the archive and deploy
+Enter the board sudo password when prompted. Success reports Samoyed as top-1
+and a positive physical NPU job count. Install missing notebook dependencies
+in the board's PYNQ environment if necessary:
 
 ```bash
-test -f dist/resnet18/npu-resnet18.zip
-scp dist/resnet18/npu-resnet18.zip xilinx@192.168.2.99:~/jupyter_notebooks/
-ssh xilinx@192.168.2.99 'cd ~/jupyter_notebooks && unzip -o npu-resnet18.zip -d npu-resnet18'
+ssh -t "$BOARD" 'sudo /usr/local/share/pynq-venv/bin/python3 -m pip install pillow matplotlib ipywidgets'
 ```
 
-## 3. Notebook and board test
+Open [resnet18.ipynb](resnet18.ipynb) in the root PYNQ kernel at
+<http://192.168.2.99:9090/notebooks/npu-resnet18/resnet18.ipynb>.
+Run the six stages in order: connect, load, choose/upload, preprocess, infer,
+and inspect top-5 predictions. The gallery retains image licensing metadata.
+`NPU_RESNET18_PACKAGE` and `NPU_RESNET18_OVERLAY` override package and overlay
+paths; `NPU_RESNET18_BACKEND=sim` explicitly selects host simulation.
 
-Open <http://192.168.2.99:9090/notebooks/npu-resnet18/resnet18.ipynb> in the
-board's PYNQ kernel. Connect to the package, program the FPGA, choose a bundled
-or uploaded picture, and run every cell. Inspect top-5 labels, NPU counters and
-the six block timings. The notebook defaults to physical `pynq` execution.
-Transfer alone does not establish a physical PASS.
-
-## Release CD
-
-The [Linux guide](README.md#release-cd) describes the build, archive, separate
-deployment and acceptance steps used by release CD. CI's non-interactive sudo
-policy is separate from this interactive notebook workflow.
+The revised six-stage notebook and image CLI passed on PYNQ-Z1 with an existing
+16 x 16 overlay and compiled model: top-1 Samoyed (89.80%), 35,174 physical NPU
+jobs. Gallery downloads and interactive uploads were not exercised in that run.
+A fresh Vivado build and the full release workflow were not rerun. Notebooks are
+committed without outputs.

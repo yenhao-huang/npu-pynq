@@ -12,13 +12,7 @@ from typing import Any
 import numpy as np
 
 
-PACKAGE_ROOT = Path(__file__).resolve().parent
-REPOSITORY_ROOT = PACKAGE_ROOT if (PACKAGE_ROOT / "src").is_dir() else PACKAGE_ROOT.parents[1]
-for import_root in (REPOSITORY_ROOT, PACKAGE_ROOT):
-    if str(import_root) not in sys.path:
-        sys.path.insert(0, str(import_root))
-
-from runtime.matrix_multiplication import TiledMatrixMultiplier
+from src.runtime.core.matrix import TiledMatrixMultiplier
 from src.runtime import load_pynq_runtime
 from src.vendors.npu_pynq.driver.overlay.verify import verify_artifacts
 

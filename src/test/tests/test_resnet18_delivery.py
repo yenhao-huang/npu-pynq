@@ -1,6 +1,9 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -9,9 +12,7 @@ from src.vendors.npu_pynq.driver.overlay.build import write_manifest
 from src.test.tests.test_verify_overlay import HWH
 
 ROOT = Path(__file__).resolve().parents[3]
-spec = importlib.util.spec_from_file_location('resnet_aot_package',ROOT/'examples/resnet18/package_example.py')
-package = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(package)
+from src.export.delivery import resnet18 as package
 
 
 class DeliveryTests(unittest.TestCase):
@@ -48,6 +49,15 @@ class DeliveryTests(unittest.TestCase):
             destination = self.root/'unpacked'
             archive.extractall(destination)
         package.verify_delivery(destination)
+        environment = os.environ.copy()
+        environment.pop('PYTHONPATH', None)
+        result = subprocess.run(
+            [sys.executable, '-m', 'src.runtime.image_cli',
+             '--package-root', '.', '--verify-only'],
+            cwd=destination, env=environment, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('PASS: verified ResNet18 AOT delivery', result.stdout)
         (destination/'model/aot/pynq/model.so').write_bytes(b'tampered')
         with self.assertRaisesRegex(ValueError,'hash mismatch'):
             package.verify_delivery(destination)

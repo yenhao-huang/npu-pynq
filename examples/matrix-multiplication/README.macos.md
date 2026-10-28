@@ -1,58 +1,43 @@
-# Matrix multiplication on macOS
+# Matrix multiplication on PYNQ-Z1 (macOS)
 
-Platform guides: [Linux](README.md) | [Windows (PowerShell)](README.win.md) | [macOS](README.macos.md).
+[WSL](README.md) | [macOS](README.macos.md)
 
-Use Terminal (Bash or zsh) from the repository root. Local commands use
-`ssh` and `scp`; no PowerShell is required.
+Use macOS Terminal with Python 3, NumPy, OpenSSH and tar. Obtain the complete
+`dist/matrix-multiplication/local-<commit>` package from the
+[WSL build steps](README.md#build-and-package), or extract a matrix package
+from a release and set `PACKAGE` to that directory. Build the overlay on a
+Windows/Linux Vivado host; this guide deploys an existing package from macOS.
+Native macOS execution of this revised guide has not been validated.
 
-## Requirements and overlay build
+## Deploy and run
 
-[AMD lists Windows and Linux as supported Vivado hosts](https://docs.amd.com/r/en-US/ug973-vivado-release-notes-install-license/Supported-Operating-Systems). Build the overlay and package on a Linux host using
-[the Linux guide](README.md#2-build-and-package). Copy the complete generated
-package to `dist/matrix-multiplication/package/` on the Mac, preserving
-`artifacts/`, `src/`, `runtime/` and the notebook.
-The BIT, HWH and manifest must come from the same build.
-
-## 1. Prepare the board once
-
-```bash
-ssh -t xilinx@192.168.2.99 'sudo usermod -aG render,video xilinx'
-ssh xilinx@192.168.2.99 id
-```
-
-Reconnect after changing groups. The output should contain `render` and
-`video`. Physical inference also needs the board's MMIO permissions.
-
-## 2. Deploy the package
+Run from the repository root. Set `PACKAGE` to the complete directory produced
+by the packager. Keep its `src/`, `artifacts/` and notebook together.
 
 ```bash
-test -f dist/matrix-multiplication/package/package.manifest.json
-ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/npu-matrix-local'
-scp -r dist/matrix-multiplication/package/. xilinx@192.168.2.99:~/jupyter_notebooks/npu-matrix-local/
+export PACKAGE="dist/matrix-multiplication/local-$(git rev-parse --short=8 HEAD)"
+# For an extracted release, set PACKAGE to its actual directory instead.
+export BOARD=xilinx@192.168.2.99
+export REMOTE=/home/xilinx/jupyter_notebooks/npu-matrix-local
+ssh "$BOARD" "mkdir -p '$REMOTE'"
+scp -r "$PACKAGE/." "$BOARD:$REMOTE/"
+ssh -t "$BOARD" "cd '$REMOTE' && sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.test.matrix_acceptance --artifact-dir artifacts --release-tag local-demo --evidence board-evidence.json"
 ```
 
-## 3. Board test
+Success prints `PASS: Phase 1C matrix multiplication example`. The acceptance
+covers one full tile, four edge tiles and repeated execution against NumPy.
+Enter the board sudo password at the terminal prompt.
 
-Enter the board sudo password when prompted:
+Open [matrix_multiplication.ipynb](matrix_multiplication.ipynb) in the board's
+root PYNQ kernel at
+<http://192.168.2.99:9090/notebooks/npu-matrix-local/matrix_multiplication.ipynb>.
+Run every cell in order. The notebook verifies the overlay manifest and uses
+`src.runtime.core.matrix.TiledMatrixMultiplier`. `NPU_MATRIX_ARTIFACTS` can
+select another verified artifact directory. Notebooks are committed without outputs.
 
-```bash
-ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/npu-matrix-local && sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 run_on_board.py --artifact-dir artifacts --release-tag v0.0.0 --evidence board-evidence.json'
-mkdir -p dist/matrix-multiplication/evidence
-scp xilinx@192.168.2.99:~/jupyter_notebooks/npu-matrix-local/board-evidence.json dist/matrix-multiplication/evidence/
-cat dist/matrix-multiplication/evidence/board-evidence.json
-```
-
-Expect `PASS: Phase 1C matrix multiplication example`. For a notebook-only
-handoff, skip this step; copying files does not program the FPGA.
-
-## 4. Notebook handoff
-
-Open <http://192.168.2.99:9090/notebooks/npu-matrix-local/matrix_multiplication.ipynb>
-in the existing PYNQ kernel. Run all cells to verify hashes, program the
-FPGA and compare the normal, non-aligned and repeated jobs against NumPy.
-
-## Release CD
-
-See [Release CD](README.md#release-cd) for the separate automated deployment
-and acceptance steps. Local notebook execution uses the board's existing
-permissions; automated acceptance requires its reviewed non-interactive sudo policy.
+The relocated runtime passed all three cases on the physical 16 x 16 FPGA
+(1, 4 and 4 tiles). The complete revised notebook and manifest-verifying CLI
+were not rerun: the reused overlay pair has verified hashes but its original
+build manifest was unavailable locally. The documented package flow requires
+that manifest; no provenance was fabricated. Native macOS execution remains
+unverified.

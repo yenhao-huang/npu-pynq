@@ -53,9 +53,10 @@ and on what may not be added.
 - Dependencies point one way. `examples/` may import from `src/`; nothing under
   `src/` may import from `examples/`.
 - Before creating or updating anything under `examples/`, read
-  [docs/rules/filetree.md](docs/rules/filetree.md) and follow its example
-  structure, platform README, generated-artifact, and notebook requirements.
-  Keep the Linux, native Windows, and macOS guides consistent with the change.
+  [docs/rules/filetree.md](docs/rules/filetree.md) and
+  [docs/rules/create-example.md](docs/rules/create-example.md), and follow
+  their requirements.
+  Keep the WSL and macOS guides consistent with the change.
 - `dist/` holds build products staged for the board. Nothing is authored
   there; it is empty in a clean checkout.
 - Every RTL change needs a corresponding testbench change, or a note in the

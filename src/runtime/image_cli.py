@@ -9,7 +9,7 @@ import sys
 import time
 
 MODULE_DIR = Path(__file__).resolve().parent
-ROOT = MODULE_DIR if (MODULE_DIR/'src/runtime').is_dir() else MODULE_DIR.parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from src.runtime.core.image import ImageEngine, preprocess, top_predictions
@@ -31,7 +31,7 @@ def main(argv=None):
     parser.add_argument("--evidence", type=Path)
     args = parser.parse_args(argv)
     if args.package_root:
-        from package_example import verify_delivery, sha256_file
+        from src.runtime.core.delivery import verify_delivery, sha256_file
         manifest = verify_delivery(args.package_root)
         if args.release_tag and args.release_tag != manifest['release_tag']:
             raise ValueError('Release tag mismatch')

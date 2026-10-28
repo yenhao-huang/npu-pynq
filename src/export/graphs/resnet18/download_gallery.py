@@ -263,10 +263,11 @@ def download_gallery(metadata_path: Path, model_dir: Path) -> list[GalleryImage]
 
 
 def main() -> int:
-    example_root = Path(__file__).resolve().parents[1]
+    metadata_root = Path(__file__).resolve().parent
+    model_root = Path(__file__).resolve().parents[4] / "dist/resnet18/model"
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--metadata", type=Path, default=example_root / "gallery-source.json")
-    parser.add_argument("--model-dir", type=Path, default=example_root / "model")
+    parser.add_argument("--metadata", type=Path, default=metadata_root / "gallery-source.json")
+    parser.add_argument("--model-dir", type=Path, default=model_root)
     arguments = parser.parse_args()
     try:
         published = download_gallery(arguments.metadata, arguments.model_dir)

@@ -24,7 +24,7 @@ from src.runtime.core.package import Package  # noqa: E402
 
 
 def gallery(cache: Path) -> list[tuple[str, Path]]:
-    spec = json.loads((REPO / "examples/resnet18/gallery-source.json").read_text())
+    spec = json.loads((REPO / "src/export/graphs/resnet18/gallery-source.json").read_text())
     cache.mkdir(parents=True, exist_ok=True)
     out = []
     for item in spec["images"]:

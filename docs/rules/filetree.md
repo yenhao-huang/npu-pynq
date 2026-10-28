@@ -50,6 +50,8 @@ npu_repo_in_pynq/
 |   |           `-- build_overlay.tcl
 |   |-- test/
 |   |   |-- Makefile
+|   |   |-- onnx_mlir_acceptance.py  independent ONNX fixtures and compiled host/board checks
+|   |   |-- matrix_acceptance.py     physical full-tile, edge-tile and repeat checks
 |   |   |-- model/
 |   |   |   `-- *.py
 |   |   |-- cocotb/
@@ -67,8 +69,10 @@ npu_repo_in_pynq/
 |   |   |-- cli.py               export() pipeline and the export command line
 |   |   |-- core/                model loading, per-layer weight quantization, ModelGraph, ONNX sources
 |   |   |-- quant/               quantization numerics (int8.py) and AWQ / fake-quant tools
+|   |   |-- delivery/            standalone matrix and image deployment package builders
 |   |   |-- graphs/              one frontend per model (smollm, qwen3, resnet18, ...)
 |   |   |-- compilers/mlir/      target-independent MLIR builder, operator library, LLVM toolchain
+|   |   |-- compilers/onnx_mlir/ pinned ONNX import, MLIR parser adapter and verified CPU conversions
 |   |   `-- targets.py           target registry: wires each src/vendors/<vendor>/compiler to the toolchain
 |   |-- jit/                     optional, self-contained just-in-time stack
 |   |   |-- model/               numeric and ResNet model contracts
@@ -80,35 +84,14 @@ npu_repo_in_pynq/
 |   |   `-- delivery/            frozen optional JIT delivery helpers
 |   `-- runtime/                 board-side execution; never imports src/export
 |       |-- core/                generation loop, package loading, tokenizer, sampling
-|       |-- cpu/                 work the Cortex-A9 computes: ONNX Runtime float operators (Python and C)
-|       |-- cli.py               run and reference command line
-|       `-- *.sh                 ONNX Runtime build scripts
+|       |-- cpu/                 optional host ONNX Runtime reference operators
+|       |-- image_cli.py         compiled image inference and delivery verification
+|       `-- cli.py               run and reference command line
 |-- examples/
-|   `-- <example>/
-|       |-- README.md            Linux/Bash build and deployment guide (required)
-|       |-- README.win.md        native Windows PowerShell guide (required)
-|       |-- README.macos.md      macOS Terminal guide (required)
-|       |-- *.ipynb
-|       |-- *-source.json        pinned download metadata
-|       |-- QUICKSTART.md          three-step board quick start
-|       |-- package_example.py
-|       |-- run_on_board.py
-|       |-- accept_image_on_board.py
-|       |-- deploy_release.ps1
-|       |-- model/
-|       |   `-- .gitkeep
-|       |-- scripts/
-|       |   `-- *.py
-|       |-- runtime/
-|       |   `-- *.py
-|       |-- tests/
-|       |   `-- test_*.py
-|       `-- docs/
-|           `-- <study>/          example-scoped measurement studies
-|               |-- README.md
-|               |-- scripts/
-|               |-- data/
-|               `-- *.html
+|   `-- <example>/              see docs/rules/create-example.md
+|       |-- README.md            WSL deployment manual
+|       |-- README.macos.md      macOS deployment manual
+|       `-- <name>.ipynb
 |-- docs/
 |   |-- assets/
 |   |   `-- *.png, *.svg       versioned images embedded by documentation
@@ -120,6 +103,7 @@ npu_repo_in_pynq/
 |   |   |-- simulation.md
 |   |   |-- ci-cd.md
 |   |   |-- filetree.md
+|   |   |-- create-example.md
 |   |   `-- git/
 |   |       |-- branch.md
 |   |       |-- changelog.md
@@ -174,10 +158,11 @@ npu_repo_in_pynq/
 ```
 
 The ONNX-MLIR integration under `src/export/compilers/onnx_mlir/` owns pinned
-compiler invocation, source inventory, and compatibility diagnostics. It imports
-neither model frontends nor vendor modules. The standalone import stage does
-not replace production export. Tool builds and generated IR stay ignored under
-`build/`; instructions and compatibility evidence live under `docs/onnx-mlir/`.
+compiler invocation, inventory, the C++ generic-IR parser adapter, and verified
+CPU conversions. It imports neither model frontends nor vendor modules.
+Production SmolLM export consumes imported IR before the existing CPU/NPU
+partition. Tool builds and generated IR stay ignored under `build/`;
+instructions and evidence live under `docs/plans/onnx-mlir-incoporate/`.
 Native compiler overrides are explicitly unverified.
 
 ## What each directory is for
@@ -233,73 +218,24 @@ leave AOT export and inference functional. Check both boundaries with
 with JIT physically absent. The hardware numeric reference remains independently
 available under `src/test/model/numeric.py`; its contract is unchanged.
 
-`src/runtime/` runs packages on the board. `core/` is the inference path:
+`src/runtime/` runs packages on the board. `core/matrix.py` tiles logical matrix
+jobs through the public vendor DMA runtime; `core/delivery.py` verifies image
+delivery hashes without compiler dependencies. `image_cli.py` runs compiled image
+inference and delivery verification. `core/` is the inference path:
 `engine.py` schedules prefill, decode and sampling, and `package.py` loads a
 compiled package and calls its entry points, driving the NPU through
 `src/vendors/npu_pynq/driver/`; `cpu/` holds
-the float operators the Cortex-A9 runs through ONNX Runtime. The ONNX golden
+optional ONNX Runtime operators for independent host references. The Cortex-A9
+executes floating operators from its compiled model library. The ONNX golden
 reference that interprets the source graph without the compiler lives in
 `src/test/model/onnx_reference.py`.
 
-`examples/` consumes the three above. Nothing under `src/` may import from it.
-An example owns its application-specific runtime, notebooks, package builder,
-board acceptance entry point, deployment wrapper, and focused host tests. The
-package builder may copy an explicit allowlist of shared `src/runtime/` and
-`src/vendors/<vendor>/{isa,driver}/` modules
-into generated deploy output, but those copies are never committed.
-Every directory directly under `examples/` must provide these three guides:
-
-- `README.md`: the default Linux/Bash build and deployment instructions.
-- `README.win.md`: native Windows PowerShell instructions that do not require
-  WSL or Git Bash for local commands.
-- `README.macos.md`: macOS Terminal instructions using Bash or zsh.
-
-All three guides link to one another, use commands appropriate to their host
-shell, and clearly distinguish local commands from Linux commands run on the
-board through SSH. State prerequisites and unsupported build steps explicitly;
-when another build host is required, explain which matching artifacts to
-obtain and how to deploy them from the documented platform. Do not imply
-unsupported native toolchain availability. Stage deployable packages under
-`dist/`; keep generated files ignored. Each guide ends the user workflow with
-the example's notebook and explains the relationship to release CD. When an
-example changes, review all three guides and update affected instructions.
-
-Every user-facing example includes an `.ipynb` demo, committed output-free so
-the file stays diffable. `examples/resnet18/resnet18.ipynb` is the one
-exception: it is committed with the outputs of a real PYNQ-Z1 run, so the
-board's figures and predicted labels are readable on GitHub without running
-anything. Re-executing it replaces those outputs wholesale, so commit a run you
-intend to publish. The notebook
-is the canonical human validation entry point: its README may prepare and
-deploy inputs, but must ultimately direct the user to the notebook. CLI board
-entry points support the notebook and automation; they do not replace the
-human demo. Every example's `README.md` must let a reader build and deploy it
-from scratch, following the section order of
-`examples/matrix-multiplication/README.md`: requirements, one-time board
-preparation where needed, overlay build, model build, packaging, deployment and
-the board test, notebook handoff, and how release CD runs the same steps.
-Commands are copyable from the repository root, and a step that needs
-credentials or non-interactive sudo says so. Download and conversion commands belong under its `scripts/`;
-generated checkpoints, converted model packages, corpora, and model evidence
-go under its `model/` workspace and remain ignored except for `.gitkeep`.
-A `*-source.json` file pins one download set by URL, length, SHA-256, and
-license; the downloaded bytes themselves are never committed.
-The canonical generated-data path is `examples/<example>/model/`.
-
-`examples/<example>/docs/<study>/` holds a self-contained measurement study
-for that example: its `README.md` states the conclusions, `scripts/` holds the
-entry points that produced them, `data/` holds the machine-readable
-measurements, and a rendered `*.html` visualization may sit at the study root.
-A study is committed, unlike the `model/` workspace, because its conclusions
-have to remain readable and auditable without re-running anything. Input
-corpora stay out: they belong under `model/` and stay ignored. Keep a study's
-committed bytes proportionate; a rendered page and its summary JSON/CSV are in
-scope, raw captures and datasets are not.
+`examples/` demonstrates existing source functionality. Its tracked file list,
+platform deployment manuals, notebook requirements and generated-data locations
+are defined in [create-example.md](create-example.md).
 
 `.github/cd/` owns non-interactive deployment and acceptance scripts used by
-continuous delivery. Example-local `deploy_release.ps1` files only copy a
-release for later human validation; they must not execute acceptance, request
-`sudo`, claim a physical PASS, or collect evidence.
+continuous delivery.
 
 `.codex/skills/` contains repository-local Codex skills and is the only allowed
 top-level location for them. Classify reusable development workflows under
@@ -431,7 +367,7 @@ The archive and generated `evidence/` stay ignored.
 `exp/.docs/goals/jit-independent-and-aot-support-resent18/` records the
 user-requested JIT isolation and ResNet18 AOT campaign: design, experiment
 scripts, Result.md, Reproduce.md and compact acceptance evidence. Downloaded
-models and compiler products remain ignored under `examples/resnet18/model/`
+models and compiler products now default to ignored `dist/resnet18/model/`
 and `build/`; no BIT/HWH files are versioned there.
 
 ## Not in this repository

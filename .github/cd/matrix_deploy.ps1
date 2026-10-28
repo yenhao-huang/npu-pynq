@@ -61,9 +61,9 @@ if (-not $packageItem.PSIsContainer) {
 }
 
 $requiredFiles = @(
-    'run_on_board.py',
+    'src/test/matrix_acceptance.py',
     'package.manifest.json',
-    'runtime/matrix_multiplication.py',
+    'src/runtime/core/matrix.py',
     'src/vendors/__init__.py',
     'src/vendors/npu_pynq/__init__.py',
     'src/vendors/npu_pynq/driver/__init__.py',
@@ -143,7 +143,7 @@ try {
     }
     else {
     $sudoArguments = if ($InteractiveSudo) { '' } else { '-n ' }
-    $validationCommand = "set -eu; tar -xzf '$remoteStaging/package.tar.gz' -C '$remoteStaging'; cd '$remoteStaging'; test -r /etc/profile.d/xrt_setup.sh; source /etc/profile.d/xrt_setup.sh; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; test -x /usr/local/share/pynq-venv/bin/python3; sudo ${sudoArguments}XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 run_on_board.py --artifact-dir artifacts --release-tag '$ReleaseTag' --evidence board-evidence.json; test -s board-evidence.json; mv '$remoteStaging' '$remoteDeployment'; ln -sfn '$DeploymentId' '$remoteVersionRoot/current'"
+    $validationCommand = "set -eu; tar -xzf '$remoteStaging/package.tar.gz' -C '$remoteStaging'; cd '$remoteStaging'; test -r /etc/profile.d/xrt_setup.sh; source /etc/profile.d/xrt_setup.sh; test -r /etc/profile.d/pynq_venv.sh; source /etc/profile.d/pynq_venv.sh; test -x /usr/local/share/pynq-venv/bin/python3; sudo ${sudoArguments}XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.test.matrix_acceptance --artifact-dir artifacts --release-tag '$ReleaseTag' --evidence board-evidence.json; test -s board-evidence.json; mv '$remoteStaging' '$remoteDeployment'; ln -sfn '$DeploymentId' '$remoteVersionRoot/current'"
     $validationSshArguments = @()
     if ($InteractiveSudo) {
         $validationSshArguments += '-tt'

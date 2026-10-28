@@ -60,7 +60,7 @@ class ImageTests(unittest.TestCase):
         self.assertEqual(engine.package.count,0)
 
     def test_notebook_keeps_six_stages_and_upload_ui(self):
-        notebook = json.loads((Path(__file__).resolve().parents[1]/'resnet18.ipynb').read_text(encoding='utf-8'))
+        notebook = json.loads((Path(__file__).resolve().parents[3]/'examples/resnet18/resnet18.ipynb').read_text(encoding='utf-8'))
         code = [''.join(c['source']) for c in notebook['cells'] if c['cell_type']=='code']
         self.assertEqual(len(code),6)
         self.assertIn('widgets.FileUpload',code[2])

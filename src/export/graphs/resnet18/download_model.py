@@ -196,17 +196,18 @@ def download_model(
 
 
 def main() -> int:
-    example_root = Path(__file__).resolve().parents[1]
+    metadata_root = Path(__file__).resolve().parent
+    model_root = Path(__file__).resolve().parents[4] / "dist/resnet18/model"
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--metadata",
         type=Path,
-        default=example_root / "model-source.json",
+        default=metadata_root / "model-source.json",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=example_root / "model",
+        default=model_root,
     )
     arguments = parser.parse_args()
     output = download_model(arguments.metadata, arguments.output_dir)

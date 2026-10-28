@@ -119,8 +119,8 @@ jobs:
         id: model-cache
         uses: actions/cache/restore@v4
         with:
-          path: examples/resnet18/model
-          key: resnet18-model-${{ needs.validate-source.outputs.release_tag }}-${{ hashFiles('src/**', '!src/hw/**', 'examples/resnet18/**', '!examples/resnet18/tests/**', '!examples/resnet18/**/*.md', '!examples/resnet18/**/*.ipynb', '!examples/resnet18/model/**') }}
+          path: dist/resnet18/model
+          key: resnet18-model-${{ needs.validate-source.outputs.release_tag }}-${{ hashFiles('src/**', '!src/hw/**') }}
 
       # Every model step runs through `step`, which turns a failure's last lines
       # into a workflow annotation. Annotations are readable through the API
@@ -148,7 +148,7 @@ jobs:
           . "$RUNNER_TEMP/step.sh"
           step "install" python -m pip install \
             --extra-index-url https://download.pytorch.org/whl/cpu \
-            -r examples/resnet18/requirements-convert.txt
+            -r src/export/graphs/resnet18/requirements.txt
 
       - name: Install LLVM 22 for ahead-of-time ResNet18 export
         run: |
@@ -163,34 +163,34 @@ jobs:
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "download_model" python examples/resnet18/scripts/download_model.py
-          step "download_demo_assets" python examples/resnet18/scripts/download_demo_assets.py
-          step "download_gallery" python examples/resnet18/scripts/download_gallery.py
+          step "download_model" python -m src.export.graphs.resnet18.download_model
+          step "download_demo_assets" python -m src.export.graphs.resnet18.download_demo_assets
+          step "download_gallery" python -m src.export.graphs.resnet18.download_gallery
 
       - name: Compile ResNet18 ahead of time for host and PYNQ
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "compile_model" python examples/resnet18/scripts/convert_model.py
+          step "compile_model" python -m src.export.cli export resnet18 --source dist/resnet18/model/resnet18-f37072fd.pth --out dist/resnet18/model/aot
 
       - name: Validate the compiled host model on the real image
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "host_image" python examples/resnet18/run_on_board.py --backend sim \
-            --package examples/resnet18/model/aot \
-            --image examples/resnet18/model/demo-image.jpg \
-            --labels examples/resnet18/model/imagenet-classes.txt \
-            --expected-class Samoyed --evidence examples/resnet18/model/host-image.json
+          step "host_image" python -m src.runtime.image_cli --backend sim \
+            --package dist/resnet18/model/aot \
+            --image dist/resnet18/model/demo-image.jpg \
+            --labels dist/resnet18/model/imagenet-classes.txt \
+            --expected-class Samoyed --evidence dist/resnet18/model/host-image.json
 
       - name: Confirm the workspace is package-ready
-        run: python examples/resnet18/package_example.py --check-only
+        run: python -m src.export.delivery.resnet18 --check-only
 
       - name: Keep the checked model for later runs of this release
         if: steps.model-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: examples/resnet18/model
+          path: dist/resnet18/model
           key: ${{ steps.model-cache.outputs.cache-primary-key }}
 
       - name: Retain the model workspace
@@ -199,9 +199,8 @@ jobs:
           name: resnet18-model-${{ needs.validate-source.outputs.release_tag }}
           if-no-files-found: error
           path: |
-            examples/resnet18/model/*
-            !examples/resnet18/model/calibration
-            !examples/resnet18/model/.gitkeep
+            dist/resnet18/model/*
+            !dist/resnet18/model/calibration
 
   # Everything the privileged jobs need is checked here, in about a minute,
   # before Vivado spends hours on a build that would fail at packaging.
@@ -472,7 +471,7 @@ jobs:
           $package = "dist/matrix-multiplication/$tag"
           $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
-          $output = python examples/matrix-multiplication/package_example.py `
+          $output = python -m src.export.delivery.matrix `
             --repository-root . `
             --artifact-dir build/vivado/npu_matrix_16x16/artifacts `
             --output-dir $package `
@@ -498,7 +497,7 @@ jobs:
           New-Item -ItemType Directory -Force 'build/cd' | Out-Null
           $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
-          $output = python examples/resnet18/package_example.py `
+          $output = python -m src.export.delivery.resnet18 `
             --repository-root . `
             --artifact-dir build/vivado/npu_matrix_16x16/artifacts `
             --report-dir build/vivado/npu_matrix_16x16/reports `
@@ -572,26 +571,6 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake ninja-build gcc-arm-linux-gnueabihf
           python -m pip install numpy==1.26.4 onnx==1.17.0 onnxruntime==1.20.1
-      - name: Reuse the pinned ARM runtime build
-        id: ort-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: build/smollm-ort
-          key: smollm-ort-arm-${{ runner.arch }}-${{ hashFiles('src/runtime/build_onnxruntime_arm.sh') }}
-      - name: Cross-build Cortex-A9 ONNX Runtime from pinned sources
-        if: steps.ort-cache.outputs.cache-hit != 'true'
-        run: |
-          set -euo pipefail
-          mkdir -p build/smollm-ort
-          docker run --rm --mount "type=bind,source=$PWD/build/smollm-ort,target=/work" \
-            --mount "type=bind,source=$PWD/src/runtime/build_onnxruntime_arm.sh,target=/build.sh,readonly" \
-            ubuntu:22.04 bash /build.sh
-          sudo chown -R "$(id -u):$(id -g)" build/smollm-ort
-      - uses: actions/cache/save@v4
-        if: steps.ort-cache.outputs.cache-hit != 'true'
-        with:
-          path: build/smollm-ort
-          key: ${{ steps.ort-cache.outputs.cache-primary-key }}
       - name: Compile the pinned model from this release's source
         env:
           NPU_BUILD_JOBS: '2'
@@ -599,13 +578,11 @@ jobs:
         run: |
           set -euo pipefail
           python -m src.export.cli prepare-onnx fetch --model-dir build/smollm-input
-          mkdir -p build/smollm-input/onnx-runtime
-          cp build/smollm-ort/libonnxruntime.so.1.20.1 build/smollm-ort/onnxruntime_c_api.h build/smollm-input/onnx-runtime/
-          arm-linux-gnueabihf-gcc -std=c11 -O2 -fPIC -Wall -Wextra \
-            -I build/smollm-input/onnx-runtime -c src/runtime/cpu/onnx_ops.c \
-            -o build/onnx_compiled_ops.o
+          docker pull ghcr.io/onnxmlir/onnx-mlir@sha256:5df1c1d3f1d8d5207c9b408e9d6e0ec2ae9926c6948b4b5c745358a2b47ad2e8
+          python -m src.export.compilers.onnx_mlir.pipeline \
+            --source build/smollm-input/onnx/model_int8.onnx --out build/smollm-onnx-import
           python -m src.export.cli export smollm \
-            --source build/smollm-input/onnx/model_int8.onnx --native-object build/onnx_compiled_ops.o \
+            --source build/smollm-input/onnx/model_int8.onnx --onnx-import-dir build/smollm-onnx-import \
             --out build/smollm-package --prefill-lengths 36,40,42
           python -m unittest src.test.tests.test_compiler -v
           python .github/cd/smollm.py seal --package build/smollm-package \
@@ -679,7 +656,7 @@ jobs:
           PYNQ_REMOTE_ROOT: ${{ vars.PYNQ_REMOTE_ROOT || '/home/xilinx/jupyter_notebooks/npu_matrix' }}
         run: |
           & .github/cd/invoke_reported.ps1 -Title 'board: matrix deploy' `
-            -Script examples/matrix-multiplication/deploy_release.ps1 `
+            -Script .github/cd/matrix_deploy.ps1 `
             -ArgumentList @(
               '-PackagePath', 'build/cd-package',
               '-ReleaseTag', '${{ needs.validate-source.outputs.release_tag }}',

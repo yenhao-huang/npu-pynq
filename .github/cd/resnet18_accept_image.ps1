@@ -94,7 +94,7 @@ $job = @(
     'source /etc/profile.d/xrt_setup.sh'
     'source /etc/profile.d/pynq_venv.sh'
     'code=0'
-    'sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -B accept_image_on_board.py --package-root . --evidence image-acceptance.json || code=$?'
+    'sudo -n XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -B -m src.runtime.image_cli --expected-class Samoyed --package-root . --evidence image-acceptance.json || code=$?'
     'if [ -f image-acceptance.json ]; then sudo -n chmod 0644 image-acceptance.json || code=1; fi'
     "echo `$code > '$exitFile.tmp' && mv '$exitFile.tmp' '$exitFile'"
 ) -join "`n"

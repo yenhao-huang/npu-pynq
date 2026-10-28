@@ -1,166 +1,97 @@
-# ResNet18 ahead-of-time image demo
+# ResNet-18 on PYNQ-Z1 (WSL)
 
-Platform guides: [Linux](README.md) | [Windows (PowerShell)](README.win.md) | [macOS](README.macos.md).
+[WSL](README.md) | [macOS](README.macos.md)
 
-This example compiles the pinned TorchVision ResNet-18 checkpoint ahead of time
-and classifies a photograph on the PYNQ-Z1 with the 16 x 16 ISA overlay. The
-host exports the model through `src/export` into ISA programs, weights and an
-ARM shared library; on the board `src/runtime` loads that package and calls
-`forward(weights, image, logits)`. The board never imports PyTorch or the
-compiler. Run all commands from the repository root in a Linux Bash terminal.
+Run host commands from the repository root in WSL Bash. The exporter compiles
+CPU operators to an ARM shared library and INT8 contractions to NPU programs;
+the board loads the compiled package without PyTorch or the compiler.
 
-INT8 weights are quantized per output channel and activations per im2col row
-inside the compiled graph. This is a different numeric pipeline from the
-optional JIT example under `src/jit`.
+## Prepare the host
 
-## Requirements
-
-- Vivado, Python, `ssh` and `scp` are available.
-- LLVM/MLIR 22, CMake, clang and the ARM hard-float cross compiler
-  (`arm-linux-gnueabihf-gcc`) are installed. Set `NPU_LLVM_BIN` to the LLVM 22
-  `bin` directory when it is not found automatically.
-- The board is reachable as `192.168.2.99`, user `xilinx`.
-- The Git worktree is clean before building deployable artifacts:
-
-```bash
-git status --short
-```
-
-### Install host dependencies (Ubuntu / WSL Ubuntu)
-
-Run locally from the repository root. Install Vivado separately with Zynq-7000
-device support and make `vivado` available on PATH.
+Install Vivado with Zynq-7000 support on a Windows/Linux build host and
+LLVM/MLIR 22 development tools in WSL. Use the [LLVM packages](https://apt.llvm.org/)
+to make the versioned packages available before running:
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip openssh-client tar
+sudo apt install -y python3-venv openssh-client build-essential cmake ninja-build \
+  llvm-22 llvm-22-dev clang-22 lld-22 mlir-22-tools libmlir-22-dev \
+  gcc-arm-linux-gnueabihf
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r examples/resnet18/requirements-convert.txt
-```
-
-In each new terminal, activate this environment with
-`source .venv/bin/activate`. These are host dependencies; the board uses
-its own PYNQ Python environment.
-
-Install LLVM/MLIR 22 using the [official Ubuntu packages](https://apt.llvm.org/):
-
-```bash
-sudo apt install -y wget ca-certificates gnupg build-essential cmake ninja-build
-wget -O /tmp/npu-llvm.sh https://apt.llvm.org/llvm.sh
-sudo bash /tmp/npu-llvm.sh 22
-sudo apt install -y llvm-22 llvm-22-dev clang-22 lld-22 \
-  mlir-22-tools libmlir-22-dev gcc-arm-linux-gnueabihf
-
+python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+  -r src/export/graphs/resnet18/requirements.txt
 export NPU_LLVM_BIN=/usr/lib/llvm-22/bin
 export PATH="$NPU_LLVM_BIN:$PATH"
 export NPU_BUILD_JOBS=2
-
-"$NPU_LLVM_BIN/mlir-opt" --version
-"$NPU_LLVM_BIN/clang" --version
-test -f /usr/lib/llvm-22/lib/cmake/mlir/MLIRConfig.cmake
 ```
 
-Repeat the exports in each new terminal, or add them to `~/.bashrc`.
-The exporter builds `npu-opt` automatically on first use.
+## Compile and package
 
-## 1. Prepare the board once
-
-The notebook needs NumPy, Pillow, matplotlib and ipywidgets in the board's
-PYNQ Python environment. Install any that are missing:
-
-```bash
-ssh xilinx@192.168.2.99
-sudo /usr/local/share/pynq-venv/bin/python3 -m pip install pillow matplotlib ipywidgets
-exit
-```
-
-## 2. Build the overlay
+Build a deployable overlay from a clean source checkout. The default 16 x 16
+ISA overlay publishes matching BIT/HWH/manifest files in
+`build/vivado/npu_matrix_16x16/artifacts`. If Vivado is on Windows, run the Tcl
+build there and make its outputs accessible to WSL. The exporter builds
+`npu-opt` automatically on first use.
 
 ```bash
+git status --short
 vivado -mode batch -nojournal -nolog \
   -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
-```
-
-The default build is the 16 x 16 array with the ISA front end (ABI 1.1) and
-publishes BIT/HWH/manifest files under
-`build/vivado/npu_matrix_16x16/artifacts/`. An old DMA-only overlay cannot run
-this package.
-
-## 3. Build the model
-
-```bash
-python -m pip install -r examples/resnet18/requirements-convert.txt
-python examples/resnet18/scripts/download_model.py
-python examples/resnet18/scripts/download_demo_assets.py
-python examples/resnet18/scripts/download_gallery.py
-python examples/resnet18/scripts/convert_model.py
-```
-
-`convert_model.py` writes the compiled package to `examples/resnet18/model/aot`
-for both the host and the board; append `--targets host` to build only host
-code. Downloaded weights, images and compiled products stay ignored under
-`model/`. Check the package on the host with the simulated NPU:
-
-```bash
-python examples/resnet18/run_on_board.py --backend sim \
-  --package examples/resnet18/model/aot \
-  --image examples/resnet18/model/demo-image.jpg \
-  --labels examples/resnet18/model/imagenet-classes.txt \
-  --expected-class Samoyed --evidence examples/resnet18/model/host-image.json
-```
-
-Host simulation is not physical-board acceptance.
-
-## 4. Package
-
-```bash
+python -m src.export.graphs.resnet18.download_model
+python -m src.export.graphs.resnet18.download_demo_assets
+python -m src.export.graphs.resnet18.download_gallery
+python -m src.export.cli export resnet18 \
+  --source dist/resnet18/model/resnet18-f37072fd.pth \
+  --out dist/resnet18/model/aot
+python -m src.runtime.image_cli --backend sim \
+  --package dist/resnet18/model/aot --image dist/resnet18/model/demo-image.jpg \
+  --labels dist/resnet18/model/imagenet-classes.txt --expected-class Samoyed
 commit="$(git rev-parse HEAD)"
-tag="local-${commit:0:12}"
-mkdir -p dist/resnet18
-
-python examples/resnet18/package_example.py \
+python -m src.export.delivery.resnet18 \
   --artifact-dir build/vivado/npu_matrix_16x16/artifacts \
-  --report-dir build/vivado/npu_matrix_16x16/reports \
-  --output-archive "dist/resnet18/npu-resnet18-$tag.zip" \
-  --release-tag $tag --source-commit $commit
+  --output-archive dist/resnet18/npu-resnet18.zip \
+  --release-tag "local-${commit:0:12}" --source-commit "$commit"
 ```
 
-The archive holds the notebook, the runtime, the compiled model, the labels,
-the demo pictures and the verified overlay, with the SHA-256 of every file in
-`package.manifest.json`. Packaging fails if the overlay was built from another
-commit or its array size differs from the compiled model.
+Downloaded checkpoints, gallery images and compiled products stay under
+`dist/resnet18/model`; pinned source metadata lives in `src/export/graphs/resnet18`.
+Downloaders verify size and SHA-256 and refuse to overwrite differing files.
+Packaging checks model/overlay geometry and source provenance, and hashes every
+file in the delivery. For a reused overlay, pass its full build commit as
+`--overlay-commit`.
 
-## 5. Deploy and test
+## Deploy and run
 
-Copy the archive to the board and extract it into a notebook directory:
+Use the archive produced below or a release archive containing the AOT model,
+matching ISA ABI 1.1 overlay and delivery manifest. An older JIT package is not
+interchangeable. Run these commands locally from the repository root:
 
 ```bash
-scp "dist/resnet18/npu-resnet18-$tag.zip" xilinx@192.168.2.99:~/jupyter_notebooks/
-ssh xilinx@192.168.2.99 "cd ~/jupyter_notebooks && unzip -o npu-resnet18-$tag.zip -d npu-resnet18"
+export BOARD=xilinx@192.168.2.99
+export REMOTE=/home/xilinx/jupyter_notebooks/npu-resnet18
+scp dist/resnet18/npu-resnet18.zip "$BOARD:~/jupyter_notebooks/"
+ssh "$BOARD" "mkdir -p '$REMOTE' && /usr/local/share/pynq-venv/bin/python3 -m zipfile -e /home/xilinx/jupyter_notebooks/npu-resnet18.zip '$REMOTE'"
+ssh -t "$BOARD" "cd '$REMOTE' && sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.image_cli --package-root . --expected-class Samoyed --evidence image-acceptance.json"
 ```
 
-Open <http://192.168.2.99:9090/notebooks/npu-resnet18/resnet18.ipynb> and run
-the cells in order:
+Enter the board sudo password when prompted. Success reports Samoyed as top-1
+and a positive physical NPU job count. Install missing notebook dependencies
+in the board's PYNQ environment if necessary:
 
-1. Connect to the package (`NPU_RESNET18_PACKAGE` optionally overrides its path).
-2. Program the FPGA (`NPU_RESNET18_OVERLAY`) and load the package.
-3. Choose a bundled picture or upload a picture.
-4. Preprocess and inspect the original and cropped image.
-5. Run the compiled model and inspect NPU counters.
-6. Read top-5 labels, correctness for known pictures, and all six block times.
+```bash
+ssh -t "$BOARD" 'sudo /usr/local/share/pynq-venv/bin/python3 -m pip install pillow matplotlib ipywidgets'
+```
 
-The notebook defaults to the physical `pynq` backend. Block totals exclude
-human interaction time between cells. `run_on_board.py` runs the same image
-pipeline without the notebook for automated measurements.
+Open [resnet18.ipynb](resnet18.ipynb) in the root PYNQ kernel at
+<http://192.168.2.99:9090/notebooks/npu-resnet18/resnet18.ipynb>.
+Run the six stages in order: connect, load, choose/upload, preprocess, infer,
+and inspect top-5 predictions. The gallery retains image licensing metadata.
+`NPU_RESNET18_PACKAGE` and `NPU_RESNET18_OVERLAY` override package and overlay
+paths; `NPU_RESNET18_BACKEND=sim` explicitly selects host simulation.
 
-## Release CD
-
-`.github/workflows/cd.yml` runs the same steps for each release: it builds the
-model and overlay, assembles `npu-resnet18-<tag>.zip` with
-`package_example.py`, deploys it with `.github/cd/resnet18_deploy.ps1`, and
-classifies the demo picture on the board with
-`.github/cd/resnet18_accept_image.ps1`. Both scripts run board commands with
-`sudo -n`, so the board needs a reviewed non-interactive sudo policy. Never
-store a password or private key in this repository.
+The revised six-stage notebook and image CLI passed on PYNQ-Z1 with an existing
+16 x 16 overlay and compiled model: top-1 Samoyed (89.80%), 35,174 physical NPU
+jobs. Gallery downloads and interactive uploads were not exercised in that run.
+A fresh Vivado build and the full release workflow were not rerun. Notebooks are
+committed without outputs.

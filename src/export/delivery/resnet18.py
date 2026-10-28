@@ -9,17 +9,10 @@ import sys
 import zipfile
 
 MODULE_DIR = Path(__file__).resolve().parent
-ROOT = MODULE_DIR if (MODULE_DIR/'src/runtime').is_dir() else MODULE_DIR.parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from src.vendors.npu_pynq.driver.overlay.verify import verify_artifacts
-
-
-def sha256_file(path):
-    digest = hashlib.sha256()
-    with Path(path).open('rb') as stream:
-        for chunk in iter(lambda:stream.read(1 << 20),b''):
-            digest.update(chunk)
-    return digest.hexdigest()
+from src.runtime.core.delivery import sha256_file, verify_delivery
 
 
 def validate_model(model_dir):
@@ -37,21 +30,6 @@ def validate_model(model_dir):
     for name in ("imagenet-classes.txt", "demo-image.jpg"):
         if not (model_dir / name).is_file():
             raise ValueError(f"Missing demo asset: {name}")
-    return manifest
-
-
-def verify_delivery(root):
-    root = Path(root).resolve()
-    manifest = json.loads((root/'package.manifest.json').read_text())
-    if manifest.get('format') != 'npu-resnet18-aot/1':
-        raise ValueError('Expected a ResNet18 AOT delivery')
-    for name, expected in manifest['files'].items():
-        candidate = root/name
-        path = candidate.resolve()
-        if candidate.is_symlink() or not path.is_relative_to(root) or not path.is_file():
-            raise ValueError('Missing or unsafe delivery file: '+name)
-        if sha256_file(path) != expected:
-            raise ValueError('Delivery hash mismatch: '+name)
     return manifest
 
 
@@ -81,7 +59,7 @@ def build_archive(repo, model_dir, artifacts, output, release_tag, source_commit
     for name in ('imagenet-classes.txt', 'demo-image.jpg'):
         files['model/'+name] = model_dir/name
     example = repo / 'examples/resnet18'
-    gallery_path = example/'gallery-source.json'
+    gallery_path = repo/'src/export/graphs/resnet18/gallery-source.json'
     gallery = json.loads(gallery_path.read_text())
     for entry in gallery['images']:
         name = entry['filename']
@@ -90,8 +68,8 @@ def build_archive(repo, model_dir, artifacts, output, release_tag, source_commit
             raise ValueError('Unsafe gallery filename')
         if path.is_file():
             files['model/'+name] = path
-    for name in ('resnet18.ipynb', 'run_on_board.py', 'accept_image_on_board.py',
-                 'package_example.py', 'gallery-source.json', 'README.md'):
+    files['gallery-source.json'] = gallery_path
+    for name in ('resnet18.ipynb', 'README.md', 'README.macos.md'):
         files[name] = example/name
     for name in ('npu_matrix.bit', 'npu_matrix.hwh', 'npu_matrix.manifest.json'):
         files['artifacts/'+name] = artifacts/name
@@ -115,7 +93,7 @@ def build_archive(repo, model_dir, artifacts, output, release_tag, source_commit
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument('--repository-root', type=Path, default=ROOT)
-    p.add_argument('--model-dir', type=Path, default=ROOT/'examples/resnet18/model')
+    p.add_argument('--model-dir', type=Path, default=ROOT/'dist/resnet18/model')
     p.add_argument('--artifact-dir', type=Path)
     p.add_argument('--report-dir', type=Path)
     p.add_argument('--output-archive', type=Path)

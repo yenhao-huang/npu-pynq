@@ -14,8 +14,8 @@ PY
 python - <<'PY'
 import hashlib, json, urllib.request
 from pathlib import Path
-spec = json.loads(Path("examples/resnet18/model-source.json").read_text())
-dest = Path("examples/resnet18/model") / spec["filename"]
+spec = json.loads(Path("src/export/graphs/resnet18/model-source.json").read_text())
+dest = Path("dist/resnet18/model") / spec["filename"]
 if not dest.exists():
     dest.write_bytes(urllib.request.urlopen(spec["url"], timeout=300).read())
 assert hashlib.sha256(dest.read_bytes()).hexdigest() == spec["sha256"], "ResNet-18 checkpoint hash mismatch"

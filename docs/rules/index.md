@@ -7,6 +7,8 @@ rules remain visible even when that skill is not active.
 Read the rules that apply before making a change:
 
 - [filetree.md](filetree.md): allowed repository paths and generated outputs.
+- [create-example.md](create-example.md): minimal example files, source-only
+  deployment manuals and notebook demos.
 - [environment.md](environment.md): host, tools, simulators, Vivado, and board
   assumptions.
 - [generated-artifacts.md](generated-artifacts.md): ignored build products,

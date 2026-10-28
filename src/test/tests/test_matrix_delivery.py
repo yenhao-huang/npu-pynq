@@ -19,8 +19,6 @@ SKILL_ROOT = (
 )
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
-if str(EXAMPLE_ROOT) not in sys.path:
-    sys.path.insert(0, str(EXAMPLE_ROOT))
 
 from src.vendors.npu_pynq.driver.overlay.build import write_manifest
 from src.test.tests.test_verify_overlay import HWH
@@ -89,7 +87,7 @@ class StandalonePackageTests(unittest.TestCase):
     def test_a_reused_overlay_is_accepted_only_when_named(self) -> None:
         package_module = load_required_module(
             "matrix_package_example_reuse",
-            EXAMPLE_ROOT / "package_example.py",
+            REPOSITORY_ROOT / "src/export/delivery/matrix.py",
         )
         # The overlay fixture was built from commit a...; the release is b...
         with self.assertRaises(Exception):
@@ -115,7 +113,7 @@ class StandalonePackageTests(unittest.TestCase):
     def test_package_uses_explicit_standalone_layout(self) -> None:
         package_module = load_required_module(
             "matrix_package_example",
-            EXAMPLE_ROOT / "package_example.py",
+            REPOSITORY_ROOT / "src/export/delivery/matrix.py",
         )
 
         manifest = package_module.build_package(
@@ -129,8 +127,10 @@ class StandalonePackageTests(unittest.TestCase):
         expected_files = {
             "README.md",
             "matrix_multiplication.ipynb",
-            "run_on_board.py",
-            "runtime/matrix_multiplication.py",
+            "README.macos.md",
+            "src/test/matrix_acceptance.py",
+            "src/runtime/core/matrix.py",
+            "src/runtime/core/__init__.py",
             "src/runtime/__init__.py",
             "src/vendors/__init__.py",
             "src/vendors/npu_pynq/__init__.py",
@@ -155,10 +155,15 @@ class StandalonePackageTests(unittest.TestCase):
             [sys.executable, "-c",
              "from src.runtime import load_pynq_runtime; "
              "from src.vendors.npu_pynq.driver.overlay.verify import verify_artifacts; "
-             "from runtime.matrix_multiplication import TiledMatrixMultiplier"],
+             "from src.runtime.core.matrix import TiledMatrixMultiplier"],
             cwd=self.output_dir, env=environment, capture_output=True, text=True,
         )
         self.assertEqual(imported.returncode, 0, imported.stderr)
+        acceptance = subprocess.run(
+            [sys.executable, "-m", "src.test.matrix_acceptance", "--help"],
+            cwd=self.output_dir, env=environment, capture_output=True, text=True,
+        )
+        self.assertEqual(acceptance.returncode, 0, acceptance.stderr)
         self.assertEqual(manifest["release_tag"], "v0.1.1")
         self.assertEqual(manifest["source_commit"], "a" * 40)
         self.assertEqual(
@@ -173,7 +178,7 @@ class StandalonePackageTests(unittest.TestCase):
     def test_missing_artifact_fails_without_output(self) -> None:
         package_module = load_required_module(
             "matrix_package_example_missing",
-            EXAMPLE_ROOT / "package_example.py",
+            REPOSITORY_ROOT / "src/export/delivery/matrix.py",
         )
         (self.artifact_dir / "npu_matrix.hwh").unlink()
 
@@ -195,7 +200,7 @@ class StandalonePackageTests(unittest.TestCase):
         result = subprocess.run(
             [
                 sys.executable,
-                str(EXAMPLE_ROOT / "package_example.py"),
+                str(REPOSITORY_ROOT / "src/export/delivery/matrix.py"),
                 "--artifact-dir",
                 str(self.artifact_dir),
                 "--output-dir",
@@ -217,17 +222,17 @@ class StandalonePackageTests(unittest.TestCase):
 
         readme = (EXAMPLE_ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn(
-            "python examples/matrix-multiplication/package_example.py\n",
+            "python -m src.export.delivery.matrix\n",
             readme,
         )
         self.assertNotIn("--repository-root", readme)
-        self.assertNotIn("--source-commit", readme)
+        self.assertNotIn("--source-commit", readme.split("```bash")[1].split("```")[0])
 
 
 class BoardRunnerTests(unittest.TestCase):
     def test_8x8_cases_cover_full_array_and_edge_tiles(self) -> None:
         board_module = load_required_module(
-            "matrix_run_on_board_8x8", EXAMPLE_ROOT / "run_on_board.py"
+            "matrix_run_on_board_8x8", REPOSITORY_ROOT / "src/test/matrix_acceptance.py"
         )
         runtime = FakePhysicalRuntime()
         runtime.max_m = runtime.max_n = 8
@@ -239,7 +244,7 @@ class BoardRunnerTests(unittest.TestCase):
     def test_required_cases_and_evidence(self) -> None:
         board_module = load_required_module(
             "matrix_run_on_board",
-            EXAMPLE_ROOT / "run_on_board.py",
+            REPOSITORY_ROOT / "src/test/matrix_acceptance.py",
         )
         manifest = {
             "source_commit": "a" * 40,
@@ -277,7 +282,7 @@ class BoardRunnerTests(unittest.TestCase):
     def test_mismatch_does_not_produce_pass_evidence(self) -> None:
         board_module = load_required_module(
             "matrix_run_on_board_failure",
-            EXAMPLE_ROOT / "run_on_board.py",
+            REPOSITORY_ROOT / "src/test/matrix_acceptance.py",
         )
 
         with self.assertRaises(board_module.BoardExampleError):
@@ -300,7 +305,7 @@ class DeploymentWrapperTests(unittest.TestCase):
             create_artifacts(artifact_dir)
             package_module = load_required_module(
                 "matrix_package_for_deploy",
-                EXAMPLE_ROOT / "package_example.py",
+                REPOSITORY_ROOT / "src/export/delivery/matrix.py",
             )
             package_module.build_package(
                 repository_root=REPOSITORY_ROOT,
@@ -315,7 +320,7 @@ class DeploymentWrapperTests(unittest.TestCase):
                     str(powershell),
                     "-NoProfile",
                     "-File",
-                    str(EXAMPLE_ROOT / "deploy_release.ps1"),
+                    str(REPOSITORY_ROOT / ".github/cd/matrix_deploy.ps1"),
                     "-PackagePath",
                     str(package_dir),
                     "-ReleaseTag",
@@ -335,17 +340,17 @@ class DeploymentWrapperTests(unittest.TestCase):
             self.assertIn("no archive or network command was executed", result.stdout)
             self.assertFalse((root / "board-evidence.json").exists())
 
-        script = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(encoding="utf-8")
+        script = (REPOSITORY_ROOT / ".github/cd/matrix_deploy.ps1").read_text(encoding="utf-8")
         for forbidden in ("password", "private_key", "sshpass"):
             self.assertNotIn(forbidden, script.lower())
 
     def test_deploy_sources_xrt_and_pynq_venv_before_board_execution(self) -> None:
-        script = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(encoding="utf-8")
+        script = (REPOSITORY_ROOT / ".github/cd/matrix_deploy.ps1").read_text(encoding="utf-8")
         xrt_path = "/etc/profile.d/xrt_setup.sh"
         venv_path = "/etc/profile.d/pynq_venv.sh"
         xrt_source_command = f"source {xrt_path}"
         source_command = f"source {venv_path}"
-        board_command = "python3 run_on_board.py"
+        board_command = "python3 -m src.test.matrix_acceptance"
 
         self.assertIn(f"test -r {xrt_path}", script)
         self.assertIn(xrt_source_command, script)
@@ -356,7 +361,7 @@ class DeploymentWrapperTests(unittest.TestCase):
         self.assertLess(script.index(source_command), script.index(board_command))
 
     def test_deploy_uses_root_pynq_for_mmio_and_supports_local_prompt(self) -> None:
-        script = (EXAMPLE_ROOT / "deploy_release.ps1").read_text(encoding="utf-8")
+        script = (REPOSITORY_ROOT / ".github/cd/matrix_deploy.ps1").read_text(encoding="utf-8")
 
         self.assertIn("[switch]$InteractiveSudo", script)
         self.assertIn("sudo ${sudoArguments}XILINX_XRT=/usr", script)
@@ -588,12 +593,12 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertEqual(build["runs-on"], "ubuntu-latest")
         run = "\n".join(str(step.get("run", "")) for step in build["steps"])
         for script in (
-            "download_model.py",
-            "convert_model.py",
-            "download_demo_assets.py",
-            "run_on_board.py --backend sim",
-            "download_gallery.py",
-            "package_example.py --check-only",
+            "src.export.graphs.resnet18.download_model",
+            "src.export.cli export resnet18",
+            "src.export.graphs.resnet18.download_demo_assets",
+            "src.runtime.image_cli --backend sim",
+            "src.export.graphs.resnet18.download_gallery",
+            "src.export.delivery.resnet18 --check-only",
         ):
             with self.subTest(script=script):
                 self.assertIn(script, run)
@@ -615,7 +620,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
 
     def test_the_conversion_environment_is_pinned(self) -> None:
         requirements = (
-            REPOSITORY_ROOT / "examples" / "resnet18" / "requirements-convert.txt"
+            REPOSITORY_ROOT / "src/export/graphs/resnet18/requirements.txt"
         ).read_text(encoding="utf-8").lower()
         for package in ("numpy==", "torch==", "pillow=="):
             with self.subTest(package=package):

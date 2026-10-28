@@ -13,7 +13,7 @@ import tempfile
 from typing import Iterable
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
@@ -30,13 +30,11 @@ SOURCE_FILES = {
     "examples/matrix-multiplication/matrix_multiplication.ipynb": (
         "matrix_multiplication.ipynb"
     ),
-    "examples/matrix-multiplication/run_on_board.py": "run_on_board.py",
-    "examples/matrix-multiplication/runtime/matrix_multiplication.py": (
-        "runtime/matrix_multiplication.py"
-    ),
-    "examples/matrix-multiplication/runtime/npu_package_init.py": (
-        "src/runtime/__init__.py"
-    ),
+    "examples/matrix-multiplication/README.macos.md": "README.macos.md",
+    "src/test/matrix_acceptance.py": "src/test/matrix_acceptance.py",
+    "src/runtime/core/matrix.py": "src/runtime/core/matrix.py",
+    "src/runtime/core/__init__.py": "src/runtime/core/__init__.py",
+    "src/runtime/__init__.py": "src/runtime/__init__.py",
     "src/vendors/__init__.py": "src/vendors/__init__.py",
     "src/vendors/npu_pynq/__init__.py": "src/vendors/npu_pynq/__init__.py",
     "src/vendors/npu_pynq/driver/__init__.py": "src/vendors/npu_pynq/driver/__init__.py",
