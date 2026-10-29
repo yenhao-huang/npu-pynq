@@ -1,7 +1,7 @@
 """Host-side export: model -> package. Needs MLIR/LLVM; never runs on the board.
 
-    cli.py        the command line
-    compile.py    export() and compile_graph(): front end, then partition/pack/encode/codegen
+    cli.py        export() (front end, then compile) and the command line
+    compile.py    compile_graph(): ModelGraph -> package (partition, pack, encode, codegen)
     pipeline.py   front end: load -> quantize -> to_mlir
     ir/           data between stages: options, SourceModel, QuantizedModel, ModelGraph
     load/         stage 1: read sources without changing any number

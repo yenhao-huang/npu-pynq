@@ -1,6 +1,6 @@
-"""Compile a model into a package for the host and the PYNQ-Z1.
+"""Compile a ModelGraph into a package for the host and the PYNQ-Z1.
 
-    front end (pipeline.py)    load -> quantize -> to_mlir: MLIR (linalg on tensors, npu.weight)
+    ModelGraph (from pipeline.py: load -> quantize -> to_mlir): MLIR (linalg on tensors, npu.weight)
       npu-opt --npu-partition        which contractions become NPU tasks; split into
                                      an NPU subgraph (npu.module) and a host subgraph
       pack weights                   B tiles for NPU-read weights, dense otherwise
@@ -26,35 +26,12 @@ from typing import Sequence
 
 from src.export.compilers.mlir import toolchain
 from src.export.ir.graph import ModelGraph
-from src.export.pipeline import build_graph
 from src.export.targets import npu_opt, target
 from src.vendors.npu_pynq.compiler.package import pack_weights
 from src.vendors.npu_pynq.compiler.passes import RUNTIME_C
 from src.vendors.npu_pynq.isa import isa
 
 FORMAT = "npu-package/1"
-
-
-def export(graph: ModelGraph | str | Path | None, out: str | Path, targets: Sequence[str] | None = None,
-           limits: isa.Limits = isa.Limits(), keep_ir: bool = True, segment_bytes: int = 4 << 20,
-           extra_objects: dict[str, Sequence[Path]] | None = None, *, model: str | None = None,
-           opts=None, source_format: str = 'auto', prefill_lengths=(36, 40, 42),
-           native_object: str | Path | None = None, onnx_import_dir: str | Path | None = None) -> Path:
-    """Compile a graph or model source through the same partition/lower pipeline.
-
-    A source runs the front end first (load, quantize, to_mlir in
-    src/export/pipeline.py); the compiler always consumes ModelGraph.
-    Existing graph callers retain their original API and default CPU targets.
-    """
-    timings: dict[str, float] = {}
-    if not isinstance(graph, ModelGraph):
-        if model is None:
-            raise ValueError('A model frontend is required when exporting a source')
-        graph, _ = build_graph(model, graph, opts, source_format=source_format, prefill_lengths=prefill_lengths,
-                               onnx_import_dir=onnx_import_dir, timings=timings)
-        timings['frontend'] = timings['load'] + timings['quantize'] + timings['to_mlir']
-    return compile_graph(graph, out, targets, limits, keep_ir, segment_bytes, extra_objects,
-                         native_object=native_object, timings=timings)
 
 
 def compile_graph(graph: ModelGraph, out: str | Path, targets: Sequence[str] | None = None,

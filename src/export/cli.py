@@ -1,5 +1,6 @@
-"""The export command line: compile a model into a package (compile.py), or
-run one front-end stage at a time (pipeline.py).
+"""Export a model into a package: export() runs the front end (pipeline.py)
+and the compiler (compile.py). The command line runs it, or one front-end
+stage at a time.
 
     python -m src.export.cli export smollm --out build/pkg/smollm [--bits 4 --kv int8 ...]
     python -m src.export.cli load smollm --source <dir> --out build/stage/source.json
@@ -13,11 +14,37 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Sequence
 
 from src.export import model_arch, pipeline
-from src.export.compile import compile_graph, export  # noqa: F401  (the package API, re-exported)
+from src.export.compile import compile_graph
+from src.export.ir.graph import ModelGraph
 from src.export.ir.options import LLMOptions, QuantRecipe, ShapeOptions
+from src.export.pipeline import build_graph
 from src.runtime.core.package import model_env
+from src.vendors.npu_pynq.isa import isa
+
+
+def export(graph: ModelGraph | str | Path | None, out: str | Path, targets: Sequence[str] | None = None,
+           limits: isa.Limits = isa.Limits(), keep_ir: bool = True, segment_bytes: int = 4 << 20,
+           extra_objects: dict[str, Sequence[Path]] | None = None, *, model: str | None = None,
+           opts=None, source_format: str = 'auto', prefill_lengths=(36, 40, 42),
+           native_object: str | Path | None = None, onnx_import_dir: str | Path | None = None) -> Path:
+    """Compile a graph or model source through the same partition/lower pipeline.
+
+    A source runs the front end first (load, quantize, to_mlir in
+    src/export/pipeline.py); the compiler always consumes ModelGraph.
+    Existing graph callers retain their original API and default CPU targets.
+    """
+    timings: dict[str, float] = {}
+    if not isinstance(graph, ModelGraph):
+        if model is None:
+            raise ValueError('A model frontend is required when exporting a source')
+        graph, _ = build_graph(model, graph, opts, source_format=source_format, prefill_lengths=prefill_lengths,
+                               onnx_import_dir=onnx_import_dir, timings=timings)
+        timings['frontend'] = timings['load'] + timings['quantize'] + timings['to_mlir']
+    return compile_graph(graph, out, targets, limits, keep_ir, segment_bytes, extra_objects,
+                         native_object=native_object, timings=timings)
 
 
 def _options(args) -> LLMOptions:

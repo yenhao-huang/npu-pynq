@@ -66,8 +66,8 @@ npu_repo_in_pynq/
 |   |       `-- driver/          ISA drivers (Python and C), buffers, placement, ABI, DMA; imports isa/ only
 |   |           `-- overlay/     build.py writes the BIT/HWH manifest; verify.py checks it before loading
 |   |-- export/                  host-side model -> package (CPU code + ISA programs); needs MLIR/LLVM
-|   |   |-- cli.py               command line: export, load, quantize, lower, prepare-onnx
-|   |   |-- compile.py           export() and compile_graph(): partition, pack, encode, codegen, manifest
+|   |   |-- cli.py               export() (front end + compile) and the command line
+|   |   |-- compile.py           compile_graph(): ModelGraph -> package (partition, pack, encode, codegen)
 |   |   |-- pipeline.py          front end: load -> quantize -> to_mlir, and stage results on disk
 |   |   |-- ir/                  data between stages: options, SourceModel, QuantizedModel, ModelGraph
 |   |   |-- load/                stage 1: read sources unchanged (safetensors, ONNX, pins); format detection

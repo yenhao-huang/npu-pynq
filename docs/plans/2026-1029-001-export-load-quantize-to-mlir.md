@@ -422,9 +422,9 @@ A follow-up pass, with the shared decoder explicitly left out:
   `python -m src.export.model_arch.resnet18.download {model,demo,gallery}`.
   All three now retry transient HTTP failures and use one exception,
   `SourceError`.
-- **`cli.py` split.** `export()` and `compile_graph()` moved to
-  `src/export/compile.py`; `cli.py` keeps argument parsing and re-exports
-  `export` and `compile_graph`.
+- **`cli.py` split.** `compile_graph()` (ModelGraph -> package) moved to
+  `src/export/compile.py`, which no longer imports the front end; `cli.py`
+  keeps `export()` (front end, then `compile_graph`) and argument parsing.
 - **ONNX-only operators moved.** `native`, `projection` and `multiply` moved
   from `compilers/mlir/ops/linear.py` to `compilers/onnx_mlir/lowering.py`;
   the unused `linear.quantize` was deleted.
