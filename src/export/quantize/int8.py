@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.export.ir.quantized import EPS, QuantizedWeight
+from src.export.ir.data import EPS, QuantizedWeight
 
 
 def quantize_weight(w_out_in: np.ndarray, bits: int = 8, group: int = 128) -> QuantizedWeight:

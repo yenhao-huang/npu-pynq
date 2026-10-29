@@ -48,13 +48,16 @@ class ExportLayeringTest(unittest.TestCase):
                                              f'{path.name} imports {module}')
 
     def test_architectures_never_import_each_other(self):
-        for path in sorted((EXPORT / 'model_arch').glob('*.py')):
-            if path.name in ('__init__.py', 'base.py'):
+        root = EXPORT / 'model_arch'
+        for path in sorted(root.rglob('*.py')):
+            model = path.relative_to(root).parts[0].removesuffix('.py')
+            if model in ('__init__', 'base'):
                 continue
             for module in imports(path):
                 if module.startswith('src.export.model_arch.'):
-                    with self.subTest(path=path.name, module=module):
-                        self.assertTrue(module.startswith('src.export.model_arch.base'), module)
+                    owner = module.split('.')[3]
+                    with self.subTest(path=path.relative_to(root).as_posix(), module=module):
+                        self.assertIn(owner, ('base', model), module)
 
     def test_rules_cover_every_stage_package(self):
         packages = {p.name for p in EXPORT.iterdir() if (p / '__init__.py').is_file()}

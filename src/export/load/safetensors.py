@@ -1,4 +1,5 @@
-"""Read a safetensors checkpoint as name -> float32 arrays.
+"""Find a Hugging Face model (a local path or the newest cached snapshot) and
+read its safetensors checkpoint as name -> float32 arrays.
 
 A safetensors file is an 8-byte little-endian header length, a JSON header
 mapping tensor names to dtype/shape/byte ranges, then the raw data. Tensors
@@ -9,6 +10,7 @@ half of an fp32).
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import struct
 
@@ -76,3 +78,16 @@ class SafeTensors:
 
     def __exit__(self, *_exc):
         self.close()
+
+
+def resolve_hf(model_id_or_path: str) -> Path:
+    """A local directory, or the newest snapshot of a model in the HF cache."""
+    path = Path(model_id_or_path).expanduser()
+    if path.exists():
+        return path
+    cache = Path(os.environ.get("HF_HUB_CACHE", Path.home() / ".cache/huggingface/hub"))
+    snapshots = cache / f"models--{model_id_or_path.replace('/', '--')}" / "snapshots"
+    candidates = sorted(snapshots.glob("*"), key=lambda p: p.stat().st_mtime)
+    if not candidates:
+        raise FileNotFoundError(f"{model_id_or_path} is neither a path nor in {cache}")
+    return candidates[-1]

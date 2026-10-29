@@ -225,7 +225,7 @@ def llm_options(**kw):
 
 
 def resnet_options(bits):
-    from src.export.model_arch.resnet18 import ResNetOptions
+    from src.export.model_arch.resnet18.arch import ResNetOptions
     return ResNetOptions(bits=bits)
 
 

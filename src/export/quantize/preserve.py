@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.export.ir.quantized import OnnxQuantWeight
+from src.export.ir.data import OnnxQuantWeight
 
 
 def dequantize(q: np.ndarray, zero, scale) -> np.ndarray:

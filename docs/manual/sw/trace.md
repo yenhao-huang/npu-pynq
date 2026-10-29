@@ -43,10 +43,10 @@ build -> export
 cli.cmd_export()
   └─ export(source, model="smollm", opts=LLMOptions(...))
        └─ pipeline.build_graph()       # src/export/pipeline.py
-            ├─ load()      -> SourceModel      model_arch/smollm.py: read the checkpoint
+            ├─ load()      -> SourceModel      model_arch/smollm/arch.py: read the checkpoint
             ├─ quantize()  -> QuantizedModel   weight plan -> INT8/INT4 parameters
             └─ to_mlir()   -> ModelGraph       MLIR + weights
-       └─ compile_graph(graph, ...)    # partition, pack, encode, codegen
+       └─ compile_graph(graph, ...)    # compile.py: partition, pack, encode, codegen
 
 
 <cmd_run>: run

@@ -9,8 +9,7 @@ from __future__ import annotations
 from src.export.compilers.mlir.ops import attention as A, core, embedding as E, linear as L
 from src.export.ir.graph import ModelGraph, StateSpec, build_prefill_decode_graphs, new_graph
 from src.export.ir.options import ShapeOptions
-from src.export.ir.quantized import QuantizedModel
-from src.export.ir.source import SourceModel
+from src.export.ir.data import QuantizedModel, SourceModel
 from src.export.model_arch.base import Architecture
 from src.export.quantize.plan import WeightSpec
 

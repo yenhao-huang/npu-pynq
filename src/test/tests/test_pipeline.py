@@ -10,7 +10,7 @@ from unittest import mock
 
 from src.export import cli, pipeline
 from src.export.ir.options import LLMOptions
-from src.export.model_arch.resnet18 import ResNetOptions
+from src.export.model_arch.resnet18.arch import ResNetOptions
 from src.test.vectors import generate_export_golden as golden
 
 

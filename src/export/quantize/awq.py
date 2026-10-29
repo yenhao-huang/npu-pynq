@@ -25,7 +25,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
-from src.export.ir.quantized import EPS
+from src.export.ir.data import EPS
 
 CALIB_TEXT = (
     "Large language models are trained on vast amounts of text to predict the next token. "

@@ -16,8 +16,7 @@ from src.export.compilers.mlir.builder import Region, Value, identity_map, map_o
 from src.export.compilers.mlir.ops import attention as A, core, embedding as E, linear as L, linear_attention as G
 from src.export.ir.graph import ModelGraph, StateSpec, build_prefill_decode_graphs, new_graph
 from src.export.ir.options import ShapeOptions
-from src.export.ir.quantized import QuantizedModel
-from src.export.ir.source import SourceModel
+from src.export.ir.data import QuantizedModel, SourceModel
 from src.export.model_arch.base import Architecture
 from src.export.quantize.plan import WeightSpec
 

@@ -2,7 +2,7 @@
 
 | Plan ID | Topic | Revision | Status |
 |---|---|---|---|
-| 2026-1029-001 | export-load-quantize-to-mlir | rev.2 (2026-10-29) | Implemented — see [11. Implementation notes](#11-implementation-notes) |
+| 2026-1029-001 | export-load-quantize-to-mlir | rev.3 (2026-10-29) | Implemented — see [11. Implementation notes](#11-implementation-notes) |
 
 Issue: #119 (software stack). Branch: `npu/issue119-a`.
 
@@ -404,3 +404,33 @@ Not migrated: the recorded experiment scripts under
 `src.export.compilers.mlir.ops.linear.quantize_weight` and no longer run
 unchanged, and historical records (docs/goals, openspec) that name the old
 paths. The examples were updated for the new paths but not rerun on the board.
+
+### Simplification (rev.3)
+
+A follow-up pass, with the shared decoder explicitly left out:
+
+- **Model directories.** A model that carries more than its architecture is a
+  directory: `model_arch/smollm/` (`arch.py`, `onnx.py`, `onnx-source.json`)
+  and `model_arch/resnet18/` (`arch.py`, `download.py`, the three
+  `*-source.json` pins, `requirements.txt`). `src/export/sources/` is gone.
+  Qwen3, Qwen3-MoE and Qwen3.5 stay single modules. A model may import its own
+  directory; `test_export_layering.py` still forbids imports between models.
+  The SmolLM ONNX path reuses `smollm/arch.py:Config` instead of a copy.
+- **One ResNet downloader.** `download_model.py`, `download_demo_assets.py`
+  and `download_gallery.py` became `resnet18/download.py` with shared
+  canonical-record, URL, retry and publish code:
+  `python -m src.export.model_arch.resnet18.download {model,demo,gallery}`.
+  All three now retry transient HTTP failures and use one exception,
+  `SourceError`.
+- **`cli.py` split.** `export()` and `compile_graph()` moved to
+  `src/export/compile.py`; `cli.py` keeps argument parsing and re-exports
+  `export` and `compile_graph`.
+- **ONNX-only operators moved.** `native`, `projection` and `multiply` moved
+  from `compilers/mlir/ops/linear.py` to `compilers/onnx_mlir/lowering.py`;
+  the unused `linear.quantize` was deleted.
+- **Deleted or folded.** `quantize/evaluate.py` and `quantize/fakequant.py`
+  (no user in `src/`; their only callers import the removed `src.inference`
+  package). `load/hf.py` folded into `load/safetensors.py`, `load/detect.py`
+  into `load/__init__.py`, and `ir/source.py` with `ir/quantized.py` into
+  `ir/data.py`.
+

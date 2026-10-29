@@ -20,8 +20,7 @@ from src.export.compilers.mlir.ops import conv as C, core, linear as L
 from src.export.compilers.mlir.ops.context import Ctx
 from src.export.ir.graph import ModelGraph
 from src.export.ir.options import QuantRecipe, ShapeOptions
-from src.export.ir.quantized import QuantizedModel
-from src.export.ir.source import SourceModel
+from src.export.ir.data import QuantizedModel, SourceModel
 from src.export.model_arch.base import Architecture
 from src.export.quantize.plan import AwqHook, WeightSpec
 
@@ -39,10 +38,10 @@ def _find_source(source: str) -> Path:
     p = Path(source)
     if p.exists():
         return p
-    repo = Path(__file__).resolve().parents[3]
+    repo = Path(__file__).resolve().parents[4]
     if (repo / source).is_file():
         return repo / source
-    raise FileNotFoundError(f"{source}: run python -m src.export.sources.resnet18.download_model first")
+    raise FileNotFoundError(f"{source}: run python -m src.export.model_arch.resnet18.download model first")
 
 
 def fold(w, g, beta, mean, var) -> tuple[np.ndarray, np.ndarray]:

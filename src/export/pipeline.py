@@ -21,9 +21,8 @@ import numpy as np
 from src.export import model_arch
 from src.export.ir.graph import ModelGraph
 from src.export.ir.options import QuantRecipe, ShapeOptions
-from src.export.ir.quantized import OnnxQuantWeight, QuantizedModel, QuantizedWeight
-from src.export.ir.source import SourceModel
-from src.export.load.detect import detect_format
+from src.export.ir.data import OnnxQuantWeight, QuantizedModel, QuantizedWeight, SourceModel
+from src.export.load import detect_format
 from src.export.quantize.plan import AwqHook
 
 

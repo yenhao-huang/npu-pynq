@@ -16,7 +16,7 @@ import numpy as np
 from src.export.compilers.mlir.builder import Region, Value, identity_map, map_of
 from src.export.compilers.mlir.ops import core, linear as L
 from src.export.compilers.mlir.ops.context import Ctx
-from src.export.ir.quantized import QuantizedWeight
+from src.export.ir.data import QuantizedWeight
 
 
 def topk_weights(ctx: Ctx, probs: Value, k: int, normalize: bool) -> Value:

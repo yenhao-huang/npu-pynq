@@ -1,4 +1,8 @@
-"""Quantized tensors as the quantize stage hands them to to_mlir.
+"""Data handed between the front-end stages.
+
+    SourceModel     load -> quantize: a source read and verified, numbers unchanged
+    QuantizedModel  quantize -> to_mlir: every parameter in final form
+    QuantizedWeight / OnnxQuantWeight: the quantized matrices inside it
 
 The operators in src/export/compilers/mlir/ops consume these types; they
 never quantize. The numerics that produce them live in src/export/quantize.
@@ -7,13 +11,13 @@ never quantize. The numerics that produce them live in src/export/quantize.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 if TYPE_CHECKING:
     from src.export.ir.options import QuantRecipe
-    from src.export.ir.source import SourceModel
 
 
 EPS = 1e-8
@@ -50,6 +54,18 @@ class OnnxQuantWeight:
     projection's scale)."""
     q: np.ndarray        # int8 [K, N]
     scale: np.ndarray    # f32 [N]
+
+
+@dataclass
+class SourceModel:
+    arch: str                    # model_arch registry name, e.g. 'smollm' or 'smollm_onnx'
+    format: str                  # 'safetensors' | 'onnx' | 'torch'
+    source: str                  # as the caller named it; recorded as meta['source']
+    root: Path                   # directory holding the tokenizer and config
+    config: dict                 # raw config.json ({} when the source has none)
+    tensors: Any                 # name -> np.ndarray: SafeTensors, OnnxWeights or a dict
+    layers: int | None = None    # debug: keep only the first N decoder layers
+    provenance: dict = field(default_factory=dict)   # digests, pins, imported ONNX graph
 
 
 @dataclass

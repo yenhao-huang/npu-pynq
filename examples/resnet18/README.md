@@ -20,7 +20,7 @@ sudo apt install -y python3-venv openssh-client build-essential cmake ninja-buil
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu \
-  -r src/export/sources/resnet18/requirements.txt
+  -r src/export/model_arch/resnet18/requirements.txt
 export NPU_LLVM_BIN=/usr/lib/llvm-22/bin
 export PATH="$NPU_LLVM_BIN:$PATH"
 export NPU_BUILD_JOBS=2
@@ -38,9 +38,9 @@ build there and make its outputs accessible to WSL. The exporter builds
 git status --short
 vivado -mode batch -nojournal -nolog \
   -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
-python -m src.export.sources.resnet18.download_model
-python -m src.export.sources.resnet18.download_demo_assets
-python -m src.export.sources.resnet18.download_gallery
+python -m src.export.model_arch.resnet18.download model
+python -m src.export.model_arch.resnet18.download demo
+python -m src.export.model_arch.resnet18.download gallery
 python -m src.export.cli export resnet18 \
   --source dist/resnet18/model/resnet18-f37072fd.pth \
   --out dist/resnet18/model/aot
@@ -55,7 +55,7 @@ python -m src.export.delivery.resnet18 \
 ```
 
 Downloaded checkpoints, gallery images and compiled products stay under
-`dist/resnet18/model`; pinned source metadata lives in `src/export/sources/resnet18`.
+`dist/resnet18/model`; pinned source metadata lives in `src/export/model_arch/resnet18`.
 Downloaders verify size and SHA-256 and refuse to overwrite differing files.
 Packaging checks model/overlay geometry and source provenance, and hashes every
 file in the delivery. For a reused overlay, pass its full build commit as

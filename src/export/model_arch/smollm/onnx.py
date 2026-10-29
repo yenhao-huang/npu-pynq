@@ -14,42 +14,26 @@ from pathlib import Path
 import numpy as np
 
 from src.export.compilers.mlir.builder import identity_map, memref_type
-from src.export.compilers.mlir.ops import linear as L
 from src.export.compilers.mlir.ops.attention import AttnConfig
 from src.export.compilers.mlir.ops.context import Ctx
 from src.export.compilers.onnx_mlir import lowering
 from src.export.ir.graph import ModelGraph, new_graph
 from src.export.ir.options import QuantRecipe, ShapeOptions
-from src.export.ir.quantized import QuantizedModel
-from src.export.ir.source import SourceModel
+from src.export.ir.data import QuantizedModel, SourceModel
 from src.export.load import load_weights
 from src.export.load.onnx import import_graph, imported_node, verify_pin
 from src.export.model_arch.base import Architecture
+from src.export.model_arch.smollm.arch import Config
 from src.export.quantize.plan import AwqHook
 from src.export.quantize.preserve import dequantize, fuse_columns
 from src.runtime.core.package import onnx_asset_dir
 
-ONNX_PIN = Path(__file__).resolve().parents[1] / 'sources' / 'smollm' / 'onnx-source.json'
+ONNX_PIN = Path(__file__).with_name('onnx-source.json')
 LAYERS = 30
 HIDDEN, VOCAB, INTER = 576, 49152, 1536
 # Fused parameter -> the original ONNX projections it concatenates.
 FUSIONS = {'qkv': ('attn.q_proj', 'attn.k_proj', 'attn.v_proj'), 'o': ('attn.o_proj',),
            'gu': ('mlp.gate_proj', 'mlp.up_proj'), 'down': ('mlp.down_proj',)}
-
-
-class Config:
-    def __init__(self, hf: dict) -> None:
-        self.hidden = hf["hidden_size"]
-        self.inter = hf["intermediate_size"]
-        self.heads = hf["num_attention_heads"]
-        self.kv_heads = hf.get("num_key_value_heads", self.heads)
-        self.head_dim = hf.get("head_dim") or self.hidden // self.heads
-        self.layers = hf["num_hidden_layers"]
-        self.eps = hf["rms_norm_eps"]
-        self.theta = hf.get("rope_theta", 10000.0)
-        self.vocab = hf["vocab_size"]
-        self.tied = hf.get("tie_word_embeddings", True)
-        self.eos = hf.get("eos_token_id")
 
 
 class SmolLMOnnx(Architecture):
@@ -140,7 +124,7 @@ class SmolLMOnnx(Architecture):
                 return lowering.dynamic_quantize(b, value)
 
             def projection(value, name):
-                return L.projection(ctx, value, name, p[name].q, p[name].scale)
+                return lowering.projection(ctx, value, name, p[name].q, p[name].scale)
 
             token_tensor = b.to_tensor(b.arg('tokens'))
             head_value = ctx.weight('onnx.head', p['onnx.head'])
@@ -179,7 +163,7 @@ class SmolLMOnnx(Architecture):
                 up = b.extract_slice(gu, [0, INTER], [t, INTER])
                 sigmoid = lowering.elementwise(b, imported_node(nodes, prefix + '/mlp/act_fn/Sigmoid', 'onnx.Sigmoid'),
                                                [gate])
-                act = L.multiply(b, L.multiply(b, gate, sigmoid), up)
+                act = lowering.multiply(b, lowering.multiply(b, gate, sigmoid), up)
                 imported_node(nodes, prefix + '/mlp/down_proj/MatMul_quant', 'onnx.MatMulInteger')
                 imported_node(nodes, prefix + '/attn/o_proj/MatMul_quant', 'onnx.MatMulInteger')
                 down = projection(quantize(prefix + '/mlp/Mul/output_0_QuantizeLinear', act), f'l{i}.down')

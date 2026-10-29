@@ -2,7 +2,7 @@
 
 Built only from src/export/compilers/mlir/ops. Per layer the NPU runs three tasks
 (fused QKV, output, fused gate/up, down = four) and the CPU everything else.
-The pinned quantized ONNX export is a separate architecture (smollm_onnx.py).
+The pinned quantized ONNX export is a separate architecture (onnx.py).
 """
 
 from __future__ import annotations
@@ -10,8 +10,7 @@ from __future__ import annotations
 from src.export.compilers.mlir.ops import attention as A, core, embedding as E, linear as L
 from src.export.ir.graph import ModelGraph, StateSpec, build_prefill_decode_graphs, new_graph
 from src.export.ir.options import ShapeOptions
-from src.export.ir.quantized import QuantizedModel
-from src.export.ir.source import SourceModel
+from src.export.ir.data import QuantizedModel, SourceModel
 from src.export.model_arch.base import Architecture
 from src.export.quantize.plan import WeightSpec
 

@@ -21,7 +21,7 @@ from src.export.ir.graph import ModelGraph
 from src.export.cli import export
 from src.export.compilers.mlir.builder import ModuleBuilder
 from src.export.compilers.mlir.ops.context import Ctx
-from src.export.compilers.mlir.ops.linear import projection, native, multiply
+from src.export.compilers.onnx_mlir.lowering import projection, native, multiply
 from src.runtime.core.package import Package
 from src.export.quantize.int8 import quantize_weight
 
@@ -397,7 +397,7 @@ class SharedExportEngineTest(unittest.TestCase):
         from unittest.mock import patch
         from src.export.pipeline import build_graph
         from src.export.ir.options import LLMOptions
-        from src.export.model_arch import smollm_onnx
+        from src.export.model_arch.smollm import onnx as smollm_onnx
         arch = smollm_onnx.ARCH
         quantized = SimpleNamespace(config='config')
         with patch.object(arch,'load',return_value='source') as stage, \

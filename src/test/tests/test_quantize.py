@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 
 from src.export.ir.options import QuantRecipe
-from src.export.ir.quantized import OnnxQuantWeight, QuantizedWeight
+from src.export.ir.data import OnnxQuantWeight, QuantizedWeight
 from src.export.quantize.int8 import quantize_weight
 from src.export.quantize.plan import WeightSpec, run_plan
 from src.export.quantize.preserve import dequantize, fuse_columns

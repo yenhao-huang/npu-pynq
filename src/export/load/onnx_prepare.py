@@ -5,7 +5,7 @@
     verify_export    check every initializer survived the split unchanged
     export_operators one ONNX Runtime session per float operator contract
 
-The pin file belongs to the model (src/export/sources/<model>/onnx-source.json)
+The pin file belongs to the model (src/export/model_arch/<model>/onnx-source.json)
 and is passed in by the caller.
 """
 

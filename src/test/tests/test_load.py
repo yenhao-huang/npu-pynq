@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.export.load.detect import detect_format
+from src.export.load import detect_format
 from src.export.load.onnx import imported_node, verify_pin
 from src.export.pipeline import architecture, load
 from src.test.vectors import generate_export_golden as golden
