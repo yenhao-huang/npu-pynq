@@ -1,0 +1,12 @@
+# The export host's front end (load -> export_graph -> to_mlir), pinned together.
+# torch comes from the CPU index:
+#   pip install -r src/export/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+# The back end (npu-compile) needs LLVM 22 with MLIR, CMake and Ninja on Linux.
+torch==2.11.0
+torchao==0.18.0
+transformers==5.21.1
+safetensors==0.8.0
+tokenizers==0.23.3
+iree-base-compiler==3.13.0
+numpy==1.26.4
+PyYAML==6.0.3

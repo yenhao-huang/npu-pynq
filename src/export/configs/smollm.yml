@@ -1,0 +1,14 @@
+# SmolLM2-135M-Instruct, W8A8 on the PYNQ-Z1 NPU.
+#   python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/package
+model: smollm2-135m-instruct
+load:
+  framework: huggingface
+  source: examples/smollm-safetensors/model/checkpoint   # or a Hub id
+  quantization: w8a8
+  require: w8a8
+graph:
+  kind: llm
+  max_seq: 256
+  chunk: 16
+devices: [cpu, npu]
+cpus: [arm-cortex-a9, native]

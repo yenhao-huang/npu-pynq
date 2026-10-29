@@ -2,6 +2,7 @@
 and the compiler (compile.py). The command line runs it, or one front-end
 stage at a time.
 
+    python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/package
     python -m src.export.cli export smollm --out build/pkg/smollm [--bits 4 --kv int8 ...]
     python -m src.export.cli load smollm --source <dir> --out build/stage/source.json
     python -m src.export.cli quantize build/stage/source.json --bits 4 --out build/stage/quantized
@@ -124,6 +125,14 @@ def cmd_prepare_onnx(args) -> int:
     return 0
 
 
+def cmd_build(args) -> int:
+    config = pipeline.read_config(args.config)
+    timings: dict[str, float] = {}
+    out = pipeline.export_package(config, args.out, source=args.source, timings=timings)
+    print(json.dumps({'package': str(out), 'seconds': {k: round(v, 1) for k, v in timings.items()}}, indent=2))
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="src.export.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -150,6 +159,11 @@ def main(argv=None) -> int:
         p.add_argument("--kv", default="f32", choices=("f32", "int8"))
         p.add_argument("--attention", default="online", choices=("online", "naive"))
 
+    b = sub.add_parser("build", help="Export through PyTorch from a configs/*.yml file")
+    b.add_argument("config")
+    b.add_argument("--out", required=True)
+    b.add_argument("--source", help="Override the config's model source")
+    b.set_defaults(fn=cmd_build)
     e = sub.add_parser("export", help="Compile a model source into a package")
     source_args(e)
     recipe_args(e)

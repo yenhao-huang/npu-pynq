@@ -15,7 +15,40 @@ import sys
 from src.runtime.core.package import model_env, onnx_asset_dir
 
 
+def cmd_run_exported(args, package: Path) -> int:
+    """A package exported through PyTorch (npu-package/2)."""
+    from src.runtime.core.delegated import ExportedLLM, on_board
+    from src.runtime.core.sampling import SamplingParams
+
+    overlay = None
+    if (args.backend or ('pynq' if on_board() else 'sim')) == 'pynq':
+        from pynq import Overlay
+        overlay = Overlay(args.overlay)
+    llm = ExportedLLM(package, overlay)
+    params = SamplingParams(args.temperature, args.top_k, args.top_p, args.min_p, args.repetition_penalty, args.seed)
+
+    def show(_tid, piece):
+        sys.stdout.write(piece)
+        sys.stdout.flush()
+
+    ids, text, stats = llm.generate(args.prompt, args.max_new, params, chat=args.chat,
+                                    on_token=show if args.stream else None)
+    if not args.stream:
+        print(text)
+    print()
+    report = {"prompt": args.prompt, "output": text, "output_ids": ids, **stats}
+    print(json.dumps(report))
+    if args.json:
+        with open(args.json, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+    return 0
+
+
 def cmd_run(args) -> int:
+    package = Path(args.package_override or args.package)
+    manifest = package / "manifest.json"
+    if manifest.exists() and json.loads(manifest.read_text()).get("format") == "npu-package/2":
+        return cmd_run_exported(args, package)
     from src.runtime.core.engine import LLMEngine
     from src.runtime.core.sampling import SamplingParams
     from src.runtime.core.package import platform_backend
