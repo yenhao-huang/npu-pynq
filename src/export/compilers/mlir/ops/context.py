@@ -13,7 +13,7 @@ from src.export.compilers.mlir.builder import FuncBuilder, Value
 @dataclass
 class Ctx:
     b: FuncBuilder
-    graph: "object"  # src.export.core.graph.ModelGraph
+    graph: "object"  # src.export.ir.graph.ModelGraph
     arena: Value
     cache: dict = field(default_factory=dict)
 

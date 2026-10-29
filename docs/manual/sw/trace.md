@@ -41,11 +41,12 @@ cli.py
 build -> export
 
 cli.cmd_export()
-  └─ load("smollm")
-       └─ import src.export.graphs.smollm.model #選 frontend 模型 
-  └─ smollm.model.build(opts=LLMOptions(...))
-       └─ 回傳 (graph, cfg)
-  └─ export(graph, ...)
+  └─ export(source, model="smollm", opts=LLMOptions(...))
+       └─ pipeline.build_graph()       # src/export/pipeline.py
+            ├─ load()      -> SourceModel      model_arch/smollm.py: read the checkpoint
+            ├─ quantize()  -> QuantizedModel   weight plan -> INT8/INT4 parameters
+            └─ to_mlir()   -> ModelGraph       MLIR + weights
+       └─ compile_graph(graph, ...)    # partition, pack, encode, codegen
 
 
 <cmd_run>: run

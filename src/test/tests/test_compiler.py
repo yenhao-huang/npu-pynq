@@ -17,12 +17,13 @@ import sys
 from src.test.model.onnx_reference import ONNXGraph
 from src.runtime.core.tokenizer import Tokenizer
 from src.runtime.core.tokenizer import bytes_to_unicode
-from src.export.core.graph import ModelGraph
+from src.export.ir.graph import ModelGraph
 from src.export.cli import export
 from src.export.compilers.mlir.builder import ModuleBuilder
 from src.export.compilers.mlir.ops.context import Ctx
 from src.export.compilers.mlir.ops.linear import projection, native, multiply
 from src.runtime.core.package import Package
+from src.export.quantize.int8 import quantize_weight
 
 
 try:
@@ -33,13 +34,13 @@ except toolchain.ToolchainError:
 
 
 def build_mlp(m, k, h, n, bits2, group2, rng):
-    from src.export.core.graph import ModelGraph
+    from src.export.ir.graph import ModelGraph
     from src.export.compilers.mlir.builder import ModuleBuilder, memref_type
     from src.export.compilers.mlir.ops import core, linear as L
     from src.export.compilers.mlir.ops.context import Ctx
 
-    w1 = L.quantize_weight(rng.normal(size=(h, k)).astype(np.float32) * 0.05, 8)
-    w2 = L.quantize_weight(rng.normal(size=(n, h)).astype(np.float32) * 0.1, bits2, group=group2)
+    w1 = quantize_weight(rng.normal(size=(h, k)).astype(np.float32) * 0.05, 8)
+    w2 = quantize_weight(rng.normal(size=(n, h)).astype(np.float32) * 0.1, bits2, group=group2)
     bias = np.linspace(-1, 1, h).astype(np.float32)
     mod = ModuleBuilder()
     f = mod.func("forward", [("ws", "memref<?xi8>"), ("x", memref_type([m, k], "f32")),
@@ -344,7 +345,7 @@ class SharedExportEngineTest(unittest.TestCase):
             self.skipTest('LLVM 22 with MLIR is unavailable')
         import struct
         from src.runtime.core.engine import LLMEngine
-        from src.export.core.graph import LLMOptions
+        from src.export.ir.options import LLMOptions
         rng = np.random.default_rng(119)
         cfg = dict(hidden_size=8, intermediate_size=16, num_attention_heads=2,
                    num_key_value_heads=1, num_hidden_layers=1, rms_norm_eps=1e-5,
@@ -391,19 +392,31 @@ class SharedExportEngineTest(unittest.TestCase):
                        opts=LLMOptions(chunk=3,max_seq=16,group=8,attention='naive'))
             self.assertTrue(checkpoint.is_file())
 
-    def test_auto_onnx_source_uses_common_model_builder(self):
+    def test_auto_onnx_source_runs_the_onnx_stages(self):
+        from types import SimpleNamespace
         from unittest.mock import patch
-        from src.export.graphs.smollm import model
-        from src.export.core.graph import LLMOptions
-        from src.runtime.core.engine import LLMEngine
-        with patch.object(model,'build_quantized_onnx',return_value=('graph','source_model')) as build, \
-             patch.object(model,'Config',return_value='config'), \
-             patch.object(Path,'read_text',return_value='{}'):
-            graph, cfg = model.build('assets/onnx/model_int8.onnx',
-                                     opts=LLMOptions(),prefill_lengths=(42,),onnx_import_dir='prepared')
-            self.assertEqual((graph,cfg),('graph','config'))
-            self.assertEqual(build.call_args.args[1],(42,))
-            self.assertEqual(build.call_args.args[-1],'prepared')
+        from src.export.pipeline import build_graph
+        from src.export.ir.options import LLMOptions
+        from src.export.model_arch import smollm_onnx
+        arch = smollm_onnx.ARCH
+        quantized = SimpleNamespace(config='config')
+        with patch.object(arch,'load',return_value='source') as stage, \
+             patch.object(arch,'quantize',return_value=quantized) as quantize, \
+             patch.object(arch,'to_mlir',return_value='graph') as to_mlir:
+            graph, cfg = build_graph('smollm','assets/onnx/model_int8.onnx',LLMOptions(),
+                                     prefill_lengths=(42,),onnx_import_dir='prepared')
+        self.assertEqual((graph,cfg),('graph','config'))
+        self.assertEqual(stage.call_args.args[:2],('assets/onnx/model_int8.onnx','onnx'))
+        self.assertEqual(stage.call_args.kwargs['onnx_import_dir'],'prepared')
+        self.assertEqual(quantize.call_args.args[0],'source')
+        self.assertEqual(to_mlir.call_args.args[1].prefill_lengths,(42,))
+
+    def test_onnx_source_rejects_options_its_quantization_cannot_honour(self):
+        from src.export.ir.options import LLMOptions
+        from src.export.pipeline import build_graph
+        for opts in (LLMOptions(bits=4), LLMOptions(kv='int8'), LLMOptions(max_seq=256), LLMOptions(awq=True)):
+            with self.subTest(opts=opts), self.assertRaises(ValueError):
+                build_graph('smollm','assets/onnx/model_int8.onnx',opts)
 
 
 class SmolLMCDTest(unittest.TestCase):

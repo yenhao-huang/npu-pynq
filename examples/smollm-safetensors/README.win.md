@@ -114,13 +114,13 @@ in nine lines. Shared source files are copied unchanged.
 
 ```powershell
 $board = 'dist/smollm-safetensors/board'
-New-Item -ItemType Directory -Force "$board/src/vendors/npu_pynq", "$board/src/export/core" | Out-Null
+New-Item -ItemType Directory -Force "$board/src/vendors/npu_pynq", "$board/src/export/load" | Out-Null
 Copy-Item -Recurse dist/smollm-safetensors/package $board
 Copy-Item -Recurse examples/smollm-safetensors/model/checkpoint $board
 Copy-Item examples/smollm-safetensors/smollm_safetensors.ipynb $board
 Copy-Item -Recurse src/runtime "$board/src/"
 Copy-Item -Recurse src/vendors/npu_pynq/isa, src/vendors/npu_pynq/driver "$board/src/vendors/npu_pynq/"
-Copy-Item src/export/core/model_loader.py "$board/src/export/core/"
+Copy-Item src/export/load/safetensors.py "$board/src/export/load/"
 Copy-Item build/smollm-safetensors/npu_matrix.bit, build/smollm-safetensors/npu_matrix.hwh $board
 ```
 

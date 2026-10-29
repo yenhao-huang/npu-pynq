@@ -6,9 +6,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from src.export.graphs.resnet18 import download_model as model
-from src.export.graphs.resnet18 import download_demo_assets as demo
-from src.export.graphs.resnet18 import download_gallery as gallery
+from src.export.sources.resnet18 import download_model as model
+from src.export.sources.resnet18 import download_demo_assets as demo
+from src.export.sources.resnet18 import download_gallery as gallery
 
 
 METADATA = Path(model.__file__).parent

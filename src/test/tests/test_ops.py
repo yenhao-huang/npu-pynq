@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from src.export.compilers.mlir import toolchain
+from src.export.quantize.int8 import quantize_weight
 
 try:
     toolchain.llvm_bin()
@@ -18,7 +19,7 @@ except toolchain.ToolchainError:
 
 def compile_host(build, args, root):
     """``build(ctx, values)`` emits a function over memref ``args`` [(name, type)]."""
-    from src.export.core.graph import ModelGraph
+    from src.export.ir.graph import ModelGraph
     from src.export.cli import export
     from src.export.compilers.mlir.builder import ModuleBuilder
     from src.export.compilers.mlir.ops.context import Ctx
@@ -96,7 +97,7 @@ class ElementwiseOpsTest(unittest.TestCase):
         w = rng.normal(size=(heads * D,)).astype(np.float32)
         cos, sin = E.rope_tables(S, D, 10000.0)
         cos_p, sin_p = E.rope_tables(S, D // 4, 10000.0)  # partial rotary: frequencies over R dims
-        emb = L.quantize_weight(rng.normal(size=(vocab, hidden)).astype(np.float32), 8)
+        emb = quantize_weight(rng.normal(size=(vocab, hidden)).astype(np.float32), 8)
         tokens = np.array([0, 69, 33], np.int32)
         limits = isa.Limits()  # the exporter's; hidden=300 spans two K chunks
         args = [("x", memref_type([T, heads * D], "f32")), ("tok", memref_type([T], "i32")),
@@ -151,7 +152,7 @@ class FrameworkTest(unittest.TestCase):
     def test_safetensors_reader(self):
         import json
         import struct
-        from src.export.core.model_loader import SafeTensors
+        from src.export.load.safetensors import SafeTensors
 
         a = np.arange(6, dtype=np.float32).reshape(2, 3)
         bf16 = (a.view(np.uint32) >> 16).astype(np.uint16)

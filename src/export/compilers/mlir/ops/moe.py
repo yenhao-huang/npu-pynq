@@ -16,6 +16,7 @@ import numpy as np
 from src.export.compilers.mlir.builder import Region, Value, identity_map, map_of
 from src.export.compilers.mlir.ops import core, linear as L
 from src.export.compilers.mlir.ops.context import Ctx
+from src.export.ir.quantized import QuantizedWeight
 
 
 def topk_weights(ctx: Ctx, probs: Value, k: int, normalize: bool) -> Value:
@@ -45,13 +46,13 @@ def topk_weights(ctx: Ctx, probs: Value, k: int, normalize: bool) -> Value:
                          maps=[identity_map(2), map_of(2, ["d0"])])
 
 
-def moe(ctx: Ctx, x: Value, name: str, router: np.ndarray, experts: Sequence[dict], k: int,
+def moe(ctx: Ctx, x: Value, name: str, router: QuantizedWeight, experts: Sequence[dict], k: int,
         normalize: bool, inter: int) -> Value:
-    """x [T, H]; experts[e] = {"gate_up": QuantizedWeight, "down": QuantizedWeight}."""
+    """x [T, H]; router is an FP32 (bits=32) weight; experts[e] = {"gate_up": QuantizedWeight, "down": QuantizedWeight}."""
     b = ctx.b
     T, H = x.shape
     E = len(experts)
-    logits = L.linear(ctx, x, f"{name}.router", L.quantize_weight(router, 32))
+    logits = L.linear(ctx, x, f"{name}.router", router)
     weights = topk_weights(ctx, core.softmax_last(b, logits), k, normalize)
     used = core.reduce_last(b, b.transpose(weights, [1, 0]), "sum")  # [E]
     acc = b.fill(0.0, [T, H], "f32")

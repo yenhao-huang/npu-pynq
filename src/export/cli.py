@@ -1,7 +1,7 @@
 """Compile a model into a package for the host and the PYNQ-Z1, and the
 command line that drives it.
 
-    model frontend (src/export/graphs) -> MLIR (linalg on tensors, npu.weight)
+    front end (src/export/pipeline.py)  load -> quantize -> to_mlir: MLIR (linalg on tensors, npu.weight)
       npu-opt --npu-partition        which contractions become NPU tasks; split into
                                      an NPU subgraph (npu.module) and a host subgraph
       pack weights                   B tiles for NPU-read weights, dense otherwise
@@ -16,6 +16,12 @@ The package directory is self-contained: ``Package`` (src/runtime) loads it
 on either platform.
 
     python -m src.export.cli export smollm --out build/pkg/smollm [--bits 4 --kv int8 ...]
+
+or one front-end stage at a time:
+
+    python -m src.export.cli load smollm --source <dir> --out build/stage/source.json
+    python -m src.export.cli quantize build/stage/source.json --bits 4 --out build/stage/quantized
+    python -m src.export.cli lower build/stage/quantized --chunk 16 --out build/stage/graph
     python -m src.export.cli prepare-onnx prepare --model-dir <onnx model>
 """
 
@@ -29,13 +35,16 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Sequence
 
-from src.export.core.graph import LLMOptions, ModelGraph
+from src.export.ir.graph import ModelGraph
+from src.export import model_arch, pipeline
+from src.export.ir.options import LLMOptions, QuantRecipe, ShapeOptions
+from src.export.pipeline import build_graph
 from src.export.targets import npu_opt, target
 from src.vendors.npu_pynq.compiler.package import pack_weights
 from src.vendors.npu_pynq.compiler.passes import RUNTIME_C
 from src.export.compilers.mlir import toolchain
 from src.vendors.npu_pynq.isa import isa
-from src.runtime.core.package import model_env, onnx_asset_dir
+from src.runtime.core.package import model_env
 
 FORMAT = "npu-package/1"
 
@@ -47,28 +56,26 @@ def export(graph: ModelGraph | str | Path | None, out: str | Path, targets: Sequ
            native_object: str | Path | None = None, onnx_import_dir: str | Path | None = None) -> Path:
     """Compile a graph or model source through the same partition/lower pipeline.
 
-    Model frontends own input formats; the compiler always consumes ModelGraph.
+    A source runs the front end first (load, quantize, to_mlir in
+    src/export/pipeline.py); the compiler always consumes ModelGraph.
     Existing graph callers retain their original API and default CPU targets.
     """
-    frontend_seconds = None
+    timings: dict[str, float] = {}
     if not isinstance(graph, ModelGraph):
-        from src.export.graphs import load
         if model is None:
             raise ValueError('A model frontend is required when exporting a source')
-        kwargs = {} if opts is None else {'opts': opts}
-        if graph is not None:
-            kwargs['source'] = graph
-        if source_format != 'auto':
-            kwargs['source_format'] = source_format
-        source_path = Path(graph) if graph is not None else None
-        if source_format == 'onnx' or (source_path is not None and
-                (source_path.suffix == '.onnx' or (source_path/'model_int8.onnx').is_file()
-                 or (onnx_asset_dir(source_path, 'onnx')/'model_int8.onnx').is_file())):
-            kwargs['prefill_lengths'] = prefill_lengths
-            kwargs['onnx_import_dir'] = onnx_import_dir
-        start = time.monotonic()
-        graph, _ = load(model).build(**kwargs)
-        frontend_seconds = time.monotonic() - start
+        graph, _ = build_graph(model, graph, opts, source_format=source_format, prefill_lengths=prefill_lengths,
+                               onnx_import_dir=onnx_import_dir, timings=timings)
+        timings['frontend'] = timings['load'] + timings['quantize'] + timings['to_mlir']
+    return compile_graph(graph, out, targets, limits, keep_ir, segment_bytes, extra_objects,
+                         native_object=native_object, timings=timings)
+
+
+def compile_graph(graph: ModelGraph, out: str | Path, targets: Sequence[str] | None = None,
+                  limits: isa.Limits = isa.Limits(), keep_ir: bool = True, segment_bytes: int = 4 << 20,
+                  extra_objects: dict[str, Sequence[Path]] | None = None, *,
+                  native_object: str | Path | None = None, timings: dict[str, float] | None = None) -> Path:
+    """Partition, pack, encode and generate code for ``graph``; write the package to ``out``."""
     supported = graph.meta.get('targets', ('host', 'pynq'))
     targets = tuple(targets) if targets is not None else tuple(supported)
     if not targets or any(t not in supported for t in targets):
@@ -92,9 +99,7 @@ def export(graph: ModelGraph | str | Path | None, out: str | Path, targets: Sequ
         shutil.rmtree(out)
     work = out / "ir"
     work.mkdir(parents=True)
-    timings: dict[str, float] = {}
-    if frontend_seconds is not None:
-        timings['frontend'] = frontend_seconds
+    timings = dict(timings or {})
 
     # Write the model graph as MLIR, choose which matmuls run on the NPU, and
     # split the module into the NPU and host subgraphs.
@@ -190,9 +195,9 @@ def _options(args) -> LLMOptions:
 
 
 def cmd_export(args) -> int:
-    from src.export.graphs import load
     if args.model == "resnet18":
-        opts = load(args.model).ResNetOptions(bits=args.bits)
+        from src.export.model_arch.resnet18 import ResNetOptions
+        opts = ResNetOptions(bits=args.bits)
     else:
         opts = _options(args)
     pkg = export(args.source or args.model_dir, args.out, model=args.model, opts=opts,
@@ -205,9 +210,49 @@ def cmd_export(args) -> int:
     return 0
 
 
+def _prefill_lengths(args) -> tuple[int, ...]:
+    return tuple(map(int, args.prefill_lengths.split(',')))
+
+
+def cmd_load(args) -> int:
+    """Read and verify a source; record how to read it again."""
+    src = pipeline.load(args.model, args.source or args.model_dir, args.format, args.layers,
+                        onnx_import_dir=args.onnx_import_dir)
+    record = {"model": args.model, "source": src.source, "format": src.format, "layers": args.layers,
+              "onnx_import_dir": args.onnx_import_dir, "arch": src.arch, "root": str(src.root)}
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(record, indent=2))
+    print(json.dumps(record))
+    return 0
+
+
+def cmd_quantize(args) -> int:
+    """Replay a recorded load, quantize, and save the parameters."""
+    record = json.loads(Path(args.source_record).read_text())
+    arch, _ = pipeline.architecture(record["model"], record["source"], record["format"])
+    recipe = QuantRecipe(args.bits, args.group, args.embed_bits, args.awq)
+    arch.validate(recipe, ShapeOptions(), None)
+    src = pipeline.load(record["model"], record["source"], record["format"], record["layers"],
+                        onnx_import_dir=record["onnx_import_dir"])
+    out = pipeline.save_quantized(pipeline.quantize(src, recipe), args.out)
+    print(json.dumps({"quantized": str(out), "arch": src.arch}))
+    return 0
+
+
+def cmd_lower(args) -> int:
+    """Build the ModelGraph from saved parameters and write it out."""
+    q = pipeline.load_quantized(args.quantized)
+    shape = ShapeOptions(args.chunk, args.max_seq, args.attention, args.kv, _prefill_lengths(args))
+    model_arch.get(q.source.arch).validate(q.recipe, shape, None)
+    out = pipeline.save_graph(pipeline.to_mlir(q, shape), args.out)
+    print(json.dumps({"graph": str(out), "mlir": str(out / "model.mlir")}))
+    return 0
+
+
 def cmd_prepare_onnx(args) -> int:
-    from src.export.core.onnx_source import fetch, export_graph, verify_export, export_operators
-    from src.export.graphs.smollm.onnx import ONNX_PIN
+    from src.export.load.onnx_prepare import fetch, export_graph, verify_export, export_operators
+    from src.export.model_arch.smollm_onnx import ONNX_PIN
     root = Path(args.model_dir).expanduser().resolve()
     if args.phase in ("fetch", "prepare"):
         fetch(root, ONNX_PIN)
@@ -223,27 +268,51 @@ def cmd_prepare_onnx(args) -> int:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="src.export.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    e = sub.add_parser("export")
-    e.add_argument("model")
-    e.add_argument('--onnx-import-dir', help='Verified ONNX-MLIR import directory; otherwise import automatically')
-    e.add_argument("--format", type=lambda s: {'checkpoint':'auto', 'official-onnx':'onnx'}.get(s, s),
-                   choices=('auto', 'safetensors', 'onnx'), default='auto')
-    e.add_argument("--model-dir", default=model_env("NPU_ONNX_MODEL"))
+
+    def source_args(p):
+        p.add_argument("model")
+        p.add_argument('--onnx-import-dir', help='Verified ONNX-MLIR import directory; otherwise import automatically')
+        p.add_argument("--format", type=lambda s: {'checkpoint':'auto', 'official-onnx':'onnx'}.get(s, s),
+                       choices=('auto', 'safetensors', 'onnx', 'torch'), default='auto')
+        p.add_argument("--model-dir", default=model_env("NPU_ONNX_MODEL"))
+        p.add_argument("--layers", type=int)
+        p.add_argument("--source")
+
+    def recipe_args(p):
+        p.add_argument("--bits", type=int, default=8)
+        p.add_argument("--group", type=int, default=128)
+        p.add_argument("--embed-bits", type=int, default=8)
+        p.add_argument("--awq", action="store_true")
+
+    def shape_args(p):
+        p.add_argument("--prefill-lengths", default="36,40,42")
+        p.add_argument("--chunk", type=int, default=16)
+        p.add_argument("--max-seq", type=int, default=512)
+        p.add_argument("--kv", default="f32", choices=("f32", "int8"))
+        p.add_argument("--attention", default="online", choices=("online", "naive"))
+
+    e = sub.add_parser("export", help="Compile a model source into a package")
+    source_args(e)
+    recipe_args(e)
+    shape_args(e)
     e.add_argument("--native-object")
-    e.add_argument("--prefill-lengths", default="36,40,42")
-    e.add_argument("--layers", type=int)
-    e.add_argument("--source")
     e.add_argument("--out", required=True)
     e.add_argument("--targets")
-    e.add_argument("--chunk", type=int, default=16)
-    e.add_argument("--max-seq", type=int, default=512)
-    e.add_argument("--bits", type=int, default=8)
-    e.add_argument("--group", type=int, default=128)
-    e.add_argument("--embed-bits", type=int, default=8)
-    e.add_argument("--kv", default="f32", choices=("f32", "int8"))
-    e.add_argument("--attention", default="online", choices=("online", "naive"))
-    e.add_argument("--awq", action="store_true")
     e.set_defaults(fn=cmd_export)
+    s = sub.add_parser("load", help="Stage 1: read and verify a source; write a replayable record")
+    source_args(s)
+    s.add_argument("--out", required=True, help="record file (JSON)")
+    s.set_defaults(fn=cmd_load)
+    q = sub.add_parser("quantize", help="Stage 2: quantize a recorded source; write the parameters")
+    q.add_argument("source_record")
+    recipe_args(q)
+    q.add_argument("--out", required=True, help="directory for params.npz and model.json")
+    q.set_defaults(fn=cmd_quantize)
+    lo = sub.add_parser("lower", help="Stage 3: build the ModelGraph (to_mlir) from saved parameters")
+    lo.add_argument("quantized")
+    shape_args(lo)
+    lo.add_argument("--out", required=True, help="directory for model.mlir, weights.npz and graph.json")
+    lo.set_defaults(fn=cmd_lower)
     o = sub.add_parser("prepare-onnx", help="Fetch and verify the pinned ONNX model")
     o.add_argument("phase", choices=("fetch", "export", "verify", "operators", "prepare"))
     o.add_argument("--model-dir", default=model_env("NPU_ONNX_MODEL"))

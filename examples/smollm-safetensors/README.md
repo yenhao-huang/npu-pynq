@@ -124,13 +124,13 @@ in nine lines. Shared source files are copied unchanged.
 
 ```bash
 board=dist/smollm-safetensors/board
-mkdir -p "$board/src/vendors/npu_pynq" "$board/src/export/core"
+mkdir -p "$board/src/vendors/npu_pynq" "$board/src/export/load"
 cp -R dist/smollm-safetensors/package "$board/"
 cp -R examples/smollm-safetensors/model/checkpoint "$board/"
 cp examples/smollm-safetensors/smollm_safetensors.ipynb "$board/"
 cp -R src/runtime "$board/src/"
 cp -R src/vendors/npu_pynq/isa src/vendors/npu_pynq/driver "$board/src/vendors/npu_pynq/"
-cp src/export/core/model_loader.py "$board/src/export/core/"
+cp src/export/load/safetensors.py "$board/src/export/load/"
 cp build/smollm-safetensors/npu_matrix.bit build/smollm-safetensors/npu_matrix.hwh "$board/"
 ```
 

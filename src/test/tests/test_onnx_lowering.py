@@ -58,7 +58,7 @@ class ImportedLoweringTests(unittest.TestCase):
 class CompiledOperatorsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from src.export.core.graph import ModelGraph
+        from src.export.ir.graph import ModelGraph
         from src.export.compilers.mlir.ops.context import Ctx
         from src.export.compilers.mlir.ops.attention import AttnConfig
         from src.export.targets import target

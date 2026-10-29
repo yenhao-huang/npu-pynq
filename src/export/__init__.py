@@ -1,13 +1,16 @@
 """Host-side export: model -> package. Needs MLIR/LLVM; never runs on the board.
 
-    cli.py      export() pipeline and the command line
-    core/       model loading, per-layer weight quantization, ModelGraph, ONNX sources
-    quant/      quantization numerics (int8.py) and tools (AWQ, fake-quant)
-    graphs/     one frontend per model; registry in graphs/__init__.py
-    compilers/  target-independent MLIR builder, operators and LLVM toolchain
-    vendors/    per-target passes, weight packing and CPU target; registry in vendors/__init__.py
+    cli.py        export(), compile_graph() and the command line
+    pipeline.py   front end: load -> quantize -> to_mlir
+    ir/           data between stages: options, SourceModel, QuantizedModel, ModelGraph
+    load/         stage 1: read sources without changing any number
+    quantize/     stage 2: quantization numerics, weight plans, AWQ, fake-quant
+    model_arch/   stage 3: one Architecture per model; registry in model_arch/__init__.py
+    compilers/    target-independent MLIR builder, operators and LLVM toolchain
+    sources/      pinned model sources and the scripts that download them
 
-Imports point down: cli -> everything; graphs -> core, quant, compilers;
-vendors -> core, compilers; core and compilers never import graphs or vendors.
-src/runtime never imports src/export.
+Imports point down: cli, pipeline -> everything; model_arch -> ir, load,
+quantize, compilers; quantize -> ir; load -> ir, compilers/onnx_mlir; compilers never import
+quantize, load or model_arch (test_export_layering.py). src/vendors sits
+below src/export; src/runtime never imports src/export.
 """

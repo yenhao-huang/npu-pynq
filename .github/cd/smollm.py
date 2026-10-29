@@ -44,7 +44,7 @@ def tree(package):
 
 def identity(package):
     manifest = json.loads((package / 'manifest.json').read_text(encoding='utf-8'))
-    source = json.loads((REPO / 'src/export/graphs/smollm/onnx-source.json').read_text(encoding='utf-8'))
+    source = json.loads((REPO / 'src/export/sources/smollm/onnx-source.json').read_text(encoding='utf-8'))
     meta = manifest['meta']
     if (not (meta['family'] == 'official-smollm-onnx' or
              (meta['family'] == 'llama' and meta.get('source_format') == 'onnx')) or meta['layers'] != 30

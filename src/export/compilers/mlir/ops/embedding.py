@@ -12,7 +12,7 @@ import numpy as np
 
 from src.export.compilers.mlir.builder import Region, Value, identity_map, map_of
 from src.export.compilers.mlir.ops.context import Ctx
-from src.export.compilers.mlir.ops.linear import QuantizedWeight
+from src.export.ir.quantized import QuantizedWeight
 from src.vendors.npu_pynq.isa import isa, layout
 
 

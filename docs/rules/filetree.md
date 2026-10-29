@@ -66,11 +66,14 @@ npu_repo_in_pynq/
 |   |       `-- driver/          ISA drivers (Python and C), buffers, placement, ABI, DMA; imports isa/ only
 |   |           `-- overlay/     build.py writes the BIT/HWH manifest; verify.py checks it before loading
 |   |-- export/                  host-side model -> package (CPU code + ISA programs); needs MLIR/LLVM
-|   |   |-- cli.py               export() pipeline and the export command line
-|   |   |-- core/                model loading, per-layer weight quantization, ModelGraph, ONNX sources
-|   |   |-- quant/               quantization numerics (int8.py) and AWQ / fake-quant tools
+|   |   |-- cli.py               export(), compile_graph() and the command line (export, load, quantize, lower)
+|   |   |-- pipeline.py          front end: load -> quantize -> to_mlir, and stage results on disk
+|   |   |-- ir/                  data between stages: options, SourceModel, QuantizedModel, ModelGraph
+|   |   |-- load/                stage 1: read sources unchanged (safetensors, ONNX, pins); format detection
+|   |   |-- quantize/            stage 2: numerics (int8.py), weight plans, preserve recipe, AWQ / fake-quant
+|   |   |-- model_arch/          stage 3 per model: one Architecture each (smollm, qwen3, resnet18, ...)
 |   |   |-- delivery/            standalone matrix and image deployment package builders
-|   |   |-- graphs/              one frontend per model (smollm, qwen3, resnet18, ...)
+|   |   |-- sources/<model>/     pinned model sources and the scripts that download and verify them
 |   |   |-- compilers/mlir/      target-independent MLIR builder, operator library, LLVM toolchain
 |   |   |-- compilers/onnx_mlir/ pinned ONNX import, MLIR parser adapter and verified CPU conversions
 |   |   `-- targets.py           target registry: wires each src/vendors/<vendor>/compiler to the toolchain
@@ -195,18 +198,25 @@ and C ISA drivers, CMA buffers, program placement, the ctypes ABI, the legacy
 ABI 1.0 DMA runtime in `dma.py`, and `overlay/`, which writes the overlay
 manifest after Vivado and verifies it before the board loads the bitstream.
 
-`src/export/` turns a model into a package on the host. A frontend in
-`graphs/<model>/` reads the source through `core/` and builds a `ModelGraph`
-from the operators in `compilers/mlir/ops/`. `npu-opt` (built from
+`src/export/` turns a model into a package on the host. The front end runs
+three stages (`pipeline.py`): `load/` reads the source without changing any
+number, `quantize/` turns it into final parameters, and the model's
+architecture in `model_arch/<model>.py` builds a `ModelGraph` from those
+parameters only (`to_mlir`), using the operators in `compilers/mlir/ops/`.
+`npu-opt` (built from
 `src/vendors/npu_pynq/compiler/mlir/` with CMake against LLVM 22) partitions
 INT8 contractions onto the NPU and encodes them as ISA programs; upstream MLIR
 and LLVM compile the rest for the Cortex-A9 or the host. A new model adds one
-folder under `graphs/` and one registry line in `graphs/__init__.py`; a new
-target adds one vendor under `src/vendors/` and one line in `targets.py`.
-Imports point down: `cli.py` may import anything, `graphs/` and `targets.py`
-import `core/`, `quant/`, `compilers/` and `src/vendors/`, and `core/` and
-`compilers/` import none of them. `src/vendors/npu_pynq/driver/npu_rt.c` is
-linked into every compiled model; `src/runtime/core/package.py` loads a
+module under `model_arch/` and one registry line in `model_arch/__init__.py`;
+a new target adds one vendor under `src/vendors/` and one line in
+`targets.py`. Imports point down: `cli.py` and `pipeline.py` may import
+anything; `model_arch/` imports `ir/`, `load/`, `quantize/` and `compilers/`;
+`quantize/` imports `ir/` and never `compilers/` or `load/`; `load/` imports
+`ir/` and, for the ONNX import, `compilers/onnx_mlir/`, never `quantize/`;
+`compilers/` never imports `quantize/`, `load/` or `model_arch/`; and modules
+in `model_arch/` never import each other. `python -m unittest
+src.test.tests.test_export_layering` enforces these edges.
+`src/vendors/npu_pynq/driver/npu_rt.c` is linked into every compiled model; `src/runtime/core/package.py` loads a
 package on the host (simulated NPU) or the board.
 
 `src/jit/` owns the optional just-in-time quantized graph interpreter, its

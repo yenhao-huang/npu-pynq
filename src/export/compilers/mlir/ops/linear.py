@@ -14,7 +14,7 @@ from src.export.compilers.mlir.builder import Region, Value, identity_map, map_o
 from src.export.compilers.mlir.ops import core
 from src.export.compilers.mlir.ops.context import Ctx
 from src.export.compilers.mlir.builder import identity_map, map_of, memref_type
-from src.export.quant.int8 import EPS, QuantizedWeight, quantize_weight  # noqa: F401  (re-exported as L.*)
+from src.export.ir.quantized import EPS, QuantizedWeight
 
 
 def quantize_rows(ctx: Ctx, x: Value) -> tuple[Value, Value]:

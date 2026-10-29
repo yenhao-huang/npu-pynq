@@ -593,11 +593,11 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertEqual(build["runs-on"], "ubuntu-latest")
         run = "\n".join(str(step.get("run", "")) for step in build["steps"])
         for script in (
-            "src.export.graphs.resnet18.download_model",
+            "src.export.sources.resnet18.download_model",
             "src.export.cli export resnet18",
-            "src.export.graphs.resnet18.download_demo_assets",
+            "src.export.sources.resnet18.download_demo_assets",
             "src.runtime.image_cli --backend sim",
-            "src.export.graphs.resnet18.download_gallery",
+            "src.export.sources.resnet18.download_gallery",
             "src.export.delivery.resnet18 --check-only",
         ):
             with self.subTest(script=script):
@@ -620,7 +620,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
 
     def test_the_conversion_environment_is_pinned(self) -> None:
         requirements = (
-            REPOSITORY_ROOT / "src/export/graphs/resnet18/requirements.txt"
+            REPOSITORY_ROOT / "src/export/sources/resnet18/requirements.txt"
         ).read_text(encoding="utf-8").lower()
         for package in ("numpy==", "torch==", "pillow=="):
             with self.subTest(package=package):

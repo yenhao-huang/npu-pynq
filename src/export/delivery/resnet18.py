@@ -59,7 +59,7 @@ def build_archive(repo, model_dir, artifacts, output, release_tag, source_commit
     for name in ('imagenet-classes.txt', 'demo-image.jpg'):
         files['model/'+name] = model_dir/name
     example = repo / 'examples/resnet18'
-    gallery_path = repo/'src/export/graphs/resnet18/gallery-source.json'
+    gallery_path = repo/'src/export/sources/resnet18/gallery-source.json'
     gallery = json.loads(gallery_path.read_text())
     for entry in gallery['images']:
         name = entry['filename']

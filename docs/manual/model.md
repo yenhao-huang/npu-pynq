@@ -2,7 +2,7 @@
 
 This page documents the pre-MLIR ResNet stack, now implemented under
 `src/deprecate/`. Existing examples use its `src.deprecate.model` and
-`src.deprecate.export` modules. New models use `src/export/graphs/` and `src/export/compilers/`.
+`src.deprecate.export` modules. New models use `src/export/model_arch/` and `src/export/compilers/`.
 
 `src/deprecate/model/` is the legacy source of truth for model data
 structures and bit-accurate integer behavior. Exporters, runtimes, and tests

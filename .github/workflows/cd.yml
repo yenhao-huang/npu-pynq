@@ -148,7 +148,7 @@ jobs:
           . "$RUNNER_TEMP/step.sh"
           step "install" python -m pip install \
             --extra-index-url https://download.pytorch.org/whl/cpu \
-            -r src/export/graphs/resnet18/requirements.txt
+            -r src/export/sources/resnet18/requirements.txt
 
       - name: Install LLVM 22 for ahead-of-time ResNet18 export
         run: |
@@ -163,9 +163,9 @@ jobs:
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "download_model" python -m src.export.graphs.resnet18.download_model
-          step "download_demo_assets" python -m src.export.graphs.resnet18.download_demo_assets
-          step "download_gallery" python -m src.export.graphs.resnet18.download_gallery
+          step "download_model" python -m src.export.sources.resnet18.download_model
+          step "download_demo_assets" python -m src.export.sources.resnet18.download_demo_assets
+          step "download_gallery" python -m src.export.sources.resnet18.download_gallery
 
       - name: Compile ResNet18 ahead of time for host and PYNQ
         if: steps.model-cache.outputs.cache-hit != 'true'
