@@ -26,6 +26,24 @@ class Platform(ctypes.Structure):
     _fields_ = [('mmio', ctypes.c_void_p), ('io', Buffer), ('stage', Buffer), ('code', Buffer)]
 
 
+REG_CAPABILITIES = 0x08
+CAP_ISA_FRONTEND = 1 << 6
+
+
+def check_overlay(overlay: Any, accelerator: str, package: Path) -> None:
+    """The overlay runs ISA programs and has the array the package was compiled for."""
+    import json
+
+    if not int(getattr(overlay, accelerator).read(REG_CAPABILITIES)) & CAP_ISA_FRONTEND:
+        raise DelegateError('the overlay does not implement the ISA front end (ABI 1.1)')
+    params = overlay.ip_dict[accelerator].get('parameters', {})
+    found = {'rows': int(params.get('ROWS', 16)), 'columns': int(params.get('COLUMNS', 16)),
+             'max_k': int(params.get('MAX_K', 256))}
+    wanted = json.loads((Path(package) / 'manifest.json').read_text()).get('npu_limits', found)
+    if found != wanted:
+        raise DelegateError(f'the package was compiled for {wanted}, the overlay has {found}')
+
+
 class NpuBackend:
     def __init__(self, package: Path, overlay: Any = None, accelerator: str = 'npu_accelerator_0') -> None:
         sources = [DRIVER / name for name in SOURCES] + [DRIVER / 'npu_rt.h', DRIVER / 'CMakeLists.txt']
@@ -39,6 +57,7 @@ class NpuBackend:
         self.buffers = []   # pynq buffers must outlive the library's use of them
         platform = None
         if overlay is not None:
+            check_overlay(overlay, accelerator, package)
             sizes = (ctypes.c_uint32 * 3)()
             if lib.npu_rt_requirements(root, sizes):
                 raise DelegateError(lib.npu_rt_error().decode())
