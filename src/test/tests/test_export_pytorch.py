@@ -48,6 +48,36 @@ class W8A8NumericsTest(unittest.TestCase):
         np.testing.assert_allclose(y, ref_linear(x, reference(layer.weight.detach().numpy(), 8)), rtol=1e-6, atol=1e-6)
 
 
+    def test_convolution_is_the_contraction_of_its_patches(self):
+        import torch
+        from src.export.frontend.quantization.torchao.custom_quant.w8a8 import W8A8Conv2d
+
+        torch.manual_seed(4)
+        conv = torch.nn.Conv2d(5, 7, 3, stride=2, padding=1)
+        x = torch.randn(1, 5, 9, 11)
+        q = W8A8Conv2d.from_float(conv)
+        y = q(x)
+        self.assertEqual(tuple(y.shape), tuple(conv(x).shape))
+        # The W8A8 result stays within quantization error of the float convolution.
+        torch.testing.assert_close(y, conv(x), rtol=0.05, atol=0.05)
+
+    def test_batchnorm_is_folded_before_quantization(self):
+        import torch
+        from src.export.frontend.load import check
+        from src.export.frontend.quantization.torchao.config import quantize
+
+        torch.manual_seed(5)
+        net = torch.nn.Sequential(torch.nn.Conv2d(3, 4, 3, padding=1), torch.nn.BatchNorm2d(4),
+                                  torch.nn.ReLU(), torch.nn.Flatten(), torch.nn.Linear(4 * 6 * 6, 10)).eval()
+        net[1].running_mean.uniform_(-1, 1)
+        net[1].running_var.uniform_(0.5, 2)
+        x = torch.randn(1, 3, 6, 6)
+        expected = net(x)
+        q = quantize(net, 'w8a8')
+        check(q, 'w8a8')
+        self.assertFalse(any(isinstance(m, torch.nn.BatchNorm2d) for m in q.modules()))
+        torch.testing.assert_close(q(x), expected, rtol=0.1, atol=0.1)
+
 def tiny_llama():
     import torch
     from transformers import LlamaConfig, LlamaForCausalLM
@@ -70,10 +100,10 @@ class LoadCheckTest(unittest.TestCase):
     def test_our_config_passes_the_check(self):
         from torchao.quantization import quantize_
         from src.export.frontend.load import check
-        from src.export.frontend.quantization.torchao.config import NpuW8A8Config, embedding_and_linear
+        from src.export.frontend.quantization.torchao.config import NpuW8A8Config, npu_layers
 
         model = tiny_llama()
-        quantize_(model, NpuW8A8Config(), filter_fn=embedding_and_linear)
+        quantize_(model, NpuW8A8Config(), filter_fn=npu_layers)
         check(model, 'w8a8')
 
 

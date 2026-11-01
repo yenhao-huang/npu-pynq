@@ -198,7 +198,7 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
                    llvm_bin: str = '/usr/lib/llvm-22/bin', timings: dict | None = None) -> Path:
     """Run the whole export for ``config`` (a configs/*.yml); write the package to ``out``."""
     import shutil
-    from src.export.frontend.export_graph import export_llm
+    from src.export.frontend.export_graph import export_classifier, export_llm
     from src.export.frontend.load import framework, load as load_model
     from src.export.frontend.to_mlir import to_mlir
     from src.vendors.npu_pynq.isa import isa
@@ -211,13 +211,18 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     if not Path(src).is_absolute() and (REPO / src).exists():
         src = str(REPO / src)
     start = time.monotonic()
-    model = load_model(spec['framework'], src, quantization=spec.get('quantization'), require=spec.get('require'))
+    extra = {k: v for k, v in spec.items() if k not in ('framework', 'source', 'quantization', 'require')}
+    model = load_model(spec['framework'], src, quantization=spec.get('quantization'), require=spec.get('require'),
+                       **extra)
     times['load'] = time.monotonic() - start
     graph = config['graph']
-    if graph['kind'] != 'llm':
-        raise ValueError(f"unsupported graph kind {graph['kind']!r}")
     start = time.monotonic()
-    programs, cache = export_llm(model, graph['max_seq'], graph['chunk'])
+    if graph['kind'] == 'llm':
+        programs, cache = export_llm(model, graph['max_seq'], graph['chunk'])
+    elif graph['kind'] == 'classifier':
+        programs, cache = export_classifier(model, tuple(graph['input']['shape'])), None
+    else:
+        raise ValueError(f"unsupported graph kind {graph['kind']!r}")
     times['export_graph'] = time.monotonic() - start
     start = time.monotonic()
     model_mlir = to_mlir(programs, out / 'ir')
@@ -234,18 +239,23 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     times['backend'] = time.monotonic() - start
 
     compiled = json.loads((out / 'compile.json').read_text())
-    names = cache.names()
-    compiled['entry_points']['decode']['names'] = {'inputs': ['tokens', 'pos', *names],
-                                                   'outputs': ['logits', *names]}
-    compiled['entry_points']['prefill']['names'] = {'inputs': ['tokens', 'pos', 'last', *names],
-                                                    'outputs': ['logits', *names]}
     for name, path in framework(spec['framework']).files(src).items():
         shutil.copy2(path, out / name)
-    eos = model.config.eos_token_id
     manifest = {**compiled, 'format': PACKAGE_FORMAT, 'model': config['model'],
-                'llm': {'vocab': model.config.vocab_size, 'max_seq': graph['max_seq'], 'chunk': graph['chunk'],
-                        'cache': {'layers': cache.layers, 'shape': list(cache.shape)},
-                        'eos': eos if isinstance(eos, list) else [eos]},
                 'quantization': spec.get('quantization'), 'compile_seconds': times}
+    if graph['kind'] == 'llm':
+        names = cache.names()
+        compiled['entry_points']['decode']['names'] = {'inputs': ['tokens', 'pos', *names],
+                                                       'outputs': ['logits', *names]}
+        compiled['entry_points']['prefill']['names'] = {'inputs': ['tokens', 'pos', 'last', *names],
+                                                        'outputs': ['logits', *names]}
+        eos = model.config.eos_token_id
+        manifest['llm'] = {'vocab': model.config.vocab_size, 'max_seq': graph['max_seq'], 'chunk': graph['chunk'],
+                           'cache': {'layers': cache.layers, 'shape': list(cache.shape)},
+                           'eos': eos if isinstance(eos, list) else [eos]}
+    else:
+        compiled['entry_points']['forward']['names'] = {'inputs': ['image'], 'outputs': ['logits']}
+        manifest['classifier'] = {'input': graph['input'],
+                                  'classes': compiled['entry_points']['forward']['outputs'][0]['shape'][-1]}
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2))
     return out

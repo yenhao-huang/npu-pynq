@@ -15,7 +15,7 @@ from torch import nn
 
 from .check import QuantizationError, check
 
-FRAMEWORKS = {'huggingface': 'huggingface'}
+FRAMEWORKS = {'huggingface': 'huggingface', 'torchvision': 'torchvision_models'}
 
 
 def framework(name: str):
@@ -29,10 +29,9 @@ def load(name: str, source: str | Path, quantization: str | None = None, require
          **kwargs) -> nn.Module:
     model = framework(name).load(source, **kwargs)
     if quantization:
-        from torchao.quantization import quantize_
+        from src.export.frontend.quantization.torchao.config import quantize
 
-        from src.export.frontend.quantization.torchao.config import config_for, embedding_and_linear
-        quantize_(model, config_for(quantization), filter_fn=embedding_and_linear)
+        model = quantize(model, quantization)
     if require:
         check(model, require)
     return model

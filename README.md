@@ -74,7 +74,7 @@ Go to `examples/<model>/` and follow its README to export the model, build the
 overlay, and package it for the board:
 [ResNet-18](examples/resnet18/README.md),
 [matrix multiplication](examples/matrix-multiplication/README.md), and
-[SmolLM](examples/smollm_onnx/README.md).
+[SmolLM](examples/smollm-safetensors/README.md).
 
 ## Software Stack
 

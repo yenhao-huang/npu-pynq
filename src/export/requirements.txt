@@ -10,3 +10,6 @@ tokenizers==0.23.3
 iree-base-compiler==3.13.0
 numpy==1.26.4
 PyYAML==6.0.3
+# Image classifiers (configs/resnet18.yml) and the runtime's image preprocessing.
+torchvision==0.26.0
+pillow==13.0.0

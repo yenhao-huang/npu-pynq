@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+from pathlib import Path
 import time
 import numpy as np
 
@@ -49,6 +51,14 @@ def top_predictions(logits, labels, k=5):
 
 
 class ImageEngine:
+    def __new__(cls, package, *args, **kwargs):
+        # Packages exported through PyTorch run through the delegate runtime.
+        manifest = Path(package) / "manifest.json"
+        if cls is ImageEngine and manifest.exists() and                 json.loads(manifest.read_text()).get("format") == "npu-package/2":
+            from .delegated import DelegatedImageEngine
+            return DelegatedImageEngine(package, *args, **kwargs)
+        return super().__new__(cls)
+
     def __init__(self, package, backend=None, *, overlay=None, stream_weights=None):
         self.package = Package(package, backend or platform_backend(), overlay=overlay,
                                stream_weights=stream_weights)

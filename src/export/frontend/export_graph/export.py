@@ -121,3 +121,21 @@ def export_llm(model: nn.Module, max_seq: int, chunk: int) -> tuple[dict[str, to
             ep = torch.export.export(step, example_inputs(spec, tokens, prefill), strict=False)
         programs[name] = ep.run_decompositions()
     return programs, spec
+
+
+class Classify(nn.Module):
+    """forward(image [H, W, C] normalized NHWC) -> logits [1, classes]."""
+
+    def __init__(self, model: nn.Module) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(self, image):
+        return self.model(image.permute(2, 0, 1).unsqueeze(0))
+
+
+def export_classifier(model: nn.Module, shape: tuple[int, int, int]) -> dict[str, torch.export.ExportedProgram]:
+    """{'forward': ep} for an image classifier taking one NHWC image."""
+    with torch.no_grad():
+        ep = torch.export.export(Classify(model), (torch.zeros(shape),), strict=False)
+    return {'forward': ep.run_decompositions()}

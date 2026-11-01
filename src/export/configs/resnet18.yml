@@ -1,0 +1,20 @@
+# TorchVision ResNet-18 (IMAGENET1K_V1), W8A8 on the PYNQ-Z1 NPU.
+#   python -m src.export.model_arch.resnet18.download model
+#   python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
+model: resnet18
+load:
+  framework: torchvision
+  model: resnet18
+  source: dist/resnet18/model/resnet18-f37072fd.pth   # or IMAGENET1K_V1 (downloads)
+  quantization: w8a8
+  require: w8a8
+graph:
+  kind: classifier
+  input:                      # what the runtime feeds: one normalized NHWC image
+    shape: [224, 224, 3]
+    layout: NHWC
+    resize_shorter: 256
+    mean: [0.485, 0.456, 0.406]
+    std: [0.229, 0.224, 0.225]
+devices: [cpu, npu]
+cpus: [arm-cortex-a9, native]

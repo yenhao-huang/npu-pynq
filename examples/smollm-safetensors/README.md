@@ -2,161 +2,73 @@
 
 [Linux](README.md) | [Windows](README.win.md) | [macOS](README.macos.md)
 
-## Validation status
+The host exports `HuggingFaceTB/SmolLM2-135M-Instruct` through PyTorch:
+transformers loads it, our torchao config quantizes every linear layer to
+W8A8, `torch.export` captures decode and prefill, torch-mlir lowers them to
+linalg, and `npu-compile` (LLVM 22) builds the package. On the board the CPU
+code runs on the Cortex-A9 and every INT8 contraction runs on the NPU.
 
-**Initial validation passed on PYNQ-Z1, 2026-10-25.** All five code cells completed in a
-fresh root kernel. The notebook loaded 272 tensors from the full 30-layer
-checkpoint and generated 32 tokens matching the independent ARM ISA reference.
-The physical NPU reported 4,114 calls, 1,414,944 jobs and zero ISA errors.
-The current notebook is simplified to load and run, without deployment hashes
-or reference-token checks; it has not been rerun on the board after that edit.
-No shared source was changed. See [board evidence and limitations](docs/board-run/README.md).
-
-The validated notebook is deployed at:
-
-```text
-/home/xilinx/jupyter_notebooks/smollm-safetensors-20261025/npu_matrix/smollm_safetensors.ipynb
-```
+**Validated on PYNQ-Z1, 2026-11-01**, with the commands below and the notebook
+(fresh root kernel, all cells): 32 tokens, "A neural processing unit (NPU) is
+a type of computer component that processes information in a way that mimics
+the way the human brain processes information. It is", identical to the host
+simulator; 7,174 NPU calls, 1,414,944 jobs, no ISA error. Prefill takes about
+48 s and decode about 0.5 tokens/s.
 
 ## Requirements
 
-Use the current checkout's unmodified `src/`. The input is the pinned Apache-2.0
-`HuggingFaceTB/SmolLM2-135M-Instruct` checkpoint, revision
-`12fd25f77366fa6b3b4b768ec3050bf629380bac`. All 30 layers are compiled with
-W8A8 linear/embedding weights and FP32 KV cache. No ONNX model or JIT interpreter
-is used. The host compiles safetensors into an AOT package; the board notebook
-reads the original safetensors and runs that package on the physical NPU.
-
-Host frontend: Python 3.12+ and NumPy. Compiler: Linux with LLVM/MLIR 22,
-Clang, lld, CMake and a C++ compiler. The existing source does not provide a
-native Windows compiler target. Run the source CLI on a Linux compiler host;
-Windows and macOS can deploy the resulting ARM package.
-
-Board: PYNQ-Z1, PYNQ Python with NumPy, ipykernel, root kernel,
-SSH access, and enough SD space for the original 269 MB checkpoint plus the
-136 MB compiled weights. Commands below start at the repository root.
-Model assets and generated graph files stay ignored in `model/`; deployment
-products stay under `dist/`. No `src` file needs editing or patching.
-
-Create a local Python environment before the commands below:
+Ubuntu or WSL Ubuntu with Python 3.12, CMake, Ninja and LLVM/MLIR 22 from the
+[LLVM packages](https://apt.llvm.org/). Commands start at the repository root.
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install numpy==1.26.4
-```
-
-Install LLVM/MLIR 22 and the build prerequisites (Ubuntu or WSL Ubuntu). Ubuntu
-24.04 does not ship LLVM 22, so it comes from the
-[official LLVM packages](https://apt.llvm.org/):
-
-```bash
-sudo apt install -y wget ca-certificates gnupg build-essential cmake ninja-build
+sudo apt install -y python3-venv build-essential cmake ninja-build wget
 wget -O /tmp/npu-llvm.sh https://apt.llvm.org/llvm.sh
 sudo bash /tmp/npu-llvm.sh 22
-sudo apt install -y llvm-22 llvm-22-dev clang-22 lld-22 \
-  mlir-22-tools libmlir-22-dev gcc-arm-linux-gnueabihf
+sudo apt install -y llvm-22-dev clang-22 lld-22 mlir-22-tools libmlir-22-dev
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r src/export/requirements.txt \
+  --extra-index-url https://download.pytorch.org/whl/cpu
 ```
 
-Verify the toolchain before building:
+The board needs its PYNQ environment, g++ and CMake (the PYNQ image has them),
+and a 16 x 16, MAX_K=256, ISA ABI 1.1 BIT/HWH pair. Build one with
+`vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl`
+or reuse a verified pair.
+
+## Export
 
 ```bash
-/usr/lib/llvm-22/bin/mlir-opt --version
-/usr/lib/llvm-22/bin/clang --version
-test -f /usr/lib/llvm-22/lib/cmake/mlir/MLIRConfig.cmake
+curl --fail --location --retry 3 --create-dirs \
+  --output "examples/smollm-safetensors/model/checkpoint/#1" \
+  "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f77366fa6b3b4b768ec3050bf629380bac/{config.json,tokenizer.json,tokenizer_config.json,model.safetensors}"
+python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/package
 ```
 
-Safetensors compilation does not need Docker or ONNX Runtime.
+The checkpoint's hashes are pinned in `model-source.json`. The first build
+compiles `npu-compile` under `build/`; the export takes about five minutes.
+`src/export/configs/smollm.yml` holds the model source, the quantization, the
+cache length (256) and the prefill chunk (16).
 
-## One-time board preparation
+## Deploy and run
 
-Use the installed PYNQ environment at `/usr/local/share/pynq-venv`. Ensure the
-root Jupyter kernel is available. MMIO/CMA require root. Noninteractive acceptance
-uses sudo; supply credentials through the existing SSH/sudo mechanism. Never put
-passwords in notebook cells or shell arguments.
-
-## Overlay build
-
-Build a 16 x 16 ISA overlay on an authorized Vivado host:
+Set `OVERLAY` to the directory holding `npu_matrix.bit` and `npu_matrix.hwh`:
 
 ```bash
-vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
+export OVERLAY=build/vivado/npu_matrix_16x16/artifacts
+python -m src.deploy.smollm dist/smollm/package --overlay "$OVERLAY" --out dist/smollm/board
+ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/smollm'
+scp -r dist/smollm/board/. xilinx@192.168.2.99:jupyter_notebooks/smollm/
+ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/smollm && sudo env XILINX_XRT=/usr \
+  /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli run package --overlay npu_matrix.bit \
+  --chat --stream --prompt "Write a paragraph about a neural processing unit (NPU)." --max-new 32'
 ```
 
-Use a matching BIT/HWH pair from that build or an existing verified deployment.
-This example's physical validation reuses the matching pair from
-`~/jupyter_notebooks/smollm-compiled-stage-20261009/` without changing RTL.
-The package geometry check rejects a mismatched overlay. Copy the pair to
-`build/smollm-safetensors/npu_matrix.bit` and `npu_matrix.hwh` on the host.
+The first run builds libnpu_rt and the delegate dispatcher on the board (about
+30 s). Enter the board's sudo password when asked.
 
-## Model build
+## Notebook
 
-On Linux with Python 3.12 and LLVM 22 installed:
-
-```bash
-curl --fail --location --retry 3 --create-dirs --output "examples/smollm-safetensors/model/checkpoint/#1" "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f77366fa6b3b4b768ec3050bf629380bac/{config.json,tokenizer.json,tokenizer_config.json,model.safetensors}"
-export NPU_LLVM_BIN=/usr/lib/llvm-22/bin
-export NPU_BUILD_JOBS=4
-export NPU_SMOLLM_CHECKPOINT="$PWD/examples/smollm-safetensors/model/checkpoint"
-export NPU_COMPILED_PACKAGE="$PWD/dist/smollm-safetensors/package"
-
-python -m src.export.cli export smollm \
-  --format safetensors --source "$NPU_SMOLLM_CHECKPOINT" \
-  --out "$NPU_COMPILED_PACKAGE" --targets host,pynq \
-  --bits 8 --embed-bits 8 --kv f32 --attention online \
-  --chunk 16 --max-seq 512
-
-cp "$NPU_SMOLLM_CHECKPOINT/tokenizer_config.json" "$NPU_COMPILED_PACKAGE/"
-```
-
-The single curl command downloads all four files at the pinned revision.
-Pinned file hashes are recorded in `model-source.json` for reference.
-The model is loaded, quantized and compiled directly by `src.export.cli`; no example-local
-Python build script or staged graph is required. Omitting `--layers` keeps all
-30 layers. The source frontend bundles `tokenizer.json`; copy the original
-`tokenizer_config.json` as shown so the runtime also applies the model's chat
-template. This copies a model asset without changing `src/`.
-
-## Packaging
-
-Use a new deployment directory and copy the runtime, model, notebook and overlay
-in nine lines. Shared source files are copied unchanged.
-
-```bash
-board=dist/smollm-safetensors/board
-mkdir -p "$board/src/vendors/npu_pynq" "$board/src/export/load"
-cp -R dist/smollm-safetensors/package "$board/"
-cp -R examples/smollm-safetensors/model/checkpoint "$board/"
-cp examples/smollm-safetensors/smollm_safetensors.ipynb "$board/"
-cp -R src/runtime "$board/src/"
-cp -R src/vendors/npu_pynq/isa src/vendors/npu_pynq/driver "$board/src/vendors/npu_pynq/"
-cp src/export/load/safetensors.py "$board/src/export/load/"
-cp build/smollm-safetensors/npu_matrix.bit build/smollm-safetensors/npu_matrix.hwh "$board/"
-```
-
-## Deployment and board test
-
-```bash
-ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/smollm-safetensors'
-scp -r dist/smollm-safetensors/board/. \
-  xilinx@192.168.2.99:~/jupyter_notebooks/smollm-safetensors/
-ssh -t xilinx@192.168.2.99 \
-  'cd ~/jupyter_notebooks/smollm-safetensors && sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli run package --backend pynq --overlay npu_matrix.bit --chat --stream --prompt "Write a paragraph about a neural processing unit (NPU)." --max-new 32'
-```
-
-## Notebook handoff
-
-Open `smollm_safetensors.ipynb` in the deployed directory through the board's
-Jupyter server. Select the root PYNQ Python kernel and choose **Run All**.
-Defaults are relative to the notebook directory; `NPU_SMOLLM_DEMO` can override
-it. The notebook loads the original safetensors, opens the compiled full model
-and physical overlay, then streams a generated response and prints runtime
-statistics. Edit the prompt and token limit in the generation cell. The final
-cell releases CMA buffers. Keep the repository notebook output-free.
-
-## Release CD
-
-The existing release CD delivers `examples/smollm_onnx`, with a different pinned
-ONNX source and reference output. This safetensors example is a manual workflow
-and is not wired into release CD. Its notebook acceptance must be run explicitly;
-a passing ONNX release job does not validate this checkpoint path.
+Open <http://192.168.2.99:9090/notebooks/smollm/smollm_safetensors.ipynb>,
+select the root PYNQ Python kernel and run all cells. Edit the prompt in the
+generation cell. The last cell releases the board buffers.

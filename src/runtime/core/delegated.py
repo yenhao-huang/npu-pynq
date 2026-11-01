@@ -98,6 +98,12 @@ class ExportedPackage:
         stats['delegate_calls'] = self.dispatcher.calls
         return stats
 
+    def close(self) -> None:
+        """Release the backends' board buffers; the package cannot be called afterwards."""
+        for backend in self.backends.values():
+            backend.close()
+        self.backends = {}
+
 
 class ExportedLLM:
     def __init__(self, package: str | Path, overlay: Any = None) -> None:
@@ -118,6 +124,9 @@ class ExportedLLM:
                 if tid >= 0:
                     self.eos.add(tid)
         self.pos = 0
+
+    def close(self) -> None:
+        self.package.close()
 
     def reset(self) -> None:
         for c in self.cache:
@@ -185,3 +194,39 @@ class ExportedLLM:
                  'npu': {k: after[k] - before.get(k, 0) for k in after if k not in ('error', 'error_program')}}
         text = self.tokenizer.decode(out) if self.tokenizer else ''
         return out, text, stats
+
+
+class DelegatedImageEngine:
+    """Image classification through an npu-package/2 package (ImageEngine's interface)."""
+
+    def __init__(self, package: str | Path, backend: str | None = None, *, overlay: Any = None,
+                 stream_weights: Any = None) -> None:
+        if backend == 'pynq' and overlay is None:
+            raise ValueError('the pynq backend needs the loaded overlay')
+        self.package = ExportedPackage(package, overlay if backend != 'sim' else None)
+        meta = self.package.manifest['classifier']
+        self.contract = meta['input']
+        self.classes = int(meta['classes'])
+        self.last_seconds = 0.0
+        self.last_stats = {}
+
+    def predict(self, image) -> np.ndarray:
+        image = np.ascontiguousarray(image)
+        if image.dtype != np.float32 or list(image.shape) != self.contract['shape']:
+            raise ValueError('Expected a normalized float32 image matching the package input')
+        if not np.isfinite(image).all():
+            raise ValueError('Image contains nonfinite values')
+        logits = np.zeros((1, self.classes), np.float32)
+        before = self.package.stats()
+        start = time.perf_counter()
+        self.package.call('forward', [image], [logits])
+        self.last_seconds = time.perf_counter() - start
+        after = self.package.stats()
+        self.last_stats = {k: after[k] - before.get(k, 0) for k in ('calls', 'jobs', 'cycles', 'macs', 'polls')
+                           if k in after}
+        if not np.isfinite(logits).all():
+            raise RuntimeError('Compiled image model returned nonfinite logits')
+        return logits[0]
+
+    def close(self) -> None:
+        self.package.close()
