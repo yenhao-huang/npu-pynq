@@ -2,7 +2,7 @@
 
 | Plan ID | Topic | Revision | Status |
 |---|---|---|---|
-| 2026-1029-002 | export-pytorch-exportedprogram | rev.25 (2026-10-29) | In progress — Phase 0 done; SmolLM W8A8 end to end on the host simulator, board run pending |
+| 2026-1029-002 | export-pytorch-exportedprogram | rev.25 (2026-10-29) | In progress — Phase 0 done; SmolLM W8A8 runs on the PYNQ-Z1 NPU |
 
 Issue: #119 (software stack). Supersedes the front end built by
 [2026-1029-001](2026-1029-001-export-load-quantize-to-mlir.md); its
@@ -78,7 +78,18 @@ for 32 tokens, the count recorded for the old package. The first 12 greedy
 tokens equal the PyTorch reference; float rounding in CPU code then moves an
 activation-quantization boundary.
 
-Not yet: the board run, `aten/` kernels, W4A8, ResNet-18, lit tests,
+Board (2026-11-01, PYNQ-Z1, g++ 11.2, CMake 3.22): the bundle from
+`src/deploy/smollm.py` (165 MB) built the dispatcher and libnpu_rt on the
+board in 33 s, then `src.runtime.cli run package --overlay npu_matrix.bit
+--chat` generated the same 32 tokens as the host simulator, id for id, on
+the physical NPU: 7,174 delegate calls, 1,414,944 jobs, 730,038,880 NPU
+cycles, no ISA error. Prefill 47.2 s for 42 tokens, decode 0.51 tokens/s:
+every call streams its segment's weights into the stage window, and q/k/v
+and gate/up are separate contractions (7 per layer, not 4). Performance is
+the next phase's work.
+
+Not yet: performance (fused projections, resident weights, vectorized CPU
+code), `aten/` kernels, W4A8, ResNet-18, lit tests,
 `isa/` -> `spec/` move, removal of the old path (Phase 5).
 
 ---
