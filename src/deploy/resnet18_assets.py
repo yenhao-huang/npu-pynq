@@ -1,9 +1,9 @@
 """Download ResNet-18's pinned sources fail-closed into the ignored model
 workspace (dist/resnet18/model):
 
-    python -m src.export.model_arch.resnet18.download model     TorchVision checkpoint
-    python -m src.export.model_arch.resnet18.download demo      ImageNet class list and sample image
-    python -m src.export.model_arch.resnet18.download gallery   demo gallery photographs
+    python -m src.deploy.resnet18_assets model     TorchVision checkpoint
+    python -m src.deploy.resnet18_assets demo      ImageNet class list and sample image
+    python -m src.deploy.resnet18_assets gallery   demo gallery photographs
 
 Each file is pinned by URL, byte length and SHA-256 in a canonical JSON
 record beside this module, streamed to a temporary file, verified, and only
@@ -29,7 +29,7 @@ import urllib.parse
 from urllib.request import Request, urlopen
 
 HERE = Path(__file__).resolve().parent
-MODEL_DIR = HERE.parents[3] / "dist/resnet18/model"
+MODEL_DIR = HERE.parents[1] / "dist/resnet18/model"
 SHA256 = re.compile(r"[0-9a-f]{64}")
 COMMIT = re.compile(r"[0-9a-f]{40}")
 # Wikimedia requires an informative User-Agent with contact information, and
@@ -176,7 +176,7 @@ def _gallery_url(value: object, host: str) -> str:
     return _https(value, host, lambda path: path.startswith("/wikipedia/commons/"))
 
 
-def load_source_metadata(path: str | Path = HERE / "model-source.json") -> ModelSource:
+def load_source_metadata(path: str | Path = HERE / "resnet18-model-source.json") -> ModelSource:
     value = _read_record(path, {"architecture", "bytes", "filename", "format", "license", "magic", "provider",
                                 "revision", "sha256", "url"}, "NPU_PRETRAINED_MODEL_SOURCE", "source")
     filename = _basename(value["filename"])
@@ -188,7 +188,7 @@ def load_source_metadata(path: str | Path = HERE / "model-source.json") -> Model
                        url=_model_url(value["url"], filename))
 
 
-def load_demo_metadata(path: str | Path = HERE / "demo-source.json") -> tuple[DemoAsset, ...]:
+def load_demo_metadata(path: str | Path = HERE / "resnet18-demo-source.json") -> tuple[DemoAsset, ...]:
     value = _read_record(path, {"assets", "format", "magic", "revision"}, "NPU_RESNET18_DEMO_SOURCE", "demo")
     revision = value["revision"]
     if not isinstance(revision, str) or COMMIT.fullmatch(revision) is None:
@@ -214,7 +214,7 @@ def load_demo_metadata(path: str | Path = HERE / "demo-source.json") -> tuple[De
     return tuple(assets)
 
 
-def load_gallery_metadata(path: str | Path = HERE / "gallery-source.json") -> tuple[GalleryImage, ...]:
+def load_gallery_metadata(path: str | Path = HERE / "resnet18-gallery-source.json") -> tuple[GalleryImage, ...]:
     value = _read_record(path, {"approved_host", "format", "images", "magic"}, "NPU_RESNET18_GALLERY_SOURCE",
                          "gallery")
     host = value["approved_host"]
@@ -348,8 +348,8 @@ def main(argv=None) -> int:
     parser.add_argument("--metadata", type=Path, help="pin record (default: the one beside this module)")
     parser.add_argument("--output-dir", "--model-dir", type=Path, default=MODEL_DIR)
     args = parser.parse_args(argv)
-    metadata = args.metadata or HERE / {"model": "model-source.json", "demo": "demo-source.json",
-                                        "gallery": "gallery-source.json"}[args.source]
+    metadata = args.metadata or HERE / {"model": "resnet18-model-source.json", "demo": "resnet18-demo-source.json",
+                                        "gallery": "resnet18-gallery-source.json"}[args.source]
     try:
         if args.source == "model":
             print(f"PASS: verified pretrained ResNet-18 checkpoint at {download_model(metadata, args.output_dir)}")

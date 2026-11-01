@@ -16,7 +16,8 @@ from pathlib import Path
 
 import numpy as np
 
-from src.vendors.npu_pynq.isa import isa, layout, sim
+from src.vendors.npu_pynq.spec import isa, layout
+from src.test.model import isa_sim as sim
 
 OUTPUT = Path(__file__).with_name("isa_frontend_16x16.txt")
 LIMITS = isa.Limits(rows=16, columns=16, max_k=256)

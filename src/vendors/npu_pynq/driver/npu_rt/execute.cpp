@@ -1,6 +1,6 @@
 /* One delegate call: pack A, run the program's segments, unpack C.
  *
- * A and C tile layouts are those of src/vendors/npu_pynq/isa/layout.py:
+ * A and C tile layouts are those of src/vendors/npu_pynq/spec/layout.py:
  * A tiles per (row tile, K chunk), 8-byte aligned; C as K planes of INT32
  * tiles. The caller's output is [Kt, M, N] INT32 partial planes.
  */

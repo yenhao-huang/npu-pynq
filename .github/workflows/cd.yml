@@ -119,7 +119,9 @@ jobs:
         id: model-cache
         uses: actions/cache/restore@v4
         with:
-          path: dist/resnet18/model
+          path: |
+            dist/resnet18/model
+            dist/resnet18/package
           key: resnet18-model-${{ needs.validate-source.outputs.release_tag }}-${{ hashFiles('src/**', '!src/hw/**') }}
 
       # Every model step runs through `step`, which turns a failure's last lines
@@ -143,54 +145,56 @@ jobs:
           }
           SH
 
-      - name: Install the pinned conversion environment
+      - name: Install the pinned export environment
         run: |
           . "$RUNNER_TEMP/step.sh"
           step "install" python -m pip install \
             --extra-index-url https://download.pytorch.org/whl/cpu \
-            -r src/export/model_arch/resnet18/requirements.txt
+            -r src/export/requirements.txt
 
-      - name: Install LLVM 22 for ahead-of-time ResNet18 export
+      - name: Install LLVM 22 for npu-compile
         run: |
           set -euo pipefail
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
           . /etc/os-release
           echo "deb http://apt.llvm.org/${VERSION_CODENAME}/ llvm-toolchain-${VERSION_CODENAME}-22 main" | sudo tee /etc/apt/sources.list.d/llvm22.list
           sudo apt-get update -q
-          sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake
+          sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake ninja-build
 
       - name: Download the pinned checkpoint and demo assets
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "download_model" python -m src.export.model_arch.resnet18.download model
-          step "download_demo_assets" python -m src.export.model_arch.resnet18.download demo
-          step "download_gallery" python -m src.export.model_arch.resnet18.download gallery
+          step "download_model" python -m src.deploy.resnet18_assets model
+          step "download_demo_assets" python -m src.deploy.resnet18_assets demo
+          step "download_gallery" python -m src.deploy.resnet18_assets gallery
 
-      - name: Compile ResNet18 ahead of time for host and PYNQ
+      - name: Export ResNet18 through PyTorch for host and PYNQ
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "compile_model" python -m src.export.cli export resnet18 --source dist/resnet18/model/resnet18-f37072fd.pth --out dist/resnet18/model/aot
+          step "export_model" python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
 
       - name: Validate the compiled host model on the real image
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
           step "host_image" python -m src.runtime.image_cli --backend sim \
-            --package dist/resnet18/model/aot \
+            --package dist/resnet18/package \
             --image dist/resnet18/model/demo-image.jpg \
             --labels dist/resnet18/model/imagenet-classes.txt \
             --expected-class Samoyed --evidence dist/resnet18/model/host-image.json
 
       - name: Confirm the workspace is package-ready
-        run: python -m src.export.delivery.resnet18 --check-only
+        run: python -m src.deploy.resnet18 dist/resnet18/package --check-only
 
       - name: Keep the checked model for later runs of this release
         if: steps.model-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: dist/resnet18/model
+          path: |
+            dist/resnet18/model
+            dist/resnet18/package
           key: ${{ steps.model-cache.outputs.cache-primary-key }}
 
       - name: Retain the model workspace
@@ -200,7 +204,8 @@ jobs:
           if-no-files-found: error
           path: |
             dist/resnet18/model/*
-            !dist/resnet18/model/calibration
+            dist/resnet18/package/*
+            !dist/resnet18/package/ir
 
   # Everything the privileged jobs need is checked here, in about a minute,
   # before Vivado spends hours on a build that would fail at packaging.
@@ -292,7 +297,7 @@ jobs:
       actions: read
     timeout-minutes: 180
     env:
-      RESNET18_MODEL_DIR: build/resnet18-model
+      RESNET18_DIR: build/resnet18
     steps:
       # CD never creates a tag, so the release commit is the only exact ref.
       - name: Check out the validated release commit
@@ -306,7 +311,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: resnet18-model-${{ needs.validate-source.outputs.release_tag }}
-          path: build/resnet18-model
+          path: build/resnet18
 
       # Vivado is the long stage. When an earlier run of this same release
       # branch built the overlay successfully, and the hardware sources have not
@@ -471,7 +476,7 @@ jobs:
           $package = "dist/matrix-multiplication/$tag"
           $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
-          $output = python -m src.export.delivery.matrix `
+          $output = python -m src.deploy.matrix `
             --repository-root . `
             --artifact-dir build/vivado/npu_matrix_16x16/artifacts `
             --output-dir $package `
@@ -497,12 +502,12 @@ jobs:
           New-Item -ItemType Directory -Force 'build/cd' | Out-Null
           $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
-          $output = python -m src.export.delivery.resnet18 `
-            --repository-root . `
-            --artifact-dir build/vivado/npu_matrix_16x16/artifacts `
+          $output = python -m src.deploy.resnet18 "$env:RESNET18_DIR/package" `
+            --overlay build/vivado/npu_matrix_16x16/artifacts `
             --report-dir build/vivado/npu_matrix_16x16/reports `
-            --model-dir $env:RESNET18_MODEL_DIR `
-            --output-archive "build/cd/npu-resnet18-$tag.zip" `
+            --assets "$env:RESNET18_DIR/model" `
+            --out "build/cd/resnet18-$tag" `
+            --archive "build/cd/npu-resnet18-$tag.zip" `
             --release-tag $tag `
             --source-commit $commit @reuse 2>&1
           $code = $LASTEXITCODE
@@ -563,32 +568,37 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install the shared compiler toolchain
+      - name: Install the export environment and LLVM 22
         run: |
           set -euo pipefail
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
           echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" | sudo tee /etc/apt/sources.list.d/llvm22.list
           sudo apt-get update -q
-          sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake ninja-build gcc-arm-linux-gnueabihf
-          python -m pip install numpy==1.26.4 onnx==1.17.0 onnxruntime==1.20.1
-      - name: Compile the pinned model from this release's source
-        env:
-          NPU_BUILD_JOBS: '2'
-          CMAKE_GENERATOR: Ninja
+          sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake ninja-build
+          python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu -r src/export/requirements.txt
+      # The pinned checkpoint, exported through PyTorch with this release's
+      # source; the host simulator's 32 tokens become the board's reference.
+      - name: Export the pinned model from this release's source
         run: |
           set -euo pipefail
-          python -m src.export.cli prepare-onnx fetch --model-dir build/smollm-input
-          docker pull ghcr.io/onnxmlir/onnx-mlir@sha256:5df1c1d3f1d8d5207c9b408e9d6e0ec2ae9926c6948b4b5c745358a2b47ad2e8
-          python -m src.export.compilers.onnx_mlir.pipeline \
-            --source build/smollm-input/onnx/model_int8.onnx --out build/smollm-onnx-import
-          python -m src.export.cli export smollm \
-            --source build/smollm-input/onnx/model_int8.onnx --onnx-import-dir build/smollm-onnx-import \
-            --out build/smollm-package --prefill-lengths 36,40,42
-          python -m unittest src.test.tests.test_compiler -v
+          python - <<'PY'
+          import hashlib, json, pathlib, urllib.request
+          source = json.loads(pathlib.Path('examples/smollm-safetensors/model-source.json').read_text())
+          root = pathlib.Path('examples/smollm-safetensors/model/checkpoint')
+          root.mkdir(parents=True, exist_ok=True)
+          for name, entry in source['files'].items():
+              path = root / name
+              urllib.request.urlretrieve(entry['url'], path)
+              if hashlib.sha256(path.read_bytes()).hexdigest() != entry['sha256']:
+                  raise SystemExit(f'{name}: SHA-256 differs from model-source.json')
+          PY
+          python -m src.export.cli build src/export/configs/smollm.yml --out build/smollm-package
+          python .github/cd/smollm.py reference --package build/smollm-package
           python .github/cd/smollm.py seal --package build/smollm-package \
             --commit '${{ needs.validate-source.outputs.release_commit }}' --tag '${{ needs.validate-source.outputs.release_tag }}'
           mkdir -p build/smollm-release
-          tar -czf 'build/smollm-release/npu-smollm-${{ needs.validate-source.outputs.release_tag }}.tar.gz' -C build/smollm-package .
+          tar -czf 'build/smollm-release/npu-smollm-${{ needs.validate-source.outputs.release_tag }}.tar.gz' \
+            --exclude=./ir -C build/smollm-package .
           cd build/smollm-release
           sha256sum *.tar.gz > SMOLLM_SHA256SUMS
       - uses: actions/upload-artifact@v4

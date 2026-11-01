@@ -1,6 +1,6 @@
 //===- NpuEncoder.h - NPU ISA encoder ---------------------------*- C++ -*-===//
 //
-// C++ port of the ISA encoding and tiled-GEMM layout (src/vendors/npu_pynq/isa/).
+// C++ port of the ISA encoding and tiled-GEMM layout (src/vendors/npu_pynq/spec/isa.py, layout.py).
 // The two must produce identical words; the tests check that.
 //
 //===----------------------------------------------------------------------===//

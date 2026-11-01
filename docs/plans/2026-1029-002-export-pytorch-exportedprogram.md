@@ -2,7 +2,7 @@
 
 | Plan ID | Topic | Revision | Status |
 |---|---|---|---|
-| 2026-1029-002 | export-pytorch-exportedprogram | rev.25 (2026-10-29) | In progress — Phase 0 done; SmolLM W8A8 runs on the PYNQ-Z1 NPU |
+| 2026-1029-002 | export-pytorch-exportedprogram | rev.25 (2026-10-29) | Implemented — Phases 0-5; SmolLM and ResNet-18 run on the PYNQ-Z1 NPU; the old path is removed |
 
 Issue: #119 (software stack). Supersedes the front end built by
 [2026-1029-001](2026-1029-001-export-load-quantize-to-mlir.md); its
@@ -88,9 +88,28 @@ every call streams its segment's weights into the stage window, and q/k/v
 and gate/up are separate contractions (7 per layer, not 4). Performance is
 the next phase's work.
 
+ResNet-18 (Phase 4, 2026-11-01): torchvision adapter, BatchNorm folded
+before quantization, `W8A8Conv2d` (im2col plus one INT8 contraction),
+`configs/resnet18.yml`. On the board the demo and the five gallery images are
+classified correctly (Samoyed 89.9%), 21 NPU calls and 35,174 jobs per image
+(the old package's count), about 6 s per inference.
+
+Phase 5 (2026-11-01): the old front end (`load/`, `quantize/`, `ir/`,
+`model_arch/`, `compilers/`, `compile.py`, `targets.py`), the vendor's
+`compiler/` (`npu-opt`), `driver/npu_rt.c`, `abi.py`, `placement.py`,
+`memory.py`, `isa.py`, `board_smoke.py`, the runtime's `engine.py`,
+`package.py` and `cpu/`, the ONNX reference and `examples/smollm_onnx`
+(decision 3.2: removed) are deleted with their tests and the export golden.
+Moved: `isa/isa.py`, `isa/layout.py` -> `spec/`; `isa/sim.py` ->
+`src/test/model/isa_sim.py`; `driver/dma.py` -> `driver/legacy/dma.py`;
+`src/export/delivery/matrix.py` and the ResNet-18 asset downloader and pins
+-> `src/deploy/`. CD builds both models through the new path; SmolLM's
+board acceptance compares the board's 32 tokens with the host simulator's
+run of the same package (`.github/cd/smollm.py reference`) instead of a
+frozen ONNX Runtime output. `docs/rules/filetree.md` and `AGENTS.md` follow.
+
 Not yet: performance (fused projections, resident weights, vectorized CPU
-code), `aten/` kernels, W4A8, ResNet-18, lit tests,
-`isa/` -> `spec/` move, removal of the old path (Phase 5).
+code), `aten/` kernels, W4A8, lit tests, macOS export.
 
 ---
 

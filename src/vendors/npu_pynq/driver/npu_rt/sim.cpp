@@ -1,5 +1,5 @@
 /* The export machine's backend: a C++ port of the ISA golden model
- * (src/vendors/npu_pynq/isa/sim.py) over host memory. Addresses are DATA_BASE
+ * (src/test/model/isa_sim.py) over host memory. Addresses are DATA_BASE
  * relative physical addresses, translated through the io and stage buffers.
  */
 #include "npu_rt.h"

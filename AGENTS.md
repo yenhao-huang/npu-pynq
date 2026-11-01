@@ -14,8 +14,9 @@ on-board runtime.
 | `src/hw/vivado_tcl/<design>/` | project-regenerating Tcl | yes |
 | `src/test/` | Makefile, golden model, cocotb tests, vectors | yes (not `build/`, not `waves/`) |
 | `src/jit/` | optional self-contained just-in-time model, export, runtime and examples | yes |
-| `src/vendors/<vendor>/` | one accelerator's ISA, compiler backend, and board driver; imported by export and runtime | yes |
-| `src/export/` | host-side model export: frontends, quantization, MLIR/LLVM compiler | yes |
+| `src/vendors/<vendor>/` | one accelerator's hardware spec, MLIR dialect (C++), and board driver; imported by export and runtime | yes |
+| `src/export/` | host-side model export: PyTorch front end (load, torchao quantization, torch.export, torch-mlir) and the C++ back end `npu-compile` | yes |
+| `src/deploy/` | board bundles and sealed release archives | yes |
 | `src/runtime/` | on-board overlay loading and execution | yes |
 | `examples/` | demos built on export and runtime | yes |
 | `tools/ic/` | agent-facing lint/sim/debug/view/synth toolchain | yes |

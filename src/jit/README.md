@@ -12,7 +12,7 @@ python -m unittest discover -s src/jit/tests -v
 python -m unittest discover -s src/jit/examples/resnet18/tests -v
 ```
 
-The active `src/export`, `src/runtime`, `src/vendors/npu_pynq/isa`, `src/test`, public examples
+The active `src/export`, `src/runtime`, `src/vendors/npu_pynq/spec`, `src/test`, public examples
 and delivery workflows do not depend on this package. It can be removed in its
 entirety without changing the AOT software stack. Historical records may mention
 old paths; they are not rewritten as executable dependencies.

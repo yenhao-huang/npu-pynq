@@ -1,25 +1,25 @@
 """The export front end's stages import one way:
 
-    ir <- load <- quantize <- model_arch -> compilers;  pipeline and cli above all
+    load -> quantization;  export_graph and to_mlir stand alone;  pipeline and cli above all
 
-load reads sources and never quantizes; quantize never builds MLIR; the
-MLIR operators consume quantized weights and never quantize; and model
-architectures never import each other."""
+load builds and quantizes a model but never exports it; export_graph never
+loads or lowers; to_mlir only consumes ExportedPrograms; quantization knows
+nothing of the stages that use it."""
 
 import ast
 from pathlib import Path
 import unittest
 
-EXPORT = Path(__file__).resolve().parents[2] / 'export'
-ABOVE = ('pipeline', 'cli')
+FRONTEND = Path(__file__).resolve().parents[2] / 'export' / 'frontend'
+ABOVE = ('src.export.pipeline', 'src.export.cli')
+STAGES = ('load', 'quantization', 'export_graph', 'to_mlir')
 
-# package -> src.export subpackages its modules must not import
+# stage -> front-end stages its modules must not import
 FORBIDDEN = {
-    'ir': ('load', 'quantize', 'model_arch', 'delivery', *ABOVE),
-    'load': ('quantize', 'model_arch', 'compilers.mlir', 'delivery', *ABOVE),
-    'quantize': ('load', 'compilers', 'model_arch', 'delivery', *ABOVE),
-    'compilers': ('load', 'quantize', 'model_arch', 'delivery', *ABOVE),
-    'model_arch': ('delivery', *ABOVE),
+    'quantization': ('load', 'export_graph', 'to_mlir'),
+    'load': ('export_graph', 'to_mlir'),
+    'export_graph': ('load', 'quantization', 'to_mlir'),
+    'to_mlir': ('load', 'quantization', 'export_graph'),
 }
 
 
@@ -38,30 +38,27 @@ def imports(path: Path) -> list[str]:
 
 class ExportLayeringTest(unittest.TestCase):
     def test_stages_import_one_way(self):
-        for package, forbidden in FORBIDDEN.items():
-            for path in sorted((EXPORT / package).rglob('*.py')):
+        for stage, forbidden in FORBIDDEN.items():
+            for path in sorted((FRONTEND / stage).rglob('*.py')):
                 for module in imports(path):
-                    for target in forbidden:
-                        with self.subTest(path=path.relative_to(EXPORT).as_posix(), module=module):
-                            self.assertFalse(module == f'src.export.{target}' or
-                                             module.startswith(f'src.export.{target}.'),
+                    with self.subTest(path=path.relative_to(FRONTEND).as_posix(), module=module):
+                        self.assertFalse(module.startswith(ABOVE), f'{path.name} imports {module}')
+                        for target in forbidden:
+                            self.assertFalse(module.startswith(f'src.export.frontend.{target}'),
                                              f'{path.name} imports {module}')
 
-    def test_architectures_never_import_each_other(self):
-        root = EXPORT / 'model_arch'
-        for path in sorted(root.rglob('*.py')):
-            model = path.relative_to(root).parts[0].removesuffix('.py')
-            if model in ('__init__', 'base'):
-                continue
-            for module in imports(path):
-                if module.startswith('src.export.model_arch.'):
-                    owner = module.split('.')[3]
-                    with self.subTest(path=path.relative_to(root).as_posix(), module=module):
-                        self.assertIn(owner, ('base', model), module)
+    def test_rules_cover_every_stage(self):
+        stages = {p.name for p in FRONTEND.iterdir() if (p / '__init__.py').is_file()}
+        self.assertEqual(set(FORBIDDEN), stages)
+        self.assertEqual(set(STAGES), stages)
 
-    def test_rules_cover_every_stage_package(self):
-        packages = {p.name for p in EXPORT.iterdir() if (p / '__init__.py').is_file()}
-        self.assertLessEqual(set(FORBIDDEN), packages)
+    def test_runtime_and_vendor_never_import_export(self):
+        src = FRONTEND.parents[1]
+        for root in (src / 'runtime', src / 'vendors'):
+            for path in sorted(root.rglob('*.py')):
+                for module in imports(path):
+                    with self.subTest(path=path.relative_to(src).as_posix(), module=module):
+                        self.assertFalse(module.startswith('src.export'), f'{path.name} imports {module}')
 
 
 if __name__ == '__main__':

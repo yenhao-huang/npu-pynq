@@ -13,7 +13,7 @@ import tempfile
 from typing import Iterable
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
@@ -38,7 +38,7 @@ SOURCE_FILES = {
     "src/vendors/__init__.py": "src/vendors/__init__.py",
     "src/vendors/npu_pynq/__init__.py": "src/vendors/npu_pynq/__init__.py",
     "src/vendors/npu_pynq/driver/__init__.py": "src/vendors/npu_pynq/driver/__init__.py",
-    "src/vendors/npu_pynq/driver/dma.py": "src/vendors/npu_pynq/driver/dma.py",
+    "src/vendors/npu_pynq/driver/legacy/dma.py": "src/vendors/npu_pynq/driver/legacy/dma.py",
     "src/vendors/npu_pynq/driver/overlay/__init__.py": "src/vendors/npu_pynq/driver/overlay/__init__.py",
     "src/vendors/npu_pynq/driver/overlay/verify.py": "src/vendors/npu_pynq/driver/overlay/verify.py",
 }

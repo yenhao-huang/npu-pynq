@@ -50,7 +50,6 @@ npu_repo_in_pynq/
 |   |           `-- build_overlay.tcl
 |   |-- test/
 |   |   |-- Makefile
-|   |   |-- onnx_mlir_acceptance.py  independent ONNX fixtures and compiled host/board checks
 |   |   |-- matrix_acceptance.py     physical full-tile, edge-tile and repeat checks
 |   |   |-- model/
 |   |   |   `-- *.py
@@ -60,24 +59,28 @@ npu_repo_in_pynq/
 |   |   `-- waves/
 |   |-- vendors/                 one folder per accelerator; imported by export and runtime, imports neither
 |   |   `-- npu_pynq/
-|   |       |-- isa/             NPU instruction set: spec, layout, simulator; imports nothing
-|   |       |-- compiler/        passes, weight packing, CPU target parameters; imports isa/ only
-|   |       |   `-- mlir/        out-of-tree MLIR project: npu dialect, passes, npu-opt
-|   |       `-- driver/          ISA drivers (Python and C), buffers, placement, ABI, DMA; imports isa/ only
-|   |           `-- overlay/     build.py writes the BIT/HWH manifest; verify.py checks it before loading
-|   |-- export/                  host-side model -> package (CPU code + ISA programs); needs MLIR/LLVM
-|   |   |-- cli.py               export() (front end + compile) and the command line
-|   |   |-- compile.py           compile_graph(): ModelGraph -> package (partition, pack, encode, codegen)
-|   |   |-- pipeline.py          front end: load -> quantize -> to_mlir, and stage results on disk
-|   |   |-- ir/                  data between stages: options, SourceModel, QuantizedModel, ModelGraph
-|   |   |-- load/                stage 1: read sources unchanged (safetensors, ONNX, pins); format detection
-|   |   |-- quantize/            stage 2: numerics (int8.py), weight plans, preserve recipe, AWQ
-|   |   |-- model_arch/          stage 3: one Architecture per model; a model with source pins or
-|   |   |                        download scripts is a directory (smollm/, resnet18/), others one module
-|   |   |-- delivery/            standalone matrix and image deployment package builders
-|   |   |-- compilers/mlir/      target-independent MLIR builder, operator library, LLVM toolchain
-|   |   |-- compilers/onnx_mlir/ pinned ONNX import, MLIR parser adapter and verified CPU conversions
-|   |   `-- targets.py           target registry: wires each src/vendors/<vendor>/compiler to the toolchain
+|   |       |-- spec/            hardware facts: isa.py, layout.py, quant.py (W8A8, W4A8), board.py
+|   |       |-- custom_dialect/  C++ (LLVM 22): the npu dialect, --npu-claim, Pack, Encode; a
+|   |       |                    library npu-compile links; never shipped to the board
+|   |       `-- driver/          board side; follows spec/
+|   |           |-- npu_rt/      libnpu_rt (C++): the NPU delegate backend, PYNQ and SIM backends,
+|   |           |                built on the target with its own g++ and CMake
+|   |           |-- overlay/     build.py writes the BIT/HWH manifest; verify.py checks it before loading
+|   |           `-- legacy/      dma.py: the ABI 1.0 DMA runtime of the matrix example
+|   |-- export/                  host-side model -> package; never runs on the board
+|   |   |-- cli.py               build <config>
+|   |   |-- pipeline.py          load -> export_graph -> to_mlir -> npu-compile
+|   |   |-- configs/             one YAML file per model: source, quantization, graph, devices
+|   |   |-- requirements.txt     the pinned front-end frameworks
+|   |   |-- frontend/            Python
+|   |   |   |-- load/            frameworks/ (transformers, torchvision) and check.py
+|   |   |   |-- quantization/    torchao/: our configs and the modules they swap in
+|   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point
+|   |   |   `-- to_mlir/         torch-mlir (from the IREE wheel): model.mlir, linalg on tensors
+|   |   `-- backend/             C++ npu-compile: partition, delegates/, package (weights.bin),
+|   |                            cpu/toolchain (LLVM IR, llc, link), device_register
+|   |-- deploy/                  board bundles and release archives: bundle.py, smollm.py,
+|   |                            resnet18.py (+ resnet18_assets.py and pins), matrix.py
 |   |-- jit/                     optional, self-contained just-in-time stack
 |   |   |-- model/               numeric and ResNet model contracts
 |   |   |-- export/              legacy ResNet package exporter
@@ -87,10 +90,11 @@ npu_repo_in_pynq/
 |   |   |-- reference/           independent quantized graph reference
 |   |   `-- delivery/            frozen optional JIT delivery helpers
 |   `-- runtime/                 board-side execution; never imports src/export
-|       |-- core/                generation loop, package loading, tokenizer, sampling
-|       |-- cpu/                 optional host ONNX Runtime reference operators
-|       |-- image_cli.py         compiled image inference and delivery verification
-|       `-- cli.py               run and reference command line
+|       |-- core/                delegated.py (packages, LLM and image engines), tokenizer,
+|       |                        sampling, image preprocessing, delivery verification, matrix
+|       |-- delegate/            the __delegate__ dispatcher (dispatch.c) and device backends
+|       |-- image_cli.py         compiled image inference and release verification
+|       `-- cli.py               run an exported LLM package
 |-- examples/
 |   `-- <example>/              see docs/rules/create-example.md
 |       |-- README.md            WSL deployment manual
@@ -161,14 +165,6 @@ npu_repo_in_pynq/
 `-- dist/
 ```
 
-The ONNX-MLIR integration under `src/export/compilers/onnx_mlir/` owns pinned
-compiler invocation, inventory, the C++ generic-IR parser adapter, and verified
-CPU conversions. It imports neither model frontends nor vendor modules.
-Production SmolLM export consumes imported IR before the existing CPU/NPU
-partition. Tool builds and generated IR stay ignored under `build/`;
-instructions and evidence live under `docs/plans/onnx-mlir-incoporate/`.
-Native compiler overrides are explicitly unverified.
-
 ## What each directory is for
 
 `src/hw/` is the NPU itself: everything Vivado reads. `rtl/` is synthesized;
@@ -180,47 +176,45 @@ against it, and `Makefile` is what CI invokes.
 
 `src/vendors/` holds everything specific to one accelerator, one folder per
 vendor, as a layer below both `src/export/` and `src/runtime/`: both import
-it, and it imports neither. Inside a vendor, `isa/` is the specification and
-imports nothing; `compiler/` (the export side) and `driver/` (the board side)
-each import `isa/` but never each other, so the board package ships `isa/` and
-`driver/` without the compiler. `python -m unittest
-src.test.tests.test_vendor_boundary` enforces these edges. A new accelerator is
-one new folder here plus one registry line in `src/export/targets.py`.
+it, and it imports neither. Inside a vendor, `spec/` states the hardware as
+data; `custom_dialect/` (compile time) and `driver/` (run time) follow it and
+never each other, so the board bundle ships `spec/` and `driver/` without the
+compiler. `python -m unittest src.test.tests.test_vendor_boundary` enforces
+these edges.
 
-`src/vendors/npu_pynq/isa/` is the single definition of the NPU instruction
-set: `isa.py` encodes and decodes it, `layout.py` fixes how a tiled GEMM maps
-onto DDR, and `sim.py` is the bit-accurate simulator the RTL, runtimes and
-compiler are checked against. RTL opcodes must match it;
-`src/test/tests/test_isa.py` enforces that. `compiler/` holds the `npu-opt`
-MLIR project and the partition and lower passes, NPU weight tiling and the
-Cortex-A9 target parameters; the LLVM toolchain is passed in by
-`src/export/targets.py`. `driver/` drives the NPU on the board: the Python
-and C ISA drivers, CMA buffers, program placement, the ctypes ABI, the legacy
-ABI 1.0 DMA runtime in `dma.py`, and `overlay/`, which writes the overlay
-manifest after Vivado and verifies it before the board loads the bitstream.
+`src/vendors/npu_pynq/spec/` is the single definition of the NPU: `isa.py`
+encodes and decodes the instruction set, `layout.py` fixes how a tiled GEMM
+maps onto DDR, `quant.py` names the quantization schemes the NPU accepts, and
+`board.py` the board's CPU. RTL opcodes must match `isa.py`;
+`src/test/tests/test_isa.py` enforces that against the golden model
+`src/test/model/isa_sim.py`. `custom_dialect/` claims INT8 contractions on
+constant weights as `npu.matmul`, packs their weights as B tiles and encodes
+ISA programs; its C++ encoder is a port of `isa.py` and `layout.py`.
+`driver/npu_rt/` is libnpu_rt, which the runtime's `__delegate__` dispatcher
+calls for every NPU region; its SIM backend is a C++ port of `isa_sim.py`.
+`driver/overlay/` writes the overlay manifest after Vivado and verifies it
+before the board loads the bitstream; `driver/legacy/dma.py` is the ABI 1.0
+runtime the matrix example uses.
 
-`src/export/` turns a model into a package on the host. The front end runs
-three stages (`pipeline.py`): `load/` reads the source without changing any
-number, `quantize/` turns it into final parameters, and the model's
-architecture in `model_arch/` builds a `ModelGraph` from those
-parameters only (`to_mlir`), using the operators in `compilers/mlir/ops/`.
-`npu-opt` (built from
-`src/vendors/npu_pynq/compiler/mlir/` with CMake against LLVM 22) partitions
-INT8 contractions onto the NPU and encodes them as ISA programs; upstream MLIR
-and LLVM compile the rest for the Cortex-A9 or the host. A new model adds one
-module (or directory, when it brings source pins) under `model_arch/` and one
-registry line in `model_arch/__init__.py`;
-a new target adds one vendor under `src/vendors/` and one line in
-`targets.py`. Imports point down: `cli.py`, `compile.py` and `pipeline.py`
-may import anything; `model_arch/` imports `ir/`, `load/`, `quantize/` and `compilers/`;
-`quantize/` imports `ir/` and never `compilers/` or `load/`; `load/` imports
-`ir/` and, for the ONNX import, `compilers/onnx_mlir/`, never `quantize/`;
-`compilers/` never imports `quantize/`, `load/` or `model_arch/`; and a model
-in `model_arch/` imports only `base.py` and its own directory, never another
-model. `python -m unittest
-src.test.tests.test_export_layering` enforces these edges.
-`src/vendors/npu_pynq/driver/npu_rt.c` is linked into every compiled model; `src/runtime/core/package.py` loads a
-package on the host (simulated NPU) or the board.
+`src/export/` turns a model into a package on the host, entirely from a
+config (`configs/*.yml`): `frontend/load/` builds the model with its
+framework and quantizes it with our torchao configs, refusing a layer the NPU
+cannot run (`check.py`); `frontend/export_graph/` captures it with
+`torch.export`; `frontend/to_mlir/` lowers it to linalg with torch-mlir; and
+`backend/` (`npu-compile`, C++ against LLVM 22, built by `pipeline.py` when
+stale) lets each device delegate claim its operations, replaces them with
+`__delegate__(id, in, out)` calls, moves the remaining weights into
+`weights.bin`, and compiles the rest for the Cortex-A9 and the host. A new
+model is a new config; a new device is a delegate under `backend/delegates/`
+and its vendor folder. Front-end stages import one way (`load` may use
+`quantization`; `export_graph` and `to_mlir` stand alone); `python -m
+unittest src.test.tests.test_export_layering` enforces that, and that
+`src/runtime` and `src/vendors` never import `src/export`.
+
+`src/deploy/` stages a package for the board: the package with the board's
+library, the runtime and driver sources, the overlay and the example's files.
+A release bundle is sealed with every file's SHA-256, which
+`src/runtime/core/delivery.py` verifies on the board.
 
 `src/jit/` owns the optional just-in-time quantized graph interpreter, its
 exporter, numeric contracts, examples, references, focused tests and delivery
@@ -231,17 +225,14 @@ leave AOT export and inference functional. Check both boundaries with
 with JIT physically absent. The hardware numeric reference remains independently
 available under `src/test/model/numeric.py`; its contract is unchanged.
 
-`src/runtime/` runs packages on the board. `core/matrix.py` tiles logical matrix
-jobs through the public vendor DMA runtime; `core/delivery.py` verifies image
-delivery hashes without compiler dependencies. `image_cli.py` runs compiled image
-inference and delivery verification. `core/` is the inference path:
-`engine.py` schedules prefill, decode and sampling, and `package.py` loads a
-compiled package and calls its entry points, driving the NPU through
-`src/vendors/npu_pynq/driver/`; `cpu/` holds
-optional ONNX Runtime operators for independent host references. The Cortex-A9
-executes floating operators from its compiled model library. The ONNX golden
-reference that interprets the source graph without the compiler lives in
-`src/test/model/onnx_reference.py`.
+`src/runtime/` runs packages on the board, or on the host with libnpu_rt's
+simulator. `core/delegated.py` loads a package's `model.so` for the CPU,
+installs the `__delegate__` dispatcher (`delegate/dispatch.c`, built on the
+target) and the device backends (`delegate/npu.py`: libnpu_rt with the
+buffers `pynq.allocate` provides), and runs the LLM (prefill, decode, two KV
+cache sets swapped per call) and image engines. `core/matrix.py` tiles
+logical matrix jobs through the legacy DMA runtime; `core/delivery.py`
+verifies a release bundle without compiler dependencies.
 
 `examples/` demonstrates existing source functionality. Its tracked file list,
 platform deployment manuals, notebook requirements and generated-data locations

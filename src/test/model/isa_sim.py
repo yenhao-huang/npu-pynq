@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import isa
+from src.vendors.npu_pynq.spec import isa
 
 
 @dataclass

@@ -20,7 +20,7 @@ python -m pip install numpy
 git status --short
 vivado -mode batch -nojournal -nolog \
   -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
-python -m src.export.delivery.matrix
+python -m src.deploy.matrix
 ```
 
 The packager verifies the BIT/HWH/manifest and creates

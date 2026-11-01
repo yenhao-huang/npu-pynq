@@ -26,9 +26,9 @@ matplotlib and ipywidgets, and a 16 x 16, MAX_K=256, ISA ABI 1.1 BIT/HWH pair
 ## Export
 
 ```bash
-python -m src.export.model_arch.resnet18.download model
-python -m src.export.model_arch.resnet18.download demo
-python -m src.export.model_arch.resnet18.download gallery
+python -m src.deploy.resnet18_assets model
+python -m src.deploy.resnet18_assets demo
+python -m src.deploy.resnet18_assets gallery
 python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
 ```
 

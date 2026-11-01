@@ -67,7 +67,7 @@ $requiredFiles = @(
     'src/vendors/__init__.py',
     'src/vendors/npu_pynq/__init__.py',
     'src/vendors/npu_pynq/driver/__init__.py',
-    'src/vendors/npu_pynq/driver/dma.py',
+    'src/vendors/npu_pynq/driver/legacy/dma.py',
     'src/vendors/npu_pynq/driver/overlay/__init__.py',
     'src/vendors/npu_pynq/driver/overlay/verify.py',
     'artifacts/npu_matrix.bit',

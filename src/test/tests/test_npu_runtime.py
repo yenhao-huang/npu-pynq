@@ -138,7 +138,7 @@ class StepClock:
 class NPURuntimeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.runtime_module = importlib.import_module("src.vendors.npu_pynq.driver.dma")
+        cls.runtime_module = importlib.import_module("src.vendors.npu_pynq.driver.legacy.dma")
 
     def make_runtime(self, overlay=None, allocator=None, clock=None):
         return self.runtime_module.NPURuntime(

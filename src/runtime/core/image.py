@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
-from pathlib import Path
-import time
-import numpy as np
 
-from .package import Package, platform_backend
+import numpy as np
 
 
 def preprocess(image, contract: dict) -> np.ndarray:
@@ -50,40 +46,5 @@ def top_predictions(logits, labels, k=5):
             for i in np.argsort(-probabilities, kind="stable")[:k]]
 
 
-class ImageEngine:
-    def __new__(cls, package, *args, **kwargs):
-        # Packages exported through PyTorch run through the delegate runtime.
-        manifest = Path(package) / "manifest.json"
-        if cls is ImageEngine and manifest.exists() and                 json.loads(manifest.read_text()).get("format") == "npu-package/2":
-            from .delegated import DelegatedImageEngine
-            return DelegatedImageEngine(package, *args, **kwargs)
-        return super().__new__(cls)
-
-    def __init__(self, package, backend=None, *, overlay=None, stream_weights=None):
-        self.package = Package(package, backend or platform_backend(), overlay=overlay,
-                               stream_weights=stream_weights)
-        meta = self.package.manifest["meta"]
-        self.contract = meta["input"]
-        self.classes = int(meta.get("classes", 1000))
-        if self.package.manifest["entry_points"].get("forward") != ["weights", "image", "logits"]:
-            raise ValueError("Unsupported image entry point ABI")
-        self.last_seconds = 0.0
-        self.last_stats = {}
-
-    def predict(self, image):
-        image = np.asarray(image)
-        if image.dtype != np.float32 or list(image.shape) != self.contract["shape"]:
-            raise ValueError("Expected a normalized float32 image matching the package input")
-        if not np.isfinite(image).all():
-            raise ValueError("Image contains nonfinite values")
-        logits = np.zeros((1, self.classes), np.float32)
-        before = self.package.stats()
-        start = time.perf_counter()
-        self.package.call("forward", "weights", np.ascontiguousarray(image), logits)
-        self.last_seconds = time.perf_counter() - start
-        after = self.package.stats()
-        self.last_stats = {key: after[key] - before[key] for key in
-                           ("calls", "jobs", "cycles", "macs", "polls")}
-        if not np.isfinite(logits).all():
-            raise RuntimeError("Compiled image model returned nonfinite logits")
-        return logits[0]
+# Image classification runs an npu-package/2 package through the delegate runtime.
+from .delegated import DelegatedImageEngine as ImageEngine  # noqa: E402

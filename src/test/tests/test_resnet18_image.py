@@ -15,18 +15,18 @@ CONTRACT = {'shape':[224,224,3], 'layout':'NHWC',
 
 
 class FakePackage:
+    """ExportedPackage's interface: call(entry, inputs, outputs) and stats()."""
     def __init__(self, *args, **kwargs):
-        self.manifest = {'meta':{'input':CONTRACT, 'classes':5},
-                         'entry_points':{'forward':['weights','image','logits']}}
+        self.manifest = {'classifier':{'input':CONTRACT, 'classes':5}}
         self.count = 0
 
     def stats(self):
         return {k:self.count for k in ('calls','jobs','cycles','macs','polls')}
 
-    def call(self, name, weights, image, logits):
-        assert (name, weights) == ('forward','weights')
+    def call(self, name, inputs, outputs):
+        assert name == 'forward' and len(inputs) == len(outputs) == 1
         self.count += 1
-        logits[:] = [[0,1,4,2,-1]]
+        outputs[0][:] = [[0,1,4,2,-1]]
 
 
 class ImageTests(unittest.TestCase):
@@ -39,7 +39,7 @@ class ImageTests(unittest.TestCase):
         self.assertTrue(result.flags.c_contiguous)
         np.testing.assert_allclose(result[0,0],expected,rtol=1e-6)
 
-    @patch('src.runtime.core.image.Package',FakePackage)
+    @patch('src.runtime.core.delegated.ExportedPackage',FakePackage)
     def test_abi_prediction_and_counter_deltas(self):
         engine = ImageEngine('unused','sim')
         image = np.zeros((224,224,3),np.float32)
@@ -51,7 +51,7 @@ class ImageTests(unittest.TestCase):
         self.assertEqual(top[0].name,'c')
         self.assertAlmostEqual(sum(p.probability for p in top),1)
 
-    @patch('src.runtime.core.image.Package',FakePackage)
+    @patch('src.runtime.core.delegated.ExportedPackage',FakePackage)
     def test_reject_wrong_input_before_native_call(self):
         engine = ImageEngine('unused','sim')
         for value in (np.zeros((3,224,224),np.float32), np.zeros((224,224,3),np.int8),

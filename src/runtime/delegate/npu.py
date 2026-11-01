@@ -69,6 +69,8 @@ class NpuBackend:
                 buf = allocate(shape=(max(int(size), 8),), dtype='u1', cacheable=cacheable)
                 self.buffers.append(buf)
                 setattr(platform, name, Buffer(buf.ctypes.data, int(buf.physical_address), int(size)))
+        self.platform = platform   # None: the simulator
+        self.mmio = int(platform.mmio) if platform is not None else 0
         if lib.npu_rt_load(root, ctypes.byref(platform) if platform is not None else None):
             raise DelegateError('npu_rt_load: ' + lib.npu_rt_error().decode())
         self.execute = ctypes.cast(lib.npu_rt_execute, ctypes.c_void_p)

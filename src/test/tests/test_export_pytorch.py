@@ -10,43 +10,57 @@ import numpy as np
 HAVE_TORCH = all(importlib.util.find_spec(m) for m in ('torch', 'torchao', 'transformers'))
 
 
+EPS = 1e-8   # src/vendors/npu_pynq/spec/quant.py
+
+
+def reference_weight(w_out_in):
+    """The contract's W8: per output channel, scale = max(amax, EPS) / 127, round half even."""
+    w = np.asarray(w_out_in, np.float32).T
+    scale = (np.maximum(np.abs(w).max(0), EPS) / 127.0).astype(np.float32)
+    return np.clip(np.round(w / scale), -127, 127).astype(np.int8), scale
+
+
+def reference_rows(x):
+    """The contract's A8: per row, scale = max(amax, EPS) * (1 / 127), round half even."""
+    scale = (np.maximum(np.abs(x).max(-1), EPS) * np.float32(1.0 / 127.0)).astype(np.float32)
+    return np.clip(np.round(x * (1.0 / scale)[..., None]), -127, 127).astype(np.int8), scale
+
+
 @unittest.skipUnless(HAVE_TORCH, 'torch, torchao and transformers are required')
 class W8A8NumericsTest(unittest.TestCase):
     def test_weights_match_the_numeric_contract_bit_for_bit(self):
         import torch
         from src.export.frontend.quantization.torchao.custom_quant.w8a8 import quantize_weight
-        from src.export.quantize.int8 import quantize_weight as reference
 
         w = np.random.default_rng(0).normal(size=(48, 64)).astype(np.float32)
         q, s = quantize_weight(torch.from_numpy(w))
-        ref = reference(w, 8)
-        np.testing.assert_array_equal(q.numpy(), ref.q)
-        np.testing.assert_array_equal(s.numpy(), ref.scale)
+        rq, rs = reference_weight(w)
+        np.testing.assert_array_equal(q.numpy(), rq)
+        np.testing.assert_array_equal(s.numpy(), rs)
 
     def test_activations_match_the_numeric_contract_bit_for_bit(self):
         import torch
-        from src.export.compilers.mlir.ops.linear import ref_quantize_rows
         from src.export.frontend.quantization.torchao.custom_quant.w8a8 import quantize_rows
 
         x = (np.random.default_rng(1).normal(size=(5, 64)) * 3).astype(np.float32)
         q, s = quantize_rows(torch.from_numpy(x))
-        rq, rs = ref_quantize_rows(x)
+        rq, rs = reference_rows(x)
         np.testing.assert_array_equal(q.numpy(), rq)
         np.testing.assert_array_equal(s.numpy(), rs)
 
-    def test_linear_matches_the_reference_linear(self):
+    def test_linear_is_the_int8_contraction_rescaled(self):
         import torch
-        from src.export.compilers.mlir.ops.linear import ref_linear
         from src.export.frontend.quantization.torchao.custom_quant.w8a8 import W8A8Linear
-        from src.export.quantize.int8 import quantize_weight as reference
 
         rng = np.random.default_rng(2)
         layer = torch.nn.Linear(64, 32, bias=False)
         layer.weight.data = torch.from_numpy(rng.normal(size=(32, 64)).astype(np.float32))
         x = rng.normal(size=(3, 64)).astype(np.float32)
         y = W8A8Linear.from_float(layer)(torch.from_numpy(x)).detach().numpy()
-        np.testing.assert_allclose(y, ref_linear(x, reference(layer.weight.detach().numpy(), 8)), rtol=1e-6, atol=1e-6)
-
+        wq, ws = reference_weight(layer.weight.detach().numpy())
+        xq, xs = reference_rows(x)
+        acc = xq.astype(np.int32) @ wq.astype(np.int32)
+        np.testing.assert_allclose(y, acc.astype(np.float32) * xs[:, None] * ws[None, :], rtol=1e-6, atol=1e-6)
 
     def test_convolution_is_the_contraction_of_its_patches(self):
         import torch

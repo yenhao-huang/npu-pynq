@@ -87,7 +87,7 @@ class StandalonePackageTests(unittest.TestCase):
     def test_a_reused_overlay_is_accepted_only_when_named(self) -> None:
         package_module = load_required_module(
             "matrix_package_example_reuse",
-            REPOSITORY_ROOT / "src/export/delivery/matrix.py",
+            REPOSITORY_ROOT / "src/deploy/matrix.py",
         )
         # The overlay fixture was built from commit a...; the release is b...
         with self.assertRaises(Exception):
@@ -113,7 +113,7 @@ class StandalonePackageTests(unittest.TestCase):
     def test_package_uses_explicit_standalone_layout(self) -> None:
         package_module = load_required_module(
             "matrix_package_example",
-            REPOSITORY_ROOT / "src/export/delivery/matrix.py",
+            REPOSITORY_ROOT / "src/deploy/matrix.py",
         )
 
         manifest = package_module.build_package(
@@ -135,7 +135,7 @@ class StandalonePackageTests(unittest.TestCase):
             "src/vendors/__init__.py",
             "src/vendors/npu_pynq/__init__.py",
             "src/vendors/npu_pynq/driver/__init__.py",
-            "src/vendors/npu_pynq/driver/dma.py",
+            "src/vendors/npu_pynq/driver/legacy/dma.py",
             "src/vendors/npu_pynq/driver/overlay/__init__.py",
             "src/vendors/npu_pynq/driver/overlay/verify.py",
             "artifacts/npu_matrix.bit",
@@ -178,7 +178,7 @@ class StandalonePackageTests(unittest.TestCase):
     def test_missing_artifact_fails_without_output(self) -> None:
         package_module = load_required_module(
             "matrix_package_example_missing",
-            REPOSITORY_ROOT / "src/export/delivery/matrix.py",
+            REPOSITORY_ROOT / "src/deploy/matrix.py",
         )
         (self.artifact_dir / "npu_matrix.hwh").unlink()
 
@@ -200,7 +200,7 @@ class StandalonePackageTests(unittest.TestCase):
         result = subprocess.run(
             [
                 sys.executable,
-                str(REPOSITORY_ROOT / "src/export/delivery/matrix.py"),
+                str(REPOSITORY_ROOT / "src/deploy/matrix.py"),
                 "--artifact-dir",
                 str(self.artifact_dir),
                 "--output-dir",
@@ -222,7 +222,7 @@ class StandalonePackageTests(unittest.TestCase):
 
         readme = (EXAMPLE_ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn(
-            "python -m src.export.delivery.matrix\n",
+            "python -m src.deploy.matrix\n",
             readme,
         )
         self.assertNotIn("--repository-root", readme)
@@ -305,7 +305,7 @@ class DeploymentWrapperTests(unittest.TestCase):
             create_artifacts(artifact_dir)
             package_module = load_required_module(
                 "matrix_package_for_deploy",
-                REPOSITORY_ROOT / "src/export/delivery/matrix.py",
+                REPOSITORY_ROOT / "src/deploy/matrix.py",
             )
             package_module.build_package(
                 repository_root=REPOSITORY_ROOT,
@@ -593,12 +593,12 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
         self.assertEqual(build["runs-on"], "ubuntu-latest")
         run = "\n".join(str(step.get("run", "")) for step in build["steps"])
         for script in (
-            "src.export.model_arch.resnet18.download model",
-            "src.export.cli export resnet18",
-            "src.export.model_arch.resnet18.download demo",
+            "src.deploy.resnet18_assets model",
+            "src.export.cli build src/export/configs/resnet18.yml",
+            "src.deploy.resnet18_assets demo",
             "src.runtime.image_cli --backend sim",
-            "src.export.model_arch.resnet18.download gallery",
-            "src.export.delivery.resnet18 --check-only",
+            "src.deploy.resnet18_assets gallery",
+            "src.deploy.resnet18 dist/resnet18/package --check-only",
         ):
             with self.subTest(script=script):
                 self.assertIn(script, run)
@@ -620,9 +620,10 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
 
     def test_the_conversion_environment_is_pinned(self) -> None:
         requirements = (
-            REPOSITORY_ROOT / "src/export/model_arch/resnet18/requirements.txt"
+            REPOSITORY_ROOT / "src/export/requirements.txt"
         ).read_text(encoding="utf-8").lower()
-        for package in ("numpy==", "torch==", "pillow=="):
+        for package in ("numpy==", "torch==", "torchvision==", "torchao==", "transformers==",
+                        "iree-base-compiler==", "pillow=="):
             with self.subTest(package=package):
                 self.assertIn(package, requirements)
 

@@ -1,6 +1,6 @@
 //===- Pack.cpp - weights as the B tiles the NPU reads --------------------===//
 //
-// Port of pack_b in src/vendors/npu_pynq/isa/layout.py: for every K chunk and
+// Port of pack_b in src/vendors/npu_pynq/spec/layout.py: for every K chunk and
 // column tile, the rows x cols block of B, row-major, at GemmPlan::bOffset.
 // The layout depends only on (k, n, tk), so a weight shared by contractions
 // with different M (prefill and decode) is packed once.

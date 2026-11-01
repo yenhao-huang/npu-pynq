@@ -1,4 +1,8 @@
-"""Run a previously compiled ResNet18 package on an image and record block times."""
+"""Run a compiled image classifier package on an image and record block times.
+
+With --package-root, the release bundle (src/deploy/resnet18.py) is verified
+first and supplies the package, demo image, labels and overlay.
+"""
 
 from __future__ import annotations
 
@@ -40,14 +44,14 @@ def main(argv=None):
             if digest != args.archive_sha256:
                 raise ValueError('Archive SHA256 mismatch')
         root = args.package_root
-        args.package = args.package or root/'model/aot'
+        args.package = args.package or root/'package'
         args.image = args.image or root/'model/demo-image.jpg'
         args.labels = args.labels or root/'model/imagenet-classes.txt'
-        args.overlay = args.overlay or root/'artifacts/npu_matrix.bit'
+        args.overlay = args.overlay or root/'npu_matrix.bit'
     if args.verify_only:
         if not args.package_root:
             parser.error('--verify-only requires --package-root')
-        print('PASS: verified ResNet18 AOT delivery')
+        print('PASS: verified the release bundle')
         return 0
     if not all((args.package,args.image,args.labels)):
         parser.error('--package, --image and --labels are required outside a delivery')

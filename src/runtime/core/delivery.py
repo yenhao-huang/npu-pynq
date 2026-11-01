@@ -1,4 +1,4 @@
-"""Verify standalone image delivery files without host compiler dependencies."""
+"""Verify a sealed release bundle (src/deploy/bundle.py) without host compiler dependencies."""
 import hashlib
 import json
 from pathlib import Path
@@ -15,8 +15,8 @@ def sha256_file(path):
 def verify_delivery(root):
     root = Path(root).resolve()
     manifest = json.loads((root/'package.manifest.json').read_text())
-    if manifest.get('format') != 'npu-resnet18-aot/1':
-        raise ValueError('Expected a ResNet18 AOT delivery')
+    if manifest.get('format') != 'npu-bundle/1':
+        raise ValueError('Expected a sealed npu-bundle/1 release')
     for name, expected in manifest['files'].items():
         candidate = root/name
         path = candidate.resolve()
