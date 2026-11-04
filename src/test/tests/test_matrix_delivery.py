@@ -623,7 +623,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             REPOSITORY_ROOT / "src/export/requirements.txt"
         ).read_text(encoding="utf-8").lower()
         for package in ("numpy==", "torch==", "torchvision==", "torchao==", "transformers==",
-                        "iree-base-compiler==", "pillow=="):
+                        "torch-mlir==", "pillow=="):
             with self.subTest(package=package):
                 self.assertIn(package, requirements)
 

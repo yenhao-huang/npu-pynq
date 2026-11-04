@@ -1,13 +1,17 @@
 # The export host's front end (load -> export_graph -> to_mlir), pinned together.
 # torch comes from the CPU index:
 #   pip install -r src/export/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+# torch-mlir comes from llvm/torch-mlir's release wheels, dated builds whose
+# number differs per platform.
 # The back end (npu-compile) needs LLVM 22 with MLIR, CMake and Ninja on Linux.
+--find-links https://github.com/llvm/torch-mlir-release/releases/expanded_assets/dev-wheels
 torch==2.11.0
 torchao==0.18.0
 transformers==5.21.1
 safetensors==0.8.0
 tokenizers==0.23.3
-iree-base-compiler==3.13.0
+torch-mlir==20260930.892; sys_platform == "linux"
+torch-mlir==20260930.602; sys_platform == "win32"
 numpy==1.26.4
 PyYAML==6.0.3
 # Image classifiers (configs/resnet18.yml) and the runtime's image preprocessing.

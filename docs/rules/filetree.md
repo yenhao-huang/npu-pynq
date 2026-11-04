@@ -76,7 +76,7 @@ npu_repo_in_pynq/
 |   |   |   |-- load/            frameworks/ (transformers, torchvision) and check.py
 |   |   |   |-- quantization/    torchao/: our configs and the modules they swap in
 |   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point
-|   |   |   `-- to_mlir/         torch-mlir (from the IREE wheel): model.mlir, linalg on tensors
+|   |   |   `-- to_mlir/         torch-mlir (llvm/torch-mlir wheels): model.mlir, linalg on tensors
 |   |   `-- backend/             C++ npu-compile: partition, delegates/, package (weights.bin),
 |   |                            cpu/toolchain (LLVM IR, llc, link), device_register
 |   |-- deploy/                  board bundles and release archives: bundle.py, smollm.py,
