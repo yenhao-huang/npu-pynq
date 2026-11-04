@@ -9,9 +9,13 @@
 namespace backend {
 
 mlir::FailureOr<CpuTarget> cpuTarget(const std::string &name, std::string &error) {
+  // Mirrors CPU in src/vendors/npu_pynq/spec/board.py; keep the two in step.
   if (name == "arm-cortex-a9")
     return CpuTarget{name, "armv7a-unknown-linux-gnueabihf", "cortex-a9",
                      "+neon,+vfp3", "hard", 32, false};
+  // This compiles generic code, despite the name.
+  // The runtime picks a library by its <arch>- prefix,
+  // so it may load on another CPU of the same architecture.
   if (name == "native") {
     llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
     std::string model = triple.getArchName().str() + "-" +

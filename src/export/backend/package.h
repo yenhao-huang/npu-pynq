@@ -19,7 +19,8 @@ class WeightArena {
 public:
   // Append `data` once per (`key`, `layout`): the constant's attribute and
   // the layout it is stored in (0 dense; a delegate picks its own); return
-  // its offset.
+  // its offset. Attributes are uniqued by the MLIRContext, so a tensor shared by
+  // two entry points is stored once per layout.
   int64_t add(const void *key, int layout, llvm::ArrayRef<char> data);
   int64_t bytes() const { return static_cast<int64_t>(blob.size()); }
   int64_t count() const { return static_cast<int64_t>(offsets.size()); }

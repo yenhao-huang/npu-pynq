@@ -47,6 +47,7 @@ func::FuncOp declareDelegate(ModuleOp module) {
   auto type = b.getFunctionType({b.getI64Type(), bytes, bytes}, {});
   auto fn = func::FuncOp::create(b, module.getLoc(), kDelegateFn, type);
   fn.setPrivate();
+  // This makes the call target _mlir_ciface___delegate__, which the runtime defines.
   fn->setAttr("llvm.emit_c_interface", b.getUnitAttr());
   return fn;
 }
@@ -80,12 +81,15 @@ LogicalResult outline(Operation *op, int64_t id, func::FuncOp callee,
   Location loc = op->getLoc();
   auto dynBytes = cast<MemRefType>(callee.getFunctionType().getInput(1));
   auto [inFlat, inView] = allocBytes(b, loc, inType, dynBytes);
+  // The delegate reads this buffer as raw bytes, so %x must really be stored in it.
   bufferization::MaterializeInDestinationOp::create(b, loc, inputs[0], inView)
       .setWritable(true);
   auto [outFlat, outView] = allocBytes(b, loc, outType, dynBytes);
   Value idValue = arith::ConstantIntOp::create(b, loc, id, 64);
   func::CallOp::create(b, loc, callee, ValueRange{idValue, inFlat, outFlat});
   auto result = bufferization::ToTensorOp::create(b, loc, outType, outView);
+  // The delegate filled a fresh buffer that nothing else refers to.
+  // Later operations may therefore reuse it in place.
   result.setRestrict(true);
   result.setWritable(true);
   op->getResult(0).replaceAllUsesWith(result.getResult());
@@ -96,6 +100,7 @@ LogicalResult outline(Operation *op, int64_t id, func::FuncOp callee,
       constants.push_back(c);
   op->erase();
   for (Operation *c : constants)
+    // Another operation may still read the same constant.
     if (c->use_empty())
       c->erase();
   entry.inputBytes = byteSize(inType);
@@ -125,6 +130,8 @@ partition(ModuleOp module, const std::vector<std::unique_ptr<Delegate>> &delegat
       mine.push_back({index, op});
       toOutline.push_back({id, op});
     }
+    // Compile before anything is outlined.
+    // compile reads the operations and their weights, and outline erases them.
     if (!mine.empty() && failed(delegate->compile(mine, arena, out)))
       return failure();
   }

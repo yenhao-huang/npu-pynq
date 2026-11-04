@@ -69,11 +69,11 @@ npu_repo_in_pynq/
 |   |           `-- legacy/      dma.py: the ABI 1.0 DMA runtime of the matrix example
 |   |-- export/                  host-side model -> package; never runs on the board
 |   |   |-- cli.py               build <config>
-|   |   |-- pipeline.py          load -> export_graph -> to_mlir -> npu-compile
+|   |   |-- pipeline.py          load -> quantize -> export_graph -> to_mlir -> npu-compile
 |   |   |-- configs/             one YAML file per model: source, quantization, graph, devices
 |   |   |-- requirements.txt     the pinned front-end frameworks
 |   |   |-- frontend/            Python
-|   |   |   |-- load/            frameworks/ (transformers, torchvision) and check.py
+|   |   |   |-- load/            frameworks/ (transformers, torchvision): the float model
 |   |   |   |-- quantization/    torchao/: our configs and the modules they swap in
 |   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point
 |   |   |   `-- to_mlir/         torch-mlir (llvm/torch-mlir wheels): model.mlir, linalg on tensors
@@ -197,17 +197,17 @@ before the board loads the bitstream; `driver/legacy/dma.py` is the ABI 1.0
 runtime the matrix example uses.
 
 `src/export/` turns a model into a package on the host, entirely from a
-config (`configs/*.yml`): `frontend/load/` builds the model with its
-framework and quantizes it with our torchao configs, refusing a layer the NPU
-cannot run (`check.py`); `frontend/export_graph/` captures it with
+config (`configs/*.yml`): `frontend/load/` builds the float model with its
+framework; `frontend/quantization/` quantizes it with our torchao configs;
+`frontend/export_graph/` captures it with
 `torch.export`; `frontend/to_mlir/` lowers it to linalg with torch-mlir; and
 `backend/` (`npu-compile`, C++ against LLVM 22, built by `pipeline.py` when
 stale) lets each device delegate claim its operations, replaces them with
 `__delegate__(id, in, out)` calls, moves the remaining weights into
 `weights.bin`, and compiles the rest for the Cortex-A9 and the host. A new
 model is a new config; a new device is a delegate under `backend/delegates/`
-and its vendor folder. Front-end stages import one way (`load` may use
-`quantization`; `export_graph` and `to_mlir` stand alone); `python -m
+and its vendor folder. Front-end stages do not import each other; only
+`pipeline.py` passes a model from one to the next. `python -m
 unittest src.test.tests.test_export_layering` enforces that, and that
 `src/runtime` and `src/vendors` never import `src/export`.
 

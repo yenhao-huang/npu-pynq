@@ -1,9 +1,22 @@
 """W8A8: per-output-channel INT8 weights, per-token (per-row) INT8 activations.
 
-The numerics are those of src/test/model and src/vendors/npu_pynq/spec/quant.py:
-scale = max(amax, EPS) / 127, values rounded half to even and clamped to
-[-127, 127]. The forward is plain ATen ops; ``torch._int_mm`` is the INT8 x
-INT8 -> INT32 contraction the back end claims for the NPU.
+The scheme is defined in src/vendors/npu_pynq/spec/quant.py:
+
+    scale = max(amax, EPS) / 127    EPS avoids dividing by zero on an all-zero row or channel
+    q     = round(value / scale)    half to even (torch.round), clamped to [-127, 127]
+
+When each part is quantized:
+
+    weights        once, in the quantization stage
+    activations    on every call, in the graph, on the CPU
+                   (so there is no calibration step and no stored activation scale)
+
+The forward uses only plain ATen ops. ``torch._int_mm`` is the INT8 x INT8 -> INT32
+contraction that the back end claims for the NPU.
+
+Overflow: src/test/model defines the array's MACs, which accumulate in saturating INT32.
+Here |acc| <= K * 127 * 127, which stays below 2**31 while K is under about 133,000.
+Saturation is therefore unreachable, and ``torch._int_mm`` gives the same result.
 """
 
 from __future__ import annotations
@@ -40,6 +53,8 @@ class W8A8Linear(nn.Module):
         super().__init__()
         self.in_features, self.out_features = qweight.shape
         # Stored [K, N] so the contraction's right operand is the weight itself.
+        # It must stay a buffer. to_mlir freezes buffers into constants, and --npu-claim
+        # only takes contractions on a constant weight.
         self.register_buffer('qweight', qweight)
         self.register_buffer('scale', scale)
         self.register_buffer('bias', None if bias is None else bias.detach().to(torch.float32))
@@ -51,6 +66,8 @@ class W8A8Linear(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         shape = x.shape
+        # --npu-claim only takes rank-2 operands of static shape.
+        # Flattening to rows also gives every token its own activation scale.
         x2 = x.reshape(-1, self.in_features).to(torch.float32)
         xq, xs = quantize_rows(x2)
         acc = torch._int_mm(xq, self.qweight)
@@ -64,7 +81,10 @@ class W8A8Linear(nn.Module):
 
 
 class W8A8Embedding(nn.Module):
-    """Embedding rows stored as INT8 with one scale per row (per vocabulary entry)."""
+    """Embedding rows stored as INT8 with one scale per row (per vocabulary entry).
+
+    This is a table lookup, not a contraction, so it runs on the CPU.
+    """
 
     def __init__(self, qweight: torch.Tensor, scale: torch.Tensor) -> None:
         super().__init__()
@@ -114,6 +134,8 @@ class W8A8Conv2d(nn.Module):
         x = torch.nn.functional.pad(x.to(torch.float32), (pw, pw, ph, ph))
         n, c, h, w = x.shape
         oh, ow = (h - kh) // sh + 1, (w - kw) // sw + 1
+        # K must follow the (ky, kx, c) order used in from_float.
+        # Otherwise the im2col columns no longer line up with the weight's rows.
         patches = [x[:, :, ky:ky + sh * (oh - 1) + 1:sh, kx:kx + sw * (ow - 1) + 1:sw]
                    for ky in range(kh) for kx in range(kw)]
         cols = torch.stack(patches, dim=1).permute(0, 3, 4, 1, 2).reshape(n * oh * ow, kh * kw * c)

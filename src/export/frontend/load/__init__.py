@@ -1,9 +1,8 @@
-"""``load``: a PyTorch model from a framework, quantized for the NPU at load.
+"""``load``: a float PyTorch model from a framework.
 
-    load('huggingface', 'path/to/checkpoint', quantization='w8a8', require='w8a8')
+    load('huggingface', 'path/to/checkpoint')
 
-The framework builds the model; ``quantization`` runs our torchao config on
-it; ``require`` refuses the model unless every layer ended in that scheme.
+The next stage, ``quantization``, quantizes it for the NPU.
 """
 
 from __future__ import annotations
@@ -12,8 +11,6 @@ from importlib import import_module
 from pathlib import Path
 
 from torch import nn
-
-from .check import QuantizationError, check
 
 FRAMEWORKS = {'huggingface': 'huggingface', 'torchvision': 'torchvision_models'}
 
@@ -25,16 +22,8 @@ def framework(name: str):
         raise ValueError(f'unknown framework {name!r}; known: {sorted(FRAMEWORKS)}') from None
 
 
-def load(name: str, source: str | Path, quantization: str | None = None, require: str | None = None,
-         **kwargs) -> nn.Module:
-    model = framework(name).load(source, **kwargs)
-    if quantization:
-        from src.export.frontend.quantization.torchao.config import quantize
-
-        model = quantize(model, quantization)
-    if require:
-        check(model, require)
-    return model
+def load(name: str, source: str | Path, **kwargs) -> nn.Module:
+    return framework(name).load(source, **kwargs)
 
 
-__all__ = ['QuantizationError', 'check', 'framework', 'load']
+__all__ = ['framework', 'load']

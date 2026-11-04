@@ -1,10 +1,10 @@
 """The export front end's stages import one way:
 
-    load -> quantization;  export_graph and to_mlir stand alone;  pipeline and cli above all
+    every stage stands alone;  pipeline and cli above all
 
-load builds and quantizes a model but never exports it; export_graph never
-loads or lowers; to_mlir only consumes ExportedPrograms; quantization knows
-nothing of the stages that use it."""
+load builds a float model but never quantizes or exports it; quantization
+takes a model from anywhere; export_graph never loads or lowers; to_mlir only
+consumes ExportedPrograms. Only pipeline.py passes a model from one to the next."""
 
 import ast
 from pathlib import Path
@@ -17,7 +17,7 @@ STAGES = ('load', 'quantization', 'export_graph', 'to_mlir')
 # stage -> front-end stages its modules must not import
 FORBIDDEN = {
     'quantization': ('load', 'export_graph', 'to_mlir'),
-    'load': ('export_graph', 'to_mlir'),
+    'load': ('quantization', 'export_graph', 'to_mlir'),
     'export_graph': ('load', 'quantization', 'to_mlir'),
     'to_mlir': ('load', 'quantization', 'export_graph'),
 }

@@ -1,7 +1,7 @@
 """The export, from a config to a package:
 
-    load           a framework builds the model; our torchao config quantizes it
-                   (frontend/load, frontend/quantization)
+    load           a framework builds the float model (frontend/load)
+    quantize       our torchao config quantizes it (frontend/quantization)
     export_graph   torch.export: one ExportedProgram per entry point
     to_mlir        torch-mlir: model.mlir, linalg on tensors
     npu-compile    the C++ back end (backend/): delegates, weights.bin, CPU code
@@ -17,6 +17,8 @@ import json
 from pathlib import Path
 import time
 
+# The runtime refuses a package with any other format.
+# Keep this equal to FORMAT in src/runtime/core/delegated.py.
 PACKAGE_FORMAT = 'npu-package/2'
 REPO = Path(__file__).resolve().parents[2]
 BACKEND = REPO / 'src' / 'export' / 'backend'
@@ -30,6 +32,10 @@ def read_config(path: str | Path) -> dict:
 
 
 def _linux_path(path: Path) -> str:
+    """Return ``path`` as npu-compile sees it.
+
+    On Windows npu-compile runs inside WSL, so C:\\x becomes /mnt/c/x.
+    """
     import sys
     if not sys.platform.startswith('win'):
         return str(path)
@@ -40,6 +46,7 @@ def _linux_path(path: Path) -> str:
 def _linux(command: str) -> None:
     import subprocess
     import sys
+    # -l starts a login shell, so the command gets the PATH from the user's profile.
     args = ['wsl.exe', '-e', 'bash', '-lc', command] if sys.platform.startswith('win') else ['bash', '-lc', command]
     proc = subprocess.run(args, capture_output=True, text=True)
     if proc.returncode:
@@ -47,7 +54,11 @@ def _linux(command: str) -> None:
 
 
 def build_backend(build_dir: str | None = None, llvm: str = '/usr/lib/llvm-22') -> str:
-    """Build npu-compile with CMake (incrementally); return its Linux path."""
+    """Build npu-compile with CMake (incrementally); return its Linux path.
+
+    Every export calls this, so a package is never compiled by a stale npu-compile.
+    The call is cheap: Ninja does nothing when the sources are unchanged.
+    """
     import os
     build = build_dir or os.environ.get('NPU_BACKEND_BUILD') or _linux_path(REPO / 'build' / 'npu-compile')
     _linux(f"cmake -S '{_linux_path(BACKEND)}' -B {build} -G Ninja -DCMAKE_BUILD_TYPE=Release "
@@ -57,25 +68,44 @@ def build_backend(build_dir: str | None = None, llvm: str = '/usr/lib/llvm-22') 
 
 def export_package(config: dict, out: str | Path, source: str | None = None,
                    llvm_bin: str = '/usr/lib/llvm-22/bin', timings: dict | None = None) -> Path:
-    """Run the whole export for ``config`` (a configs/*.yml); write the package to ``out``."""
+    """Run the whole export for ``config`` (a configs/*.yml); write the package to ``out``.
+
+    load -> quantize -> export_graph -> to_mlir -> npu-compile -> manifest
+    """
+    # Imported here so that importing this module does not load torch or torch-mlir.
     import shutil
     from src.export.frontend.export_graph import export_classifier, export_llm
     from src.export.frontend.load import framework, load as load_model
+    from src.export.frontend.quantization import quantize
     from src.export.frontend.to_mlir import to_mlir
     from src.vendors.npu_pynq.spec import isa
 
     times = timings if timings is not None else {}
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
+
+    # load: a framework builds the float model.
     spec = config['load']
     src = source or spec['source']
+    # A relative path that exists is resolved against the repository root.
+    # Anything else is kept as written, such as a Hub id or a torchvision weights name.
     if not Path(src).is_absolute() and (REPO / src).exists():
         src = str(REPO / src)
     start = time.monotonic()
-    extra = {k: v for k, v in spec.items() if k not in ('framework', 'source', 'quantization', 'require')}
-    model = load_model(spec['framework'], src, quantization=spec.get('quantization'), require=spec.get('require'),
-                       **extra)
+    # Any other key under load: is passed to the framework adapter,
+    # for example model: for torchvision.
+    extra = {k: v for k, v in spec.items() if k not in ('framework', 'source')}
+    model = load_model(spec['framework'], src, **extra)
     times['load'] = time.monotonic() - start
+
+    # quantize: our torchao config swaps the layers.
+    scheme = config.get('quantization')
+    start = time.monotonic()
+    if scheme:
+        model = quantize(model, scheme)
+    times['quantize'] = time.monotonic() - start
+
+    # export_graph: torch.export captures one ExportedProgram per entry point.
     graph = config['graph']
     start = time.monotonic()
     if graph['kind'] == 'llm':
@@ -85,13 +115,19 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     else:
         raise ValueError(f"unsupported graph kind {graph['kind']!r}")
     times['export_graph'] = time.monotonic() - start
+
+    # to_mlir: torch-mlir lowers the programs to model.mlir (linalg on tensors).
     start = time.monotonic()
     model_mlir = to_mlir(programs, out / 'ir')
     times['to_mlir'] = time.monotonic() - start
 
+    # npu-compile: the C++ back end turns model.mlir into delegates, weights.bin and CPU code.
     start = time.monotonic()
     tool = build_backend()
     times['build_backend'] = time.monotonic() - start
+    # The NPU programs are encoded for this array geometry.
+    # The runtime checks the overlay against it before loading.
+    # These values are always passed, so npu-compile's own defaults are not used here.
     limits = isa.Limits()
     start = time.monotonic()
     _linux(f"{tool} '{_linux_path(model_mlir)}' --out '{_linux_path(out)}' "
@@ -99,12 +135,18 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
            f"--llvm-bin {llvm_bin} --rows {limits.rows} --columns {limits.columns} --max-k {limits.max_k}")
     times['backend'] = time.monotonic() - start
 
+    # manifest: add what only the front end knows (runtime files, argument names, model metadata).
     compiled = json.loads((out / 'compile.json').read_text())
     for name, path in framework(spec['framework']).files(src).items():
         shutil.copy2(path, out / name)
+    # This is a shallow merge, so manifest and compiled share the entry_points dict.
+    # The names added to compiled below therefore reach manifest.json.
+    # compile.json on disk keeps what npu-compile wrote.
     manifest = {**compiled, 'format': PACKAGE_FORMAT, 'model': config['model'],
-                'quantization': spec.get('quantization'), 'compile_seconds': times}
+                'quantization': scheme, 'compile_seconds': times}
     if graph['kind'] == 'llm':
+        # Each list must match the argument order of the signatures in export_graph/export.py.
+        # The ABI's leading ws argument is not a named tensor, so it is not listed.
         names = cache.names()
         compiled['entry_points']['decode']['names'] = {'inputs': ['tokens', 'pos', *names],
                                                        'outputs': ['logits', *names]}

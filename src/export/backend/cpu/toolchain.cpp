@@ -41,6 +41,8 @@ typedef __SIZE_TYPE__ size_t;
 void *memcpy(void *dst, const void *src, size_t n);
 typedef struct { intptr_t rank; void *descriptor; } unranked_memref;
 
+/* Descriptor layout: { allocated, aligned, offset, sizes[rank], strides[rank] }.
+   Ranks above 8 are not supported: such a copy is silently skipped. */
 void memrefCopy(intptr_t elem_size, unranked_memref *src, unranked_memref *dst) {
   intptr_t rank = src->rank;
   char *s_base = ((char **)src->descriptor)[1];
@@ -79,6 +81,11 @@ void memrefCopy(intptr_t elem_size, unranked_memref *src, unranked_memref *dst) 
 std::string pipeline(unsigned indexBits) {
   std::string ib = "index-bitwidth=" + std::to_string(indexBits);
   // The pass manager is already anchored on builtin.module.
+  //
+  // These options fix the ABI that the runtime calls:
+  //   identity-layout-map           public memrefs stay plain, as the runtime's descriptors assume
+  //   buffer-results-to-out-params  results become caller-owned arguments, written directly
+  //   index-bitwidth                matches the target's pointer size, used by descriptor fields
   return "canonicalize,cse,linalg-fuse-elementwise-ops,"
          "one-shot-bufferize{bufferize-function-boundaries "
          "function-boundary-type-conversion=identity-layout-map},"
@@ -181,6 +188,9 @@ LogicalResult codegen(ModuleOp module, const CpuTarget &target, const std::strin
   if (!run(llvmBin + "/clang", cc, error))
     return failure();
 
+  // A cross link has no sysroot, so libm and libgcc_s symbols stay undefined.
+  // The runtime loads those libraries globally before this one
+  // (src/runtime/core/delegated.py).
   std::string library = dir + "/model.so";
   bool linked = target.native
                     ? run(llvmBin + "/clang", {"-shared", "-o", library, obj, rtObj, "-lm"}, error)

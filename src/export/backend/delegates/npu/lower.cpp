@@ -27,6 +27,9 @@ using namespace mlir;
 namespace backend {
 namespace {
 
+// The arena layout id for tiled weights. Dense weights use 0.
+// A weight that the CPU code also reads is therefore stored in both forms.
+// The key does not need tk, because K and maxK fix it for a given constant.
 constexpr int kLayoutBTiles = 1;
 
 class NpuDelegate : public Delegate {

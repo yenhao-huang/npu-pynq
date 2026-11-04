@@ -93,6 +93,8 @@ LogicalResult externalizeWeights(ModuleOp module, WeightArena &arena,
       auto viewType = MemRefType::get(type.getShape(), type.getElementType());
       Value view = memref::ViewOp::create(b, loc, viewType, ws, at, ValueRange{});
       auto tensor = bufferization::ToTensorOp::create(b, loc, type, view);
+      // Restrict, but deliberately not writable: a write to this tensor goes to a copy.
+      // The arena must stay unchanged, because the runtime maps it read-only.
       tensor.setRestrict(true);
       op.getResult().replaceAllUsesWith(tensor.getResult());
       op.erase();

@@ -51,6 +51,8 @@ static cl::opt<std::string> cpus("cpus", cl::desc("CPU models: arm-cortex-a9, na
                                  cl::init("arm-cortex-a9"));
 static cl::opt<std::string> llvmBin("llvm-bin", cl::desc("LLVM 22 tools"),
                                     cl::init("/usr/lib/llvm-22/bin"));
+// These defaults are for running by hand.
+// src/export/pipeline.py always passes the vendor's values.
 static cl::opt<int64_t> rows("rows", cl::init(16));
 static cl::opt<int64_t> columns("columns", cl::init(16));
 static cl::opt<int64_t> maxK("max-k", cl::init(256));
@@ -118,6 +120,8 @@ int main(int argc, char **argv) {
   llvm::sys::fs::create_directories(out);
 
   // Entry points as the front end wrote them (tensors in, tensors out).
+  // Read them now, because the passes below rewrite these signatures.
+  // compile.json lists these tensors; its `abi` field describes the final calling convention.
   std::vector<std::pair<std::string, FunctionType>> entries;
   for (auto fn : module->getOps<func::FuncOp>())
     if (!fn.isPrivate())
@@ -128,6 +132,8 @@ int main(int argc, char **argv) {
   auto delegates = backend::registerDevices(split(devices), npu, error);
   if (failed(delegates))
     return fail(error);
+  // The order matters. Delegates first take the constants they read, in their own layouts.
+  // externalizeWeights then stores only what the CPU code still reads.
   backend::WeightArena arena;
   auto table = backend::partition(*module, *delegates, arena, out);
   if (failed(table))
@@ -147,6 +153,9 @@ int main(int argc, char **argv) {
     auto target = backend::cpuTarget(name, error);
     if (failed(target))
       return fail(error);
+    // Each target needs its own copy: codegen lowers the module in place,
+    // and index widths differ per target.
+    // All libraries still share one weights.bin, with the same offsets.
     OwningOpRef<ModuleOp> copy = module->clone();
     std::string dir = out + "/" + target->model;
     if (failed(backend::codegen(*copy, *target, dir, llvmBin, keepIr, error)))

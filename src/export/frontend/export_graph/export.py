@@ -32,6 +32,7 @@ class CacheSpec:
         return (1, self.kv_heads, self.max_seq, self.head_dim)
 
     def names(self) -> list[str]:
+        # Returns k0, v0, k1, v1, ... This is the cache order in every signature.
         return [f'{kind}{i}' for i in range(self.layers) for kind in ('k', 'v')]
 
     def zeros(self) -> list[torch.Tensor]:
@@ -51,9 +52,13 @@ def functional_cache(spec: CacheSpec, kv, pos):
         """update() returns new tensors: positions pos .. pos + T - 1 take this step's rows."""
 
         def __init__(self):
+            # kv replaces the per-layer objects that the base class would keep.
             self.kv, self.layers = list(kv), []
 
         def update(self, key_states, value_states, layer_idx, *args, **kwargs):
+            # pos is a graph input, not a Python int, so it cannot be used for slicing.
+            # Instead, a select over the whole cache writes the new rows.
+            # This keeps every shape static.
             t = key_states.shape[2]
             rel = torch.arange(spec.max_seq) - pos[0]
             take = ((rel >= 0) & (rel < t)).view(1, 1, spec.max_seq, 1)
@@ -62,6 +67,9 @@ def functional_cache(spec: CacheSpec, kv, pos):
                 self.kv[j] = torch.where(take, new.index_select(2, idx), self.kv[j])
             return self.kv[2 * layer_idx], self.kv[2 * layer_idx + 1]
 
+        # transformers queries a cache through the methods below.
+        # How much has been written is known only at run time (pos), so they return fixed values.
+        # Step passes explicit positions and a 4D mask, and transformers uses those as given.
         def get_seq_length(self, layer_idx=0):
             return 0
 
@@ -93,11 +101,15 @@ class Step(nn.Module):
         last, kv = (rest[0], rest[1:]) if self.prefill else (None, rest)
         t = tokens.shape[1]
         cache = functional_cache(self.spec, kv, pos)
-        # Additive causal mask over the whole cache: query i sees s <= pos + i.
+        # Additive causal mask over the whole cache.
+        # Query i can see slot s only if s <= pos + i, so unwritten slots are never read.
         s = torch.arange(self.spec.max_seq).view(1, -1)
         q = (pos[0] + torch.arange(t)).view(-1, 1)
         mask = torch.where(s <= q, 0.0, float('-inf')).view(1, 1, t, self.spec.max_seq)
         positions = pos[0] + torch.arange(t)
+        # logits_to_keep means different things depending on its type:
+        #   int          keep the last N positions (decode keeps its only token)
+        #   1D tensor    keep these indices (prefill keeps token ``last``, skipping any padding)
         out = self.model(input_ids=tokens, position_ids=positions.view(1, -1), cache_position=positions,
                          past_key_values=cache, attention_mask=mask, use_cache=True,
                          logits_to_keep=last if last is not None else 1)
@@ -105,6 +117,9 @@ class Step(nn.Module):
 
 
 def example_inputs(spec: CacheSpec, tokens: int, prefill: bool) -> tuple:
+    # Only the shapes and dtypes matter, and they become static in the graph.
+    # That is why decode and prefill are separate programs,
+    # and why changing max_seq or chunk needs a re-export.
     head = (torch.zeros(1, tokens, dtype=torch.long), torch.zeros(1, dtype=torch.long))
     if prefill:
         head += (torch.full((1,), tokens - 1, dtype=torch.long),)
@@ -119,6 +134,8 @@ def export_llm(model: nn.Module, max_seq: int, chunk: int) -> tuple[dict[str, to
         step = Step(model, spec, prefill)
         with torch.no_grad():
             ep = torch.export.export(step, example_inputs(spec, tokens, prefill), strict=False)
+        # torch._int_mm must survive this step, because --npu-claim matches what it lowers to.
+        # If it were decomposed, the contraction would stay on the CPU with no error.
         programs[name] = ep.run_decompositions()
     return programs, spec
 

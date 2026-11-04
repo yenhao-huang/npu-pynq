@@ -5,7 +5,7 @@ registered for the config's type on every module the filter selects. Our
 handlers swap in the modules of ``custom_quant/``; the schemes themselves are
 the vendor's (src/vendors/npu_pynq/spec/quant.py).
 
-``quantize`` is what ``load`` runs: BatchNorm is folded into the
+``quantize`` is what the quantization stage runs: BatchNorm is folded into the
 convolution before it (an inference-only rewrite PyTorch provides), so the
 folded weight is what gets quantized.
 """
@@ -52,7 +52,12 @@ def config_for(scheme: str) -> AOBaseConfig:
 
 
 def fold_batchnorm(model: nn.Module) -> nn.Module:
-    """Conv2d + BatchNorm2d pairs folded into one Conv2d (torch.fx's inference fusion)."""
+    """Conv2d + BatchNorm2d pairs folded into one Conv2d (torch.fx's inference fusion).
+
+    ``fuse`` traces the model symbolically and returns a copy.
+    Only a model with BatchNorm goes through it, so other models need not be
+    traceable by torch.fx.
+    """
     if not any(isinstance(m, nn.BatchNorm2d) for m in model.modules()):
         return model
     from torch.fx.experimental.optimization import fuse
@@ -66,6 +71,9 @@ def fold_batchnorm(model: nn.Module) -> nn.Module:
 def quantize(model: nn.Module, scheme: str) -> nn.Module:
     from torchao.quantization import quantize_
 
+    # Fold first. After the swap below there is no Conv2d left for fuse to match.
     model = fold_batchnorm(model)
+    # quantize_ works in place: each layer that npu_layers selects is replaced
+    # by the module that the config's handler returns.
     quantize_(model, config_for(scheme), filter_fn=npu_layers)
     return model

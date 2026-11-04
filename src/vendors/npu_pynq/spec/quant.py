@@ -1,8 +1,8 @@
 """Quantization formats the NPU accepts.
 
 The array multiplies INT8 by INT8 into INT32. A model reaches it only through
-these schemes; the export front end quantizes to them and rejects anything
-else (src/export/frontend/load/check.py). The rounding and saturation rules
+these schemes; the export front end quantizes to them
+(src/export/frontend/quantization/). The rounding and saturation rules
 are those of src/test/model, the numeric contract the RTL implements.
 """
 

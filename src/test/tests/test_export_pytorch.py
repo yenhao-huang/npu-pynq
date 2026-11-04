@@ -1,4 +1,4 @@
-"""The PyTorch front end: W8A8 numerics, the load-time scheme check, and the
+"""The PyTorch front end: W8A8 numerics, the quantization stage, and the
 functional-cache export against transformers' own forward. Skipped where
 torch, torchao or transformers are not installed."""
 
@@ -77,8 +77,7 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_batchnorm_is_folded_before_quantization(self):
         import torch
-        from src.export.frontend.load import check
-        from src.export.frontend.quantization.torchao.config import quantize
+        from src.export.frontend.quantization import quantize
 
         torch.manual_seed(5)
         net = torch.nn.Sequential(torch.nn.Conv2d(3, 4, 3, padding=1), torch.nn.BatchNorm2d(4),
@@ -88,7 +87,6 @@ class W8A8NumericsTest(unittest.TestCase):
         x = torch.randn(1, 3, 6, 6)
         expected = net(x)
         q = quantize(net, 'w8a8')
-        check(q, 'w8a8')
         self.assertFalse(any(isinstance(m, torch.nn.BatchNorm2d) for m in q.modules()))
         torch.testing.assert_close(q(x), expected, rtol=0.1, atol=0.1)
 
@@ -104,21 +102,20 @@ def tiny_llama():
 
 
 @unittest.skipUnless(HAVE_TORCH, 'torch, torchao and transformers are required')
-class LoadCheckTest(unittest.TestCase):
-    def test_float_layers_are_rejected(self):
-        from src.export.frontend.load import QuantizationError, check
+class QuantizationStageTest(unittest.TestCase):
+    def test_every_contraction_is_swapped(self):
+        import torch
+        from src.export.frontend.quantization import quantize
 
-        with self.assertRaises(QuantizationError):
-            check(tiny_llama(), 'w8a8')
+        model = quantize(tiny_llama(), 'w8a8')
+        self.assertFalse([name for name, m in model.named_modules()
+                          if isinstance(m, (torch.nn.Linear, torch.nn.Conv2d))])
 
-    def test_our_config_passes_the_check(self):
-        from torchao.quantization import quantize_
-        from src.export.frontend.load import check
-        from src.export.frontend.quantization.torchao.config import NpuW8A8Config, npu_layers
+    def test_unknown_scheme_is_refused(self):
+        from src.export.frontend.quantization import quantize
 
-        model = tiny_llama()
-        quantize_(model, NpuW8A8Config(), filter_fn=npu_layers)
-        check(model, 'w8a8')
+        with self.assertRaises(ValueError):
+            quantize(tiny_llama(), 'w4a4')
 
 
 @unittest.skipUnless(HAVE_TORCH, 'torch, torchao and transformers are required')
