@@ -3,11 +3,13 @@
     load           a framework builds the float model (frontend/load)
     quantize       our torchao config quantizes it (frontend/quantization)
     export_graph   torch.export: one ExportedProgram per entry point
-    to_mlir        torch-mlir: model.mlir, linalg on tensors
+    to_mlir        torch-mlir's importer: torch.mlir, the torch dialect
+    npu-middle-end the C++ middle end (middle-end/): our rewrites, then torch-mlir's
+                   pipelines to model.mlir, linalg on tensors
     npu-compile    the C++ back end (backend/): delegates, weights.bin, CPU code
 
-The front end runs wherever torch does; npu-compile needs Linux with LLVM 22.
-On Windows it runs in WSL (paths are translated). See
+The front end runs wherever torch does; both C++ tools need Linux with LLVM 22.
+On Windows they run in WSL (paths are translated). See
 docs/plans/2026-1029-002-export-pytorch-exportedprogram.md.
 """
 
@@ -23,6 +25,7 @@ PACKAGE_FORMAT = 'npu-package/2'
 REPO = Path(__file__).resolve().parents[2]
 BACKEND = REPO / 'src' / 'export' / 'backend'
 BACKEND_SOURCES = (BACKEND, REPO / 'src' / 'vendors' / 'npu_pynq' / 'custom_dialect')
+MIDDLE_END = REPO / 'src' / 'export' / 'middle-end'
 
 
 def read_config(path: str | Path) -> dict:
@@ -32,9 +35,9 @@ def read_config(path: str | Path) -> dict:
 
 
 def _linux_path(path: Path) -> str:
-    """Return ``path`` as npu-compile sees it.
+    """Return ``path`` as the C++ tools see it.
 
-    On Windows npu-compile runs inside WSL, so C:\\x becomes /mnt/c/x.
+    On Windows they run inside WSL, so C:\\x becomes /mnt/c/x.
     """
     import sys
     if not sys.platform.startswith('win'):
@@ -66,6 +69,45 @@ def build_backend(build_dir: str | None = None, llvm: str = '/usr/lib/llvm-22') 
     return f'{build}/npu-compile'
 
 
+def middle_end_tool() -> str:
+    """The Linux path of npu-middle-end, built or not."""
+    import os
+    build = os.environ.get('NPU_MIDDLE_END_BUILD') or _linux_path(REPO / 'build' / 'npu-middle-end')
+    return f'{build}/npu-middle-end'
+
+
+def build_middle_end(llvm: str = '/usr/lib/llvm-22') -> str:
+    """Build npu-middle-end with CMake (incrementally); return its Linux path.
+
+    The first build downloads torch-mlir and compiles it, about 13 minutes on the
+    Linux file system of a 4 GB WSL. One job at a time is what that was measured
+    with; a machine with more memory can raise NPU_MIDDLE_END_JOBS.
+    """
+    import os
+    tool = middle_end_tool()
+    build = tool.rsplit('/', 1)[0]
+    jobs = os.environ.get('NPU_MIDDLE_END_JOBS', '1')
+    _linux(f"cmake -S '{_linux_path(MIDDLE_END)}' -B {build} -G Ninja -DCMAKE_BUILD_TYPE=Release "
+           f"-DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 "
+           f"-DMLIR_DIR={llvm}/lib/cmake/mlir >/dev/null && cmake --build {build} --target npu-middle-end -j {jobs}")
+    return tool
+
+
+def middle_end(torch_mlir: Path, out: Path, tool: str | None = None, emit: str = 'linalg') -> Path:
+    """Run npu-middle-end on ``torch_mlir``; write ``out`` and return it."""
+    _linux(f"{tool or middle_end_tool()} '{_linux_path(torch_mlir)}' -o '{_linux_path(out)}' --emit={emit}")
+    return out
+
+
+def check_scheme(config: dict) -> None:
+    """Refuse a package for the NPU in a scheme it cannot run, before any work is done."""
+    from src.vendors.npu_pynq.spec.quant import ACCEPTED_SCHEMES
+
+    scheme = config.get('quantization')
+    if 'npu' in config['devices'] and scheme not in ACCEPTED_SCHEMES:
+        raise ValueError(f'the NPU accepts {ACCEPTED_SCHEMES}, not {scheme!r}')
+
+
 def export_package(config: dict, out: str | Path, source: str | None = None,
                    llvm_bin: str = '/usr/lib/llvm-22/bin', timings: dict | None = None) -> Path:
     """Run the whole export for ``config`` (a configs/*.yml); write the package to ``out``.
@@ -80,6 +122,7 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     from src.export.frontend.to_mlir import to_mlir
     from src.vendors.npu_pynq.spec import isa
 
+    check_scheme(config)
     times = timings if timings is not None else {}
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -116,10 +159,18 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
         raise ValueError(f"unsupported graph kind {graph['kind']!r}")
     times['export_graph'] = time.monotonic() - start
 
-    # to_mlir: torch-mlir lowers the programs to model.mlir (linalg on tensors).
+    # to_mlir: torch-mlir's importer writes the programs as torch.mlir (the torch dialect).
     start = time.monotonic()
-    model_mlir = to_mlir(programs, out / 'ir')
+    torch_mlir = to_mlir(programs, out / 'ir')
     times['to_mlir'] = time.monotonic() - start
+
+    # npu-middle-end: our rewrites, then torch-mlir's pipelines to model.mlir (linalg on tensors).
+    start = time.monotonic()
+    tool = build_middle_end()
+    times['build_middle_end'] = time.monotonic() - start
+    start = time.monotonic()
+    model_mlir = middle_end(torch_mlir, out / 'ir' / 'model.mlir', tool)
+    times['middle_end'] = time.monotonic() - start
 
     # npu-compile: the C++ back end turns model.mlir into delegates, weights.bin and CPU code.
     start = time.monotonic()

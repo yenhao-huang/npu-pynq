@@ -47,6 +47,21 @@ class ExportLayeringTest(unittest.TestCase):
                             self.assertFalse(module.startswith(f'src.export.frontend.{target}'),
                                              f'{path.name} imports {module}')
 
+    def test_quantization_knows_no_device(self):
+        # docs/rules/lib/register_quant.md
+        for path in sorted((FRONTEND / 'quantization').rglob('*.py')):
+            with self.subTest(path=path.relative_to(FRONTEND).as_posix()):
+                self.assertNotRegex(path.read_text(encoding='utf-8'), r'(?i)npu|src\.vendors|vendor')
+
+    def test_an_npu_package_needs_a_scheme_the_npu_accepts(self):
+        from src.export.pipeline import check_scheme
+
+        check_scheme({'devices': ['cpu', 'npu'], 'quantization': 'w8a8'})
+        check_scheme({'devices': ['cpu']})
+        for scheme in (None, 'Int8WeightOnlyConfig'):
+            with self.assertRaises(ValueError):
+                check_scheme({'devices': ['cpu', 'npu'], 'quantization': scheme})
+
     def test_rules_cover_every_stage(self):
         stages = {p.name for p in FRONTEND.iterdir() if (p / '__init__.py').is_file()}
         self.assertEqual(set(FORBIDDEN), stages)

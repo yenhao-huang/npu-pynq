@@ -3,16 +3,20 @@
 [WSL](README.md) | [macOS](README.macos.md)
 
 The host exports TorchVision ResNet-18 (IMAGENET1K_V1) through PyTorch:
-BatchNorm is folded into the convolutions, our torchao config quantizes
-every convolution and the classifier to W8A8 (im2col plus one INT8
-contraction each), `torch.export` captures the network, torch-mlir lowers it
-to linalg, and `npu-compile` (LLVM 22) builds the package. On the board the 21
+our torchao config quantizes every convolution and the classifier to W8A8
+(im2col plus one INT8 contraction each), `torch.export` captures the network,
+torch-mlir imports it, `npu-middle-end` folds BatchNorm into the rescale after
+each contraction and lowers it to linalg, and `npu-compile` (LLVM 22) builds the
+package. On the board the 21
 contractions run on the NPU and everything else on the Cortex-A9.
 
 **Validated on PYNQ-Z1, 2026-11-01**, with the commands below and the notebook
 (fresh root kernel, all cells): the demo image and the five gallery images are
 all classified correctly (Samoyed 89.9%), 21 NPU calls and 35,174 jobs per
 image, about 6 s per inference. Interactive uploads were not exercised.
+After BatchNorm folding moved to `npu-middle-end`, the same images were run on
+the board on 2026-11-04 with `src.runtime.image_cli`, not the notebook: all
+correct, Samoyed 90.2%, the same calls and jobs.
 
 ## Requirements
 

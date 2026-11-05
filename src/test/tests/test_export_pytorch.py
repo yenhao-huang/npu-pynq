@@ -10,7 +10,7 @@ import numpy as np
 HAVE_TORCH = all(importlib.util.find_spec(m) for m in ('torch', 'torchao', 'transformers'))
 
 
-EPS = 1e-8   # src/vendors/npu_pynq/spec/quant.py
+EPS = 1e-8   # src/export/frontend/quantization/schemes.py
 
 
 def reference_weight(w_out_in):
@@ -21,7 +21,7 @@ def reference_weight(w_out_in):
 
 
 def reference_rows(x):
-    """The contract's A8: per row, scale = max(amax, EPS) * (1 / 127), round half even."""
+    """The contract's A8: per token, scale = max(amax, EPS) * (1 / 127), round half even."""
     scale = (np.maximum(np.abs(x).max(-1), EPS) * np.float32(1.0 / 127.0)).astype(np.float32)
     return np.clip(np.round(x * (1.0 / scale)[..., None]), -127, 127).astype(np.int8), scale
 
@@ -40,10 +40,10 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_activations_match_the_numeric_contract_bit_for_bit(self):
         import torch
-        from src.export.frontend.quantization.torchao.custom_quant.w8a8 import quantize_rows
+        from src.export.frontend.quantization.torchao.custom_quant.w8a8 import quantize_tokens
 
         x = (np.random.default_rng(1).normal(size=(5, 64)) * 3).astype(np.float32)
-        q, s = quantize_rows(torch.from_numpy(x))
+        q, s = quantize_tokens(torch.from_numpy(x))
         rq, rs = reference_rows(x)
         np.testing.assert_array_equal(q.numpy(), rq)
         np.testing.assert_array_equal(s.numpy(), rs)
@@ -75,7 +75,7 @@ class W8A8NumericsTest(unittest.TestCase):
         # The W8A8 result stays within quantization error of the float convolution.
         torch.testing.assert_close(y, conv(x), rtol=0.05, atol=0.05)
 
-    def test_batchnorm_is_folded_before_quantization(self):
+    def test_batchnorm_stays_after_quantization(self):
         import torch
         from src.export.frontend.quantization import quantize
 
@@ -87,7 +87,7 @@ class W8A8NumericsTest(unittest.TestCase):
         x = torch.randn(1, 3, 6, 6)
         expected = net(x)
         q = quantize(net, 'w8a8')
-        self.assertFalse(any(isinstance(m, torch.nn.BatchNorm2d) for m in q.modules()))
+        self.assertTrue(any(isinstance(m, torch.nn.BatchNorm2d) for m in q.modules()))
         torch.testing.assert_close(q(x), expected, rtol=0.1, atol=0.1)
 
 def tiny_llama():

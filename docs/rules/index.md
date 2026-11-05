@@ -17,6 +17,8 @@ Read the rules that apply before making a change:
   lists, roadmaps, and weekly changelogs.
 - [simulation.md](simulation.md): lint and simulation contracts.
 - [ci-cd.md](ci-cd.md): hosted CI, self-hosted synthesis, and board testing.
+- [lib/register_quant.md](lib/register_quant.md): the quantization library stays
+  device-neutral; how to add a scheme.
 - [git/branch.md](git/branch.md): `main`, `dev`, task branches, and releases.
 - [git/changelog.md](git/changelog.md): release commit boundaries, roadmap
   progress, and ordered Issue/PR tables.

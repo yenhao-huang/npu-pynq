@@ -1,2 +1,2 @@
-"""torch-mlir (https://github.com/llvm/torch-mlir), from its release wheels:
-its FX importer and its torch -> linalg pipelines, run in process."""
+"""torch-mlir (https://github.com/llvm/torch-mlir), from its release wheels: its FX
+importer. The C++ middle end (src/export/middle-end/) takes the result from there."""

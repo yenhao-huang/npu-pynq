@@ -30,8 +30,9 @@ curl.exe --fail --location --retry 3 --create-dirs `
 python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/package
 ```
 
-Set `NPU_BACKEND_BUILD` to a WSL path (for example `~/npu-build/npu-compile`)
-to build `npu-compile` on the WSL file system instead of under `build/`.
+Set `NPU_BACKEND_BUILD` and `NPU_MIDDLE_END_BUILD` to WSL paths (for example
+`~/npu-build/npu-compile` and `~/npu-build/npu-middle-end`) to build the tools on
+the WSL file system instead of under `build/`.
 
 ## Deploy and run
 

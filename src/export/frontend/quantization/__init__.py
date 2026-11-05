@@ -1,4 +1,4 @@
-"""``quantization``: a float PyTorch model -> a model in a scheme the NPU accepts.
+"""``quantization``: a float PyTorch model -> a quantized model.
 
     quantize(model, 'w8a8')
 

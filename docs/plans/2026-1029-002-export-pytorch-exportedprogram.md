@@ -2,7 +2,7 @@
 
 | Plan ID | Topic | Revision | Status |
 |---|---|---|---|
-| 2026-1029-002 | export-pytorch-exportedprogram | rev.25 (2026-10-29) | Implemented — Phases 0-5; SmolLM and ResNet-18 run on the PYNQ-Z1 NPU; the old path is removed |
+| 2026-1029-002 | export-pytorch-exportedprogram | rev.27 (2026-11-04) | Implemented — Phases 0-5, with a C++ middle end (section 5.3b); SmolLM and ResNet-18 run on the PYNQ-Z1 NPU; the old path is removed |
 
 Issue: #119 (software stack). Supersedes the front end built by
 [2026-1029-001](2026-1029-001-export-load-quantize-to-mlir.md); its
@@ -16,8 +16,8 @@ keeping as little custom code as possible:
 ```
 load ──────────────────────> export_graph ─────────────────> to_mlir ────────────────────> backend
 quantized nn.Module           ATen graph (ExportedProgram)    model.mlir (linalg)           package
-transformers / torchvision    torch.export + StaticCache,     IREE: iree-turbine -> torch   partition by device:
-+ our torchao configs         default decompositions          dialect -> linalg             C++ npu-compile: cpu, npu
+transformers / torchvision    torch.export + functional       torch-mlir: FxImporter ->     partition by device:
++ our torchao configs         cache, default decompositions   torch dialect -> linalg       C++ npu-compile: cpu, npu
 ```
 
 Quantization happens when the model is loaded: the framework applies our own
@@ -34,12 +34,13 @@ kept alongside; it is removed once the new path passes its acceptance.
 ## Implementation status (2026-10-29)
 
 Phase 0 answers, measured with torch 2.11, torchao 0.18, transformers 5.21
-and iree-base-compiler 3.13 (pinned in `src/export/requirements.txt`):
+and iree-base-compiler 3.13; `to_mlir` has since moved to llvm/torch-mlir's
+own wheels (rev.26, pinned in `src/export/requirements.txt`):
 
 | Question | Answer |
 |---|---|
 | 1. Quantized contractions survive export | Yes. Our W8A8 module's `torch._int_mm` reaches linalg as an i8 x i8 -> i32 `linalg.matmul` on a constant weight; `--npu-claim` takes all 422 in SmolLM (211 per entry point). Decision 3.5 stays B. |
-| 1b. transformers accepts our config | Not needed: `load` runs `quantize_(model, NpuW8A8Config())` after `from_pretrained`, which is the same handler path. |
+| 1b. transformers accepts our config | Not needed: `load` runs `quantize_(model, W8A8Config())` after `from_pretrained`, which is the same handler path. |
 | 3. LLVM 22 parses the front end's output | Yes, once the output is upstream-only (see 5). |
 | 3b. Weight form | `dense_resource` constants. Delegates read them for packing; a generic pass moves the rest into `weights.bin`. |
 | 4. KV cache in place | The graph stays functional: the cache is an input and the updated cache an output, written with a select (`where`), not `index_put` (which lowers to `tm_tensor.scatter`, not upstream). The runtime keeps two cache sets and swaps them, so nothing is copied. |
@@ -54,9 +55,9 @@ otherwise derives positions from the cache length).
 Done:
 
 - Front end: `frontend/load` (huggingface adapter, `check.py`),
-  `frontend/quantization/torchao` (`NpuW8A8Config`, `custom_quant/w8a8.py`:
+  `frontend/quantization/torchao` (`W8A8Config`, `custom_quant/w8a8.py`:
   bit-exact with `src/test/model`), `frontend/export_graph` (decode and
-  prefill with a functional cache), `frontend/to_mlir/iree`.
+  prefill with a functional cache), `frontend/to_mlir/torch_mlir`.
 - Back end in C++ (`npu-compile`): partition with delegates and
   `__delegate__(id, in, out)`, generic weight externalization, CPU codegen
   in process (bufferization, out-params, LLVM IR, `llc`, link), the npu
@@ -150,8 +151,8 @@ Out of scope:
 | Stage | Replaces | Framework |
 |---|---|---|
 | load | `load/` (safetensors reader, HF cache lookup, per-model `Config`), the ResNet checkpoint downloader, and `quantize/` (int8 numerics, weight plans, AWQ hook) | **transformers** `AutoModelForCausalLM` / `AutoTokenizer`, quantizing at load through `TorchAoConfig`; **torchvision** `get_model` / `get_model_weights` (downloads pretrained weights by name), then torchao `quantize_()`; **torchao** extended with our own configs (`AOBaseConfig` + `register_quantize_module_handler`, section 5.2) |
-| export_graph | `model_arch/*` weight plans and per-model `to_mlir` | **torch.export** on the loaded (already quantized) model, the KV cache through transformers `StaticCache` and its export integration (`transformers.integrations.executorch`); quantized weights expand into int8 tensors and existing ATen ops such as `_int_mm`; `run_decompositions` with PyTorch's default table. Our own kernels for existing ATen ops are registered in C++ with **`TORCH_LIBRARY_IMPL`** (section 5.3) and built with **`torch.utils.cpp_extension`**. `decode` (one token) and `prefill` (`chunk` tokens) are separate programs with static shapes |
-| to_mlir | `compilers/mlir/builder.py`, `compilers/mlir/ops/` (hand-written MLIR per op) | **IREE**: **iree-turbine** `aot.export` takes the ExportedPrograms (as `FxPrograms`, one function per entry point) and emits the **torch dialect**; the **IREE compiler** (`--iree-input-type=torch`) converts it to **linalg**, stopping there. torch-mlir's `torch-backend-to-linalg-on-tensors` pipeline is the fallback for the second step |
+| export_graph | `model_arch/*` weight plans and per-model `to_mlir` | **torch.export** on the loaded (already quantized) model, the KV cache as a functional cache (an input, and the updated cache an output); quantized weights expand into int8 tensors and existing ATen ops such as `_int_mm`; `run_decompositions` with PyTorch's default table. Our own kernels for existing ATen ops are registered in C++ with **`TORCH_LIBRARY_IMPL`** (section 5.3) and built with **`torch.utils.cpp_extension`**. `decode` (one token) and `prefill` (`chunk` tokens) are separate programs with static shapes |
+| to_mlir | `compilers/mlir/builder.py`, `compilers/mlir/ops/` (hand-written MLIR per op) | **torch-mlir**: its FX importer (`import_frozen_program`) takes the ExportedPrograms (one function per entry point) and emits the **torch dialect**; its two upstream pipelines convert that to **linalg**. torch-mlir comes from llvm/torch-mlir's dated release wheels and runs in process; IREE is not used |
 | ResNet convolution | hand-written im2col | upstream **MLIR** transform `convert_conv2d_to_img2col` |
 | backend | `compile.py`, `targets.py`, `compilers/mlir/toolchain.py`, `npu-opt` | **C++**: one tool, `npu-compile`, built on upstream **MLIR / LLVM 22** (section 5.3d). Delegates claim what they run and compile it (section 5.3c); the CPU module keeps one `__delegate__` call per claimed region and is lowered with upstream MLIR passes, `llc` and a linker |
 
@@ -258,12 +259,12 @@ Only what the frameworks cannot do:
 4. **The C++ backend, `npu-compile`** (section 5.3d), on upstream MLIR:
    - generic passes, written once for every delegate: outlining the claimed
      regions into one module per delegate and leaving
-     `func.call @__delegate__(id, ...)`; and moving weight constants (IREE
+     `func.call @__delegate__(id, ...)`; and moving weight constants (torch-mlir
      emits weights as constants in the IR) into `weights.bin`, leaving views
      of the weight arena. The `[cpu]` build needs the second as well: the
      arena is the package's format, not the NPU's.
    - the npu delegate adapter, built on the vendor's passes: `--npu-claim`
-     must recognise the INT8 contraction in the linalg IREE produces (for
+     must recognise the INT8 contraction in the linalg torch-mlir produces (for
      example an `i8 x i8 -> i32` `linalg.matmul`) and the group-wise INT4
      form; `--npu-pack` writes the weights the NPU reads as tiles;
      `--npu-encode` writes ISA programs.
@@ -290,12 +291,12 @@ frontend/load/  frontend/export_graph/  frontend/to_mlir/                     ba
 ```
 
 - `frontend/` turns a PyTorch model into linalg with open frameworks
-  (transformers, torchvision, torchao, torch.export, IREE). It knows no
+  (transformers, torchvision, torchao, torch.export, torch-mlir). It knows no
   hardware, apart from the quantization spec it is handed.
 - `backend/` turns linalg into a package for the chosen devices, with our
   `npu-compile` (C++), the vendor's dialect and upstream MLIR / LLVM.
 - The two never import each other; they meet only at `model.mlir`, which is
-  also where the LLVM versions of IREE and `npu-compile` meet (Phase 0). A new
+  also where the LLVM versions of torch-mlir and `npu-compile` meet (Phase 0). A new
   model framework changes only `frontend/`; a new accelerator changes only
   `backend/` and `src/vendors/`.
 
@@ -306,7 +307,7 @@ Each stage is one directory exposing one entry function from its
 |---|---|---|---|---|
 | load | `frontend/load/` | `load(source=None, framework="auto", arch=None, weights=None, sha256=None, quantization=None, require=None) -> LoadedModel` | the model, quantized when `quantization` is given and checked against `require`; its tokenizer files or class metadata, source and config | transformers, torchvision, torchao |
 | export_graph | `frontend/export_graph/` | `export_graph(module, shape) -> {"decode": ExportedProgram, "prefill": ExportedProgram}` | `decode.pt2`, `prefill.pt2`: Core ATen graphs (quantized when the model is) | torch.export |
-| to_mlir | `frontend/to_mlir/` | `to_mlir(programs) -> Path` | `model.mlir` (linalg) | IREE (iree-turbine, IREE compiler) |
+| to_mlir | `frontend/to_mlir/` | `to_mlir(programs) -> Path` | `model.mlir` (linalg) | torch-mlir (FX importer, upstream pipelines) |
 | backend | `backend/` | `npu-compile model.mlir --devices ... --cpus ... -o out` (Python: `build(mlir, devices, cpus, out)`) | the package directory | C++ on upstream MLIR / LLVM 22 |
 
 ```
@@ -321,13 +322,13 @@ src/export/
     quantization/        shared library, not a stage; used by load/
       torchao/           our quantization, registered into torchao (section 5.2)
         __init__.py      importing it registers everything in custom_quant/ with torchao
-        config.py        NpuW8A8Config, NpuW4A8Config (AOBaseConfig subclasses);
+        config.py        W8A8Config, W4A8Config (AOBaseConfig subclasses);
                          parameters from the spec pipeline.py passes in (spec/quant.py)
         custom_quant/    implementations, one file per scheme
           __init__.py    imports each scheme so its handler is registered
-          w8a8.py        @register_quantize_module_handler(NpuW8A8Config):
+          w8a8.py        @register_quantize_module_handler(W8A8Config):
                          per-channel INT8 weights (+-127), per-token INT8 activations
-          w4a8.py        @register_quantize_module_handler(NpuW4A8Config):
+          w4a8.py        @register_quantize_module_handler(W4A8Config):
                          group-wise INT4 weights ([-8, 7]), per-token INT8 activations
 
     load/                stage 1: PyTorch model, quantized at load
@@ -344,7 +345,7 @@ src/export/
 
     export_graph/        stage 2: ATen graph (ExportedProgram per entry point)
       __init__.py        export_graph(module, shape): torch.export -> default decompositions
-      export.py          torch.export with StaticCache wrappers (decode, prefill); save/load .pt2
+      export.py          torch.export with a functional KV cache (decode, prefill)
       aten/              our own C++ kernels for existing ATen ops (section 5.3)
         __init__.py      load_kernels(): build if stale (torch.utils.cpp_extension) and load
         op_register.cpp  TORCH_LIBRARY_IMPL(aten, CPU, m) for cpu/; later
@@ -355,12 +356,15 @@ src/export/
                          guard, empty / copy kernels)
 
     to_mlir/             stage 3: MLIR (linalg)
-      __init__.py        to_mlir(programs) -> model.mlir: to_torch_dialect -> to_linalg_dialect
-      iree/              one file per dialect step
+      __init__.py        to_mlir(programs) -> torch.mlir: to_torch_dialect
+      torch_mlir/        one file per dialect step (llvm/torch-mlir's Python package)
         __init__.py
-        to_torch_dialect.py   iree.turbine.aot.export(FxPrograms) -> model.torch.mlir (torch dialect)
-        to_linalg_dialect.py  IREE compiler, --iree-input-type=torch, stopping after input
-                         conversion -> model.mlir (linalg + tensor + arith)
+        to_torch_dialect.py   FxImporter.import_frozen_program -> torch.mlir (torch dialect)
+
+  middle-end/            stage 3b: torch.mlir -> model.mlir (linalg + tensor + arith + math); C++
+    npu_middle_end.cpp   our rewrites, then torch-mlir's two upstream pipelines
+    patch_torch_mlir.cmake    builds torch-mlir without Python bindings or its tests
+    torch/transforms/    one file per rewrite on the torch dialect (section 5.3b)
 
   backend/               stage 4: MLIR (linalg) -> package; C++ only, no Python (section 5.3d)
     CMakeLists.txt       builds npu-compile against LLVM 22 (MLIR); links custom_dialect
@@ -452,7 +456,7 @@ npu delegate adapter; `src/vendors/` never includes or imports `src/export/`.
 Removed: the current `load/`, `quantize/`, `model_arch/`, `ir/`,
 `pipeline.py`, `compile.py`, `targets.py` and `compilers/` (its
 `mlir/toolchain.py` becomes `backend/cpu/toolchain.cpp`; `mlir/builder.py`
-and `mlir/ops/` are replaced by IREE; `onnx_mlir/` goes with decision 3.2), and
+and `mlir/ops/` are replaced by torch-mlir; `onnx_mlir/` goes with decision 3.2), and
 `npu-opt` (replaced by `npu-compile`). Expected size of `src/export/`'s
 Python: about 800-1200 lines (from about 5700), plus the C++ backend and the
 vendor changes.
@@ -524,15 +528,15 @@ INT8). This plan splits it by layer:
   | implementations | `custom_quant/<scheme>.py` | `cpu/<op>.cpp`, `npu/<op>.cpp` |
   | mechanism | `@register_quantize_module_handler(Config)` | `TORCH_LIBRARY_IMPL(aten, <key>, m)` |
 
-  `config.py` holds `AOBaseConfig` subclasses (`NpuW8A8Config`,
-  `NpuW4A8Config`) whose parameters come from the spec. Each file in
+  `config.py` holds `AOBaseConfig` subclasses (`W8A8Config`,
+  `W4A8Config`) whose parameters come from the spec. Each file in
   `custom_quant/` registers the handler `quantize_()` calls for every
   `nn.Linear`: it computes the INT8 (or INT4) weights and scales exactly as
   `src/test/model` does, wraps them in torchao's quantized tensor together
   with the per-token activation rule, and puts the result back as the
   module's weight. Usage is the same as torchao's own configs:
-  `quantize_(model, NpuW8A8Config())`, or
-  `TorchAoConfig(quant_type=NpuW8A8Config())` for transformers (accepting a
+  `quantize_(model, W8A8Config())`, or
+  `TorchAoConfig(quant_type=W8A8Config())` for transformers (accepting a
   config object there depends on the transformers version; checked in
   Phase 0). An own tensor subclass is added only if Phase 1 shows torchao's
   quantized tensor cannot express the contract.
@@ -660,29 +664,63 @@ References:
 <https://github.com/pytorch/extension-cpp>,
 <https://github.com/pytorch/vision/tree/main/torchvision/csrc/ops>.
 
-### 5.3b `to_mlir` with IREE
+### 5.3b `to_mlir` with torch-mlir
 
 ATen reaches MLIR through a ladder of dialects; each framework step owns one
-rung, so `frontend/to_mlir/iree/` has one file per step:
+rung, so `frontend/to_mlir/torch_mlir/` has one file per step:
 
 ```
 ExportedProgram (aten.mm, aten._int_mm, ...)
-   │  to_torch_dialect.py: iree-turbine aot.export(FxPrograms), one op per ATen op
+   │  to_torch_dialect.py: FxImporter.import_frozen_program, one op per ATen op
    ▼
-torch dialect (torch.aten.mm, ...)
-   │  to_linalg_dialect.py: IREE compiler input conversion (--iree-input-type=torch)
+torch dialect (torch.aten.mm, ...)                          -> torch.mlir
+   │  middle-end/ (C++): torch/transforms/, then
+   │  torch-function-to-torch-backend-pipeline and
+   │  torch-backend-to-linalg-on-tensors-backend-pipeline
    ▼
-linalg + tensor + arith      ->  backend/ (npu-compile, C++)
+linalg + tensor + arith + math    -> model.mlir  ->  backend/ (npu-compile, C++)
 ```
 
-`aot.export` accepts a `torch.export.ExportedProgram`, and `FxPrograms` holds
-several, so `decode` and `prefill` become two functions of one module, as in
-today's packages (iree-turbine `iree/turbine/aot/exporter.py`). Nothing in
-`to_mlir/` writes MLIR by hand: `compilers/mlir/builder.py` and
-`compilers/mlir/ops/` are deleted. If the IREE compiler cannot stop after
-input conversion, torch-mlir's `torch-backend-to-linalg-on-tensors` pipeline
-replaces `to_linalg_dialect.py` (as `frontend/to_mlir/torch_mlir/to_linalg_dialect.py`);
-iree-turbine emits torch-mlir's torch dialect, so the two connect.
+The importer takes one ExportedProgram per call into the same module, so
+`decode` and `prefill` become two functions of one module, and a weight both
+use is one `dense_resource` constant. Nothing in `to_mlir/` writes MLIR by
+hand: `compilers/mlir/builder.py` and `compilers/mlir/ops/` are deleted.
+
+`middle-end/` is `npu-middle-end`, a C++ tool with `OpRewritePattern` passes on
+the torch dialect, where layers are still recognisable. The torch-mlir wheels hold
+no C++ API and bind another LLVM, so it builds torch-mlir from source as a CMake
+dependency, against the LLVM 22 `npu-compile` uses, without building LLVM. That
+pins torch-mlir at `ac33bab` (2026-01-14), whose LLVM is closest to the 22.x
+branch; what later versions added and our models need is a rewrite here:
+`DecomposeIntMm` (`_int_mm` -> `mm`) and `AnyDimToAnyDims`. The importer stays the
+newer wheel in Python, so `torch.mlir` crosses versions as text.
+
+`FuseConvBatchNorm` folds BatchNorm with the arithmetic of PyTorch's
+`fuse_conv_bn_weights`; torch-mlir cannot lower BatchNorm itself
+(`_native_batch_norm_legit_no_training` arrives as a generic `torch.operator`),
+so every model with BatchNorm needs it. In a float model the convolution's
+weight and bias take the BatchNorm. In a W8A8 model `W8A8Conv2d` has already
+become `_int_mm` plus a rescale, so `w_scale` and the bias take it and the INT8
+weights the NPU reads stay as quantized from the unfolded weight. A channel
+whose BatchNorm multiplier is negative keeps its weights and gets a negative
+`w_scale`. This replaced folding before quantization (`fold_batchnorm`, removed
+2026-11-04). The results are the same up to rounding, not bit for bit: activation
+quantization turns a last-bit float difference into a flipped INT8 value, so
+ResNet-18's probabilities move slightly (Samoyed 89.87% -> 90.20%).
+
+torch-mlir comes from its own project, <https://github.com/llvm/torch-mlir>:
+the dated wheels of `llvm/torch-mlir-release` (no release on PyPI), pinned per
+platform in `requirements.txt`, which names their index with `--find-links`.
+Its Python package holds the FX importer. `torch.mlir` is written beside
+`model.mlir` and is what `npu-middle-end` reads.
+
+IREE is not used. Its input path (`iree-turbine` `aot.export`,
+`iree-compile --compile-to=input`) emits IREE-only ops (`util.global`,
+`hal.*`, `iree_linalg_ext.*`) that `npu-compile` does not parse; an earlier
+revision took torch-mlir from the IREE compiler wheel (`iree-opt`), which
+rev.26 replaced. A lowering that leaves a non-upstream op (for example
+`index_put` -> `tm_tensor.scatter`) is avoided in the model, not handled in
+the back end.
 
 ### 5.3c `backend`: delegates
 
@@ -1008,7 +1046,7 @@ dispatcher and the registry; the driver never imports or links
 | `Partition.cpp` -> `Claim.cpp` | Claiming only; outlining is the back end's generic pass |
 | `Lower.cpp`: `EncodePass` -> `Encode.cpp`; `HostLowerPass` deleted | `__delegate__` calls replace `--npu-lower-host` |
 | `npu.call`, `npu.module` deleted from the dialect | Same reason; `npu.mlir` is a plain module |
-| `package.py` -> `custom_dialect/lib/Pack.cpp` | IREE puts weights in the IR as constants, so packing reads them in a pass; no Python weight dict exists any more |
+| `package.py` -> `custom_dialect/lib/Pack.cpp` | torch-mlir puts weights in the IR as constants, so packing reads them in a pass; no Python weight dict exists any more |
 | `passes.py` deleted | Building and running the tool moves to `pipeline.py`; `lower_host()` and `RUNTIME_C` go with the pass and with linking `npu_rt` into `model.so` |
 | `npu_rt.c`, `placement.py`, `memory.py`, `abi.py` -> `driver/npu_rt/` (C++) | One library does all the delegate needs: load (buffers, relocation, geometry check) and execute; no ctypes struct mirrors left to drift |
 | `driver/isa.py` deleted | `IsaDevice.run`, `gemm` and `NpuGemm` duplicate `pynq.cpp`; its capability and geometry check moves into `load.cpp`. `src/runtime/cli.py`'s reference GEMM path and its test switch to `libnpu_rt` |
@@ -1061,7 +1099,7 @@ load:
   source: HuggingFaceTB/SmolLM2-135M-Instruct
   framework: auto            # huggingface, detected from the source
   quantize:
-    scheme: w8a8             # NpuW8A8Config; or w4a8, as the target's spec allows
+    scheme: w8a8             # W8A8Config; or w4a8, as the target's spec allows
                              # AWQ: an offline checkpoint as source (decisions 3.3, 3.4)
 
 export_graph:
@@ -1069,7 +1107,7 @@ export_graph:
   max_seq: 512
   kv: f32                    # or int8
 
-to_mlir: {}                  # IREE defaults
+to_mlir: {}                  # torch-mlir defaults
 
 backend:
   devices: [cpu, npu]        # [cpu] alone: the FP32 reference (decision 3.7)
@@ -1162,10 +1200,12 @@ continues as written.
 
 ### Phase 0 — feasibility (stop and re-plan on failure)
 
+Answered; see "Implementation status" for the results. Recorded as asked:
+
 - Pin torch, transformers, torchao, iree-turbine and the IREE compiler
-  together.
+  together (iree-turbine was dropped; see answer 5).
 - Tiny SmolLM end to end: transformers load quantized by a minimal
-  `NpuW8A8Config`, torch.export (StaticCache decode), `run_decompositions`,
+  `W8A8Config`, torch.export (StaticCache decode), `run_decompositions`,
   IREE to torch dialect and then linalg.
 - Answer:
   1. Do torchao's quantized ops (`_int_mm` and the scale multiplications)
@@ -1189,7 +1229,8 @@ continues as written.
   6. Are iree-turbine and IREE compiler wheels available for Python 3.12 on
      WSL/Linux and macOS?
 - Fallback if IREE blocks: torch-mlir directly (an LLVM incubator project;
-  its snapshots target Python 3.10 and 3.11 and a PyTorch nightly).
+  its snapshots target Python 3.10 and 3.11 and a PyTorch nightly). Taken in
+  in rev.26: torch-mlir's own dated wheels, which now include Python 3.12.
 
 ### Phase 1 — quantization: spec, `frontend/quantization/torchao/`, `frontend/load/check.py`
 
@@ -1253,7 +1294,7 @@ continues as written.
 ### Phase 4 — ResNet-18
 
 - TorchVision model loaded by name from `configs/resnet18.yml`, BatchNorm
-  folded by the quantization flow, convolutions through
+  folded by `to_mlir`'s layer fusion (section 5.3b), convolutions through
   `convert_conv2d_to_img2col` onto the NPU.
 - The demo sample image and gallery downloads move to `src/deploy/`; CD, the
   ResNet example README and notebook, and `test_resnet18_sources.py` follow
@@ -1280,13 +1321,13 @@ continues as written.
 
 | Risk | Mitigation |
 |---|---|
-| IREE: its own LLVM differs from `npu-compile`'s LLVM 22; stopping at linalg; quantized-op conversion | Phase 0 first; generic-form hand-over, `npu-compile` on IREE's LLVM or an IREE plugin; torch-mlir as fallback for torch dialect -> linalg |
+| torch-mlir: its LLVM differs from `npu-compile`'s LLVM 22; a lowering that leaves a non-upstream op | Resolved in Phase 0: the output is upstream-only and LLVM 22 parses it; models avoid ops that lower outside upstream (`index_put`) |
 | The back end in C++ iterates more slowly than Python and needs MLIR C++ experience | Small passes with `lit` tests; opt-style single-pass runs for debugging; CPU codegen keeps `llc` in the first version |
 | torchao's quantized tensor cannot express the numeric contract exactly | Phase 1 bit-exact checks; then an own tensor subclass in `custom_quant/`, or decision 3.1 revisited before Phase 2 |
 | torchao's API moves (it is winding down new features) | Pinned version; torchao-specific code confined to `frontend/quantization/torchao/` and `frontend/load/check.py` |
 | Replaced kernels change results process-wide | `cpu/` kernels are tested against PyTorch's own; loading them is explicit (`load_kernels()`), never implied by export |
 | The export host needs a C++ compiler, and the library is tied to the torch ABI | Built on demand by `torch.utils.cpp_extension` on WSL/Linux and macOS; stable ABI checked in Phase 0 |
-| Export dependencies grow (torch, transformers, torchao, iree-turbine, IREE compiler) | Pinned in one requirements file for the export host; the board runtime is unaffected |
+| Export dependencies grow (torch, transformers, torchao, torch-mlir) | Pinned in one requirements file for the export host; the board runtime is unaffected |
 | Performance regressions: online attention, INT8 KV and other tuned kernels become generic lowering | Tokens per second compared per model in Phases 3-4 before the old path is removed |
 | Qwen3-MoE routing exported as "run every expert" | Deferred with Qwen3; revisit when Qwen returns |
 | Building `libnpu_rt` on the board: the image's g++ / CMake versions, build time, root for `/dev/mem`, `libcma` availability | Phase 2 builds and runs it on the board and records versions and time; the deployment step fails clearly if a tool is missing |

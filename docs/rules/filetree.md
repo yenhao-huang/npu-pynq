@@ -59,7 +59,7 @@ npu_repo_in_pynq/
 |   |   `-- waves/
 |   |-- vendors/                 one folder per accelerator; imported by export and runtime, imports neither
 |   |   `-- npu_pynq/
-|   |       |-- spec/            hardware facts: isa.py, layout.py, quant.py (W8A8, W4A8), board.py
+|   |       |-- spec/            hardware facts: isa.py, layout.py, quant.py (schemes accepted), board.py
 |   |       |-- custom_dialect/  C++ (LLVM 22): the npu dialect, --npu-claim, Pack, Encode; a
 |   |       |                    library npu-compile links; never shipped to the board
 |   |       `-- driver/          board side; follows spec/
@@ -74,9 +74,11 @@ npu_repo_in_pynq/
 |   |   |-- requirements.txt     the pinned front-end frameworks
 |   |   |-- frontend/            Python
 |   |   |   |-- load/            frameworks/ (transformers, torchvision): the float model
-|   |   |   |-- quantization/    torchao/: our configs and the modules they swap in
+|   |   |   |-- quantization/    schemes.py; torchao/: our configs and the modules they swap in
 |   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point
-|   |   |   `-- to_mlir/         torch-mlir (llvm/torch-mlir wheels): model.mlir, linalg on tensors
+|   |   |   `-- to_mlir/         torch-mlir's importer (llvm/torch-mlir wheels): torch.mlir
+|   |   |-- middle-end/          C++ npu-middle-end: torch.mlir -> model.mlir; builds torch-mlir;
+|   |   |                        torch/transforms/: one file per rewrite on the torch dialect
 |   |   `-- backend/             C++ npu-compile: partition, delegates/, package (weights.bin),
 |   |                            cpu/toolchain (LLVM IR, llc, link), device_register
 |   |-- deploy/                  board bundles and release archives: bundle.py, smollm.py,
@@ -112,6 +114,8 @@ npu_repo_in_pynq/
 |   |   |-- ci-cd.md
 |   |   |-- filetree.md
 |   |   |-- create-example.md
+|   |   |-- lib/
+|   |   |   `-- register_quant.md
 |   |   `-- git/
 |   |       |-- branch.md
 |   |       |-- changelog.md
@@ -200,7 +204,10 @@ runtime the matrix example uses.
 config (`configs/*.yml`): `frontend/load/` builds the float model with its
 framework; `frontend/quantization/` quantizes it with our torchao configs;
 `frontend/export_graph/` captures it with
-`torch.export`; `frontend/to_mlir/` lowers it to linalg with torch-mlir; and
+`torch.export`; `frontend/to_mlir/` imports it into the torch dialect with
+torch-mlir; `middle-end/` (`npu-middle-end`, C++ against LLVM 22 and a pinned
+torch-mlir it builds from source) rewrites layers while they are recognisable and
+lowers them to linalg with torch-mlir's pipelines; and
 `backend/` (`npu-compile`, C++ against LLVM 22, built by `pipeline.py` when
 stale) lets each device delegate claim its operations, replaces them with
 `__delegate__(id, in, out)` calls, moves the remaining weights into

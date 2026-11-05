@@ -4,8 +4,9 @@
 
 The host exports `HuggingFaceTB/SmolLM2-135M-Instruct` through PyTorch:
 transformers loads it, our torchao config quantizes every linear layer to
-W8A8, `torch.export` captures decode and prefill, torch-mlir lowers them to
-linalg, and `npu-compile` (LLVM 22) builds the package. On the board the CPU
+W8A8, `torch.export` captures decode and prefill, torch-mlir imports them,
+`npu-middle-end` lowers them to linalg, and `npu-compile` (LLVM 22) builds the
+package. On the board the CPU
 code runs on the Cortex-A9 and every INT8 contraction runs on the NPU.
 
 **Validated on PYNQ-Z1, 2026-11-01**, with the commands below and the notebook
@@ -46,7 +47,9 @@ python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/p
 ```
 
 The checkpoint's hashes are pinned in `model-source.json`. The first build
-compiles `npu-compile` under `build/`; the export takes about five minutes.
+downloads torch-mlir and compiles `npu-middle-end` and `npu-compile` under
+`build/`, which takes about 15 minutes on two cores and needs 4 GB of memory;
+the export itself takes about five minutes.
 `src/export/configs/smollm.yml` holds the model source, the quantization, the
 cache length (256) and the prefill chunk (16).
 

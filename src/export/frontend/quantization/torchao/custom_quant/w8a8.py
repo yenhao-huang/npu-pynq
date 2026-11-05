@@ -1,6 +1,6 @@
-"""W8A8: per-output-channel INT8 weights, per-token (per-row) INT8 activations.
+"""W8A8: per-output-channel INT8 weights, per-token INT8 activations.
 
-The scheme is defined in src/vendors/npu_pynq/spec/quant.py:
+The scheme is defined in quantization/schemes.py:
 
     scale = max(amax, EPS) / 127    EPS avoids dividing by zero on an all-zero row or channel
     q     = round(value / scale)    half to even (torch.round), clamped to [-127, 127]
@@ -12,11 +12,10 @@ When each part is quantized:
                    (so there is no calibration step and no stored activation scale)
 
 The forward uses only plain ATen ops. ``torch._int_mm`` is the INT8 x INT8 -> INT32
-contraction that the back end claims for the NPU.
+contraction, on a constant weight.
 
-Overflow: src/test/model defines the array's MACs, which accumulate in saturating INT32.
-Here |acc| <= K * 127 * 127, which stays below 2**31 while K is under about 133,000.
-Saturation is therefore unreachable, and ``torch._int_mm`` gives the same result.
+Overflow: |acc| <= K * 127 * 127, which stays below 2**31 while K is under about
+133,000, so an INT32 accumulator cannot overflow or saturate.
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-from src.vendors.npu_pynq.spec.quant import W8A8
+from src.export.frontend.quantization.schemes import W8A8
 
 EPS = W8A8['eps']
 QMAX = W8A8['activation_qmax']
@@ -39,22 +38,21 @@ def quantize_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     return q, scale.to(torch.float32)
 
 
-def quantize_rows(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """[M, K] float -> ([M, K] int8, [M] float32 scale), symmetric per row."""
+def quantize_tokens(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """[M, K] float -> ([M, K] int8, [M] float32 scale), symmetric per token."""
     scale = torch.clamp(x.abs().amax(-1), min=EPS) * (1.0 / QMAX)
     q = torch.clamp(torch.round(x * (1.0 / scale)[:, None]), -QMAX, QMAX).to(torch.int8)
     return q, scale
 
 
 class W8A8Linear(nn.Module):
-    """y = (int8(x) @ W_q) * x_scale * w_scale + bias, the contraction on the NPU."""
+    """y = (int8(x) @ W_q) * x_scale * w_scale + bias."""
 
     def __init__(self, qweight: torch.Tensor, scale: torch.Tensor, bias: torch.Tensor | None) -> None:
         super().__init__()
         self.in_features, self.out_features = qweight.shape
         # Stored [K, N] so the contraction's right operand is the weight itself.
-        # It must stay a buffer. to_mlir freezes buffers into constants, and --npu-claim
-        # only takes contractions on a constant weight.
+        # It stays a buffer, so a frozen export sees the weight as a constant.
         self.register_buffer('qweight', qweight)
         self.register_buffer('scale', scale)
         self.register_buffer('bias', None if bias is None else bias.detach().to(torch.float32))
@@ -66,10 +64,10 @@ class W8A8Linear(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         shape = x.shape
-        # --npu-claim only takes rank-2 operands of static shape.
-        # Flattening to rows also gives every token its own activation scale.
+        # The contraction is rank 2, and flattening gives every token its own
+        # activation scale.
         x2 = x.reshape(-1, self.in_features).to(torch.float32)
-        xq, xs = quantize_rows(x2)
+        xq, xs = quantize_tokens(x2)
         acc = torch._int_mm(xq, self.qweight)
         y = acc.to(torch.float32) * xs[:, None] * self.scale[None, :]
         if self.bias is not None:
@@ -104,10 +102,10 @@ class W8A8Embedding(nn.Module):
 
 
 class W8A8Conv2d(nn.Module):
-    """A convolution as im2col on the CPU and one W8A8 contraction on the NPU.
+    """A convolution as im2col and one W8A8 contraction.
 
     Rows are output pixels, K is kh * kw * Cin in (ky, kx, c) order, so the
-    activation scale is per output pixel, as in src/test/model. Batch 1,
+    activation scale is per output pixel. Batch 1,
     no groups or dilation.
     """
 
@@ -139,7 +137,7 @@ class W8A8Conv2d(nn.Module):
         patches = [x[:, :, ky:ky + sh * (oh - 1) + 1:sh, kx:kx + sw * (ow - 1) + 1:sw]
                    for ky in range(kh) for kx in range(kw)]
         cols = torch.stack(patches, dim=1).permute(0, 3, 4, 1, 2).reshape(n * oh * ow, kh * kw * c)
-        xq, xs = quantize_rows(cols)
+        xq, xs = quantize_tokens(cols)
         acc = torch._int_mm(xq, self.qweight)
         y = acc.to(torch.float32) * xs[:, None] * self.scale[None, :]
         if self.bias is not None:
