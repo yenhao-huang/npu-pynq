@@ -127,6 +127,8 @@ npu_repo_in_pynq/
 |   |   |-- roadmap.md
 |   |   `-- changelog/
 |   |       `-- <YYYY-Www>.md
+|   |-- manual/
+|   |   `-- <topic>/            model.md: commands to run one part of the stack, and their outputs
 |   |-- plans/
 |   |   `-- <YYYY>-<MMDD>-<NNN>-<topic>.md
 |   |-- acceptance/
@@ -271,6 +273,10 @@ tools lives with the other skills, under
 Claude Code and Codex alike.
 
 `docs/plans/` holds architecture and implementation plans.
+`docs/manual/` holds runnable examples of parts of the stack, each with the
+output it writes; `torch_mlir_arch/model.md` gives the commands, using only
+torch and torch-mlir's own tools, that take a one-layer model to its
+ExportedProgram, torch-dialect and linalg forms.
 `docs/goals/ic-design-tools/` holds the toolchain overview and its `acceptance/`
 reproduction procedures, including commands, recorded outputs and validation
 limitations. Package installation and demo instructions live under
