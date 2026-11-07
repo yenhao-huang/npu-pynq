@@ -4,7 +4,7 @@
 #
 #   cmake -S src/export/backend -B build/pynqo-backend -G Ninja \
 #         -DMLIR_DIR=/usr/lib/llvm-22/lib/cmake/mlir
-#   cmake --build build/pynqo-backend
+#   cmake --build build/pynqo-backend -j 1
 cmake_minimum_required(VERSION 3.20)
 project(pynqo-backend LANGUAGES CXX C)
 

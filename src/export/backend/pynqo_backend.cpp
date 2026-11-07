@@ -101,8 +101,13 @@ int fail(const std::string &message) {
 
 int main(int argc, char **argv) {
   llvm::InitLLVM init(argc, argv);
-  cl::ParseCommandLineOptions(argc, argv, "NPU back end: model.mlir -> package\n");
+  cl::ParseCommandLineOptions(argc, argv, "Back end: model.mlir -> package\n");
 
+  // 0. Context and input.
+  // model.mlir holds only upstream dialects, so torch-mlir is not needed here.
+  // The npu dialect is registered for the delegate's npu.matmul; the LLVM IR
+  // translations for CPU codegen; all passes because codegen builds its
+  // pipeline from a string.
   DialectRegistry registry;
   registerAllDialects(registry);
   registerAllExtensions(registry);
@@ -119,7 +124,7 @@ int main(int argc, char **argv) {
     return fail("cannot parse " + input);
   llvm::sys::fs::create_directories(out);
 
-  // Entry points as the front end wrote them (tensors in, tensors out).
+  // 1. Entry points as the front end wrote them (tensors in, tensors out).
   // Read them now, because the passes below rewrite these signatures.
   // compile.json lists these tensors; its `abi` field describes the final calling convention.
   std::vector<std::pair<std::string, FunctionType>> entries;
@@ -127,6 +132,9 @@ int main(int argc, char **argv) {
     if (!fn.isPrivate())
       entries.push_back({fn.getName().str(), fn.getFunctionType()});
 
+  // 2. The delegates for --devices: none for [cpu], the NPU for [cpu, npu]
+  // (device_register.cpp). The rest of the back end sees only the Delegate
+  // interface (delegates/delegate.h).
   std::string error;
   backend::NpuOptions npu{rows, columns, maxK, segmentBytes};
   auto delegates = backend::registerDevices(split(devices), npu, error);
@@ -134,20 +142,34 @@ int main(int argc, char **argv) {
     return fail(error);
   // The order matters. Delegates first take the constants they read, in their own layouts.
   // externalizeWeights then stores only what the CPU code still reads.
+  // Both write into one arena, which becomes weights.bin.
   backend::WeightArena arena;
+  // 3. Partition (partition.cpp). Each delegate claims its operations (the
+  // NPU: --npu-claim turns INT8 contractions on constant weights into
+  // npu.matmul), compiles them (packs the weights into the arena, encodes
+  // programs.*), and each claimed operation is replaced by
+  // func.call @__delegate__(id, in, out). The table maps every id to its
+  // device and that device's own index.
   auto table = backend::partition(*module, *delegates, arena, out);
   if (failed(table))
     return fail("partition failed");
+  // 4. Every remaining large constant moves into the arena and is read back
+  // through a new first argument `ws` (package.cpp).
   if (failed(backend::externalizeWeights(*module, arena)))
     return fail("weight externalization failed");
+  // 5. The arena, delegate layouts and dense CPU weights together.
   if (!arena.write(out + "/weights.bin", error))
     return fail(error);
+  // The module after steps 3-4, large constants elided.
   if (keepIr) {
     std::error_code ec;
     llvm::raw_fd_ostream os(out + "/partitioned.mlir", ec, llvm::sys::fs::OF_Text);
     module->print(os, OpPrintingFlags().elideLargeElementsAttrs(16).elideLargeResourceString(64));
   }
 
+  // 6. CPU code, once per --cpus entry (cpu/toolchain.cpp): bufferize, lower
+  // to the LLVM dialect, llc for the target, link model.so. __delegate__
+  // stays undefined; the runtime's dispatcher provides it.
   std::vector<std::pair<std::string, std::string>> libraries;
   for (const std::string &name : split(cpus)) {
     auto target = backend::cpuTarget(name, error);
@@ -163,6 +185,12 @@ int main(int argc, char **argv) {
     libraries.push_back({target->model, target->model + "/model.so"});
   }
 
+  // 7. compile.json: what the runtime needs to call the package. pipeline.py
+  // adds argument names and model metadata to it to make manifest.json.
+  //   entry_points  the tensor signatures from step 1
+  //   delegates     the dispatcher's table: id -> device, index
+  //   libraries     model.so per CPU model, picked by the runtime's CPU
+  //   npu_limits    checked against the overlay before loading
   std::error_code ec;
   llvm::raw_fd_ostream os(out + "/compile.json", ec, llvm::sys::fs::OF_Text);
   if (ec)
