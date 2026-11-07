@@ -3,3 +3,4 @@ src/test/vectors/*.txt text eol=lf
 src/export/graphs/resnet18/*-source.json text eol=lf
 exp/1007_sw_stack/deploy/scripts/*.sh text eol=lf
 src/runtime/build_onnxruntime*.sh text eol=lf
+src/deploy/*.sh text eol=lf

@@ -1,7 +1,9 @@
 # File list
 
-- `README.md`: WSL deployment manual.
-- `README.macos.md`: macOS deployment manual.
+- `README.md`: Linux deployment manual. On Windows it runs in WSL, which the
+  manual says how to open.
+- `README.macos.md`: optional macOS deployment manual, only for an example
+  that can be deployed from macOS.
 - `<name>.ipynb` provides a runnable demo.
 
 # Notes

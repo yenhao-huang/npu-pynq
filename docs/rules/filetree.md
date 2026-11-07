@@ -81,7 +81,7 @@ npu_repo_in_pynq/
 |   |   |                        torch/transforms/: one file per rewrite on the torch dialect
 |   |   `-- backend/             C++ pynqo-backend: partition, delegates/, package (weights.bin),
 |   |                            cpu/toolchain (LLVM IR, llc, link), device_register
-|   |-- deploy/                  board bundles and release archives: bundle.py, smollm.py,
+|   |-- deploy/                  board bundles and release archives: bundle.py, deploy.sh,
 |   |                            resnet18.py (+ resnet18_assets.py and pins), matrix.py
 |   |-- jit/                     optional, self-contained just-in-time stack
 |   |   |-- model/               numeric and ResNet model contracts
@@ -101,8 +101,8 @@ npu_repo_in_pynq/
 |           `-- classifier/      engine, preprocessing, top-k
 |-- examples/
 |   `-- <example>/              see docs/rules/create-example.md
-|       |-- README.md            WSL deployment manual
-|       |-- README.macos.md      macOS deployment manual
+|       |-- README.md            Linux deployment manual (WSL on Windows)
+|       |-- README.macos.md      optional macOS deployment manual
 |       `-- <name>.ipynb
 |-- docs/
 |   |-- assets/
