@@ -47,12 +47,15 @@ set report_dir [file join $build_root reports]
 set artifact_dir [file join $build_root artifacts]
 set jobs 4
 
+# The manifest records HEAD as the overlay's source commit, so src/ must match
+# it. Changes elsewhere (documentation, examples) do not reach the bitstream
+# or its verifier and are allowed.
 if {!$elaborate_only && !$allow_dirty} {
-    if {[catch {exec git -C $repo_root status --porcelain --untracked-files=normal} source_status]} {
+    if {[catch {exec git -C $repo_root status --porcelain --untracked-files=normal -- src} source_status]} {
         error "cannot verify source tree cleanliness: $source_status"
     }
     if {[string trim $source_status] ne ""} {
-        error "refusing production artifact build from a dirty source tree"
+        error "refusing production artifact build: src/ has uncommitted changes:\n$source_status"
     }
 }
 

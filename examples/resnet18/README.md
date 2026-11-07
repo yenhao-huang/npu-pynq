@@ -45,7 +45,7 @@ python -m src.runtime.cli classifier --backend sim --package dist/resnet18/packa
 ## Build the NPU bitstream
 
 The export targets a 16 x 16 NPU, so the bitstream must be one too. Build it
-with Vivado (it refuses to run on uncommitted changes):
+with Vivado (it refuses to run while `src/` has uncommitted changes):
 
 ```bash
 vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl -tclargs --out dist/resnet18/overlay

@@ -22,9 +22,9 @@ python -m pip install numpy
 
 ## Build the NPU bitstream and package it
 
-Vivado refuses to build on uncommitted changes, so commit first. Vivado on
-Windows works too: run the same Tcl there, then come back to Linux for the
-packaging step.
+Vivado refuses to build while `src/` has uncommitted changes, so commit those
+first. Vivado on Windows works too: run the same Tcl there, then come back to
+Linux for the packaging step.
 
 ```bash
 vivado -mode batch -nojournal -nolog \
