@@ -58,6 +58,6 @@ the two files from Windows into WSL's `dist/smollm/overlay/`.
 bash src/deploy/deploy.sh dist/smollm examples/smollm-safetensors/smollm_safetensors.ipynb
 ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/smollm && sudo env XILINX_XRT=/usr \
   /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli llm package --overlay overlay/npu_matrix.bit \
-  --chat --stream --prompt "Write a paragraph about a neural processing unit (NPU)." --max-new 32'
+  --chat --stream --prompt "What is the capital of France?" --max-new 32'
 # or open http://192.168.2.99:9090/notebooks/smollm/smollm_safetensors.ipynb (root PYNQ kernel)
 ```
