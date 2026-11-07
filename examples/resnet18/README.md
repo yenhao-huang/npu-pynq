@@ -22,15 +22,21 @@ also needs Pillow, matplotlib and ipywidgets for the notebook:
 ssh -t xilinx@192.168.2.99 'sudo /usr/local/share/pynq-venv/bin/python3 -m pip install pillow matplotlib ipywidgets'
 ```
 
-## Export
-
-Download the weights, the labels and the test pictures (checked against pinned
-hashes, kept in `dist/resnet18/model`), then export:
+Download the model and the pictures into `dist/resnet18/model` (each file is
+checked against a pinned hash):
 
 ```bash
+# the model: ResNet-18 weights from https://download.pytorch.org/models/resnet18-f37072fd.pth
 python -m src.deploy.resnet18_assets model
+# the dataset: ImageNet class names and a test picture from https://github.com/pytorch/hub
 python -m src.deploy.resnet18_assets demo
+# the showcase: five photos from Wikimedia Commons for the notebook (optional)
 python -m src.deploy.resnet18_assets gallery
+```
+
+## Export
+
+```bash
 python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
 ```
 
