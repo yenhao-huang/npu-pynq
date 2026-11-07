@@ -2,23 +2,32 @@
 //
 // torch-mlir cannot lower _native_batch_norm_legit_no_training: it reaches the
 // module as a generic torch.operator. Any model with BatchNorm therefore needs
-// this pass to lower at all. The BatchNorm follows one of two forms:
+// this pass to lower at all.
+//
+// In inference, BatchNorm is a per-channel multiply and add:
+//
+//   BN(y)      = (y - mean) / sqrt(var + eps) * gamma + beta
+//   multiplier = gamma / sqrt(var + eps)
+//
+// so the layer before it can absorb it, with the arithmetic of PyTorch's
+// fuse_conv_bn_weights in float32:
+//
+//   weight' = weight * multiplier                       per output channel
+//   bias'   = (bias - mean) / sqrt(var + eps) * gamma + beta
+//
+// The layer before the BatchNorm takes one of two forms:
 //
 //   float   convolution(x, weight, bias) -> BatchNorm
-//           the weight and bias take the BatchNorm
+//           The convolution's weight and bias are replaced.
 //
 //   W8A8    _int_mm -> to float -> * x_scale -> * w_scale [-> + bias]
 //           -> view -> permute(0, 3, 1, 2) -> BatchNorm
-//           (W8A8Conv2d's forward.) w_scale and the bias take the BatchNorm; the
-//           INT8 weights the NPU reads do not change.
+//           (W8A8Conv2d's forward.) w_scale takes the multiplier and the bias
+//           is replaced; the INT8 weights and _int_mm do not change.
 //
-// A pair is left alone unless every value involved is a constant and each
-// intermediate result has no other user. The arithmetic is that of PyTorch's
-// fuse_conv_bn_weights, in float32:
-//
-//   multiplier = gamma / sqrt(var + eps)
-//   weight'    = weight * multiplier              per output channel
-//   bias'      = (bias - mean) / sqrt(var + eps) * gamma + beta
+// Each case is handled in three steps: match, compute, rewrite. A BatchNorm is
+// left alone unless every value involved is a constant and each intermediate
+// result has no other user.
 //
 //===----------------------------------------------------------------------===//
 #include "torch/transforms/Constants.h"
@@ -42,12 +51,45 @@ constexpr llvm::StringLiteral kBatchNorm = "torch.aten._native_batch_norm_legit_
 // Operand positions in the ATen schema of the BatchNorm.
 enum { BnInput, BnGamma, BnBeta, BnMean, BnVar, BnMomentum, BnEps };
 
+using Floats = std::vector<float>;
+
+//===----------------------------------------------------------------------===//
+// Small matching helpers
+//===----------------------------------------------------------------------===//
+
 bool isNone(Value value) { return isa<mlir::torch::Torch::NoneType>(value.getType()); }
 
-// BatchNorm's constants: one value per channel.
-struct BatchNorm {
-  std::vector<float> rsqrt, gamma, beta, mean;
+// True when `op` exists and its result feeds exactly one op, so rewriting it
+// cannot change any other user.
+template <typename OpT> bool feedsOnlyOneOp(OpT op) {
+  return op && op.getResult().hasOneUse();
+}
 
+bool isConstantInt(Value value, int64_t expected) {
+  int64_t actual;
+  return matchPattern(value, m_TorchConstantInt(&actual)) && actual == expected;
+}
+
+// A bias operand: true with `out` empty for None, true with `out` set for a
+// float32 constant, false for anything else.
+bool readOptionalBias(Value value, std::optional<Floats> &out) {
+  if (isNone(value))
+    return true;
+  out = middle_end::readFloats(value);
+  return out.has_value();
+}
+
+//===----------------------------------------------------------------------===//
+// BatchNorm's constants and the arithmetic of the fold
+//===----------------------------------------------------------------------===//
+
+struct BatchNorm {
+  Floats rsqrt; // 1 / sqrt(var + eps)
+  Floats gamma, beta, mean;
+
+  size_t channels() const { return mean.size(); }
+
+  // Reads the constants of `op`, or nullopt when any of them is not a constant.
   static std::optional<BatchNorm> read(OperatorOp op) {
     double eps;
     if (!matchPattern(op.getOperand(BnEps), m_TorchConstantFloat(&eps)))
@@ -56,169 +98,227 @@ struct BatchNorm {
     auto var = middle_end::readFloats(op.getOperand(BnVar));
     if (!mean || !var || mean->size() != var->size())
       return std::nullopt;
+
     BatchNorm bn;
     bn.mean = *mean;
     bn.rsqrt.resize(var->size());
-    for (size_t i = 0; i < var->size(); ++i)
-      bn.rsqrt[i] = 1.0f / std::sqrt((*var)[i] + static_cast<float>(eps));
+    for (size_t c = 0; c < var->size(); ++c)
+      bn.rsqrt[c] = 1.0f / std::sqrt((*var)[c] + static_cast<float>(eps));
+
     // A BatchNorm without affine parameters scales by 1 and shifts by 0.
-    bn.gamma.assign(mean->size(), 1.0f);
-    bn.beta.assign(mean->size(), 0.0f);
-    if (!isNone(op.getOperand(BnGamma))) {
-      auto gamma = middle_end::readFloats(op.getOperand(BnGamma));
-      if (!gamma || gamma->size() != mean->size())
-        return std::nullopt;
-      bn.gamma = *gamma;
-    }
-    if (!isNone(op.getOperand(BnBeta))) {
-      auto beta = middle_end::readFloats(op.getOperand(BnBeta));
-      if (!beta || beta->size() != mean->size())
-        return std::nullopt;
-      bn.beta = *beta;
-    }
+    bn.gamma.assign(bn.channels(), 1.0f);
+    bn.beta.assign(bn.channels(), 0.0f);
+    if (!readAffine(op.getOperand(BnGamma), bn.gamma) ||
+        !readAffine(op.getOperand(BnBeta), bn.beta))
+      return std::nullopt;
     return bn;
   }
 
-  // weight[channel, ...] * multiplier; `weight` holds `channels` equal rows.
-  std::vector<float> scaled(ArrayRef<float> weight) const {
-    std::vector<float> out(weight.begin(), weight.end());
-    size_t perChannel = out.size() / mean.size();
-    for (size_t c = 0; c < mean.size(); ++c)
+  // weight' = weight * gamma / sqrt(var + eps), per output channel.
+  // `weight` is `channels()` equal blocks, one per output channel.
+  Floats foldIntoWeight(ArrayRef<float> weight) const {
+    Floats out(weight.begin(), weight.end());
+    size_t perChannel = out.size() / channels();
+    for (size_t c = 0; c < channels(); ++c)
       for (size_t i = 0; i < perChannel; ++i)
         out[c * perChannel + i] *= gamma[c] * rsqrt[c];
     return out;
   }
 
-  // An absent bias is zero.
-  std::vector<float> shifted(const std::optional<std::vector<float>> &bias) const {
-    std::vector<float> out(mean.size());
-    for (size_t c = 0; c < mean.size(); ++c)
+  // bias' = (bias - mean) / sqrt(var + eps) * gamma + beta. No bias is zero.
+  Floats foldIntoBias(const std::optional<Floats> &bias) const {
+    Floats out(channels());
+    for (size_t c = 0; c < channels(); ++c)
       out[c] = ((bias ? (*bias)[c] : 0.0f) - mean[c]) * rsqrt[c] * gamma[c] + beta[c];
     return out;
   }
+
+private:
+  // gamma or beta: keeps the default for None, fails unless one value per channel.
+  static bool readAffine(Value value, Floats &out) {
+    if (isNone(value))
+      return true;
+    auto values = middle_end::readFloats(value);
+    if (!values || values->size() != out.size())
+      return false;
+    out = *values;
+    return true;
+  }
 };
+
+//===----------------------------------------------------------------------===//
+// Matching the layer before the BatchNorm
+//===----------------------------------------------------------------------===//
+
+// float: convolution(x, weight, bias) -> BatchNorm
+struct FloatConv {
+  AtenConvolutionOp conv;
+  Floats weight;
+  std::optional<Floats> bias;
+};
+
+std::optional<FloatConv> matchFloatConv(Value input, size_t channels) {
+  FloatConv m;
+  m.conv = input.getDefiningOp<AtenConvolutionOp>();
+  if (!feedsOnlyOneOp(m.conv))
+    return std::nullopt;
+  // A transposed convolution lays its weight out by input channel first.
+  bool transposed;
+  if (!matchPattern(m.conv.getTransposed(), m_TorchConstantBool(&transposed)) || transposed)
+    return std::nullopt;
+
+  auto weight = middle_end::readFloats(m.conv.getWeight());
+  if (!weight || weight->size() % channels != 0)
+    return std::nullopt;
+  m.weight = *weight;
+  if (!readOptionalBias(m.conv.getBias(), m.bias) || (m.bias && m.bias->size() != channels))
+    return std::nullopt;
+  return m;
+}
+
+// W8A8: _int_mm -> to float -> * x_scale -> * unsqueeze(w_scale) [-> + bias]
+//       -> view -> permute(0, 3, 1, 2) -> BatchNorm
+struct W8A8Conv {
+  AtenUnsqueezeOp wScale;  // unsqueeze(w_scale, 0)
+  AtenMulTensorOp rescale; // (float(_int_mm) * x_scale) * wScale
+  AtenAddTensorOp addBias; // rescale + bias; null when the layer has no bias
+  AtenViewOp view;
+  AtenPermuteOp permute;
+  Floats scale;
+  std::optional<Floats> bias;
+};
+
+// True when `value` is float(_int_mm(...)) * x_scale: the contraction's output
+// rescaled by the activation scale.
+bool isRescaledIntMm(Value value) {
+  auto xRescaled = value.getDefiningOp<AtenMulTensorOp>();
+  auto toFloat = xRescaled ? xRescaled.getSelf().getDefiningOp<Aten_ToCopyOp>() : nullptr;
+  return toFloat && toFloat.getSelf().getDefiningOp<Aten_IntMmOp>();
+}
+
+std::optional<W8A8Conv> matchW8A8Conv(Value input, size_t channels) {
+  // Walk up from the BatchNorm's input; every op on the way must feed only the next.
+  W8A8Conv m;
+
+  // permute(0, 3, 1, 2): NHWC back to NCHW.
+  m.permute = input.getDefiningOp<AtenPermuteOp>();
+  SmallVector<int64_t> dims;
+  if (!feedsOnlyOneOp(m.permute) ||
+      !matchPattern(m.permute.getDims(), m_TorchListOfConstantInts(dims)) ||
+      dims != SmallVector<int64_t>{0, 3, 1, 2})
+    return std::nullopt;
+
+  // view: the contraction's [N*H*W, C] rows back to [N, H, W, C].
+  m.view = m.permute.getSelf().getDefiningOp<AtenViewOp>();
+  if (!feedsOnlyOneOp(m.view))
+    return std::nullopt;
+
+  // + bias, if the layer has one. alpha must be 1: a plain add.
+  m.addBias = m.view.getSelf().getDefiningOp<AtenAddTensorOp>();
+  if (m.addBias && (!feedsOnlyOneOp(m.addBias) || !isConstantInt(m.addBias.getAlpha(), 1)))
+    return std::nullopt;
+
+  // * w_scale, applied to the activation-rescaled contraction.
+  Value rescaled = m.addBias ? m.addBias.getSelf() : m.view.getSelf();
+  m.rescale = rescaled.getDefiningOp<AtenMulTensorOp>();
+  if (!feedsOnlyOneOp(m.rescale) || !isRescaledIntMm(m.rescale.getSelf()))
+    return std::nullopt;
+  m.wScale = m.rescale.getOther().getDefiningOp<AtenUnsqueezeOp>();
+  if (!feedsOnlyOneOp(m.wScale) || !isConstantInt(m.wScale.getDim(), 0))
+    return std::nullopt;
+
+  // The constants: one w_scale per output channel, and the bias if present.
+  auto scale = middle_end::readFloats(m.wScale.getSelf());
+  if (!scale || scale->size() != channels)
+    return std::nullopt;
+  m.scale = *scale;
+  if (m.addBias) {
+    m.bias = middle_end::readFloats(m.addBias.getOther());
+    if (!m.bias || m.bias->size() != channels)
+      return std::nullopt;
+  }
+  return m;
+}
+
+//===----------------------------------------------------------------------===//
+// The pattern
+//===----------------------------------------------------------------------===//
 
 struct FuseConvBatchNorm : OpRewritePattern<OperatorOp> {
   FuseConvBatchNorm(MLIRContext *context, middle_end::FusedConstants &constants)
       : OpRewritePattern(context), constants(constants) {}
 
-  LogicalResult matchAndRewrite(OperatorOp bn, PatternRewriter &rewriter) const override {
-    if (bn.getName() != kBatchNorm || bn.getNumOperands() != 7 || bn.getNumResults() != 3)
+  LogicalResult matchAndRewrite(OperatorOp op, PatternRewriter &rewriter) const override {
+    // An inference BatchNorm. It also returns running_mean and running_var,
+    // which nothing may use.
+    if (op.getName() != kBatchNorm || op.getNumOperands() != 7 || op.getNumResults() != 3)
       return failure();
-    // running_mean and running_var are returned, unused, in an eval BatchNorm.
-    if (!bn.getResult(1).use_empty() || !bn.getResult(2).use_empty())
+    if (!op.getResult(1).use_empty() || !op.getResult(2).use_empty())
       return failure();
-    Value input = bn.getOperand(BnInput);
-    if (auto conv = input.getDefiningOp<AtenConvolutionOp>())
-      return fuseFloat(conv, bn, rewriter);
-    if (auto permute = input.getDefiningOp<AtenPermuteOp>())
-      return fuseW8A8(permute, bn, rewriter);
+    auto bn = BatchNorm::read(op);
+    if (!bn)
+      return failure();
+
+    Value input = op.getOperand(BnInput);
+    if (auto conv = matchFloatConv(input, bn->channels()))
+      return fuseFloat(*conv, *bn, op, rewriter);
+    if (auto conv = matchW8A8Conv(input, bn->channels()))
+      return fuseW8A8(*conv, *bn, op, rewriter);
     return failure();
   }
 
 private:
-  static void finish(OperatorOp bn, Value result, PatternRewriter &rewriter) {
-    rewriter.replaceAllUsesWith(bn.getResult(0), result);
-    rewriter.eraseOp(bn);
-  }
-
-  // A bias operand: nullopt in `out` for none; false if it is not a float constant.
-  static bool readBias(Value value, std::optional<std::vector<float>> &out) {
-    if (isNone(value))
-      return true;
-    out = middle_end::readFloats(value);
-    return out.has_value();
-  }
-
-  LogicalResult fuseFloat(AtenConvolutionOp conv, OperatorOp bn,
+  // The convolution takes weight' and bias'.
+  LogicalResult fuseFloat(FloatConv &m, const BatchNorm &bn, OperatorOp op,
                           PatternRewriter &rewriter) const {
-    bool transposed;
-    if (!conv.getResult().hasOneUse() ||
-        !matchPattern(conv.getTransposed(), m_TorchConstantBool(&transposed)) || transposed)
-      return failure();
-    auto weight = middle_end::readFloats(conv.getWeight());
-    std::optional<std::vector<float>> bias;
-    auto params = BatchNorm::read(bn);
-    if (!weight || !params || !readBias(conv.getBias(), bias))
-      return failure();
-    if (weight->size() % params->mean.size() != 0 ||
-        (bias && bias->size() != params->mean.size()))
-      return failure();
-
-    std::string key = middle_end::resourceName(conv.getWeight());
-    rewriter.setInsertionPoint(conv);
-    Value newWeight = constants.literal(rewriter, conv.getLoc(), key + "_fused_weight",
-                                        params->scaled(*weight), conv.getWeight());
+    std::string key = middle_end::resourceName(m.conv.getWeight());
+    Location loc = m.conv.getLoc();
+    rewriter.setInsertionPoint(m.conv);
+    Value weight = constants.literal(rewriter, loc, key + "_fused_weight",
+                                     bn.foldIntoWeight(m.weight), m.conv.getWeight());
     // A convolution without a bias gains one, shaped like BatchNorm's mean.
-    Value newBias = constants.literal(rewriter, conv.getLoc(), key + "_fused_bias",
-                                      params->shifted(bias), bn.getOperand(BnMean));
-    rewriter.modifyOpInPlace(conv, [&] {
-      conv.getWeightMutable().assign(newWeight);
-      conv.getBiasMutable().assign(newBias);
+    Value bias = constants.literal(rewriter, loc, key + "_fused_bias", bn.foldIntoBias(m.bias),
+                                   op.getOperand(BnMean));
+    rewriter.modifyOpInPlace(m.conv, [&] {
+      m.conv.getWeightMutable().assign(weight);
+      m.conv.getBiasMutable().assign(bias);
     });
-    finish(bn, conv.getResult(), rewriter);
+    replaceBatchNorm(op, m.conv.getResult(), rewriter);
     return success();
   }
 
-  LogicalResult fuseW8A8(AtenPermuteOp permute, OperatorOp bn,
+  // w_scale takes the multiplier and the bias becomes bias'; the INT8 weights stay.
+  LogicalResult fuseW8A8(W8A8Conv &m, const BatchNorm &bn, OperatorOp op,
                          PatternRewriter &rewriter) const {
-    SmallVector<int64_t> dims;
-    if (!permute.getResult().hasOneUse() ||
-        !matchPattern(permute.getDims(), m_TorchListOfConstantInts(dims)) ||
-        dims != SmallVector<int64_t>{0, 3, 1, 2})
-      return failure();
-    auto view = permute.getSelf().getDefiningOp<AtenViewOp>();
-    if (!view || !view.getResult().hasOneUse())
-      return failure();
-    auto add = view.getSelf().getDefiningOp<AtenAddTensorOp>();
-    if (add && !add.getResult().hasOneUse())
-      return failure();
-    int64_t alpha;
-    if (add && (!matchPattern(add.getAlpha(), m_TorchConstantInt(&alpha)) || alpha != 1))
-      return failure();
-    auto mul = (add ? add.getSelf() : view.getSelf()).getDefiningOp<AtenMulTensorOp>();
-    if (!mul || !mul.getResult().hasOneUse())
-      return failure();
-    // Make sure this is the rescale of a contraction: (float(_int_mm) * x_scale) * w_scale.
-    auto xRescaled = mul.getSelf().getDefiningOp<AtenMulTensorOp>();
-    auto toFloat = xRescaled ? xRescaled.getSelf().getDefiningOp<Aten_ToCopyOp>() : nullptr;
-    if (!toFloat || !toFloat.getSelf().getDefiningOp<Aten_IntMmOp>())
-      return failure();
-    auto unsqueeze = mul.getOther().getDefiningOp<AtenUnsqueezeOp>();
-    int64_t unsqueezeDim;
-    if (!unsqueeze || !unsqueeze.getResult().hasOneUse() ||
-        !matchPattern(unsqueeze.getDim(), m_TorchConstantInt(&unsqueezeDim)) || unsqueezeDim != 0)
-      return failure();
+    std::string key = middle_end::resourceName(m.wScale.getSelf());
+    Location loc = m.view.getLoc();
 
-    auto scale = middle_end::readFloats(unsqueeze.getSelf());
-    std::optional<std::vector<float>> bias;
-    auto params = BatchNorm::read(bn);
-    if (!scale || !params || (add && !readBias(add.getOther(), bias)))
-      return failure();
-    if (add && !bias)
-      return failure();
-    if (scale->size() != params->mean.size() || (bias && bias->size() != params->mean.size()))
-      return failure();
+    rewriter.setInsertionPoint(m.wScale);
+    Value scale = constants.literal(rewriter, m.wScale.getLoc(), key + "_fused_scale",
+                                    bn.foldIntoWeight(m.scale), m.wScale.getSelf());
+    rewriter.modifyOpInPlace(m.wScale, [&] { m.wScale.getSelfMutable().assign(scale); });
 
-    std::string key = middle_end::resourceName(unsqueeze.getSelf());
-    rewriter.setInsertionPoint(unsqueeze);
-    Value newScale = constants.literal(rewriter, unsqueeze.getLoc(), key + "_fused_scale",
-                                       params->scaled(*scale), unsqueeze.getSelf());
-    rewriter.modifyOpInPlace(unsqueeze, [&] { unsqueeze.getSelfMutable().assign(newScale); });
-    rewriter.setInsertionPoint(add ? add.getOperation() : view.getOperation());
-    Value newBias = constants.literal(rewriter, view.getLoc(), key + "_fused_bias",
-                                      params->shifted(bias), bn.getOperand(BnMean));
-    if (add) {
-      rewriter.modifyOpInPlace(add, [&] { add.getOtherMutable().assign(newBias); });
+    Operation *beforeView = m.addBias ? m.addBias.getOperation() : m.view.getOperation();
+    rewriter.setInsertionPoint(beforeView);
+    Value bias = constants.literal(rewriter, loc, key + "_fused_bias", bn.foldIntoBias(m.bias),
+                                   op.getOperand(BnMean));
+    if (m.addBias) {
+      rewriter.modifyOpInPlace(m.addBias, [&] { m.addBias.getOtherMutable().assign(bias); });
     } else {
-      // A contraction without a bias gains one, added before the view as W8A8Conv2d would.
-      Value one = ConstantIntOp::create(rewriter, view.getLoc(), rewriter.getI64IntegerAttr(1));
-      Value added = AtenAddTensorOp::create(rewriter, view.getLoc(), mul.getType(), mul.getResult(),
-                                            newBias, one);
-      rewriter.modifyOpInPlace(view, [&] { view.getSelfMutable().assign(added); });
+      // A layer without a bias gains one, added before the view as W8A8Conv2d would.
+      Value one = ConstantIntOp::create(rewriter, loc, rewriter.getI64IntegerAttr(1));
+      Value added =
+          AtenAddTensorOp::create(rewriter, loc, m.rescale.getType(), m.rescale.getResult(), bias, one);
+      rewriter.modifyOpInPlace(m.view, [&] { m.view.getSelfMutable().assign(added); });
     }
-    finish(bn, permute.getResult(), rewriter);
+    replaceBatchNorm(op, m.permute.getResult(), rewriter);
     return success();
+  }
+
+  // Every user of the BatchNorm's output now reads `result`; the BatchNorm goes.
+  static void replaceBatchNorm(OperatorOp op, Value result, PatternRewriter &rewriter) {
+    rewriter.replaceAllUsesWith(op.getResult(0), result);
+    rewriter.eraseOp(op);
   }
 
   middle_end::FusedConstants &constants;
