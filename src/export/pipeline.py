@@ -4,9 +4,9 @@
     quantize       our torchao config quantizes it (frontend/quantization)
     export_graph   torch.export: one ExportedProgram per entry point
     to_mlir        torch-mlir's importer: torch.mlir, the torch dialect
-    npu-middle-end the C++ middle end (middle-end/): our rewrites, then torch-mlir's
+    pynqo-middle-end the C++ middle end (middle-end/): our rewrites, then torch-mlir's
                    pipelines to model.mlir, linalg on tensors
-    npu-compile    the C++ back end (backend/): delegates, weights.bin, CPU code
+    pynqo-backend    the C++ back end (backend/): delegates, weights.bin, CPU code
 
 The front end runs wherever torch does; both C++ tools need Linux with LLVM 22.
 On Windows they run in WSL (paths are translated). See
@@ -21,7 +21,7 @@ import time
 
 # The runtime refuses a package with any other format.
 # Keep this equal to FORMAT in src/runtime/share/loader.py.
-PACKAGE_FORMAT = 'npu-package/2'
+PACKAGE_FORMAT = 'pynqo-package/2'
 REPO = Path(__file__).resolve().parents[2]
 BACKEND = REPO / 'src' / 'export' / 'backend'
 BACKEND_SOURCES = (BACKEND, REPO / 'src' / 'vendors' / 'npu_pynq' / 'custom_dialect')
@@ -57,44 +57,44 @@ def _linux(command: str) -> None:
 
 
 def build_backend(build_dir: str | None = None, llvm: str = '/usr/lib/llvm-22') -> str:
-    """Build npu-compile with CMake (incrementally); return its Linux path.
+    """Build pynqo-backend with CMake (incrementally); return its Linux path.
 
-    Every export calls this, so a package is never compiled by a stale npu-compile.
+    Every export calls this, so a package is never compiled by a stale pynqo-backend.
     The call is cheap: Ninja does nothing when the sources are unchanged.
     """
     import os
-    build = build_dir or os.environ.get('NPU_BACKEND_BUILD') or _linux_path(REPO / 'build' / 'npu-compile')
+    build = build_dir or os.environ.get('PYNQO_BACKEND_BUILD') or _linux_path(REPO / 'build' / 'pynqo-backend')
     _linux(f"cmake -S '{_linux_path(BACKEND)}' -B {build} -G Ninja -DCMAKE_BUILD_TYPE=Release "
            f"-DMLIR_DIR={llvm}/lib/cmake/mlir >/dev/null && cmake --build {build}")
-    return f'{build}/npu-compile'
+    return f'{build}/pynqo-backend'
 
 
 def middle_end_tool() -> str:
-    """The Linux path of npu-middle-end, built or not."""
+    """The Linux path of pynqo-middle-end, built or not."""
     import os
-    build = os.environ.get('NPU_MIDDLE_END_BUILD') or _linux_path(REPO / 'build' / 'npu-middle-end')
-    return f'{build}/npu-middle-end'
+    build = os.environ.get('PYNQO_MIDDLE_END_BUILD') or _linux_path(REPO / 'build' / 'pynqo-middle-end')
+    return f'{build}/pynqo-middle-end'
 
 
 def build_middle_end(llvm: str = '/usr/lib/llvm-22') -> str:
-    """Build npu-middle-end with CMake (incrementally); return its Linux path.
+    """Build pynqo-middle-end with CMake (incrementally); return its Linux path.
 
     The first build downloads torch-mlir and compiles it, about 13 minutes on the
     Linux file system of a 4 GB WSL. One job at a time is what that was measured
-    with; a machine with more memory can raise NPU_MIDDLE_END_JOBS.
+    with; a machine with more memory can raise PYNQO_MIDDLE_END_JOBS.
     """
     import os
     tool = middle_end_tool()
     build = tool.rsplit('/', 1)[0]
-    jobs = os.environ.get('NPU_MIDDLE_END_JOBS', '1')
+    jobs = os.environ.get('PYNQO_MIDDLE_END_JOBS', '1')
     _linux(f"cmake -S '{_linux_path(MIDDLE_END)}' -B {build} -G Ninja -DCMAKE_BUILD_TYPE=Release "
            f"-DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 "
-           f"-DMLIR_DIR={llvm}/lib/cmake/mlir >/dev/null && cmake --build {build} --target npu-middle-end -j {jobs}")
+           f"-DMLIR_DIR={llvm}/lib/cmake/mlir >/dev/null && cmake --build {build} --target pynqo-middle-end -j {jobs}")
     return tool
 
 
 def middle_end(torch_mlir: Path, out: Path, tool: str | None = None, emit: str = 'linalg') -> Path:
-    """Run npu-middle-end on ``torch_mlir``; write ``out`` and return it."""
+    """Run pynqo-middle-end on ``torch_mlir``; write ``out`` and return it."""
     _linux(f"{tool or middle_end_tool()} '{_linux_path(torch_mlir)}' -o '{_linux_path(out)}' --emit={emit}")
     return out
 
@@ -112,7 +112,7 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
                    llvm_bin: str = '/usr/lib/llvm-22/bin', timings: dict | None = None) -> Path:
     """Run the whole export for ``config`` (a configs/*.yml); write the package to ``out``.
 
-    load -> quantize -> export_graph -> to_mlir -> npu-compile -> manifest
+    load -> quantize -> export_graph -> to_mlir -> pynqo-backend -> manifest
     """
     # Imported here so that importing this module does not load torch or torch-mlir.
     import shutil
@@ -164,7 +164,7 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     torch_mlir = to_mlir(programs, out / 'ir')
     times['to_mlir'] = time.monotonic() - start
 
-    # npu-middle-end: our rewrites, then torch-mlir's pipelines to model.mlir (linalg on tensors).
+    # pynqo-middle-end: our rewrites, then torch-mlir's pipelines to model.mlir (linalg on tensors).
     start = time.monotonic()
     tool = build_middle_end()
     times['build_middle_end'] = time.monotonic() - start
@@ -172,13 +172,13 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     model_mlir = middle_end(torch_mlir, out / 'ir' / 'model.mlir', tool)
     times['middle_end'] = time.monotonic() - start
 
-    # npu-compile: the C++ back end turns model.mlir into delegates, weights.bin and CPU code.
+    # pynqo-backend: the C++ back end turns model.mlir into delegates, weights.bin and CPU code.
     start = time.monotonic()
     tool = build_backend()
     times['build_backend'] = time.monotonic() - start
     # The NPU programs are encoded for this array geometry.
     # The runtime checks the overlay against it before loading.
-    # These values are always passed, so npu-compile's own defaults are not used here.
+    # These values are always passed, so pynqo-backend's own defaults are not used here.
     limits = isa.Limits()
     start = time.monotonic()
     _linux(f"{tool} '{_linux_path(model_mlir)}' --out '{_linux_path(out)}' "
@@ -192,7 +192,7 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
         shutil.copy2(path, out / name)
     # This is a shallow merge, so manifest and compiled share the entry_points dict.
     # The names added to compiled below therefore reach manifest.json.
-    # compile.json on disk keeps what npu-compile wrote.
+    # compile.json on disk keeps what pynqo-backend wrote.
     manifest = {**compiled, 'format': PACKAGE_FORMAT, 'model': config['model'],
                 'quantization': scheme, 'compile_seconds': times}
     if graph['kind'] == 'llm':

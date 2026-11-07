@@ -50,7 +50,7 @@ def tree(package):
 def identity(package):
     manifest = json.loads((package / 'manifest.json').read_text(encoding='utf-8'))
     source = json.loads(SOURCE.read_text(encoding='utf-8'))
-    if (manifest.get('format') != 'npu-package/2' or manifest.get('model') != MODEL
+    if (manifest.get('format') != 'pynqo-package/2' or manifest.get('model') != MODEL
             or manifest['llm']['cache']['layers'] != 30
             or not any(d['device'] == 'npu' for d in manifest['delegates'])):
         raise ValueError('Unexpected model identity')

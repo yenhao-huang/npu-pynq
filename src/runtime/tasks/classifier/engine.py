@@ -12,7 +12,7 @@ from src.runtime.share.loader import ExportedPackage
 
 
 class ImageEngine:
-    """Image classification through an npu-package/2 package."""
+    """Image classification through an pynqo-package/2 package."""
 
     def __init__(self, package: str | Path, backend: str | None = None, *, overlay: Any = None,
                  stream_weights: Any = None) -> None:

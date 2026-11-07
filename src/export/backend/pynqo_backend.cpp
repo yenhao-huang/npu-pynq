@@ -1,6 +1,6 @@
-//===- npu_compile.cpp - the back end: model.mlir -> a package ------------===//
+//===- pynqo_backend.cpp - the back end: model.mlir -> a package ------------===//
 //
-//   npu-compile model.mlir --out <dir> --devices cpu,npu
+//   pynqo-backend model.mlir --out <dir> --devices cpu,npu
 //               --cpus arm-cortex-a9,native --llvm-bin /usr/lib/llvm-22/bin
 //
 //   model.mlir (linalg on tensors, weights as constants)
@@ -93,7 +93,7 @@ void tensorJson(llvm::json::OStream &j, Type type) {
 }
 
 int fail(const std::string &message) {
-  llvm::errs() << "npu-compile: " << message << "\n";
+  llvm::errs() << "pynqo-backend: " << message << "\n";
   return 1;
 }
 
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
     return fail("cannot write compile.json");
   llvm::json::OStream j(os, 2);
   j.object([&] {
-    j.attribute("format", "npu-compile/1");
+    j.attribute("format", "pynqo-backend/1");
     j.attributeArray("devices", [&] {
       for (const std::string &d : split(devices))
         j.value(d);

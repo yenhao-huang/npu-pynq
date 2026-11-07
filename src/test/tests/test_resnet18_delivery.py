@@ -24,7 +24,7 @@ class DeliveryTests(unittest.TestCase):
         (self.package / 'arm-cortex-a9').mkdir(parents=True)
         for name in ('weights.bin', 'programs.txt', 'programs.bin', 'arm-cortex-a9/model.so'):
             (self.package / name).write_bytes(b'fixture')
-        self.manifest = {'format': 'npu-package/2', 'model': 'resnet18',
+        self.manifest = {'format': 'pynqo-package/2', 'model': 'resnet18',
                          'libraries': {'arm-cortex-a9': 'arm-cortex-a9/model.so'},
                          'delegates': [{'id': 0, 'device': 'npu', 'index': 0}],
                          'classifier': {'input': {'shape': [224, 224, 3]}, 'classes': 1000},

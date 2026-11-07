@@ -1,11 +1,11 @@
-//===- npu_middle_end.cpp - the middle end: torch.mlir -> model.mlir ------===//
+//===- pynqo_middle_end.cpp - the middle end: torch.mlir -> model.mlir ------===//
 //
-//   npu-middle-end torch.mlir -o model.mlir
+//   pynqo-middle-end torch.mlir -o model.mlir
 //
 //   torch/transforms/   our rewrites on the torch dialect, while layers are recognisable
 //   torch-mlir          its two pipelines, to linalg on tensors
 //
-// The result holds only upstream dialects, which npu-compile parses.
+// The result holds only upstream dialects, which pynqo-backend parses.
 // --emit=torch stops after our rewrites, to inspect or test them.
 //
 //===----------------------------------------------------------------------===//
@@ -40,13 +40,13 @@ static constexpr const char *kLowering =
     "torch-backend-to-linalg-on-tensors-backend-pipeline";
 
 static int fail(const std::string &message) {
-  llvm::errs() << "npu-middle-end: " << message << "\n";
+  llvm::errs() << "pynqo-middle-end: " << message << "\n";
   return 1;
 }
 
 int main(int argc, char **argv) {
   llvm::InitLLVM init(argc, argv);
-  cl::ParseCommandLineOptions(argc, argv, "NPU middle end: torch dialect -> linalg\n");
+  cl::ParseCommandLineOptions(argc, argv, "Middle end: torch dialect -> linalg\n");
   if (emit != "linalg" && emit != "torch")
     return fail("--emit must be linalg or torch");
 

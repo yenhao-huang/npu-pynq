@@ -1,4 +1,4 @@
-"""Load and call a package exported through PyTorch (format npu-package/2).
+"""Load and call a package exported through PyTorch (format pynqo-package/2).
 
 The package holds model.so per CPU model, weights.bin and, for each delegate
 device, its own artefacts (programs.* for the NPU). Entry points take
@@ -22,7 +22,7 @@ import numpy as np
 
 from src.runtime.delegate import Dispatcher
 
-FORMAT = 'npu-package/2'
+FORMAT = 'pynqo-package/2'
 DTYPES = {'f32': np.float32, 'i64': np.int64, 'i32': np.int32, 'i8': np.int8}
 
 

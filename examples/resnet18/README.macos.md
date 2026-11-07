@@ -2,7 +2,7 @@
 
 [WSL](README.md) | [macOS](README.macos.md)
 
-The export back end (`npu-compile`) is built for Linux with LLVM 22, so macOS
+The export back end (`pynqo-backend`) is built for Linux with LLVM 22, so macOS
 cannot export the package yet. Export and stage it with the
 [WSL guide](README.md) and copy `dist/resnet18/board` to the Mac. Deploying
 from macOS has not been run against the board; the steps are those of the WSL

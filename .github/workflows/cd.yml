@@ -152,7 +152,7 @@ jobs:
             --extra-index-url https://download.pytorch.org/whl/cpu \
             -r src/export/requirements.txt
 
-      - name: Install LLVM 22 for npu-compile
+      - name: Install LLVM 22 for pynqo-backend
         run: |
           set -euo pipefail
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null

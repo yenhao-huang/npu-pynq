@@ -44,7 +44,7 @@ def assets(directory: Path) -> dict[str, Path]:
 
 def check(package: Path, directory: Path) -> None:
     manifest = json.loads((package / 'manifest.json').read_text())
-    if manifest.get('format') != 'npu-package/2' or 'classifier' not in manifest:
+    if manifest.get('format') != 'pynqo-package/2' or 'classifier' not in manifest:
         raise ValueError(f'{package}: not an image classifier package')
     if BOARD_CPU not in manifest['libraries']:
         raise ValueError(f'{package}: no {BOARD_CPU} library')

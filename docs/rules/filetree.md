@@ -61,7 +61,7 @@ npu_repo_in_pynq/
 |   |   `-- npu_pynq/
 |   |       |-- spec/            hardware facts: isa.py, layout.py, quant.py (schemes accepted), board.py
 |   |       |-- custom_dialect/  C++ (LLVM 22): the npu dialect, --npu-claim, Pack, Encode; a
-|   |       |                    library npu-compile links; never shipped to the board
+|   |       |                    library pynqo-backend links; never shipped to the board
 |   |       `-- driver/          board side; follows spec/
 |   |           |-- npu_rt/      libnpu_rt (C++): the NPU delegate backend, PYNQ and SIM backends,
 |   |           |                built on the target with its own g++ and CMake
@@ -69,7 +69,7 @@ npu_repo_in_pynq/
 |   |           `-- legacy/      dma.py: the ABI 1.0 DMA runtime of the matrix example
 |   |-- export/                  host-side model -> package; never runs on the board
 |   |   |-- cli.py               build <config>
-|   |   |-- pipeline.py          load -> quantize -> export_graph -> to_mlir -> npu-compile
+|   |   |-- pipeline.py          load -> quantize -> export_graph -> to_mlir -> pynqo-backend
 |   |   |-- configs/             one YAML file per model: source, quantization, graph, devices
 |   |   |-- requirements.txt     the pinned front-end frameworks
 |   |   |-- frontend/            Python
@@ -77,9 +77,9 @@ npu_repo_in_pynq/
 |   |   |   |-- quantization/    schemes.py; torchao/: our configs and the modules they swap in
 |   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point
 |   |   |   `-- to_mlir/         torch-mlir's importer (llvm/torch-mlir wheels): torch.mlir
-|   |   |-- middle-end/          C++ npu-middle-end: torch.mlir -> model.mlir; builds torch-mlir;
+|   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir; builds torch-mlir;
 |   |   |                        torch/transforms/: one file per rewrite on the torch dialect
-|   |   `-- backend/             C++ npu-compile: partition, delegates/, package (weights.bin),
+|   |   `-- backend/             C++ pynqo-backend: partition, delegates/, package (weights.bin),
 |   |                            cpu/toolchain (LLVM IR, llc, link), device_register
 |   |-- deploy/                  board bundles and release archives: bundle.py, smollm.py,
 |   |                            resnet18.py (+ resnet18_assets.py and pins), matrix.py
@@ -93,7 +93,7 @@ npu_repo_in_pynq/
 |   |   `-- delivery/            frozen optional JIT delivery helpers
 |   `-- runtime/                 board-side execution; never imports src/export
 |       |-- cli.py               one entry point: python -m src.runtime.cli {llm,classifier} ...
-|       |-- share/               knows no task: loader.py (load and call an npu-package/2),
+|       |-- share/               knows no task: loader.py (load and call an pynqo-package/2),
 |       |                        bundle.py (release bundle verification)
 |       |-- delegate/            the __delegate__ dispatcher (dispatch.c) and device backends
 |       `-- tasks/               one package per manifest graph kind, each with its own cli.py
@@ -209,10 +209,10 @@ config (`configs/*.yml`): `frontend/load/` builds the float model with its
 framework; `frontend/quantization/` quantizes it with our torchao configs;
 `frontend/export_graph/` captures it with
 `torch.export`; `frontend/to_mlir/` imports it into the torch dialect with
-torch-mlir; `middle-end/` (`npu-middle-end`, C++ against LLVM 22 and a pinned
+torch-mlir; `middle-end/` (`pynqo-middle-end`, C++ against LLVM 22 and a pinned
 torch-mlir it builds from source) rewrites layers while they are recognisable and
 lowers them to linalg with torch-mlir's pipelines; and
-`backend/` (`npu-compile`, C++ against LLVM 22, built by `pipeline.py` when
+`backend/` (`pynqo-backend`, C++ against LLVM 22, built by `pipeline.py` when
 stale) lets each device delegate claim its operations, replaces them with
 `__delegate__(id, in, out)` calls, moves the remaining weights into
 `weights.bin`, and compiles the rest for the Cortex-A9 and the host. A new

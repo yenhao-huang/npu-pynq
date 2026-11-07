@@ -2,7 +2,7 @@
 
 [Linux](README.md) | [Windows](README.win.md) | [macOS](README.macos.md)
 
-The export back end (`npu-compile`) is built for Linux with LLVM 22, so macOS
+The export back end (`pynqo-backend`) is built for Linux with LLVM 22, so macOS
 cannot export the package yet. Export it on Linux or WSL with the
 [Linux guide](README.md) (or the [Windows guide](README.win.md)) and copy
 `dist/smollm/board` to the Mac. Deploying from macOS has not been run against

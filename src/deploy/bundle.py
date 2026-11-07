@@ -1,4 +1,4 @@
-"""A board bundle: what the PYNQ-Z1 runs for one npu-package/2 package.
+"""A board bundle: what the PYNQ-Z1 runs for one pynqo-package/2 package.
 
     <out>/package/            the package with only the board's CPU library
     <out>/src/...             the runtime and the NPU driver sources (built on the board)
@@ -35,8 +35,8 @@ RELEASE_FORMAT = 'npu-bundle/1'
 def stage(package: Path, overlay: Path, out: Path, extra: dict[str, Path] | None = None) -> Path:
     """Write the bundle to ``out`` (replaced); ``extra`` maps bundle paths to files."""
     manifest = json.loads((package / 'manifest.json').read_text())
-    if manifest.get('format') != 'npu-package/2':
-        raise ValueError(f'{package}: not an npu-package/2 package')
+    if manifest.get('format') != 'pynqo-package/2':
+        raise ValueError(f'{package}: not an pynqo-package/2 package')
     if BOARD_CPU not in manifest['libraries']:
         raise ValueError(f'{package} has no {BOARD_CPU} library')
     for suffix in ('bit', 'hwh'):

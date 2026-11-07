@@ -1,4 +1,4 @@
-"""npu-middle-end: the rewrites on the torch dialect, and lowering to linalg.
+"""pynqo-middle-end: the rewrites on the torch dialect, and lowering to linalg.
 Skipped where torch or torch-mlir is missing, or the tool is not built
 (src/export/pipeline.py's build_middle_end builds it)."""
 
@@ -50,7 +50,7 @@ def w8a8(net):
 
 
 def run(net, emit):
-    """``net`` through to_mlir and npu-middle-end; the text of what they wrote, in order."""
+    """``net`` through to_mlir and pynqo-middle-end; the text of what they wrote, in order."""
     import torch
     from src.export.frontend.to_mlir import to_mlir
 
@@ -74,7 +74,7 @@ def floats(text, pattern):
     return np.frombuffer(blob(text, re.search(rf'dense_resource<(\S+{pattern})>', code(text)).group(1)), np.float32)
 
 
-@unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and npu-middle-end are required')
+@unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and pynqo-middle-end are required')
 class FuseConvBatchNormTest(unittest.TestCase):
     def test_weights_are_pytorchs_fused_weights(self):
         from torch.nn.utils.fusion import fuse_conv_bn_weights
@@ -129,7 +129,7 @@ class FuseConvBatchNormTest(unittest.TestCase):
         self.assertIn('batch_norm', code(text))
 
 
-@unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and npu-middle-end are required')
+@unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and pynqo-middle-end are required')
 class LoweringTest(unittest.TestCase):
     def test_float_model_lowers_to_upstream_dialects(self):
         _, text = run(conv_bn(), 'linalg')

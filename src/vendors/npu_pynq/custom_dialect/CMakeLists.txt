@@ -1,5 +1,5 @@
 # The npu dialect, --npu-claim, and the npu delegate's Pack and Encode steps,
-# as a static library the back end's npu-compile links (LLVM 22 / MLIR).
+# as a static library the back end's pynqo-backend links (LLVM 22 / MLIR).
 # Added with add_subdirectory() by src/export/backend/CMakeLists.txt, which
 # has already found MLIR.
 

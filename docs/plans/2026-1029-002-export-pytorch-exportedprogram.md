@@ -6,7 +6,7 @@
 
 Issue: #119 (software stack). Supersedes the front end built by
 [2026-1029-001](2026-1029-001-export-load-quantize-to-mlir.md); its
-compiler half is rewritten in C++ as `backend/`, one tool (`npu-compile`)
+compiler half is rewritten in C++ as `backend/`, one tool (`pynqo-backend`)
 built against LLVM 22, and `src/vendors/npu_pynq/` is reorganised around it
 (section 5.3d).
 
@@ -17,7 +17,7 @@ keeping as little custom code as possible:
 load ──────────────────────> export_graph ─────────────────> to_mlir ────────────────────> backend
 quantized nn.Module           ATen graph (ExportedProgram)    model.mlir (linalg)           package
 transformers / torchvision    torch.export + functional       torch-mlir: FxImporter ->     partition by device:
-+ our torchao configs         cache, default decompositions   torch dialect -> linalg       C++ npu-compile: cpu, npu
++ our torchao configs         cache, default decompositions   torch dialect -> linalg       C++ pynqo-backend: cpu, npu
 ```
 
 Quantization happens when the model is loaded: the framework applies our own
@@ -58,7 +58,7 @@ Done:
   `frontend/quantization/torchao` (`W8A8Config`, `custom_quant/w8a8.py`:
   bit-exact with `src/test/model`), `frontend/export_graph` (decode and
   prefill with a functional cache), `frontend/to_mlir/torch_mlir`.
-- Back end in C++ (`npu-compile`): partition with delegates and
+- Back end in C++ (`pynqo-backend`): partition with delegates and
   `__delegate__(id, in, out)`, generic weight externalization, CPU codegen
   in process (bufferization, out-params, LLVM IR, `llc`, link), the npu
   delegate adapter; vendor `custom_dialect/` (`npu.matmul`, `--npu-claim`,
@@ -154,7 +154,7 @@ Out of scope:
 | export_graph | `model_arch/*` weight plans and per-model `to_mlir` | **torch.export** on the loaded (already quantized) model, the KV cache as a functional cache (an input, and the updated cache an output); quantized weights expand into int8 tensors and existing ATen ops such as `_int_mm`; `run_decompositions` with PyTorch's default table. Our own kernels for existing ATen ops are registered in C++ with **`TORCH_LIBRARY_IMPL`** (section 5.3) and built with **`torch.utils.cpp_extension`**. `decode` (one token) and `prefill` (`chunk` tokens) are separate programs with static shapes |
 | to_mlir | `compilers/mlir/builder.py`, `compilers/mlir/ops/` (hand-written MLIR per op) | **torch-mlir**: its FX importer (`import_frozen_program`) takes the ExportedPrograms (one function per entry point) and emits the **torch dialect**; its two upstream pipelines convert that to **linalg**. torch-mlir comes from llvm/torch-mlir's dated release wheels and runs in process; IREE is not used |
 | ResNet convolution | hand-written im2col | upstream **MLIR** transform `convert_conv2d_to_img2col` |
-| backend | `compile.py`, `targets.py`, `compilers/mlir/toolchain.py`, `npu-opt` | **C++**: one tool, `npu-compile`, built on upstream **MLIR / LLVM 22** (section 5.3d). Delegates claim what they run and compile it (section 5.3c); the CPU module keeps one `__delegate__` call per claimed region and is lowered with upstream MLIR passes, `llc` and a linker |
+| backend | `compile.py`, `targets.py`, `compilers/mlir/toolchain.py`, `npu-opt` | **C++**: one tool, `pynqo-backend`, built on upstream **MLIR / LLVM 22** (section 5.3d). Delegates claim what they run and compile it (section 5.3c); the CPU module keeps one `__delegate__` call per claimed region and is lowered with upstream MLIR passes, `llc` and a linker |
 
 ## 3. Decisions to confirm before Phase 1
 
@@ -214,7 +214,7 @@ single ATen op.
   `TORCH_LIBRARY` (schema) and a Meta kernel (output shapes for
   `torch.export`), have the `custom_quant/` handlers make the quantized
   modules call it, and lower it in `frontend/to_mlir/custom.py`. Taken only if Phase 0 shows torchao's ops do not reach
-  `npu-compile` in a form `--npu-claim` recognises.
+  `pynqo-backend` in a form `--npu-claim` recognises.
 
 ### 3.6 Which schemes the NPU target accepts
 
@@ -256,7 +256,7 @@ Only what the frameworks cannot do:
 3. **Our own kernels for existing ATen ops, in C++** (`frontend/export_graph/aten/`,
    section 5.3). They serve PyTorch's eager execution; the compiled path does
    not need them.
-4. **The C++ backend, `npu-compile`** (section 5.3d), on upstream MLIR:
+4. **The C++ backend, `pynqo-backend`** (section 5.3d), on upstream MLIR:
    - generic passes, written once for every delegate: outlining the claimed
      regions into one module per delegate and leaving
      `func.call @__delegate__(id, ...)`; and moving weight constants (torch-mlir
@@ -294,9 +294,9 @@ frontend/load/  frontend/export_graph/  frontend/to_mlir/                     ba
   (transformers, torchvision, torchao, torch.export, torch-mlir). It knows no
   hardware, apart from the quantization spec it is handed.
 - `backend/` turns linalg into a package for the chosen devices, with our
-  `npu-compile` (C++), the vendor's dialect and upstream MLIR / LLVM.
+  `pynqo-backend` (C++), the vendor's dialect and upstream MLIR / LLVM.
 - The two never import each other; they meet only at `model.mlir`, which is
-  also where the LLVM versions of torch-mlir and `npu-compile` meet (Phase 0). A new
+  also where the LLVM versions of torch-mlir and `pynqo-backend` meet (Phase 0). A new
   model framework changes only `frontend/`; a new accelerator changes only
   `backend/` and `src/vendors/`.
 
@@ -308,7 +308,7 @@ Each stage is one directory exposing one entry function from its
 | load | `frontend/load/` | `load(source=None, framework="auto", arch=None, weights=None, sha256=None, quantization=None, require=None) -> LoadedModel` | the model, quantized when `quantization` is given and checked against `require`; its tokenizer files or class metadata, source and config | transformers, torchvision, torchao |
 | export_graph | `frontend/export_graph/` | `export_graph(module, shape) -> {"decode": ExportedProgram, "prefill": ExportedProgram}` | `decode.pt2`, `prefill.pt2`: Core ATen graphs (quantized when the model is) | torch.export |
 | to_mlir | `frontend/to_mlir/` | `to_mlir(programs) -> Path` | `model.mlir` (linalg) | torch-mlir (FX importer, upstream pipelines) |
-| backend | `backend/` | `npu-compile model.mlir --devices ... --cpus ... -o out` (Python: `build(mlir, devices, cpus, out)`) | the package directory | C++ on upstream MLIR / LLVM 22 |
+| backend | `backend/` | `pynqo-backend model.mlir --devices ... --cpus ... -o out` (Python: `build(mlir, devices, cpus, out)`) | the package directory | C++ on upstream MLIR / LLVM 22 |
 
 ```
 src/export/
@@ -362,13 +362,13 @@ src/export/
         to_torch_dialect.py   FxImporter.import_frozen_program -> torch.mlir (torch dialect)
 
   middle-end/            stage 3b: torch.mlir -> model.mlir (linalg + tensor + arith + math); C++
-    npu_middle_end.cpp   our rewrites, then torch-mlir's two upstream pipelines
+    pynqo_middle_end.cpp   our rewrites, then torch-mlir's two upstream pipelines
     patch_torch_mlir.cmake    builds torch-mlir without Python bindings or its tests
     torch/transforms/    one file per rewrite on the torch dialect (section 5.3b)
 
   backend/               stage 4: MLIR (linalg) -> package; C++ only, no Python (section 5.3d)
-    CMakeLists.txt       builds npu-compile against LLVM 22 (MLIR); links custom_dialect
-    npu_compile.cpp      the tool: model.mlir + options -> package (partition -> (cpu ||
+    CMakeLists.txt       builds pynqo-backend against LLVM 22 (MLIR); links custom_dialect
+    pynqo_backend.cpp      the tool: model.mlir + options -> package (partition -> (cpu ||
                          each delegate) -> package); also runs single passes for debugging
     partition.cpp/.h     each delegate claims; claimed regions are outlined, one module per
                          delegate, with func.call @__delegate__(id, ...) left in cpu.mlir;
@@ -402,7 +402,7 @@ src/vendors/npu_pynq/           reorganised (section 5.3d)
     layout.py            how a tiled GEMM sits in DDR
     quant.py             quantization formats the NPU accepts: W8A8, W4A8
     board.py             the board's CPU: Cortex-A9, ARMv7 hard-float, NEON
-  custom_dialect/        compile time, C++, never shipped; a library npu-compile links
+  custom_dialect/        compile time, C++, never shipped; a library pynqo-backend links
     CMakeLists.txt
     include/Npu/
       NpuOps.td          the dialect: npu.weight, npu.matmul
@@ -445,7 +445,7 @@ def export_graph(module, shape):
 ```
 
 Imports point forward only: a stage never imports a later one, and
-`frontend/` never reaches `backend/` except by running `npu-compile`. The quantization spec
+`frontend/` never reaches `backend/` except by running `pynqo-backend`. The quantization spec
 reaches `frontend/load/` as an argument from `pipeline.py`, which reads it
 from `src/vendors/npu_pynq/spec/quant.py` when the devices include `npu`. `frontend/load/` imports
 `frontend/quantization/`; `frontend/export_graph/` does not.
@@ -457,7 +457,7 @@ Removed: the current `load/`, `quantize/`, `model_arch/`, `ir/`,
 `pipeline.py`, `compile.py`, `targets.py` and `compilers/` (its
 `mlir/toolchain.py` becomes `backend/cpu/toolchain.cpp`; `mlir/builder.py`
 and `mlir/ops/` are replaced by torch-mlir; `onnx_mlir/` goes with decision 3.2), and
-`npu-opt` (replaced by `npu-compile`). Expected size of `src/export/`'s
+`npu-opt` (replaced by `pynqo-backend`). Expected size of `src/export/`'s
 Python: about 800-1200 lines (from about 5700), plus the C++ backend and the
 vendor changes.
 
@@ -642,11 +642,11 @@ same (namespace, dispatch key), so `device_register.cpp` and
 - **Scope:** these kernels run only when PyTorch executes eagerly (host
   reference runs, calibration, a future on-board PyTorch). `torch.export`
   records op names such as `aten.mm`, not kernels, and the package's code is
-  generated from MLIR by `npu-compile` and LLVM. A kernel meant to run inside the
+  generated from MLIR by `pynqo-backend` and LLVM. A kernel meant to run inside the
   compiled package needs a matching rule at the lowering level as well; that
   is planned separately once such a kernel exists.
 - **Build:** `torch.utils.cpp_extension.load` compiles on first use and when a
-  source changes, into the git-ignored `build/export-graph-aten/`, as `npu-compile`
+  source changes, into the git-ignored `build/export-graph-aten/`, as `pynqo-backend`
   builds itself; loading the library runs the registrations. CMake with
   `find_package(Torch)` is the alternative. LibTorch's stable ABI (shown in
   the PyTorch extension example) is considered so the library need not be
@@ -678,7 +678,7 @@ torch dialect (torch.aten.mm, ...)                          -> torch.mlir
    │  torch-function-to-torch-backend-pipeline and
    │  torch-backend-to-linalg-on-tensors-backend-pipeline
    ▼
-linalg + tensor + arith + math    -> model.mlir  ->  backend/ (npu-compile, C++)
+linalg + tensor + arith + math    -> model.mlir  ->  backend/ (pynqo-backend, C++)
 ```
 
 The importer takes one ExportedProgram per call into the same module, so
@@ -686,10 +686,10 @@ The importer takes one ExportedProgram per call into the same module, so
 use is one `dense_resource` constant. Nothing in `to_mlir/` writes MLIR by
 hand: `compilers/mlir/builder.py` and `compilers/mlir/ops/` are deleted.
 
-`middle-end/` is `npu-middle-end`, a C++ tool with `OpRewritePattern` passes on
+`middle-end/` is `pynqo-middle-end`, a C++ tool with `OpRewritePattern` passes on
 the torch dialect, where layers are still recognisable. The torch-mlir wheels hold
 no C++ API and bind another LLVM, so it builds torch-mlir from source as a CMake
-dependency, against the LLVM 22 `npu-compile` uses, without building LLVM. That
+dependency, against the LLVM 22 `pynqo-backend` uses, without building LLVM. That
 pins torch-mlir at `ac33bab` (2026-01-14), whose LLVM is closest to the 22.x
 branch; what later versions added and our models need is a rewrite here:
 `DecomposeIntMm` (`_int_mm` -> `mm`) and `AnyDimToAnyDims`. The importer stays the
@@ -712,11 +712,11 @@ torch-mlir comes from its own project, <https://github.com/llvm/torch-mlir>:
 the dated wheels of `llvm/torch-mlir-release` (no release on PyPI), pinned per
 platform in `requirements.txt`, which names their index with `--find-links`.
 Its Python package holds the FX importer. `torch.mlir` is written beside
-`model.mlir` and is what `npu-middle-end` reads.
+`model.mlir` and is what `pynqo-middle-end` reads.
 
 IREE is not used. Its input path (`iree-turbine` `aot.export`,
 `iree-compile --compile-to=input`) emits IREE-only ops (`util.global`,
-`hal.*`, `iree_linalg_ext.*`) that `npu-compile` does not parse; an earlier
+`hal.*`, `iree_linalg_ext.*`) that `pynqo-backend` does not parse; an earlier
 revision took torch-mlir from the IREE compiler wheel (`iree-opt`), which
 rev.26 replaced. A lowering that leaves a non-upstream op (for example
 `index_put` -> `tm_tensor.scatter`) is avoided in the model, not handled in
@@ -815,11 +815,11 @@ func.call @__delegate__(%c3, %xq_buf, %arena, %y_buf) : (...) -> ()             
   needs (as `Target` holds today: triple, CPU, features, float ABI, index
   width, library file name). The board's facts are data in
   `src/vendors/npu_pynq/spec/board.py`; the thin Python layer passes them to
-  `npu-compile` as options, so the C++ back end reads no Python and no
+  `pynqo-backend` as options, so the C++ back end reads no Python and no
   vendor source:
 
   ```
-  npu-compile model.mlir --devices=cpu,npu \
+  pynqo-backend model.mlir --devices=cpu,npu \
       --cpu=arm-cortex-a9:triple=armv7a-unknown-linux-gnueabihf,cpu=cortex-a9,features=+neon,+vfp3,float-abi=hard \
       --cpu=native -o build/pkg/smollm       # native: detected, e.g. x86_64-alderlake
   ```
@@ -856,11 +856,11 @@ Frameworks that compile for accelerators keep everything that manipulates IR
 in C++ and use Python as a thin layer: IREE (MLIR passes and `iree-compile`),
 TVM (a C++ core behind its Python API), ONNX Runtime and TensorFlow Lite
 (C++ partitioning and delegates). The front end stays in Python because it
-lives next to PyTorch; the back end becomes one C++ tool, `npu-compile`. Only
+lives next to PyTorch; the back end becomes one C++ tool, `pynqo-backend`. Only
 the language changes: `backend/` keeps the structure agreed for it
 (`partition`, `device_register`, `cpu/`, `delegates/<device>/`, `package`),
 each Python module becoming a C++ source with its header beside it, plus
-`npu_compile.cpp` (the tool's entry) and `test/`.
+`pynqo_backend.cpp` (the tool's entry) and `test/`.
 
 - **All passes run in one process**: claim, outline, externalize weights,
   pack, encode and the lowering to LLVM, with no MLIR text written and read
@@ -872,9 +872,9 @@ each Python module becoming a C++ source with its header beside it, plus
 - **CPU codegen, first version**: upstream lowering to the LLVM dialect and
   translation to LLVM IR in process, then `llc` and the linker as today;
   emitting objects through LLVM's `TargetMachine` directly comes later.
-- `npu-compile` also runs single passes, opt-style, for debugging; it
+- `pynqo-backend` also runs single passes, opt-style, for debugging; it
   replaces `npu-opt`.
-- **No Python in `backend/`.** `pipeline.py` runs `npu-compile` with the
+- **No Python in `backend/`.** `pipeline.py` runs `pynqo-backend` with the
   config as options (the board's CPU facts read from `spec/board.py`), and
   builds it first when a source is newer than the binary, as `npu-opt` builds
   itself on first use today, so the guides that rely on that keep working.
@@ -883,7 +883,7 @@ each Python module becoming a C++ source with its header beside it, plus
 
 | Python (agreed) | C++ |
 |---|---|
-| `backend/__init__.py` `build()` | `npu_compile.cpp` (the pipeline); building and running it moves to `pipeline.py` |
+| `backend/__init__.py` `build()` | `pynqo_backend.cpp` (the pipeline); building and running it moves to `pipeline.py` |
 | `partition.py` | `partition.cpp/.h` (outline + `__delegate__` calls, weight constants into the arena) |
 | `device_register.py` | `device_register.cpp/.h` |
 | `cpu/__init__.py`, `cpu/toolchain.py` | `cpu/toolchain.cpp/.h` |
@@ -940,7 +940,7 @@ src/vendors/npu_pynq/                      where each file comes from
 
 moved out: isa/sim.py -> src/test/model/isa_sim.py (the ISA golden model)
 deleted: compiler/passes.py, compiler/package.py (now Pack.cpp), lib/Lower.cpp's
-HostLowerPass, compiler/mlir/tools/npu-opt.cpp (npu-compile replaces it);
+HostLowerPass, compiler/mlir/tools/npu-opt.cpp (pynqo-backend replaces it);
 driver/abi.py (no Python struct mirrors left), driver/isa.py's IsaDevice.run, gemm
 and NpuGemm (they duplicate npu_rt's board backend), driver/placement.py and
 driver/memory.py (now load.cpp), driver/__init__.py;
@@ -948,7 +948,7 @@ driver/board_smoke.py is a separate decision
 ```
 
 **`custom_dialect/`: compile time, C++, never shipped.** A library that
-`npu-compile` links; `backend/delegates/npu/lower.cpp` calls its three passes.
+`pynqo-backend` links; `backend/delegates/npu/lower.cpp` calls its three passes.
 
 ```
 custom_dialect/
@@ -1078,7 +1078,7 @@ delete it is a separate decision outside this plan.
 - `pipeline.py` says **what** happens: load, export_graph, to_mlir and backend in
   order, each timed into the manifest's `compile_seconds`. It takes Python
   objects (the parsed config) and returns the package path. Tests, notebooks
-  and `src/deploy/` call it directly. For the back end it builds `npu-compile`
+  and `src/deploy/` call it directly. For the back end it builds `pynqo-backend`
   when stale and runs it, passing the devices, the CPU models (the board's
   facts from `spec/board.py`) and the output directory.
 - `cli.py` says **how it is invoked**: it parses arguments, reads the config
@@ -1217,9 +1217,9 @@ Answered; see "Implementation status" for the results. Recorded as asked:
   2. Does `torch.utils.cpp_extension` build `aten/` on the export hosts
      (WSL/Linux gcc, macOS clang), and does the stable ABI work with the
      pinned torch?
-  3. Does `npu-compile` (built against LLVM 22) parse IREE's output (built
+  3. Does `pynqo-backend` (built against LLVM 22) parse IREE's output (built
      against IREE's own LLVM)? If not: hand over in MLIR's generic form,
-     build `npu-compile` against IREE's LLVM, or make the back end an IREE
+     build `pynqo-backend` against IREE's LLVM, or make the back end an IREE
      compiler plugin. 3b. In what form does IREE emit the weights (dense
      constants or `dense_resource`), so `partition.cpp` can read
      them?
@@ -1259,7 +1259,7 @@ Answered; see "Implementation status" for the results. Recorded as asked:
   natively on the export machine; `driver/isa.py`, `placement.py`,
   `memory.py`, `abi.py` deleted; `isa/sim.py` moved to
   `src/test/model/isa_sim.py`, with the test that it and `sim.cpp` agree.
-- `backend/` C++ skeleton and `npu-compile`: the generic outline and
+- `backend/` C++ skeleton and `pynqo-backend`: the generic outline and
   weight-externalization passes, the npu delegate adapter, CPU codegen
   (in-process lowering to LLVM IR, then `llc` and the linker), the manifest;
   `lit` + `FileCheck` tests per pass. In-place KV cache (and, only with
@@ -1321,7 +1321,7 @@ Answered; see "Implementation status" for the results. Recorded as asked:
 
 | Risk | Mitigation |
 |---|---|
-| torch-mlir: its LLVM differs from `npu-compile`'s LLVM 22; a lowering that leaves a non-upstream op | Resolved in Phase 0: the output is upstream-only and LLVM 22 parses it; models avoid ops that lower outside upstream (`index_put`) |
+| torch-mlir: its LLVM differs from `pynqo-backend`'s LLVM 22; a lowering that leaves a non-upstream op | Resolved in Phase 0: the output is upstream-only and LLVM 22 parses it; models avoid ops that lower outside upstream (`index_put`) |
 | The back end in C++ iterates more slowly than Python and needs MLIR C++ experience | Small passes with `lit` tests; opt-style single-pass runs for debugging; CPU codegen keeps `llc` in the first version |
 | torchao's quantized tensor cannot express the numeric contract exactly | Phase 1 bit-exact checks; then an own tensor subclass in `custom_quant/`, or decision 3.1 revisited before Phase 2 |
 | torchao's API moves (it is winding down new features) | Pinned version; torchao-specific code confined to `frontend/quantization/torchao/` and `frontend/load/check.py` |

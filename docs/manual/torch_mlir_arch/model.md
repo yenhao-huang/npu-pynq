@@ -2,7 +2,7 @@
 
 The ExportedProgram is given (`1_exported_program.pt2`, readable as
 `1_exported_program.txt`): a one-layer W8A8 model, `relu(Linear(8 -> 4))`.
-Two torch-mlir steps take it to linalg, the form `npu-compile` reads.
+Two torch-mlir steps take it to linalg, the form `pynqo-backend` reads.
 
 | Step | File | Level | Tool |
 |---|---|---|---|

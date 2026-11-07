@@ -2,7 +2,7 @@
 
 [Linux](README.md) | [Windows](README.win.md) | [macOS](README.macos.md)
 
-On Windows the front end (PyTorch) runs in PowerShell and `npu-compile` runs
+On Windows the front end (PyTorch) runs in PowerShell and `pynqo-backend` runs
 in WSL Ubuntu; the export command calls WSL itself. The
 [Linux guide](README.md) describes the model and the validation result
 (PYNQ-Z1, 2026-11-01); this Windows flow produced that package.
@@ -30,8 +30,8 @@ curl.exe --fail --location --retry 3 --create-dirs `
 python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/package
 ```
 
-Set `NPU_BACKEND_BUILD` and `NPU_MIDDLE_END_BUILD` to WSL paths (for example
-`~/npu-build/npu-compile` and `~/npu-build/npu-middle-end`) to build the tools on
+Set `PYNQO_BACKEND_BUILD` and `PYNQO_MIDDLE_END_BUILD` to WSL paths (for example
+`~/npu-build/pynqo-backend` and `~/npu-build/pynqo-middle-end`) to build the tools on
 the WSL file system instead of under `build/`.
 
 ## Deploy and run
