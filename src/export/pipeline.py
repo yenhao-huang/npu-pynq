@@ -20,7 +20,7 @@ from pathlib import Path
 import time
 
 # The runtime refuses a package with any other format.
-# Keep this equal to FORMAT in src/runtime/core/delegated.py.
+# Keep this equal to FORMAT in src/runtime/share/loader.py.
 PACKAGE_FORMAT = 'npu-package/2'
 REPO = Path(__file__).resolve().parents[2]
 BACKEND = REPO / 'src' / 'export' / 'backend'

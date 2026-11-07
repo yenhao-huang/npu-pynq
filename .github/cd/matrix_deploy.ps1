@@ -63,7 +63,6 @@ if (-not $packageItem.PSIsContainer) {
 $requiredFiles = @(
     'src/test/matrix_acceptance.py',
     'package.manifest.json',
-    'src/runtime/core/matrix.py',
     'src/vendors/__init__.py',
     'src/vendors/npu_pynq/__init__.py',
     'src/vendors/npu_pynq/driver/__init__.py',

@@ -50,7 +50,7 @@ npu_repo_in_pynq/
 |   |           `-- build_overlay.tcl
 |   |-- test/
 |   |   |-- Makefile
-|   |   |-- matrix_acceptance.py     physical full-tile, edge-tile and repeat checks
+|   |   |-- matrix_acceptance.py     M/N tiling; physical full-tile, edge-tile and repeat checks
 |   |   |-- model/
 |   |   |   `-- *.py
 |   |   |-- cocotb/
@@ -92,11 +92,13 @@ npu_repo_in_pynq/
 |   |   |-- reference/           independent quantized graph reference
 |   |   `-- delivery/            frozen optional JIT delivery helpers
 |   `-- runtime/                 board-side execution; never imports src/export
-|       |-- core/                delegated.py (packages, LLM and image engines), tokenizer,
-|       |                        sampling, image preprocessing, delivery verification, matrix
+|       |-- cli.py               one entry point: python -m src.runtime.cli {llm,classifier} ...
+|       |-- share/               knows no task: loader.py (load and call an npu-package/2),
+|       |                        bundle.py (release bundle verification)
 |       |-- delegate/            the __delegate__ dispatcher (dispatch.c) and device backends
-|       |-- image_cli.py         compiled image inference and release verification
-|       `-- cli.py               run an exported LLM package
+|       `-- tasks/               one package per manifest graph kind, each with its own cli.py
+|           |-- llm/             engine, tokenizer, sampling
+|           `-- classifier/      engine, preprocessing, top-k
 |-- examples/
 |   `-- <example>/              see docs/rules/create-example.md
 |       |-- README.md            WSL deployment manual
@@ -223,7 +225,7 @@ unittest src.test.tests.test_export_layering` enforces that, and that
 `src/deploy/` stages a package for the board: the package with the board's
 library, the runtime and driver sources, the overlay and the example's files.
 A release bundle is sealed with every file's SHA-256, which
-`src/runtime/core/delivery.py` verifies on the board.
+`src/runtime/share/bundle.py` verifies on the board.
 
 `src/jit/` owns the optional just-in-time quantized graph interpreter, its
 exporter, numeric contracts, examples, references, focused tests and delivery
@@ -235,13 +237,17 @@ with JIT physically absent. The hardware numeric reference remains independently
 available under `src/test/model/numeric.py`; its contract is unchanged.
 
 `src/runtime/` runs packages on the board, or on the host with libnpu_rt's
-simulator. `core/delegated.py` loads a package's `model.so` for the CPU,
+simulator. `share/loader.py` loads a package's `model.so` for the CPU and
 installs the `__delegate__` dispatcher (`delegate/dispatch.c`, built on the
 target) and the device backends (`delegate/npu.py`: libnpu_rt with the
-buffers `pynq.allocate` provides), and runs the LLM (prefill, decode, two KV
-cache sets swapped per call) and image engines. `core/matrix.py` tiles
-logical matrix jobs through the legacy DMA runtime; `core/delivery.py`
-verifies a release bundle without compiler dependencies.
+buffers `pynq.allocate` provides). Each task under `tasks/`, one directory
+named after the manifest's graph kind, builds its engine on that: `llm/`
+(prefill, decode, two KV cache sets swapped per call) and `classifier/`.
+`cli.py` only picks the task; each task's `cli.py` owns its arguments. Tasks
+never import each other, and `share/` and `delegate/` import no task. The matrix example
+tiles its own jobs through the legacy DMA runtime (`src/test/matrix_acceptance.py`
+holds the copy CD runs); `share/bundle.py` verifies a release bundle without
+compiler dependencies.
 
 `examples/` demonstrates existing source functionality. Its tracked file list,
 platform deployment manuals, notebook requirements and generated-data locations

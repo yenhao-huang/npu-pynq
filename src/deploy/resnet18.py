@@ -7,7 +7,7 @@ Adds the example notebook, the ImageNet labels, the demo image and the
 gallery (with its licence record) under model/. On the board, from the
 bundle directory:
 
-    sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.image_cli \
+    sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli classifier \
         --package package --overlay npu_matrix.bit --image model/demo-image.jpg \
         --labels model/imagenet-classes.txt --expected-class Samoyed
 

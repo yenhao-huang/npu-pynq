@@ -9,7 +9,7 @@ import numpy as np
 
 EXAMPLE_ROOT = Path(__file__).resolve().parents[3] / 'examples/matrix-multiplication'
 
-from src.runtime.core.matrix import (
+from src.test.matrix_acceptance import (
     MatrixMultiplicationMetrics,
     MatrixMultiplicationResult,
     TiledMatrixMultiplier,
@@ -194,7 +194,7 @@ class MatrixMultiplicationNotebookTests(unittest.TestCase):
         )
         for required in (
             "load_pynq_runtime",
-            "TiledMatrixMultiplier",
+            "def tiled_matmul",
             "np.testing.assert_array_equal",
             "non_aligned",
             "repeated",

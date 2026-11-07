@@ -63,7 +63,7 @@ python -m src.deploy.smollm dist/smollm/package --overlay "$OVERLAY" --out dist/
 ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/smollm'
 scp -r dist/smollm/board/. xilinx@192.168.2.99:jupyter_notebooks/smollm/
 ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/smollm && sudo env XILINX_XRT=/usr \
-  /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli run package --overlay npu_matrix.bit \
+  /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli llm package --overlay npu_matrix.bit \
   --chat --stream --prompt "Write a paragraph about a neural processing unit (NPU)." --max-new 32'
 ```
 

@@ -12,7 +12,7 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
-def verify_delivery(root):
+def verify_bundle(root):
     root = Path(root).resolve()
     manifest = json.loads((root/'package.manifest.json').read_text())
     if manifest.get('format') != 'npu-bundle/1':

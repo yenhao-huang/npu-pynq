@@ -15,7 +15,7 @@ contractions run on the NPU and everything else on the Cortex-A9.
 all classified correctly (Samoyed 89.9%), 21 NPU calls and 35,174 jobs per
 image, about 6 s per inference. Interactive uploads were not exercised.
 After BatchNorm folding moved to `npu-middle-end`, the same images were run on
-the board on 2026-11-04 with `src.runtime.image_cli`, not the notebook: all
+the board on 2026-11-04 with `src.runtime.cli classifier`, not the notebook: all
 correct, Samoyed 90.2%, the same calls and jobs.
 
 ## Requirements
@@ -40,7 +40,7 @@ The downloaders verify size and SHA-256 and keep everything under the ignored
 `dist/resnet18/model`. Check the package on the host simulator:
 
 ```bash
-python -m src.runtime.image_cli --backend sim --package dist/resnet18/package \
+python -m src.runtime.cli classifier --backend sim --package dist/resnet18/package \
   --image dist/resnet18/model/demo-image.jpg \
   --labels dist/resnet18/model/imagenet-classes.txt --expected-class Samoyed
 ```
@@ -55,7 +55,7 @@ python -m src.deploy.resnet18 dist/resnet18/package --overlay "$OVERLAY" --out d
 ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/resnet18'
 scp -r dist/resnet18/board/. xilinx@192.168.2.99:jupyter_notebooks/resnet18/
 ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/resnet18 && sudo env XILINX_XRT=/usr \
-  /usr/local/share/pynq-venv/bin/python3 -m src.runtime.image_cli --package package \
+  /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli classifier --package package \
   --overlay npu_matrix.bit --image model/demo-image.jpg \
   --labels model/imagenet-classes.txt --expected-class Samoyed'
 ```

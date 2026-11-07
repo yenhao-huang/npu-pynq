@@ -190,7 +190,7 @@ LogicalResult codegen(ModuleOp module, const CpuTarget &target, const std::strin
 
   // A cross link has no sysroot, so libm and libgcc_s symbols stay undefined.
   // The runtime loads those libraries globally before this one
-  // (src/runtime/core/delegated.py).
+  // (src/runtime/share/loader.py).
   std::string library = dir + "/model.so";
   bool linked = target.native
                     ? run(llvmBin + "/clang", {"-shared", "-o", library, obj, rtObj, "-lm"}, error)

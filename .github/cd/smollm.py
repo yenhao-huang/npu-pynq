@@ -66,7 +66,7 @@ def check_output(ids, text):
 
 
 def reference(package):
-    from src.runtime.core.delegated import ExportedLLM
+    from src.runtime.tasks.llm import ExportedLLM
     identity(package)
     llm = ExportedLLM(package)
     ids, text, stats = llm.generate(PROMPT, max_new_tokens=TOKENS, chat=True)
@@ -97,7 +97,7 @@ def verify(package, commit, tag):
 
 def accept(args):
     from pynq import Overlay
-    from src.runtime.core.delegated import ExportedLLM
+    from src.runtime.tasks.llm import ExportedLLM
     package = args.package.resolve()
     release = verify(package, args.commit, args.tag)
     expected = json.loads((package / 'reference.json').read_text(encoding='utf-8'))

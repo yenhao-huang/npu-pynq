@@ -32,8 +32,6 @@ SOURCE_FILES = {
     ),
     "examples/matrix-multiplication/README.macos.md": "README.macos.md",
     "src/test/matrix_acceptance.py": "src/test/matrix_acceptance.py",
-    "src/runtime/core/matrix.py": "src/runtime/core/matrix.py",
-    "src/runtime/core/__init__.py": "src/runtime/core/__init__.py",
     "src/runtime/__init__.py": "src/runtime/__init__.py",
     "src/vendors/__init__.py": "src/vendors/__init__.py",
     "src/vendors/npu_pynq/__init__.py": "src/vendors/npu_pynq/__init__.py",

@@ -16,7 +16,7 @@ From the repository root, with OpenSSH:
 ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/resnet18'
 scp -r dist/resnet18/board/. xilinx@192.168.2.99:jupyter_notebooks/resnet18/
 ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/resnet18 && sudo env XILINX_XRT=/usr \
-  /usr/local/share/pynq-venv/bin/python3 -m src.runtime.image_cli --package package \
+  /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli classifier --package package \
   --overlay npu_matrix.bit --image model/demo-image.jpg \
   --labels model/imagenet-classes.txt --expected-class Samoyed'
 ```

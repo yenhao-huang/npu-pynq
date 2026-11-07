@@ -1,4 +1,4 @@
-"""Image classification through an already compiled package (no compiler imports)."""
+"""Image preprocessing and top-k predictions for a classifier package."""
 
 from __future__ import annotations
 
@@ -45,6 +45,3 @@ def top_predictions(logits, labels, k=5):
     return [Prediction(int(i), labels[i], float(probabilities[i]))
             for i in np.argsort(-probabilities, kind="stable")[:k]]
 
-
-# Image classification runs an npu-package/2 package through the delegate runtime.
-from .delegated import DelegatedImageEngine as ImageEngine  # noqa: E402

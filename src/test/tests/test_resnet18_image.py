@@ -7,7 +7,7 @@ from unittest.mock import patch
 import numpy as np
 from PIL import Image
 
-from src.runtime.core.image import ImageEngine, preprocess, top_predictions
+from src.runtime.tasks.classifier import ImageEngine, preprocess, top_predictions
 
 
 CONTRACT = {'shape':[224,224,3], 'layout':'NHWC',
@@ -39,7 +39,7 @@ class ImageTests(unittest.TestCase):
         self.assertTrue(result.flags.c_contiguous)
         np.testing.assert_allclose(result[0,0],expected,rtol=1e-6)
 
-    @patch('src.runtime.core.delegated.ExportedPackage',FakePackage)
+    @patch('src.runtime.tasks.classifier.engine.ExportedPackage',FakePackage)
     def test_abi_prediction_and_counter_deltas(self):
         engine = ImageEngine('unused','sim')
         image = np.zeros((224,224,3),np.float32)
@@ -51,7 +51,7 @@ class ImageTests(unittest.TestCase):
         self.assertEqual(top[0].name,'c')
         self.assertAlmostEqual(sum(p.probability for p in top),1)
 
-    @patch('src.runtime.core.delegated.ExportedPackage',FakePackage)
+    @patch('src.runtime.tasks.classifier.engine.ExportedPackage',FakePackage)
     def test_reject_wrong_input_before_native_call(self):
         engine = ImageEngine('unused','sim')
         for value in (np.zeros((3,224,224),np.float32), np.zeros((224,224,3),np.int8),

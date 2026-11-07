@@ -111,7 +111,7 @@ Note:
 
 - **Host compile:** `python -m src.export.cli export` turns a model into a
   package.
-- **Board run:** `python -m src.runtime.cli run` loads that package on the
+- **Board run:** `python -m src.runtime.cli llm` loads that package on the
   PYNQ-Z1 and runs inference.
 - **NPU driver:** runs on the Cortex-A9. For each NPU matrix multiplication it
   packs the activations into tiles, writes the program address to the NPU's

@@ -10,7 +10,7 @@ import unittest
 import zipfile
 
 from src.deploy import resnet18 as release
-from src.runtime.core.delivery import verify_delivery
+from src.runtime.share.bundle import verify_bundle
 from src.test.tests.test_verify_overlay import HWH
 from src.vendors.npu_pynq.driver.overlay.build import write_manifest
 
@@ -57,16 +57,16 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn('package/arm-cortex-a9/model.so', names)
         self.assertIn('src/vendors/npu_pynq/driver/npu_rt/npu_rt.h', names)
         self.assertFalse(any(name.startswith('src/export') or name.endswith('.pth') for name in names))
-        verify_delivery(destination)
+        verify_bundle(destination)
         environment = os.environ.copy()
         environment.pop('PYTHONPATH', None)
-        result = subprocess.run([sys.executable, '-m', 'src.runtime.image_cli', '--package-root', '.',
+        result = subprocess.run([sys.executable, '-m', 'src.runtime.cli', 'classifier', '--package-root', '.',
                                  '--verify-only'], cwd=destination, env=environment, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('PASS: verified the release bundle', result.stdout)
         (destination / 'package/arm-cortex-a9/model.so').write_bytes(b'tampered')
         with self.assertRaisesRegex(ValueError, 'hash mismatch'):
-            verify_delivery(destination)
+            verify_bundle(destination)
 
     def test_rejects_a_package_compiled_for_another_array(self):
         self.manifest['npu_limits']['rows'] = 16

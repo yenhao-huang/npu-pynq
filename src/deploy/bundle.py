@@ -7,13 +7,13 @@
 
 A release bundle is the same tree sealed by ``seal``: package.manifest.json
 names the release, the source and overlay commits and every file's SHA-256;
-src/runtime/core/delivery.py verifies it on the board before anything runs.
+src/runtime/share/bundle.py verifies it on the board before anything runs.
 ``archive`` writes it as a deterministic zip.
 
 On the board, from the bundle directory, the runtime runs with the PYNQ
 environment as root (overlay loading and MMIO), for example:
 
-    sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli run package ...
+    sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli llm package ...
 """
 
 from __future__ import annotations

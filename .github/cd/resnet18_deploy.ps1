@@ -103,7 +103,7 @@ $remoteCommand = @(
     "source /etc/profile.d/pynq_venv.sh",
     "test -x /usr/local/share/pynq-venv/bin/python3",
     "cd package",
-    "/usr/local/share/pynq-venv/bin/python3 -B -m src.runtime.image_cli --package-root . --package-archive '../$archiveName' --archive-sha256 '$archiveDigest' --release-tag '$ReleaseTag' --verify-only",
+    "/usr/local/share/pynq-venv/bin/python3 -B -m src.runtime.cli classifier --package-root . --package-archive '../$archiveName' --archive-sha256 '$archiveDigest' --release-tag '$ReleaseTag' --verify-only",
     "rm -f '../$archiveName'"
 ) -join '; '
 Invoke-CheckedCommand -Command 'ssh' -Arguments @($target, $remoteCommand)

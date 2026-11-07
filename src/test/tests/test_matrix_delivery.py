@@ -129,8 +129,6 @@ class StandalonePackageTests(unittest.TestCase):
             "matrix_multiplication.ipynb",
             "README.macos.md",
             "src/test/matrix_acceptance.py",
-            "src/runtime/core/matrix.py",
-            "src/runtime/core/__init__.py",
             "src/runtime/__init__.py",
             "src/vendors/__init__.py",
             "src/vendors/npu_pynq/__init__.py",
@@ -155,7 +153,7 @@ class StandalonePackageTests(unittest.TestCase):
             [sys.executable, "-c",
              "from src.runtime import load_pynq_runtime; "
              "from src.vendors.npu_pynq.driver.overlay.verify import verify_artifacts; "
-             "from src.runtime.core.matrix import TiledMatrixMultiplier"],
+             "from src.test.matrix_acceptance import TiledMatrixMultiplier"],
             cwd=self.output_dir, env=environment, capture_output=True, text=True,
         )
         self.assertEqual(imported.returncode, 0, imported.stderr)
@@ -596,7 +594,7 @@ class ReleaseWorkflowContractTests(unittest.TestCase):
             "src.deploy.resnet18_assets model",
             "src.export.cli build src/export/configs/resnet18.yml",
             "src.deploy.resnet18_assets demo",
-            "src.runtime.image_cli --backend sim",
+            "src.runtime.cli classifier --backend sim",
             "src.deploy.resnet18_assets gallery",
             "src.deploy.resnet18 dist/resnet18/package --check-only",
         ):

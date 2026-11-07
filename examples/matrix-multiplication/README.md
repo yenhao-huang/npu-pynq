@@ -50,8 +50,8 @@ Enter the board sudo password at the terminal prompt.
 Open [matrix_multiplication.ipynb](matrix_multiplication.ipynb) in the board's
 root PYNQ kernel at
 <http://192.168.2.99:9090/notebooks/npu-matrix-local/matrix_multiplication.ipynb>.
-Run every cell in order. The notebook verifies the overlay manifest and uses
-`src.runtime.core.matrix.TiledMatrixMultiplier`. `NPU_MATRIX_ARTIFACTS` can
+Run every cell in order. The notebook verifies the overlay manifest and tiles
+M and N over the physical array itself. `NPU_MATRIX_ARTIFACTS` can
 select another verified artifact directory. Notebooks are committed without outputs.
 
 The relocated runtime passed all three cases on the physical 16 x 16 FPGA

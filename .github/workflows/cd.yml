@@ -179,7 +179,7 @@ jobs:
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "host_image" python -m src.runtime.image_cli --backend sim \
+          step "host_image" python -m src.runtime.cli classifier --backend sim \
             --package dist/resnet18/package \
             --image dist/resnet18/model/demo-image.jpg \
             --labels dist/resnet18/model/imagenet-classes.txt \

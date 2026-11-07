@@ -1,5 +1,7 @@
 """Run a compiled image classifier package on an image and record block times.
 
+    python -m src.runtime.cli classifier --package package --image cat.jpg --labels labels.txt
+
 With --package-root, the release bundle (src/deploy/resnet18.py) is verified
 first and supplies the package, demo image, labels and overlay.
 """
@@ -13,14 +15,14 @@ import sys
 import time
 
 MODULE_DIR = Path(__file__).resolve().parent
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
-from src.runtime.core.image import ImageEngine, preprocess, top_predictions
+from src.runtime.tasks.classifier import ImageEngine, preprocess, top_predictions
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog="src.runtime.cli classifier")
     parser.add_argument("--package", type=Path)
     parser.add_argument("--image", type=Path)
     parser.add_argument("--labels", type=Path)
@@ -35,8 +37,8 @@ def main(argv=None):
     parser.add_argument("--evidence", type=Path)
     args = parser.parse_args(argv)
     if args.package_root:
-        from src.runtime.core.delivery import verify_delivery, sha256_file
-        manifest = verify_delivery(args.package_root)
+        from src.runtime.share.bundle import verify_bundle, sha256_file
+        manifest = verify_bundle(args.package_root)
         if args.release_tag and args.release_tag != manifest['release_tag']:
             raise ValueError('Release tag mismatch')
         if args.package_archive:
@@ -96,6 +98,3 @@ def main(argv=None):
         raise RuntimeError('Image prediction does not match the expected class')
     return 0
 
-
-if __name__ == "__main__":
-    raise SystemExit(main())
