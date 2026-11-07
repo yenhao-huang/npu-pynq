@@ -1,12 +1,16 @@
 # Recreate and optionally implement the PYNQ-Z1 NPU matrix overlay.
 # Usage: vivado -mode batch -source build_overlay.tcl -tclargs
-#        ?--array-size 2|8|16? ?--elaborate-only? ?--allow-dirty?
+#        ?--array-size 2|8|16? ?--elaborate-only? ?--allow-dirty? ?--out <dir>?
+#
+# --out also copies the verified BIT, HWH and manifest to <dir>,
+# for example dist/smollm/overlay.
 
 set script_dir [file normalize [file dirname [info script]]]
 set repo_root [file normalize [file join $script_dir .. .. .. ..]]
 set array_size 16
 set elaborate_only 0
 set allow_dirty 0
+set out_dir ""
 for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_index} {
     set argument [lindex $argv $argument_index]
     switch -- $argument {
@@ -22,6 +26,13 @@ for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_in
         }
         --elaborate-only { set elaborate_only 1 }
         --allow-dirty { set allow_dirty 1 }
+        --out {
+            incr argument_index
+            if {$argument_index >= [llength $argv]} {
+                error "--out requires a directory"
+            }
+            set out_dir [file normalize [lindex $argv $argument_index]]
+        }
         default { error "unknown argument '$argument'" }
     }
 }
@@ -251,13 +262,21 @@ file copy -force $hwh_source [file join $artifact_dir npu_matrix.hwh]
 
 set source_commit unknown
 catch {set source_commit [string trim [exec git -C $repo_root rev-parse HEAD]]}
-set verifier [file join $repo_root src runtime npu overlay build.py]
+set verifier [file join $repo_root src vendors npu_pynq driver overlay build.py]
 if {[catch {exec python $verifier \
     --source-commit $source_commit --vivado-version [version -short] \
     --array-size $array_size $artifact_dir} verify_output]} {
     error "overlay provenance verification failed: $verify_output"
 }
 puts $verify_output
+
+if {$out_dir ne ""} {
+    file mkdir $out_dir
+    foreach artifact [glob -directory $artifact_dir *] {
+        file copy -force $artifact $out_dir
+    }
+    puts "Copied the overlay to $out_dir"
+}
 
 set evidence [open [file join $report_dir build_evidence.txt] w]
 puts $evidence "vivado=[version -short]"
