@@ -286,7 +286,8 @@ inference framework and compiler do today and what is planned.
 output it writes; `torch_mlir_arch/model.md` gives the commands, using only
 torch and torch-mlir's own tools, that take a one-layer model to its
 ExportedProgram, torch-dialect and linalg forms. `venv/README.md` records
-where this machine's Python environments are and how to recreate them.
+where this machine's Python environments are and how to recreate them. `models/<model>/README.md` introduces a model an example runs: where it
+comes from, its architecture and how the export configures it.
 `docs/goals/ic-design-tools/` holds the toolchain overview and its `acceptance/`
 reproduction procedures, including commands, recorded outputs and validation
 limitations. Package installation and demo instructions live under
