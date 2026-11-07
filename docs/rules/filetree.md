@@ -83,14 +83,15 @@ npu_repo_in_pynq/
 |   |                            cpu/toolchain (LLVM IR, llc, link), device_register
 |   |-- deploy/                  board bundles and release archives: bundle.py, deploy.sh,
 |   |                            resnet18.py (+ resnet18_assets.py and pins), matrix.py
-|   |-- jit/                     optional, self-contained just-in-time stack
-|   |   |-- model/               numeric and ResNet model contracts
-|   |   |-- export/              legacy ResNet package exporter
-|   |   |-- runtime/             interpreter, local DMA/overlay, acceptance
-|   |   |-- examples/resnet18/    original JIT notebook and delivery helpers
-|   |   |-- tests/               JIT-specific regression tests
-|   |   |-- reference/           independent quantized graph reference
-|   |   `-- delivery/            frozen optional JIT delivery helpers
+|   |-- deprecate/               retired code, kept for reference; nothing active imports it
+|   |   `-- jit/                 the self-contained just-in-time stack
+|   |       |-- model/           numeric and ResNet model contracts
+|   |       |-- export/          legacy ResNet package exporter
+|   |       |-- runtime/         interpreter, local DMA/overlay, acceptance
+|   |       |-- examples/resnet18/ original JIT notebook and delivery helpers
+|   |       |-- tests/           JIT-specific regression tests
+|   |       |-- reference/       independent quantized graph reference
+|   |       `-- delivery/        frozen JIT delivery helpers
 |   `-- runtime/                 board-side execution; never imports src/export
 |       |-- cli.py               one entry point: python -m src.runtime.cli {llm,classifier} ...
 |       |-- share/               knows no task: loader.py (load and call an pynqo-package/2),
@@ -228,10 +229,10 @@ library, the runtime and driver sources, the overlay and the example's files.
 A release bundle is sealed with every file's SHA-256, which
 `src/runtime/share/bundle.py` verifies on the board.
 
-`src/jit/` owns the optional just-in-time quantized graph interpreter, its
+`src/deprecate/jit/` owns the deprecated just-in-time quantized graph interpreter, its
 exporter, numeric contracts, examples, references, focused tests and delivery
 helpers. It imports no other source packages. Active source, tests, public
-examples and delivery workflows must not import it: removing `src/jit` must
+examples and delivery workflows must not import it: removing `src/deprecate` must
 leave AOT export and inference functional. Check both boundaries with
 `python -m unittest src.test.tests.test_jit_boundary` and execute active tests
 with JIT physically absent. The hardware numeric reference remains independently
@@ -341,7 +342,7 @@ runs in CI.
 
 `src/test/model/` defines the numeric contract: quantization, rounding
 direction, saturation bounds, accumulator width and overflow behaviour. When
-`src/jit/export/` starts depending on it, promote it to `src/jit/model/` rather than
+`src/deprecate/jit/export/` starts depending on it, promote it to `src/deprecate/jit/model/` rather than
 letting production code import from a test directory.
 
 `src/test/waves/` and `src/test/build/` are generated. Only

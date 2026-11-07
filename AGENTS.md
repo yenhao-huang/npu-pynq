@@ -13,7 +13,7 @@ on-board runtime.
 | `src/hw/constraints/` | `.xdc` timing and pin constraints | yes |
 | `src/hw/vivado_tcl/<design>/` | project-regenerating Tcl | yes |
 | `src/test/` | Makefile, golden model, cocotb tests, vectors | yes (not `build/`, not `waves/`) |
-| `src/jit/` | optional self-contained just-in-time model, export, runtime and examples | yes |
+| `src/deprecate/jit/` | deprecated self-contained just-in-time model, export, runtime and examples | yes |
 | `src/vendors/<vendor>/` | one accelerator's hardware spec, MLIR dialect (C++), and board driver; imported by export and runtime | yes |
 | `src/export/` | host-side model export: PyTorch front end (load, torchao quantization, torch.export, torch-mlir import), the C++ middle end `pynqo-middle-end` and the C++ back end `pynqo-backend` | yes |
 | `src/deploy/` | board bundles and sealed release archives | yes |
@@ -49,7 +49,7 @@ and on what may not be added.
   `vivado -mode batch -source src/hw/vivado_tcl/<design>/build_overlay.tcl`,
   and attach bitstreams to a GitHub Release.
 - `src/test/model/` defines the numeric contract that `src/hw/` implements and
-  `src/jit/export/` must match: quantization, rounding, saturation, accumulator
+  `src/deprecate/jit/export/` must match: quantization, rounding, saturation, accumulator
   width and overflow. Change it only deliberately; both sides depend on it.
 - Dependencies point one way. `examples/` may import from `src/`; nothing under
   `src/` may import from `examples/`.
