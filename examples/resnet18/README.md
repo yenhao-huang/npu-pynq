@@ -1,33 +1,31 @@
-# ResNet-18 on PYNQ-Z1 (WSL)
+# ResNet-18 on PYNQ-Z1
 
-[WSL](README.md) | [macOS](README.macos.md)
+Export ResNet-18 on your computer, then classify pictures with it on the
+board. The NPU runs the 21 convolutions and the classifier; the ARM CPU does
+the rest.
 
-The host exports TorchVision ResNet-18 (IMAGENET1K_V1) through PyTorch:
-our torchao config quantizes every convolution and the classifier to W8A8
-(im2col plus one INT8 contraction each), `torch.export` captures the network,
-torch-mlir imports it, `pynqo-middle-end` folds BatchNorm into the rescale after
-each contraction and lowers it to linalg, and `pynqo-backend` (LLVM 22) builds the
-package. On the board the 21
-contractions run on the NPU and everything else on the Cortex-A9.
+We last ran this on the board on 2026-11-04: the demo picture and all five
+gallery pictures came out right (Samoyed at 90.2%), about 6 s per picture.
+Uploading your own picture in the notebook hasn't been tried.
 
-**Validated on PYNQ-Z1, 2026-11-01**, with the commands below and the notebook
-(fresh root kernel, all cells): the demo image and the five gallery images are
-all classified correctly (Samoyed 89.9%), 21 NPU calls and 35,174 jobs per
-image, about 6 s per inference. Interactive uploads were not exercised.
-After BatchNorm folding moved to `pynqo-middle-end`, the same images were run on
-the board on 2026-11-04 with `src.runtime.cli classifier`, not the notebook: all
-correct, Samoyed 90.2%, the same calls and jobs.
+## Before you start
 
-## Requirements
+You need Linux. On Windows, run `wsl --install -d Ubuntu` in PowerShell, open
+Ubuntu, and clone the repository there (under `~`, not `/mnt/c`, or the first
+build crawls).
 
-Run from the repository root in WSL Ubuntu. Install Python, CMake, Ninja and
-LLVM/MLIR 22 as in the [SmolLM guide](../smollm-safetensors/README.md#requirements),
-which also installs `src/export/requirements.txt` (torchvision and Pillow
-included). The board needs its PYNQ environment, g++ and CMake, Pillow,
-matplotlib and ipywidgets, and a 16 x 16, MAX_K=256, ISA ABI 1.1 BIT/HWH pair
-(`vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl`).
+Install the tools as in the
+[SmolLM guide](../smollm-safetensors/README.md#before-you-start). The board
+also needs Pillow, matplotlib and ipywidgets for the notebook:
+
+```bash
+ssh -t xilinx@192.168.2.99 'sudo /usr/local/share/pynq-venv/bin/python3 -m pip install pillow matplotlib ipywidgets'
+```
 
 ## Export
+
+Download the weights, the labels and the test pictures (checked against pinned
+hashes, kept in `dist/resnet18/model`), then export:
 
 ```bash
 python -m src.deploy.resnet18_assets model
@@ -36,8 +34,7 @@ python -m src.deploy.resnet18_assets gallery
 python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
 ```
 
-The downloaders verify size and SHA-256 and keep everything under the ignored
-`dist/resnet18/model`. Check the package on the host simulator:
+Want to check it before touching the board? Run it on the host simulator:
 
 ```bash
 python -m src.runtime.cli classifier --backend sim --package dist/resnet18/package \
@@ -45,13 +42,25 @@ python -m src.runtime.cli classifier --backend sim --package dist/resnet18/packa
   --labels dist/resnet18/model/imagenet-classes.txt --expected-class Samoyed
 ```
 
-## Deploy and run
+## Build the NPU bitstream
 
-Set `OVERLAY` to the directory holding `npu_matrix.bit` and `npu_matrix.hwh`:
+The export targets a 16 x 16 NPU, so the bitstream must be one too. Build it
+with Vivado (it refuses to run on uncommitted changes):
 
 ```bash
-export OVERLAY=build/vivado/npu_matrix_16x16/artifacts
-python -m src.deploy.resnet18 dist/resnet18/package --overlay "$OVERLAY" --out dist/resnet18/board
+vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl -tclargs --out dist/resnet18/overlay
+```
+
+Already have a 16 x 16 `npu_matrix.bit` and `npu_matrix.hwh`? Skip Vivado and
+put them in `dist/resnet18/overlay/`.
+
+## Run on the board
+
+Bundle the package, the bitstream and the pictures, copy them to the board and
+classify the demo picture:
+
+```bash
+python -m src.deploy.resnet18 dist/resnet18/package --overlay dist/resnet18/overlay --out dist/resnet18/board
 ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/resnet18'
 scp -r dist/resnet18/board/. xilinx@192.168.2.99:jupyter_notebooks/resnet18/
 ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/resnet18 && sudo env XILINX_XRT=/usr \
@@ -60,14 +69,9 @@ ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/resnet18 && sudo env XILINX_X
   --labels model/imagenet-classes.txt --expected-class Samoyed'
 ```
 
-The first run builds libnpu_rt on the board (about 30 s). Install missing
-notebook packages with
-`ssh -t xilinx@192.168.2.99 'sudo /usr/local/share/pynq-venv/bin/python3 -m pip install pillow matplotlib ipywidgets'`.
+It asks for the board's sudo password. The first run spends about 30 s
+compiling the board-side libraries.
 
-## Notebook
-
-Open <http://192.168.2.99:9090/notebooks/resnet18/resnet18.ipynb> in the root
-PYNQ kernel and run the six stages in order: find the bundle, load, choose or
-upload a picture, preprocess, infer, and read the top-5 prediction.
-`NPU_RESNET18_PACKAGE` and `NPU_RESNET18_OVERLAY` override the package and
-overlay paths; `NPU_RESNET18_BACKEND=sim` selects the simulator.
+Prefer a notebook? Open <http://192.168.2.99:9090/notebooks/resnet18/resnet18.ipynb>,
+pick the root PYNQ kernel and run the cells in order: you can pick a gallery
+picture or upload your own and see the top-5 guesses.

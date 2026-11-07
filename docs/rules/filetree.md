@@ -103,7 +103,6 @@ npu_repo_in_pynq/
 |-- examples/
 |   `-- <example>/              see docs/rules/create-example.md
 |       |-- README.md            Linux deployment manual (WSL on Windows)
-|       |-- README.macos.md      optional macOS deployment manual
 |       `-- <name>.ipynb
 |-- docs/
 |   |-- assets/

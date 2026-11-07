@@ -30,7 +30,6 @@ SOURCE_FILES = {
     "examples/matrix-multiplication/matrix_multiplication.ipynb": (
         "matrix_multiplication.ipynb"
     ),
-    "examples/matrix-multiplication/README.macos.md": "README.macos.md",
     "src/test/matrix_acceptance.py": "src/test/matrix_acceptance.py",
     "src/runtime/__init__.py": "src/runtime/__init__.py",
     "src/vendors/__init__.py": "src/vendors/__init__.py",

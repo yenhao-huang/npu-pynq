@@ -57,7 +57,8 @@ and on what may not be added.
   [docs/rules/filetree.md](docs/rules/filetree.md) and
   [docs/rules/create-example.md](docs/rules/create-example.md), and follow
   their requirements.
-  Keep the WSL and macOS guides consistent with the change.
+  Example guides are Linux only (Windows through WSL); keep them consistent
+  with the change.
 - `dist/` holds build products staged for the board. Nothing is authored
   there; it is empty in a clean checkout.
 - Every RTL change needs a corresponding testbench change, or a note in the

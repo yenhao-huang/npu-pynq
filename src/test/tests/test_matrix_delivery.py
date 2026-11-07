@@ -127,7 +127,6 @@ class StandalonePackageTests(unittest.TestCase):
         expected_files = {
             "README.md",
             "matrix_multiplication.ipynb",
-            "README.macos.md",
             "src/test/matrix_acceptance.py",
             "src/runtime/__init__.py",
             "src/vendors/__init__.py",

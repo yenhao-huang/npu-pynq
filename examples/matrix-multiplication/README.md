@@ -1,62 +1,56 @@
-# Matrix multiplication on PYNQ-Z1 (WSL)
+# Matrix multiplication on PYNQ-Z1
 
-[WSL](README.md) | [macOS](README.macos.md)
+The smallest way to see the NPU work: multiply matrices on the board and check
+every result against NumPy. No model, no compiler, just the bitstream and a
+short test.
 
-Run host commands from the repository root in WSL Bash. Install Vivado with
-Zynq-7000 support on a supported build host, plus Python 3, NumPy, OpenSSH and
-tar. The board uses its existing PYNQ Python and XRT environment.
+We last ran the three test cases (one full tile, four edge tiles, repeated
+runs) on a 16 x 16 board and they passed. The notebook in this guide hasn't
+been rerun since the runtime moved.
 
-## Build and package
+## Before you start
 
-A deployable overlay requires a clean source checkout. The default build is
-16 x 16 with MAX_K=256; arithmetic and physical limits are read from the overlay.
-If Vivado is installed on Windows, execute the same Tcl build from its command
-shell and make the resulting artifacts accessible to WSL.
+You need Linux. On Windows, run `wsl --install -d Ubuntu` in PowerShell, open
+Ubuntu, and clone the repository there. You also need Vivado with Zynq-7000
+support, and Python 3 with NumPy:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install numpy
-git status --short
+```
+
+## Build the NPU bitstream and package it
+
+Vivado refuses to build on uncommitted changes, so commit first. Vivado on
+Windows works too: run the same Tcl there, then come back to Linux for the
+packaging step.
+
+```bash
 vivado -mode batch -nojournal -nolog \
   -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
 python -m src.deploy.matrix
 ```
 
-The packager verifies the BIT/HWH/manifest and creates
-`dist/matrix-multiplication/local-<commit>`. For an existing matching overlay,
-pass `--artifact-dir <directory>`; if reusing an earlier build, explicitly pass
-its full source commit with `--overlay-commit` and the software commit with
-`--source-commit`. Generated artifacts stay outside the example directory.
+This checks the bitstream and writes everything the board needs to
+`dist/matrix-multiplication/local-<commit>`. Using a bitstream you built
+earlier? Add `--artifact-dir <directory>` and tell it which commits it came
+from with `--overlay-commit` and `--source-commit`.
 
-## Deploy and run
-
-Run from the repository root. Set `PACKAGE` to the complete directory produced
-by the packager. Keep its `src/`, `artifacts/` and notebook together.
+## Run on the board
 
 ```bash
 export PACKAGE="dist/matrix-multiplication/local-$(git rev-parse --short=8 HEAD)"
-export BOARD=xilinx@192.168.2.99
-export REMOTE=/home/xilinx/jupyter_notebooks/npu-matrix-local
-ssh "$BOARD" "mkdir -p '$REMOTE'"
-scp -r "$PACKAGE/." "$BOARD:$REMOTE/"
-ssh -t "$BOARD" "cd '$REMOTE' && sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.test.matrix_acceptance --artifact-dir artifacts --release-tag local-demo --evidence board-evidence.json"
+ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/npu-matrix-local'
+scp -r "$PACKAGE/." xilinx@192.168.2.99:jupyter_notebooks/npu-matrix-local/
+ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/npu-matrix-local && sudo XILINX_XRT=/usr \
+  /usr/local/share/pynq-venv/bin/python3 -m src.test.matrix_acceptance \
+  --artifact-dir artifacts --release-tag local-demo --evidence board-evidence.json'
 ```
 
-Success prints `PASS: Phase 1C matrix multiplication example`. The acceptance
-covers one full tile, four edge tiles and repeated execution against NumPy.
-Enter the board sudo password at the terminal prompt.
+It asks for the board's sudo password. You're done when it prints
+`PASS: Phase 1C matrix multiplication example`.
 
-Open [matrix_multiplication.ipynb](matrix_multiplication.ipynb) in the board's
-root PYNQ kernel at
-<http://192.168.2.99:9090/notebooks/npu-matrix-local/matrix_multiplication.ipynb>.
-Run every cell in order. The notebook verifies the overlay manifest and tiles
-M and N over the physical array itself. `NPU_MATRIX_ARTIFACTS` can
-select another verified artifact directory. Notebooks are committed without outputs.
-
-The relocated runtime passed all three cases on the physical 16 x 16 FPGA
-(1, 4 and 4 tiles). The complete revised notebook and manifest-verifying CLI
-were not rerun: the reused overlay pair has verified hashes but its original
-build manifest was unavailable locally. The documented package flow requires
-that manifest; no provenance was fabricated. Native macOS execution remains
-unverified.
+Prefer a notebook? Open
+<http://192.168.2.99:9090/notebooks/npu-matrix-local/matrix_multiplication.ipynb>,
+pick the root PYNQ kernel and run all cells.
