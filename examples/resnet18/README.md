@@ -51,6 +51,16 @@ with Vivado (it refuses to run on uncommitted changes):
 vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl -tclargs --out dist/resnet18/overlay
 ```
 
+Run this wherever Vivado is installed. That is often Windows, not WSL: then
+run it in PowerShell from a Windows checkout of this repository, and copy the
+result into your WSL checkout (`<you>` is your WSL user name, `<repo>` the
+folder you cloned into):
+
+```powershell
+vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl -tclargs --out dist/resnet18/overlay
+Copy-Item -Recurse -Force dist\resnet18\overlay \\wsl$\Ubuntu\home\<you>\<repo>\dist\resnet18\
+```
+
 Already have a 16 x 16 `npu_matrix.bit` and `npu_matrix.hwh`? Skip Vivado and
 put them in `dist/resnet18/overlay/`.
 
