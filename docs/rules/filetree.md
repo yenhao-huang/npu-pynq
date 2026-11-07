@@ -137,6 +137,7 @@ npu_repo_in_pynq/
 |   |   `-- reproduce.md        how to reproduce a delivered capability
 |   |-- <toolchain>/
 |   |   `-- README.md           developer toolchain documentation
+|   |-- milestone.md          software-stack feature checklist: done and planned
 |   `-- <design>-spec.md
 |-- tools/
 |   `-- ic/                     agent-facing IC design toolchain
@@ -279,6 +280,8 @@ tools lives with the other skills, under
 Claude Code and Codex alike.
 
 `docs/plans/` holds architecture and implementation plans.
+`docs/milestone.md` is the software stack's feature checklist: what the
+inference framework and compiler do today and what is planned.
 `docs/manual/` holds runnable examples of parts of the stack, each with the
 output it writes; `torch_mlir_arch/model.md` gives the commands, using only
 torch and torch-mlir's own tools, that take a one-layer model to its
