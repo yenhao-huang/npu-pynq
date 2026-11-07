@@ -54,10 +54,34 @@ the two files from Windows into WSL's `dist/smollm/overlay/`.
 
 ## Run on the board
 
-Send `dist/smollm` to the board, then chat with it:
+### Connect
+
+Plug the board into your computer with an Ethernet cable and power it on.
+The board is at `192.168.2.99`, so give your computer's Ethernet port an
+address on the same network, such as `192.168.2.1`, with mask
+`255.255.255.0`. Then check you can log in (it asks for the board's
+password):
+
+```bash
+ssh xilinx@192.168.2.99 'echo connected'
+```
+
+Tired of typing the password? Run `ssh-copy-id xilinx@192.168.2.99` once.
+
+### Send
 
 ```bash
 src/deploy/deploy.sh dist/smollm examples/smollm-safetensors/smollm_safetensors.ipynb
+```
+
+This copies the runtime and the NPU driver into `dist/smollm/src`, adds the
+notebook, and sends the whole `dist/smollm` (package, overlay, runtime) to
+`~/jupyter_notebooks/smollm` on the board with `scp`. Your board somewhere
+else? Set `BOARD`, for example `BOARD=xilinx@10.0.0.5 src/deploy/deploy.sh ...`.
+
+### Chat
+
+```bash
 ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/smollm && sudo env XILINX_XRT=/usr \
   /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli llm package --overlay overlay/npu_matrix.bit \
   --chat --stream --prompt "Write a paragraph about a neural processing unit (NPU)." --max-new 32'
