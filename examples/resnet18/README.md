@@ -42,27 +42,19 @@ python -m src.runtime.cli classifier --backend sim --package dist/resnet18/packa
   --labels dist/resnet18/model/imagenet-classes.txt --expected-class Samoyed
 ```
 
-## Build the NPU bitstream
+## Build the NPU bitstream (recommended on Windows)
 
 The export targets a 16 x 16 NPU, so the bitstream must be one too. Build it
-with Vivado (it refuses to run while `src/` has uncommitted changes):
-
-```bash
-vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl -tclargs --out dist/resnet18/overlay
-```
-
-Run this wherever Vivado is installed. That is often Windows, not WSL: then
-run it in PowerShell from a Windows checkout of this repository, and copy the
-result into your WSL checkout (`<you>` is your WSL user name, `<repo>` the
-folder you cloned into):
+on Windows, where Vivado is installed; PowerShell from the repository root
+works. It refuses to run while `src/` has uncommitted changes.
 
 ```powershell
 vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl -tclargs --out dist/resnet18/overlay
-Copy-Item -Recurse -Force dist\resnet18\overlay \\wsl$\Ubuntu\home\<you>\<repo>\dist\resnet18\
 ```
 
 Already have a 16 x 16 `npu_matrix.bit` and `npu_matrix.hwh`? Skip Vivado and
-put them in `dist/resnet18/overlay/`.
+put them in `dist/resnet18/overlay/`. Cloned the repository inside WSL? Copy
+the two files from Windows into WSL's `dist/resnet18/overlay/`.
 
 ## Run on the board
 
