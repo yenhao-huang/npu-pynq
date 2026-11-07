@@ -78,34 +78,17 @@ overlay, and package it for the board:
 
 ## Software Stack
 
-```text
-       ONNX / safetensors / TorchVision
-                 |
-                 v
- HOST       +----------+  MLIR  +------------+  LLVM-IR  +------+
- (compile)  | Frontend +------->|  NPU-MLIR  +---------->| LLVM |
-            | (graph)  |        |            |           +--+---+
-            +----------+        | Quant,     |              |
-                                | Partition, |              |
-                                | Tiling,    |              |
-                                | Lowering   |              |
-                                +-----+------+              |
-                                      | custom ISA          | CPU code
- -------------------------------------+---------------------+-------
- BOARD                                v                     v
- (PYNQ-Z1)  +------------------------------------------------------+
-            |                       Runtime                        |
-            +---------------------+-----------------+--------------+
-                                  v                 |
-                           +-------------+          |
-                           | NPU driver  |          |
-                           |    (CPU)    |          |
-                           +------+------+          |
-                                  v                 v
-                           +-------------+   +-------------+
-                           |     NPU     |   |  Cortex-A9  |
-                           +-------------+   +-------------+
-```
+![Pynqo software stack: PyTorch, Torch-MLIR, Pynqo MLIR, LLVM, runtime and driver, CPU and NPU](docs/assets/npu-compilation-stack.svg)
+
+PyTorch loads and quantizes the model (torchao) and exports an ExportedProgram.
+Torch-MLIR imports it as the torch dialect. Pynqo MLIR runs the middle end
+(fusion, decomposition, lowering to linalg) and the backend, which partitions
+the graph between the two devices and generates code for each:
+
+- **CPU:** LLVM IR, compiled by LLVM (`llc`, `ld.lld`) into a `.so` that the
+  runtime runs on the Cortex-A9.
+- **NPU:** NPU ISA programs. The runtime hands each NPU region to the driver
+  through `__delegate__`, and the driver runs it on the NPU.
 
 Note:
 
