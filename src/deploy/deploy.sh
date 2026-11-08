@@ -5,8 +5,9 @@
 #
 # <dir> holds package/ (the export) and overlay/ (the bitstream). This copies
 # the runtime and the NPU driver sources into <dir>/src, adds the files, and
-# copies <dir> to ~/jupyter_notebooks/ on the board. BOARD overrides the
-# target (default xilinx@192.168.2.99).
+# copies <dir> to ~/jupyter_notebooks/ on the board. What only the host uses
+# stays behind: other CPUs' libraries, ir/, compile.json and *.pth weights.
+# BOARD overrides the target (default xilinx@192.168.2.99).
 set -euo pipefail
 
 dir=${1:?usage: deploy.sh <dir> [files...]}
@@ -23,4 +24,12 @@ cp -r "$repo/src/vendors/npu_pynq/__init__.py" "$repo/src/vendors/npu_pynq/drive
 find "$dir/src" -name __pycache__ -prune -exec rm -rf {} +
 if [ $# -gt 0 ]; then cp "$@" "$dir/"; fi
 
-scp -r "$dir" "$board:jupyter_notebooks/"
+name=$(basename "$dir")
+skip=(--exclude="$name/package/ir" --exclude="$name/package/compile.json" --exclude="*.pth")
+for lib in "$dir"/package/*/model.so; do
+  cpu=$(basename "$(dirname "$lib")")
+  if [ -f "$lib" ] && [ "$cpu" != arm-cortex-a9 ]; then skip+=(--exclude="$name/package/$cpu"); fi
+done
+
+tar -C "$(dirname "$dir")" "${skip[@]}" -cf - "$name" |
+  ssh "$board" 'mkdir -p jupyter_notebooks && tar -xf - -C jupyter_notebooks'
