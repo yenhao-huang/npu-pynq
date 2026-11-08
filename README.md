@@ -41,24 +41,24 @@ The SmolLM build guide uses `dist/` for generated model assets and packages.
 ### Quick start
 
 1. Download the package on your computer:
-   [npu-resnet18-v1.0.6.zip](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.6/npu-resnet18-v1.0.6.zip).
-2. Copy it to the PYNQ-Z1 (`<user>` is the board account, `xilinx` by default):
+   [npu-resnet18-v1.0.7.zip](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.7/npu-resnet18-v1.0.7.zip).
+2. Copy it to the PYNQ-Z1:
 
    ```bash
-   scp npu-resnet18-v1.0.6.zip <user>@192.168.2.99:~/jupyter_notebooks/
+   scp npu-resnet18-v1.0.7.zip xilinx@192.168.2.99:~/jupyter_notebooks/
    ```
 
 3. Log in to the board:
 
    ```bash
-   ssh <user>@192.168.2.99
+   ssh xilinx@192.168.2.99
    ```
 
 4. Extract the package:
 
    ```bash
    cd ~/jupyter_notebooks
-   unzip npu-resnet18-v1.0.6.zip -d npu-resnet18
+   unzip npu-resnet18-v1.0.7.zip -d npu-resnet18
    ```
 
 5. Open the notebook in Jupyter at
@@ -103,8 +103,10 @@ Note:
 
 ![PYNQ-Z1 NPU hardware architecture](docs/assets/npu-hardware-architecture.svg)
 
-The Zynq processing system drives the accelerator (controller, operand memory,
-systolic array) over DMA and AXI.
+The diagram groups the hardware by function: the Zynq processing system uses
+DMA and AXI to move data and control the accelerator. The accelerator contains
+the controller, operand memory, and systolic array. The overlay defaults to a
+16 x 16 array and also supports 8 x 8 and 2 x 2 builds.
 
 ## Supported target and contracts
 

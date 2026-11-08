@@ -43,6 +43,13 @@ If the version needs to change, rename the changelog file; nothing else selects
 the version. Default to the next patch unless the release decision says
 otherwise.
 
+Before the final CD run, update the README Quick Start download link and its
+`scp` and `unzip` commands to `npu-resnet18-vX.Y.Z.zip` for this release. Include
+that change in the release source before validation, preferably on `dev` before
+cutting the release branch. The new download URL becomes live when the release
+is published. GitHub's `/releases/latest/download/` URL still requires an exact
+asset filename; `<latest>` is a version placeholder, not a literal filename.
+
 ## 2. Bring the runners online
 
 Do this yourself, before pushing. Two CD jobs need this host's runners, and a
@@ -196,6 +203,12 @@ gh workflow run release-publish.yml -f release_tag=vX.Y.Z
 It refuses a draft that is missing assets, a commit that is not contained in
 `main`, and a tag that already exists. It builds nothing and touches no board.
 Approving the `pynq-z1-release` environment is the release decision.
+
+After publication, verify that the README Quick Start link resolves to the
+published `npu-resnet18-vX.Y.Z.zip` asset and that its `scp` and `unzip`
+commands use the same filename. If the README update was missed before CD,
+prepare a documentation-only follow-up PR to `main`; do not push a docs-only
+commit to the release branch just to fix the link, because that starts CD again.
 
 ## Reporting state
 
