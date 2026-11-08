@@ -1,0 +1,94 @@
+{
+  "package": "build/pkg/resnet18",
+  "images": [
+    {
+      "image": "gallery-zebra.jpg",
+      "expected": "zebra",
+      "top5": [
+        "zebra",
+        "prairie chicken",
+        "impala",
+        "goose",
+        "tiger"
+      ],
+      "top1_correct": true,
+      "top1_matches_fp32": true,
+      "top5_overlap_fp32": 5,
+      "logit_cosine_fp32": 0.9994784593582153,
+      "host_seconds": 0.6232614580076188
+    },
+    {
+      "image": "gallery-volcano.jpg",
+      "expected": "volcano",
+      "top5": [
+        "volcano",
+        "torch",
+        "fire screen",
+        "fountain",
+        "lighter"
+      ],
+      "top1_correct": true,
+      "top1_matches_fp32": true,
+      "top5_overlap_fp32": 5,
+      "logit_cosine_fp32": 0.9988765120506287,
+      "host_seconds": 0.6082519581541419
+    },
+    {
+      "image": "gallery-daisy.jpg",
+      "expected": "daisy",
+      "top5": [
+        "daisy",
+        "bee",
+        "fly",
+        "admiral",
+        "long-horned beetle"
+      ],
+      "top1_correct": true,
+      "top1_matches_fp32": true,
+      "top5_overlap_fp32": 4,
+      "logit_cosine_fp32": 0.9997117519378662,
+      "host_seconds": 0.6086901661474258
+    },
+    {
+      "image": "gallery-pizza.jpg",
+      "expected": "pizza",
+      "top5": [
+        "pizza",
+        "meat loaf",
+        "trifle",
+        "potpie",
+        "mashed potato"
+      ],
+      "top1_correct": true,
+      "top1_matches_fp32": true,
+      "top5_overlap_fp32": 4,
+      "logit_cosine_fp32": 0.9996358752250671,
+      "host_seconds": 0.6064291670918465
+    },
+    {
+      "image": "gallery-goldfish.jpg",
+      "expected": "goldfish",
+      "top5": [
+        "goldfish",
+        "barracouta",
+        "tench",
+        "coho",
+        "hummingbird"
+      ],
+      "top1_correct": true,
+      "top1_matches_fp32": true,
+      "top5_overlap_fp32": 5,
+      "logit_cosine_fp32": 0.998577356338501,
+      "host_seconds": 0.6074635421391577
+    }
+  ],
+  "npu": {
+    "calls": 105,
+    "jobs": 175870,
+    "cycles": 0,
+    "macs": 9070366720,
+    "polls": 0,
+    "error": 0,
+    "error_program": -1
+  }
+}

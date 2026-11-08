@@ -2,11 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.runtime.verify_overlay import (
-    OverlayVerificationError,
-    verify_artifacts,
-    write_manifest,
-)
+from src.vendors.npu_pynq.driver.overlay.build import write_manifest
+from src.vendors.npu_pynq.driver.overlay.verify import OverlayVerificationError, verify_artifacts
 
 
 HWH = """<?xml version="1.0" encoding="UTF-8"?>

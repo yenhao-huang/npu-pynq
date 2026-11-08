@@ -6,26 +6,19 @@
 ![Board](https://img.shields.io/badge/board-PYNQ--Z1-8A2BE2)
 ![FPGA](https://img.shields.io/badge/FPGA-xc7z020clg400--1-00599C)
 
-An open-source neural-network accelerator stack for the PYNQ-Z1. The project
-connects bit-accurate quantized model contracts, deterministic export, a Python
-runtime, DMA-driven FPGA execution, reproducible Vivado builds, and transparent
-Jupyter notebook validation.
-
-> Project status: research and development. Matrix multiplication is available
-> as a standalone release. ResNet-18 import, export, runtime, and physical-board
-> execution are implemented; strict same-commit release provenance and
-> production hardening remain separate acceptance boundaries.
+An open-source neural-network accelerator stack for the PYNQ-Z1. It connects
+bit-accurate quantized model contracts, deterministic export, a Python runtime,
+DMA-driven FPGA execution, reproducible Vivado builds, and Jupyter notebook
+validation. Status: research and development.
 
 ## Contents
 
 - [Features](#features)
-- [Quick Start](#quick-start)
-- [Design Flow of NPU PYNQ](#design-flow-of-npu-pynq)
+- [How to build](#how-to-build)
+- [Software Stack](#software-stack)
 - [Hardware Architecture](#hardware-architecture)
 - [Supported target and contracts](#supported-target-and-contracts)
-- [Experiment Results](#experiment-results)
 - [Agentic Components](#agentic-components)
-- [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -35,21 +28,25 @@ Jupyter notebook validation.
 | --- | --- |
 | Support Quantized ResNet-18 | Done |
 | Customized EDA Tools | Done |
-| Transformers | Undone |
+| Transformers | Done |
 | RTL Optimization by Design Space Exploration | Undone |
 
-The ResNet path intentionally supports the pinned TorchVision ResNet-18 schema;
-it does not claim support for arbitrary ONNX models, arbitrary ResNet variants,
-or boards other than the PYNQ-Z1.
+## How to build
 
-## Quick Start
+This README uses Linux Bash. Each example has one guide, `README.md`, for
+Linux; on Windows, follow it in WSL. Run commands from the repository root
+unless a step says otherwise.
+The SmolLM build guide uses `dist/` for generated model assets and packages.
+
+### Quick start
 
 1. Download the package on your computer:
-   [npu-resnet18-v1.0.7.zip](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.7/npu-resnet18-v1.0.7.zip).
+   [pynqo-resnet18-v1.0.8.tar.gz](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.8/pynqo-resnet18-v1.0.8.tar.gz).
+   It holds the compiled model, the overlay, the runtime and the notebook.
 2. Copy it to the PYNQ-Z1:
 
    ```bash
-   scp npu-resnet18-v1.0.7.zip xilinx@192.168.2.99:~/jupyter_notebooks/
+   scp pynqo-resnet18-v1.0.8.tar.gz xilinx@192.168.2.99:~/jupyter_notebooks/
    ```
 
 3. Log in to the board:
@@ -58,55 +55,74 @@ or boards other than the PYNQ-Z1.
    ssh xilinx@192.168.2.99
    ```
 
-4. Extract the package:
+4. Extract the package. It unpacks into `resnet18/`; `-m` avoids timestamp
+   warnings when the board's clock is behind:
 
    ```bash
    cd ~/jupyter_notebooks
-   unzip npu-resnet18-v1.0.7.zip -d npu-resnet18
+   tar -xzmf pynqo-resnet18-v1.0.8.tar.gz
    ```
 
 5. Open the notebook in Jupyter at
-   <http://192.168.2.99:9090/notebooks/npu-resnet18/resnet18.ipynb> and run the
+   <http://192.168.2.99:9090/notebooks/resnet18/resnet18.ipynb> and run the
    cells in order. Pick a bundled picture or upload your own; the last cell
    prints the top-5 ImageNet labels, their scores, and a CORRECT or INCORRECT
    verdict.
 
-## Design Flow of NPU PYNQ
+SmolLM2-135M-Instruct comes the same way:
+[pynqo-smollm-v1.0.8.tar.gz](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.8/pynqo-smollm-v1.0.8.tar.gz)
+unpacks into `smollm/`. Copy and extract it as in steps 2 to 4, then open
+<http://192.168.2.99:9090/notebooks/smollm/smollm_safetensors.ipynb>, or run
+it from the board's shell:
 
-```text
-                                      +-------------------+
-                                      | Vivado toolchains |
-                                      +------^-------+----+
-                                             |       |
-                                        +----+-------v----+
-                     +----------------+ |                 |
-                     | TorchVision    +->                 |
-                     | ResNet-18      | |                 |       Matrix and ResNet-18
-                     +----------------+ |   NPU in PYNQ   +------> workloads ready to run
-                                        |                 |       on the PYNQ-Z1
-          +---------------------------+ |                 |
-          | NPU stack ecosystem      +->                 |
-          +---------------------------+ +---^----------^--+
-          (model contracts, export,        |          |
-           runtime, DMA, RTL, demos)        +          +
-                                        PYNQ-Z1   npu_matrix
-                                          board      target
+```bash
+cd ~/jupyter_notebooks/smollm
+sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli llm package \
+  --overlay overlay/npu_matrix.bit --chat --stream --prompt "What is the capital of France?" --max-new 32
 ```
 
-[`src/model/`](docs/manual/model.md)
-defines shared numeric and graph contracts, `src/export/` produces the package,
-`src/runtime/` validates and executes it, `src/hw/` implements the accelerator,
-and `examples/` assembles human-facing workflows. Production modules never
-import from examples.
+### Build from scratch
+
+Go to `examples/<model>/` and follow its README to export the model, build the
+overlay, and package it for the board:
+[ResNet-18](examples/resnet18/README.md),
+[matrix multiplication](examples/matrix-multiplication/README.md), and
+[SmolLM](examples/smollm-safetensors/README.md).
+
+## Software Stack
+
+![Pynqo software stack: PyTorch, Torch-MLIR, Pynqo MLIR, LLVM, runtime and driver, CPU and NPU](docs/assets/npu-compilation-stack.svg)
+
+PyTorch loads and quantizes the model (torchao) and exports an ExportedProgram.
+Torch-MLIR imports it as the torch dialect. Pynqo MLIR runs the middle end
+(fusion, decomposition, lowering to linalg) and the backend, which partitions
+the graph between the two devices and generates code for each:
+
+- **CPU:** LLVM IR, compiled by LLVM (`llc`, `ld.lld`) into a `.so` that the
+  runtime runs on the Cortex-A9.
+- **NPU:** NPU ISA programs. The runtime hands each NPU region to the driver
+  through `__delegate__`, and the driver runs it on the NPU.
+
+Note:
+
+- **Host compile:** `python -m src.export.cli export` turns a model into a
+  package.
+- **Board run:** `python -m src.runtime.cli llm` loads that package on the
+  PYNQ-Z1 and runs inference.
+- **NPU driver:** runs on the Cortex-A9. For each NPU matrix multiplication it
+  packs the activations into tiles, writes the program address to the NPU's
+  registers, starts it, polls until it finishes, and unpacks the result.
 
 ## Hardware Architecture
 
 ![PYNQ-Z1 NPU hardware architecture](docs/assets/npu-hardware-architecture.svg)
 
-The diagram groups the hardware by function: the Zynq processing system uses
-DMA and AXI to move data and control the accelerator. The accelerator contains
-the controller, operand memory, and systolic array. The overlay defaults to a
-16 x 16 array and also supports 8 x 8 and 2 x 2 builds.
+The diagram groups the hardware by function: the Zynq processing system
+controls the accelerator over AXI-Lite. The ISA front end fetches NPU programs
+from DDR, decodes them into matrix jobs, and moves the A/B tiles in and the C
+tiles out itself. The accelerator contains the controller, double-buffered
+operand memory, and systolic array. The overlay defaults to a 16 x 16 array
+and also supports 8 x 8 and 2 x 2 builds.
 
 ## Supported target and contracts
 
@@ -115,28 +131,9 @@ the controller, operand memory, and systolic array. The overlay defaults to a
 | Board | PYNQ-Z1 |
 | FPGA part | Zynq-7020, `xc7z020clg400-1` |
 | Overlay | `npu_matrix` with AXI DMA |
-| Model source | Pinned TorchVision ResNet-18 `IMAGENET1K_V1` checkpoint |
 | Arithmetic | Signed INT8 operands, exact INT16 products, saturating INT32 accumulation |
 | Requantization | Q1.31 with explicit rounding and saturation contracts |
-| Host tooling | Python and PowerShell; Vivado is required only for hardware builds |
-| Board runtime | PYNQ Linux with the repository's Python runtime and notebook |
-
-## Experiment Results
-
-The human-reviewed notebook completed one full physical execution on the
-PYNQ-Z1 on 2026-09-04:
-
-| Measurement | Result |
-| --- | --- |
-| Physical matrix jobs | 2,104,040 |
-| Elapsed time | 28,031.949 seconds (about 7 h 47 min) |
-| Recorded output captures | 3 of 3 matched independent host digests |
-| Evidence class | `physical-pynq-z1-development` |
-
-The run explicitly allowed an artifact/source commit mismatch. It demonstrates
-real FPGA execution and exact output agreement in development mode, but it is
-not strict same-commit release evidence, an ImageNet accuracy result, or a
-performance claim.
+| Host tooling | Python and Bash (Linux/WSL); Vivado only for hardware builds |
 
 ## Agentic Components
 
@@ -164,16 +161,14 @@ See the [tool guide](tools/ic/README.md) for capabilities and
 [agent installation guide](tools/ic/docs/manual/installation.md) for Codex, pi
 and environment requirements.
 
-### EDA skills
-
-[`.codex/skills/`](.codex/skills/) provides reusable development, deployment
-and IC design workflows, including hardware builds and PYNQ board delivery.
-Skills guide the agent's workflow; tools execute the design operations.
-
 ### Harness Engineering
 
 - **Agent instructions:** [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md)
   define repository context and working rules.
+- **EDA skills:** [`.codex/skills/`](.codex/skills/) provides reusable
+  development, deployment and IC design workflows, including hardware builds
+  and PYNQ board delivery. Skills guide the agent's workflow; tools execute
+  the design operations.
 - **Git management:** [docs/rules/git/](docs/rules/git/) defines issue,
   branch, commit and pull-request workflows.
 - **Environment and structure:** [environment.md](docs/rules/environment.md)
@@ -182,23 +177,11 @@ Skills guide the agent's workflow; tools execute the design operations.
 - **Spec-Driven Development:** use the OpenSpec skills to propose, implement
   and archive changes under [openspec/](openspec/).
 
-## Documentation
-
-- [ResNet-18 example](examples/resnet18/README.md)
-- [Matrix multiplication example](examples/matrix-multiplication/README.md)
-- [Production model contracts](docs/manual/model.md)
-- [Repository rules](docs/rules/index.md)
-- [Roadmap](docs/human/roadmap.md)
-- [v0.1.3 changelog](changelog/v0.1.3.md)
-- [v0.1.4 upload changelog](changelog/v0.1.4.md)
-
 ## Contributing
 
-Development is issue-scoped and specification-driven. Read
-[AGENTS.md](AGENTS.md) and the [Git rules](docs/rules/git/) before creating a
-branch. Normal task pull requests target `dev`; promotion from `dev` to `main`
-is a separate human release decision after the required validation evidence is
-reviewed.
+Work is issue-scoped: read [AGENTS.md](AGENTS.md) and the
+[Git rules](docs/rules/git/) first. Pull requests target `dev`; promoting
+`dev` to `main` is a human release decision.
 
 ## License
 

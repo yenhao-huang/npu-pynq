@@ -1,0 +1,389 @@
+name: release
+
+# Validates a release/vMAJOR.MINOR.PATCH branch on the PYNQ-Z1 and leaves a
+# DRAFT Release: no tag, not public. publish.yml turns the draft into a Release
+# once its commit is in `main`. A push uses the workflow file from the branch
+# it ran on, so this validates itself as well as the release.
+#
+#   check ─┬─ export (model)
+#          └─ build-bitstream
+#                   └─ test-on-board (model)
+#                            └─ draft-release
+#
+# Each model is one entry of .github/release/models.json and goes the way its
+# example guide does: fetch, export, src/deploy/deploy.sh, then the guide's run
+# command, on the host simulator and on the board.
+on:
+  push:
+    branches:
+      - 'release/v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pynq-z1-production-cd
+  cancel-in-progress: false
+
+jobs:
+  # About a minute, before anything expensive starts: the version this branch
+  # releases, the Vivado tools, and the board every later step uses.
+  check:
+    runs-on: [self-hosted, vivado, pynq-z1]
+    environment: pynq-z1-production
+    timeout-minutes: 10
+    env:
+      BOARD: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}@${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      commit: ${{ steps.version.outputs.commit }}
+      models: ${{ steps.version.outputs.models }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # On Windows, a plain `bash` resolves to WSL's C:\Windows\System32\bash.exe;
+      # the bash steps need Git Bash, with its ssh, scp and tar.
+      - name: Use Git Bash for bash steps
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_PATH -Value "$env:ProgramFiles\Git\bin"
+
+      - name: Resolve the release version
+        id: version
+        shell: bash
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force origin
+          tag="$(python .github/release/version.py --format tag)"
+          # The branch names the version it releases, so a run cannot aim at
+          # one version while the changelog declares another.
+          if [ "$BRANCH" != "release/$tag" ]; then
+            echo "branch $BRANCH does not match the declared release/$tag" >&2
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "$tag is already tagged; releases are never republished" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "models=$(python -c 'import json; print(json.dumps(json.load(open(".github/release/models.json"))))')" >> "$GITHUB_OUTPUT"
+
+      - name: Check the runner's tools
+        shell: powershell
+        run: |
+          $missing = 'python', 'vivado', 'git', 'tar', 'ssh', 'scp' | Where-Object { -not (Get-Command $_ -ErrorAction SilentlyContinue) }
+          if ($missing) { throw "not on this runner's PATH: $($missing -join ', ')" }
+
+      - name: Check the board
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new "$BOARD" bash -s <<'SH'
+          set -u
+          test -r /etc/profile.d/xrt_setup.sh || { echo "missing /etc/profile.d/xrt_setup.sh"; exit 1; }
+          test -r /etc/profile.d/pynq_venv.sh || { echo "missing /etc/profile.d/pynq_venv.sh"; exit 1; }
+          test -x /usr/local/share/pynq-venv/bin/python3 || { echo "missing the PYNQ venv python3"; exit 1; }
+          for c in /usr/local/share/pynq-venv/bin/python3 chmod; do
+            sudo -n -l "$c" >/dev/null 2>&1 || { echo "$(id -un) cannot run sudo -n $c; see the release skill's references/runners.md"; exit 1; }
+          done
+          test "$(df -Pk "$HOME" | awk 'NR==2 {print $4}')" -gt 1048576 || { echo "less than 1 GiB free in $HOME"; exit 1; }
+          echo board-ready
+          SH
+
+  # The model guide's fetch and export, then its run command on the host
+  # simulator. The host result is the board's reference.
+  export:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.check.outputs.models) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check.outputs.commit }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the export environment and LLVM 22
+        run: |
+          set -euo pipefail
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" | sudo tee /etc/apt/sources.list.d/llvm22.list
+          sudo apt-get update -q
+          sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake ninja-build
+          python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu -r src/export/requirements.txt
+
+      - name: Fetch the model
+        run: ${{ matrix.fetch }}
+
+      - name: Export
+        run: python -m src.export.cli build ${{ matrix.config }} --out dist/${{ matrix.model }}/package
+
+      - name: Run on the host simulator
+        working-directory: dist/${{ matrix.model }}
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m src.runtime.cli ${{ matrix.run }} --backend sim ${{ matrix.evidence }} ../host-${{ matrix.model }}.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.model }}-${{ needs.check.outputs.tag }}
+          if-no-files-found: error
+          path: |
+            dist/${{ matrix.model }}/
+            dist/host-${{ matrix.model }}.json
+            !dist/${{ matrix.model }}/package/ir
+            !dist/**/*.pth
+
+  # Vivado takes about an hour. An earlier run of this release branch that
+  # built the bitstream successfully, from an ancestor commit with the same
+  # hardware sources, is reused instead.
+  build-bitstream:
+    needs: check
+    runs-on: [self-hosted, vivado]
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 180
+    env:
+      OUT: build/vivado/npu_matrix_16x16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.check.outputs.commit }}
+
+      - name: Find this release's last successful bitstream
+        id: previous
+        uses: actions/github-script@v7
+        env:
+          ARTIFACT: bitstream-${{ needs.check.outputs.tag }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner, repo, workflow_id: 'release.yml', branch: context.ref.replace('refs/heads/', ''),
+              per_page: 50,
+            }, (response, done) => { done(); return response.data; });
+            for (const run of runs) {
+              if (run.id === context.runId) continue;
+              const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt, {
+                owner, repo, run_id: run.id, attempt_number: run.run_attempt, per_page: 100,
+              });
+              if (!jobs.some(job => job.name === 'build-bitstream' && job.conclusion === 'success')) continue;
+              const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner, repo, run_id: run.id, name: process.env.ARTIFACT,
+              });
+              if (!data.artifacts.some(a => !a.expired)) continue;
+              core.notice(`candidate bitstream: run ${run.id} at ${run.head_sha}`);
+              core.setOutput('run_id', String(run.id));
+              return;
+            }
+            core.info('no earlier successful bitstream on this branch');
+
+      - name: Download the candidate
+        if: steps.previous.outputs.run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: bitstream-${{ needs.check.outputs.tag }}
+          run-id: ${{ steps.previous.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ env.OUT }}
+
+      - name: Decide whether the candidate can be reused
+        id: reuse
+        if: steps.previous.outputs.run_id != ''
+        shell: pwsh
+        run: |
+          $release = '${{ needs.check.outputs.commit }}'
+          $reason = $null
+          if (-not (Test-Path "$env:OUT/reports/build_evidence.txt")) { $reason = 'it was not downloaded completely' }
+          if (-not $reason) {
+            python src/vendors/npu_pynq/driver/overlay/verify.py "$env:OUT/artifacts"
+            if ($LASTEXITCODE -ne 0) { $reason = 'it does not verify' }
+          }
+          if (-not $reason) {
+            $built = "$((Get-Content -Raw "$env:OUT/artifacts/npu_matrix.manifest.json" | ConvertFrom-Json).source_commit)".ToLowerInvariant()
+            git merge-base --is-ancestor $built $release
+            if ($LASTEXITCODE -ne 0) { $reason = "$built is not an ancestor of $release" }
+          }
+          if (-not $reason) {
+            git diff --quiet $built $release -- src/hw src/vendors/npu_pynq/driver/overlay
+            if ($LASTEXITCODE -ne 0) { $reason = "hardware sources changed since $built" }
+          }
+          if ($reason) {
+            Write-Host "::notice title=bitstream rebuilt::not reusing the earlier bitstream: $reason"
+            Remove-Item -Recurse -Force $env:OUT -ErrorAction SilentlyContinue
+            "reuse=false" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "::notice title=bitstream reused::from $built; hardware sources identical; Vivado skipped"
+            "reuse=true" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+          }
+          exit 0
+
+      - name: Build the bitstream
+        if: steps.reuse.outputs.reuse != 'true'
+        shell: pwsh
+        run: |
+          vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
+          if ($LASTEXITCODE -ne 0) { throw "Vivado failed with exit code $LASTEXITCODE" }
+
+      - name: Verify the bitstream and its report
+        shell: pwsh
+        run: |
+          python src/vendors/npu_pynq/driver/overlay/verify.py "$env:OUT/artifacts"
+          if ($LASTEXITCODE -ne 0) { throw "bitstream verification failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path "$env:OUT/reports/build_evidence.txt")) { throw 'missing reports/build_evidence.txt' }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bitstream-${{ needs.check.outputs.tag }}
+          if-no-files-found: error
+          path: |
+            ${{ env.OUT }}/artifacts/npu_matrix.bit
+            ${{ env.OUT }}/artifacts/npu_matrix.hwh
+            ${{ env.OUT }}/artifacts/npu_matrix.manifest.json
+            ${{ env.OUT }}/reports/build_evidence.txt
+            ${{ env.OUT }}/reports/*.rpt
+
+  # The archive deploy.sh writes is the release asset and exactly what the
+  # board runs. The board must answer as the host simulator did.
+  test-on-board:
+    needs: [check, export, build-bitstream]
+    runs-on: [self-hosted, pynq-z1]
+    environment: pynq-z1-production
+    timeout-minutes: 240
+    strategy:
+      max-parallel: 1
+      matrix:
+        include: ${{ fromJSON(needs.check.outputs.models) }}
+    env:
+      BOARD: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}@${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
+      ARCHIVE: build/release/pynqo-${{ matrix.model }}-${{ needs.check.outputs.tag }}.tar.gz
+      EVIDENCE: build/release/board-${{ matrix.model }}.json
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check.outputs.commit }}
+
+      # On Windows, a plain `bash` resolves to WSL's C:\Windows\System32\bash.exe;
+      # the bash steps need Git Bash, with its ssh, scp and tar.
+      - name: Use Git Bash for bash steps
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_PATH -Value "$env:ProgramFiles\Git\bin"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: package-${{ matrix.model }}-${{ needs.check.outputs.tag }}
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: bitstream-${{ needs.check.outputs.tag }}
+          path: build/bitstream
+
+      # deploy.sh reads ARCHIVE and writes the archive instead of sending it.
+      - name: Package for the board
+        run: |
+          set -euo pipefail
+          mkdir -p dist/${{ matrix.model }}/overlay
+          cp build/bitstream/artifacts/npu_matrix.* dist/${{ matrix.model }}/overlay/
+          bash src/deploy/deploy.sh dist/${{ matrix.model }} ${{ matrix.files }}
+
+      - name: Run on the board
+        run: |
+          bash .github/release/board_check.sh "$ARCHIVE" "$EVIDENCE" \
+            ${{ matrix.run }} --overlay overlay/npu_matrix.bit ${{ matrix.evidence }} board.json
+
+      - name: Compare with the host simulator
+        run: |
+          python - "dist/host-${{ matrix.model }}.json" "$EVIDENCE" <<'PY'
+          import json, sys
+          host, board = (json.load(open(p, encoding='utf-8')) for p in sys.argv[1:])
+          if board['npu'].get('jobs', 0) <= 0:
+              sys.exit('the NPU ran no jobs on the board')
+          if 'output_ids' in host:
+              if board['output_ids'] != host['output_ids']:
+                  sys.exit(f"board tokens {board['output_ids']} differ from host {host['output_ids']}")
+              print('board output matches the host simulator:', board['output'])
+          else:
+              top, expected = board['top5'][0]['name'], host['top5'][0]['name']
+              if not board['correct'] or top != expected:
+                  sys.exit(f'board top-1 {top} differs from host {expected}')
+              print('board top-1 matches the host simulator:', top)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: board-${{ matrix.model }}-${{ needs.check.outputs.tag }}
+          if-no-files-found: error
+          path: |
+            ${{ env.ARCHIVE }}
+            ${{ env.EVIDENCE }}
+
+  draft-release:
+    needs: [check, export, build-bitstream, test-on-board]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.check.outputs.tag }}
+      COMMIT: ${{ needs.check.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check.outputs.commit }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: board-*-${{ needs.check.outputs.tag }}
+          path: build/release
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: bitstream-${{ needs.check.outputs.tag }}
+          path: build/bitstream
+
+      - name: Gather the assets
+        run: |
+          set -euo pipefail
+          cp build/bitstream/artifacts/npu_matrix.* build/release/
+          cp build/bitstream/reports/build_evidence.txt build/release/bitstream-report.txt
+          for model in $(jq -r '.[].model' .github/release/models.json); do
+            test -s "build/release/pynqo-$model-$TAG.tar.gz"
+            test -s "build/release/board-$model.json"
+          done
+          cd build/release
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create the draft Release
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null | grep -q true; then
+            gh release delete "$TAG" --yes
+          fi
+          {
+            cat "changelog/$TAG.md"
+            echo
+            echo "---"
+            echo
+            echo "Validated by release run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID at commit \`$COMMIT\`."
+          } > build/notes.md
+          gh release create "$TAG" --draft --target "$COMMIT" --title "$TAG" \
+            --notes-file build/notes.md build/release/*
+          echo "Draft $TAG is ready. Next: open the release/$TAG -> main pull request, merge it with a merge commit, then run publish.yml."

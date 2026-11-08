@@ -17,6 +17,18 @@ module tb_npu_accelerator;
     logic [31:0] m_axis_tdata;
     logic m_axis_tvalid, m_axis_tready = 0, m_axis_tlast;
     logic irq;
+    // The instruction-stream master stays idle in this register-driven test.
+    logic [31:0] m_axi_araddr, m_axi_awaddr;
+    logic [7:0] m_axi_arlen, m_axi_awlen, m_axi_wstrb;
+    logic [2:0] m_axi_arsize, m_axi_awsize, m_axi_arprot, m_axi_awprot;
+    logic [1:0] m_axi_arburst, m_axi_awburst;
+    logic [3:0] m_axi_arcache, m_axi_awcache;
+    logic m_axi_arvalid, m_axi_rready, m_axi_awvalid, m_axi_wlast, m_axi_wvalid, m_axi_bready;
+    logic [63:0] m_axi_wdata;
+    logic m_axi_arready = 0, m_axi_rlast = 0, m_axi_rvalid = 0;
+    logic m_axi_awready = 0, m_axi_wready = 0, m_axi_bvalid = 0;
+    logic [63:0] m_axi_rdata = 0;
+    logic [1:0] m_axi_rresp = 0, m_axi_bresp = 0;
     logic [31:0] read_value, held_data;
     logic held_last;
 

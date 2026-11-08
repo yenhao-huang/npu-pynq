@@ -1,0 +1,56 @@
+{
+  "block_seconds": {
+    "1_connect": 0.009909734999837383,
+    "2_overlay_and_package": 5.0055638940000335,
+    "3_choose_picture": 0.20224799399989024,
+    "4_preprocess_and_preview": 16.862887304000196,
+    "5_inference": 4.849262264000117,
+    "6_prediction": 1.1121645150001314
+  },
+  "total_block_seconds": 28.042035706000206,
+  "backend": "pynq",
+  "npu": {
+    "calls": 21,
+    "jobs": 35174,
+    "cycles": 40185286,
+    "macs": 1814073344,
+    "polls": 2500310
+  },
+  "top5": [
+    {
+      "index": 258,
+      "name": "Samoyed",
+      "probability": 0.8980227551502653
+    },
+    {
+      "index": 279,
+      "name": "Arctic fox",
+      "probability": 0.048389537299281374
+    },
+    {
+      "index": 270,
+      "name": "white wolf",
+      "probability": 0.0318289563760357
+    },
+    {
+      "index": 257,
+      "name": "Great Pyrenees",
+      "probability": 0.004697973531433586
+    },
+    {
+      "index": 259,
+      "name": "Pomeranian",
+      "probability": 0.004654208632290369
+    }
+  ],
+  "expected_class": "Samoyed",
+  "correct": true,
+  "hostname": "pynq",
+  "machine": "armv7l",
+  "python": "3.10.4 (main, Apr  2 2022, 09:04:19) [GCC 11.2.0]",
+  "notebook_wall_seconds": 47.449386539000216,
+  "package_manifest_sha256": "c68b9108126f2e0e7cfeb39ae646ab9512f1c4ab7270f4e34979ddac53aab485",
+  "overlay_sha256": "bd6b8f44f2b25445aef61e7692beda62d85a35a84ccbf6448ce40ca4cc12f3db",
+  "hwh_sha256": "8ba3849b16c63faba539511c997a400f8b1f64c4f7f8707fae0f4a5af9d46748",
+  "image_sha256": "f3f87bb8ab3c26c7ecfd3ac60421d7f32b0503d1d6c5baf8bac42ed93d86351a"
+}

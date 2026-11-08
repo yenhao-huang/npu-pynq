@@ -22,7 +22,7 @@ checkout at runtime.
 
 #### Scenario: Developer assembles a local package
 - **WHEN** a developer runs `python examples/matrix-multiplication/package_example.py` after a valid default-path overlay build
-- **THEN** the builder imports without `PYTHONPATH`, reads provenance from the overlay manifest, and writes `mount/matrix-multiplication/local-<commit>` without requiring command-line metadata
+- **THEN** the builder imports without `PYTHONPATH`, reads provenance from the overlay manifest, and writes `dist/matrix-multiplication/local-<commit>` without requiring command-line metadata
 
 ### Requirement: Package provenance is verified before hardware loading
 The board entrypoint MUST validate the packaged BIT, HWH, and manifest before
@@ -57,7 +57,7 @@ keys, environment dumps, or unrelated host information.
 
 ### Requirement: Generated deployment payload is not source
 The assembled package, BIT/HWH files, and board evidence MUST remain ignored
-generated content under `mount/` or workflow storage and MUST NOT be committed
+generated content under `dist/` or workflow storage and MUST NOT be committed
 to Git.
 
 #### Scenario: Package is prepared for deployment

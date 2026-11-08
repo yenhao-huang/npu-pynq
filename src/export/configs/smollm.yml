@@ -1,0 +1,14 @@
+# SmolLM2-135M-Instruct, W8A8 on the PYNQ-Z1 NPU.
+#   python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/package
+model: smollm2-135m-instruct
+load:
+  framework: huggingface
+  source: examples/smollm-safetensors/model/checkpoint   # or a Hub id
+quantization: w8a8           # the scheme to apply after load
+graph:
+  kind: llm
+  # Both are compiled into the graph's static shapes; changing either needs a re-export.
+  max_seq: 256              # slots in the KV cache: prompt plus output cannot exceed it
+  chunk: 16                 # tokens per prefill call
+devices: [cpu, npu]         # or [cpu]: no delegates, everything is CPU code
+cpus: [arm-cortex-a9, native]   # one model.so each: the board and this host

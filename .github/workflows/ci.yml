@@ -25,7 +25,7 @@ jobs:
 
       - name: Install Python test dependencies
         run: |
-          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml pillow
 
       - name: Run host model and example suites
         run: make -C src/test model PYTHON=python3
@@ -59,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --tags --force origin
-          python3 .github/cd/resolve_release_version.py --output resolution.env
+          python3 .github/release/version.py --output resolution.env
           . ./resolution.env
           if [ "${should_release}" != "true" ]; then
             mapfile -t changed < <(git diff --name-only "${PR_BASE_SHA}...${PR_HEAD_SHA}")
@@ -89,27 +89,27 @@ jobs:
           import sys
           import yaml
 
-          cd = yaml.safe_load(open(".github/workflows/cd.yml", encoding="utf-8"))
-          triggers = cd[True] if True in cd else cd["on"]
+          release = yaml.safe_load(open(".github/workflows/release.yml", encoding="utf-8"))
+          triggers = release[True] if True in release else release["on"]
           branches = triggers.get("push", {}).get("branches") or []
           if not any(str(pattern).startswith("release/") for pattern in branches):
-              sys.exit("cd.yml must run on release/* branches")
-          draft = cd["jobs"]["publish-draft"]
-          required = {"validate-source", "host-checks", "build-model", "build-overlay", "board-validation"}
+              sys.exit("release.yml must run on release/* branches")
+          draft = release["jobs"]["draft-release"]
+          required = {"check", "export", "build-bitstream", "test-on-board"}
           if not required.issubset(set(draft["needs"])):
-              sys.exit("publish-draft must depend on every validation job")
-          for name, job in cd["jobs"].items():
-              if name == "publish-draft":
+              sys.exit("draft-release must depend on every validation job")
+          for name, job in release["jobs"].items():
+              if name == "draft-release":
                   continue
               if job.get("permissions", {}).get("contents") == "write":
                   sys.exit(f"{name} must not hold contents: write")
 
           publish = yaml.safe_load(
-              open(".github/workflows/release-publish.yml", encoding="utf-8")
+              open(".github/workflows/publish.yml", encoding="utf-8")
           )
           publish_triggers = publish[True] if True in publish else publish["on"]
           if set(publish_triggers) != {"workflow_dispatch"}:
-              sys.exit("release-publish.yml must only run on workflow_dispatch")
+              sys.exit("publish.yml must only run on workflow_dispatch")
           if publish["jobs"]["publish"]["environment"] != "pynq-z1-release":
               sys.exit("publishing must go through the pynq-z1-release environment")
           PY

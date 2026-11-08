@@ -1,0 +1,26 @@
+{
+  "package": "build/pkg/s_w8_f32kv_online",
+  "options": {
+    "chunk": 16,
+    "max_seq": 512,
+    "bits": 8,
+    "group": 64,
+    "embed_bits": 8,
+    "kv": "f32",
+    "attention": "online",
+    "awq": false,
+    "layers": null,
+    "limits": {
+      "rows": 16,
+      "columns": 16,
+      "max_k": 256
+    }
+  },
+  "tokens": 200,
+  "vs_fp32": {
+    "top1_agreement": 0.905,
+    "kl_divergence": 0.036206402256246314,
+    "ppl_fp32": 10.020857356864546,
+    "ppl_quant": 10.615679464256685
+  }
+}

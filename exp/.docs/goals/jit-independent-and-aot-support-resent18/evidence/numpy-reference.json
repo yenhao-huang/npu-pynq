@@ -1,0 +1,39 @@
+{
+  "backend": "numpy-W8A8-reference",
+  "block_seconds": {
+    "stem": 0.21166479999374133,
+    "layer1": 0.7635918000014499,
+    "layer2": 0.6557854999991832,
+    "layer3": 0.9285722999920836,
+    "layer4": 1.2793738000036683,
+    "classifier": 0.006573299993760884
+  },
+  "total_seconds": 3.8677281999989646,
+  "top5": [
+    {
+      "index": 258,
+      "name": "Samoyed",
+      "probability": 0.8980227551502653
+    },
+    {
+      "index": 279,
+      "name": "Arctic fox",
+      "probability": 0.048389537299281374
+    },
+    {
+      "index": 270,
+      "name": "white wolf",
+      "probability": 0.0318289563760357
+    },
+    {
+      "index": 257,
+      "name": "Great Pyrenees",
+      "probability": 0.004697973531433586
+    },
+    {
+      "index": 259,
+      "name": "Pomeranian",
+      "probability": 0.004654208632290369
+    }
+  ]
+}

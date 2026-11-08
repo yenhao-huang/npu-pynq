@@ -46,9 +46,9 @@ src/test/waves/*
 xsim.dir/
 obj_dir/
 
-# Deploy staging: mount/ mirrors to the board and holds only build products.
-mount/*
-!mount/.gitkeep
+# Deploy staging: dist/ mirrors to the board and holds only build products.
+dist/*
+!dist/.gitkeep
 
 # Example-local downloaded and converted model workspaces
 examples/*/model/*
@@ -72,3 +72,10 @@ Thumbs.db
 # npm launcher dependencies and generated package archives
 tools/ic/node_modules/
 tools/ic/*.tgz
+
+# Python environment created by .codex/skills/deploy/install-requirement-in-mac
+.venv/
+
+# Optional JIT demo generated assets
+src/jit/examples/*/model/*
+!src/jit/examples/*/model/.gitkeep

@@ -1,12 +1,16 @@
 # Recreate and optionally implement the PYNQ-Z1 NPU matrix overlay.
 # Usage: vivado -mode batch -source build_overlay.tcl -tclargs
-#        ?--array-size 2|8|16? ?--elaborate-only? ?--allow-dirty?
+#        ?--array-size 2|8|16? ?--elaborate-only? ?--allow-dirty? ?--out <dir>?
+#
+# --out also copies the verified BIT, HWH and manifest to <dir>,
+# for example dist/smollm/overlay.
 
 set script_dir [file normalize [file dirname [info script]]]
 set repo_root [file normalize [file join $script_dir .. .. .. ..]]
 set array_size 16
 set elaborate_only 0
 set allow_dirty 0
+set out_dir ""
 for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_index} {
     set argument [lindex $argv $argument_index]
     switch -- $argument {
@@ -22,6 +26,13 @@ for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_in
         }
         --elaborate-only { set elaborate_only 1 }
         --allow-dirty { set allow_dirty 1 }
+        --out {
+            incr argument_index
+            if {$argument_index >= [llength $argv]} {
+                error "--out requires a directory"
+            }
+            set out_dir [file normalize [lindex $argv $argument_index]]
+        }
         default { error "unknown argument '$argument'" }
     }
 }
@@ -36,12 +47,15 @@ set report_dir [file join $build_root reports]
 set artifact_dir [file join $build_root artifacts]
 set jobs 4
 
+# The manifest records HEAD as the overlay's source commit, so src/ must match
+# it. Changes elsewhere (documentation, examples) do not reach the bitstream
+# or its verifier and are allowed.
 if {!$elaborate_only && !$allow_dirty} {
-    if {[catch {exec git -C $repo_root status --porcelain --untracked-files=normal} source_status]} {
+    if {[catch {exec git -C $repo_root status --porcelain --untracked-files=normal -- src} source_status]} {
         error "cannot verify source tree cleanliness: $source_status"
     }
     if {[string trim $source_status] ne ""} {
-        error "refusing production artifact build from a dirty source tree"
+        error "refusing production artifact build: src/ has uncommitted changes:\n$source_status"
     }
 }
 
@@ -62,6 +76,12 @@ set rtl_files [list \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core controller npu_matrix_controller.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath npu_matrix_datapath.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_core.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_axis_skid.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_fifo.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_fetch.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_decode.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_lsu.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_isa_frontend npu_isa_frontend.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_accelerator.sv]]
 foreach rtl_file $rtl_files {
     if {![file isfile $rtl_file]} {
@@ -90,7 +110,7 @@ set_property -dict [list CONFIG.C_OPERATION {not} CONFIG.C_SIZE {1}] $reset_inve
 set control_ic [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:* control_ic]
 set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {2}] $control_ic
 set memory_ic [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:* memory_ic]
-set_property -dict [list CONFIG.NUM_SI {2} CONFIG.NUM_MI {1}] $memory_ic
+set_property -dict [list CONFIG.NUM_SI {3} CONFIG.NUM_MI {1}] $memory_ic
 set dma [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:* axi_dma_0]
 set_property -dict [list \
     CONFIG.c_include_sg {0} \
@@ -114,6 +134,7 @@ connect_bd_intf_net [get_bd_intf_pins control_ic/M00_AXI] [get_bd_intf_pins npu_
 connect_bd_intf_net [get_bd_intf_pins control_ic/M01_AXI] [get_bd_intf_pins axi_dma_0/S_AXI_LITE]
 connect_bd_intf_net [get_bd_intf_pins axi_dma_0/M_AXI_MM2S] [get_bd_intf_pins memory_ic/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins axi_dma_0/M_AXI_S2MM] [get_bd_intf_pins memory_ic/S01_AXI]
+connect_bd_intf_net [get_bd_intf_pins npu_accelerator_0/m_axi] [get_bd_intf_pins memory_ic/S02_AXI]
 connect_bd_intf_net [get_bd_intf_pins memory_ic/M00_AXI] [get_bd_intf_pins ps7/S_AXI_HP0]
 connect_bd_intf_net [get_bd_intf_pins axi_dma_0/M_AXIS_MM2S] [get_bd_intf_pins npu_accelerator_0/s_axis]
 connect_bd_intf_net [get_bd_intf_pins npu_accelerator_0/m_axis] [get_bd_intf_pins axi_dma_0/S_AXIS_S2MM]
@@ -123,7 +144,8 @@ connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
     [get_bd_pins control_ic/ACLK] [get_bd_pins control_ic/S00_ACLK] \
     [get_bd_pins control_ic/M00_ACLK] [get_bd_pins control_ic/M01_ACLK] \
     [get_bd_pins memory_ic/ACLK] [get_bd_pins memory_ic/S00_ACLK] \
-    [get_bd_pins memory_ic/S01_ACLK] [get_bd_pins memory_ic/M00_ACLK] \
+    [get_bd_pins memory_ic/S01_ACLK] [get_bd_pins memory_ic/S02_ACLK] \
+    [get_bd_pins memory_ic/M00_ACLK] \
     [get_bd_pins ps7/M_AXI_GP0_ACLK] [get_bd_pins ps7/S_AXI_HP0_ACLK] \
     [get_bd_pins axi_dma_0/s_axi_lite_aclk] \
     [get_bd_pins axi_dma_0/m_axi_mm2s_aclk] \
@@ -135,7 +157,8 @@ connect_bd_net [get_bd_pins reset0/interconnect_aresetn] \
     [get_bd_pins control_ic/ARESETN] [get_bd_pins control_ic/S00_ARESETN] \
     [get_bd_pins control_ic/M00_ARESETN] [get_bd_pins control_ic/M01_ARESETN] \
     [get_bd_pins memory_ic/ARESETN] [get_bd_pins memory_ic/S00_ARESETN] \
-    [get_bd_pins memory_ic/S01_ARESETN] [get_bd_pins memory_ic/M00_ARESETN]
+    [get_bd_pins memory_ic/S01_ARESETN] [get_bd_pins memory_ic/S02_ARESETN] \
+    [get_bd_pins memory_ic/M00_ARESETN]
 connect_bd_net [get_bd_pins reset0/peripheral_aresetn] \
     [get_bd_pins axi_dma_0/axi_resetn] \
     [get_bd_pins npu_accelerator_0/s_axi_aresetn]
@@ -242,13 +265,21 @@ file copy -force $hwh_source [file join $artifact_dir npu_matrix.hwh]
 
 set source_commit unknown
 catch {set source_commit [string trim [exec git -C $repo_root rev-parse HEAD]]}
-set verifier [file join $repo_root src runtime verify_overlay.py]
-if {[catch {exec python $verifier --write-manifest \
+set verifier [file join $repo_root src vendors npu_pynq driver overlay build.py]
+if {[catch {exec python $verifier \
     --source-commit $source_commit --vivado-version [version -short] \
     --array-size $array_size $artifact_dir} verify_output]} {
     error "overlay provenance verification failed: $verify_output"
 }
 puts $verify_output
+
+if {$out_dir ne ""} {
+    file mkdir $out_dir
+    foreach artifact [glob -directory $artifact_dir *] {
+        file copy -force $artifact $out_dir
+    }
+    puts "Copied the overlay to $out_dir"
+}
 
 set evidence [open [file join $report_dir build_evidence.txt] w]
 puts $evidence "vivado=[version -short]"
