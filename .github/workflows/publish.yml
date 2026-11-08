@@ -1,6 +1,6 @@
-name: release-publish
+name: publish
 
-# Publishes the draft Release that continuous deployment validated, and nothing
+# Publishes the draft Release that release.yml validated, and nothing
 # else. It builds nothing, runs nothing on the board, and refuses any draft
 # whose commit is not already contained in `main`, so the tag it creates always
 # names a commit that is both validated and merged.
@@ -45,7 +45,7 @@ jobs:
 
           state="$(gh release view "$TAG" --json isDraft,targetCommitish)"
           if [ "$(echo "$state" | jq -r .isDraft)" != "true" ]; then
-            echo "$TAG is not a draft; only a draft validated by cd.yml is published here" >&2
+            echo "$TAG is not a draft; only a draft validated by release.yml is published here" >&2
             exit 1
           fi
           commit="$(echo "$state" | jq -r .targetCommitish)"
@@ -69,14 +69,11 @@ jobs:
             exit 1
           fi
 
-          # The assets are the ones cd.yml attached; publishing must not invent any.
+          # The assets are the ones release.yml attached; publishing must not invent any.
           for asset in \
-            "npu-resnet18-${TAG}.zip" \
-            "npu-smollm-${TAG}.tar.gz" \
-            "SMOLLM_SHA256SUMS" \
-            "smollm-interactive.json" \
-            "SHA256SUMS" \
-            "resnet18-image-acceptance.json"
+            "pynqo-resnet18-${TAG}.tar.gz" "board-resnet18.json" \
+            "pynqo-smollm-${TAG}.tar.gz" "board-smollm.json" \
+            "npu_matrix.bit" "npu_matrix.hwh" "SHA256SUMS"
           do
             if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx "$asset"; then
               echo "draft is missing the validated asset: $asset" >&2
