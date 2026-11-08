@@ -17,6 +17,12 @@ on:
   push:
     branches:
       - 'release/v*'
+    # Documentation does not change what the board runs, so a push that only
+    # touches these does not start the run again. workflow_dispatch still can.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.codex/**'
   workflow_dispatch:
 
 permissions:

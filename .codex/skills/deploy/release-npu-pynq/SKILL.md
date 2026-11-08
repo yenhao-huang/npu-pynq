@@ -104,7 +104,8 @@ git checkout -b release/vX.Y.Z origin/dev
 git push -u origin release/vX.Y.Z
 ```
 
-The push starts `release.yml`. Because a push event uses the workflow file from
+The push starts `release.yml` (a later push that only changes `*.md`, `docs/`
+or `.codex/` does not). Because a push event uses the workflow file from
 the branch it ran on, this validates the workflow itself as well as the
 release; `main` does not have to be touched first.
 
