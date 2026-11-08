@@ -40,6 +40,19 @@ Rules:
   scripts may validate inputs, execute board tests non-interactively, and
   collect evidence. Example-local deployment wrappers only transfer files for
   a later human-run notebook or CLI validation.
+- SmolLM CD builds the pinned official INT8 ONNX through the shared MLIR/LLVM
+  compiler from the release commit. `.github/cd/smollm.py` seals model files and
+  requires all 32 frozen interactive token IDs and exact text, physical backend
+  and MMIO, positive NPU jobs/cycles and zero errors. The baseline must not be
+  regenerated from a candidate. See `docs/acceptance/smollm-onnx.md` for
+  the prompt, reference provenance and runner configuration.
+- Configure `PYNQ_SMOLLM_REMOTE_ROOT` in `pynq-z1-production`; preflight must
+  reject missing or invalid deployment paths before expensive builds. SmolLM
+  uses the same run's verified ISA overlay and a new immutable deployment
+  directory, with detached execution and durable JSON evidence.
+- Draft and public releases also require the SmolLM model archive,
+  `SMOLLM_SHA256SUMS` and `smollm-interactive.json` from the same successful CD
+  run. Failure of deterministic generation prevents draft creation.
 - The Vivado job must build from the release branch commit, verify the BIT, HWH,
   provenance manifest, and implementation evidence, and assemble the standalone
   matrix and ResNet-18 packages with a checksum file. Every checkout in CD names
@@ -71,7 +84,7 @@ Rules:
   inputs. `build-overlay` reuses the `npu-build-<tag>` artifact of the newest
   run on the same release branch whose `build-overlay` succeeded, but only if
   the overlay verifies, its commit is an ancestor of the release commit, and
-  `src/hw` and `src/runtime/verify_overlay.py` are identical between the two.
+  `src/hw` and `src/vendors/npu_pynq/driver/overlay/` are identical between the two.
   Otherwise Vivado runs. The reused overlay must bring every Vivado report the
   ResNet-18 package needs; an older artifact that holds only
   `build_evidence.txt` has the rest recovered from that run's own ResNet-18

@@ -1,0 +1,9 @@
+# Host-side export for exp-board (Python 3.12). LLVM/MLIR 22 come from apt.llvm.org.
+numpy>=1.26
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.4
+torchvision>=0.19
+transformers>=4.57
+safetensors
+huggingface_hub
+pillow

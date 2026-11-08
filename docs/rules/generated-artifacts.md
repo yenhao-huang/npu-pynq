@@ -28,7 +28,7 @@ cannot be recalculated from the compact checkout alone.
 
 Commit project-regenerating Tcl under `src/hw/vivado_tcl/<design>/`. Attach a
 matching bitstream and hardware handoff to a tagged GitHub Release rather than
-Git history. Files staged under `mount/` are deploy payloads and are not
+Git history. Files staged under `dist/` are deploy payloads and are not
 authored source.
 
 After changing `.gitignore`, run:

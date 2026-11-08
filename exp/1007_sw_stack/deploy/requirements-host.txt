@@ -1,0 +1,8 @@
+numpy==1.26.4
+onnx==1.17.0
+onnxruntime==1.20.1
+nbformat>=5.4,<6
+nbclient>=0.5.13,<1
+jinja2>=3,<4
+tokenizers>=0.20,<1
+matplotlib>=3.5,<4

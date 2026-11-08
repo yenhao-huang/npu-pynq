@@ -82,7 +82,7 @@ jobs:
 
       - name: Install Python test dependencies
         run: |
-          python3 -m pip install --upgrade --break-system-packages numpy pyyaml
+          python3 -m pip install --upgrade --break-system-packages numpy pyyaml pillow
 
       - name: Lint RTL
         run: make -C src/test lint
@@ -119,8 +119,10 @@ jobs:
         id: model-cache
         uses: actions/cache/restore@v4
         with:
-          path: examples/resnet18/model
-          key: resnet18-model-${{ needs.validate-source.outputs.release_tag }}-${{ hashFiles('src/**', '!src/hw/**', 'examples/resnet18/**', '!examples/resnet18/tests/**', '!examples/resnet18/**/*.md', '!examples/resnet18/**/*.ipynb', '!examples/resnet18/model/**') }}
+          path: |
+            dist/resnet18/model
+            dist/resnet18/package
+          key: resnet18-model-${{ needs.validate-source.outputs.release_tag }}-${{ hashFiles('src/**', '!src/hw/**') }}
 
       # Every model step runs through `step`, which turns a failure's last lines
       # into a workflow annotation. Annotations are readable through the API
@@ -143,60 +145,56 @@ jobs:
           }
           SH
 
-      - name: Install the pinned conversion environment
+      - name: Install the pinned export environment
         run: |
           . "$RUNNER_TEMP/step.sh"
           step "install" python -m pip install \
             --extra-index-url https://download.pytorch.org/whl/cpu \
-            -r examples/resnet18/requirements-convert.txt
+            -r src/export/requirements.txt
 
-      - name: Download the pinned checkpoint and calibration images
+      - name: Install LLVM 22 for pynqo-backend
+        run: |
+          set -euo pipefail
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          . /etc/os-release
+          echo "deb http://apt.llvm.org/${VERSION_CODENAME}/ llvm-toolchain-${VERSION_CODENAME}-22 main" | sudo tee /etc/apt/sources.list.d/llvm22.list
+          sudo apt-get update -q
+          sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake ninja-build
+
+      - name: Download the pinned checkpoint and demo assets
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "download_model" python examples/resnet18/scripts/download_model.py
-          step "download_calibration" python examples/resnet18/scripts/download_calibration.py
+          step "download_model" python -m src.deploy.resnet18_assets model
+          step "download_demo_assets" python -m src.deploy.resnet18_assets demo
+          step "download_gallery" python -m src.deploy.resnet18_assets gallery
 
-      - name: Convert to the NPU package
+      - name: Export ResNet18 through PyTorch for host and PYNQ
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "convert_model" python examples/resnet18/scripts/convert_model.py
+          step "export_model" python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
 
-      - name: Validate against the independent integer reference
+      - name: Validate the compiled host model on the real image
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: |
           . "$RUNNER_TEMP/step.sh"
-          step "verify_model" python examples/resnet18/scripts/verify_model.py --software-timeout 7200
-
-      - name: Prepare the demo input and the bundled gallery
-        if: steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          . "$RUNNER_TEMP/step.sh"
-          step "download_demo_assets" python examples/resnet18/scripts/download_demo_assets.py
-          step "prepare_demo_image" python examples/resnet18/scripts/prepare_demo_image.py --software-timeout 7200
-          step "download_gallery" python examples/resnet18/scripts/download_gallery.py
-
-      # The board refuses a demo it classifies wrongly, but only after hours of
-      # Vivado and an hour of inference. The host record already knows.
-      - name: Require the host to classify the demo correctly
-        shell: python
-        run: |
-          import json, sys
-          record = json.load(open("examples/resnet18/model/resnet18.demo.json", encoding="utf-8"))
-          top, expected = record["host_top_k"][0], record["expected"]
-          print(f"host top-1: {top['name']} ({top['probability']:.2%})")
-          if expected is not None and top["index"] != expected["index"]:
-              sys.exit(f"host predicts {top['name']!r}, the demo expects {expected['name']!r}")
+          step "host_image" python -m src.runtime.cli classifier --backend sim \
+            --package dist/resnet18/package \
+            --image dist/resnet18/model/demo-image.jpg \
+            --labels dist/resnet18/model/imagenet-classes.txt \
+            --expected-class Samoyed --evidence dist/resnet18/model/host-image.json
 
       - name: Confirm the workspace is package-ready
-        run: python examples/resnet18/package_example.py --check-only
+        run: python -m src.deploy.resnet18 dist/resnet18/package --check-only
 
       - name: Keep the checked model for later runs of this release
         if: steps.model-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: examples/resnet18/model
+          path: |
+            dist/resnet18/model
+            dist/resnet18/package
           key: ${{ steps.model-cache.outputs.cache-primary-key }}
 
       - name: Retain the model workspace
@@ -205,9 +203,9 @@ jobs:
           name: resnet18-model-${{ needs.validate-source.outputs.release_tag }}
           if-no-files-found: error
           path: |
-            examples/resnet18/model/*
-            !examples/resnet18/model/calibration
-            !examples/resnet18/model/.gitkeep
+            dist/resnet18/model/*
+            dist/resnet18/package/*
+            !dist/resnet18/package/ir
 
   # Everything the privileged jobs need is checked here, in about a minute,
   # before Vivado spends hours on a build that would fail at packaging.
@@ -238,16 +236,21 @@ jobs:
     needs: validate-source
     runs-on: [self-hosted, pynq-z1]
     timeout-minutes: 5
+    environment: pynq-z1-production
     # Exactly the host and user every board step uses, so a preflight pass
     # means the board steps can reach the same board.
     env:
       PYNQ_BOARD_HOST: ${{ vars.PYNQ_BOARD_HOST || '192.168.2.99' }}
       PYNQ_BOARD_USER: ${{ vars.PYNQ_BOARD_USER || 'xilinx' }}
+      PYNQ_SMOLLM_REMOTE_ROOT: ${{ vars.PYNQ_SMOLLM_REMOTE_ROOT }}
     steps:
       - name: Check the board and everything the board steps run there
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
+          if (-not $env:PYNQ_SMOLLM_REMOTE_ROOT -or $env:PYNQ_SMOLLM_REMOTE_ROOT -notmatch '^/[A-Za-z0-9._/-]+$' -or $env:PYNQ_SMOLLM_REMOTE_ROOT -match '/\.\.?(/|$)') {
+            throw 'Set a valid absolute PYNQ_SMOLLM_REMOTE_ROOT in the production environment'
+          }
           foreach ($tool in 'ssh', 'scp', 'tar') {
             if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
               Write-Host "::error::$tool is not on this runner's PATH"
@@ -294,7 +297,7 @@ jobs:
       actions: read
     timeout-minutes: 180
     env:
-      RESNET18_MODEL_DIR: build/resnet18-model
+      RESNET18_DIR: build/resnet18
     steps:
       # CD never creates a tag, so the release commit is the only exact ref.
       - name: Check out the validated release commit
@@ -308,7 +311,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: resnet18-model-${{ needs.validate-source.outputs.release_tag }}
-          path: build/resnet18-model
+          path: build/resnet18
 
       # Vivado is the long stage. When an earlier run of this same release
       # branch built the overlay successfully, and the hardware sources have not
@@ -379,7 +382,7 @@ jobs:
             $reason = 'it was not downloaded completely'
           }
           if (-not $reason) {
-            python src/runtime/verify_overlay.py "$root/artifacts"
+            python src/vendors/npu_pynq/driver/overlay/verify.py "$root/artifacts"
             if ($LASTEXITCODE -ne 0) { $reason = 'it does not verify' }
           }
           if (-not $reason) {
@@ -395,7 +398,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { $reason = "$built is not an ancestor of $release" }
           }
           if (-not $reason) {
-            git diff --quiet $built $release -- src/hw src/runtime/verify_overlay.py
+            git diff --quiet $built $release -- src/hw src/vendors/npu_pynq/driver/overlay
             if ($LASTEXITCODE -ne 0) { $reason = "hardware sources changed since $built" }
           }
           if ($reason) {
@@ -422,7 +425,7 @@ jobs:
       - name: Verify BIT HWH and provenance manifest
         shell: pwsh
         run: |
-          python src/runtime/verify_overlay.py `
+          python src/vendors/npu_pynq/driver/overlay/verify.py `
             build/vivado/npu_matrix_16x16/artifacts
           if ($LASTEXITCODE -ne 0) {
             throw "overlay verification failed with exit code $LASTEXITCODE"
@@ -457,7 +460,7 @@ jobs:
             Write-Host "::error title=overlay reuse::cached overlay commit $built is not an ancestor of $release"
             exit 1
           }
-          git diff --quiet $built $release -- src/hw src/runtime/verify_overlay.py
+          git diff --quiet $built $release -- src/hw src/vendors/npu_pynq/driver/overlay
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error title=overlay reuse::hardware sources changed since $built"
             exit 1
@@ -470,10 +473,10 @@ jobs:
         run: |
           $tag = '${{ needs.validate-source.outputs.release_tag }}'
           $commit = '${{ needs.validate-source.outputs.release_commit }}'
-          $package = "mount/matrix-multiplication/$tag"
+          $package = "dist/matrix-multiplication/$tag"
           $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
-          $output = python examples/matrix-multiplication/package_example.py `
+          $output = python -m src.deploy.matrix `
             --repository-root . `
             --artifact-dir build/vivado/npu_matrix_16x16/artifacts `
             --output-dir $package `
@@ -499,12 +502,12 @@ jobs:
           New-Item -ItemType Directory -Force 'build/cd' | Out-Null
           $overlayCommit = '${{ steps.overlay-source.outputs.commit }}'
           $reuse = if ($overlayCommit) { @('--overlay-commit', $overlayCommit) } else { @() }
-          $output = python examples/resnet18/package_example.py `
-            --repository-root . `
-            --artifact-dir build/vivado/npu_matrix_16x16/artifacts `
+          $output = python -m src.deploy.resnet18 "$env:RESNET18_DIR/package" `
+            --overlay build/vivado/npu_matrix_16x16/artifacts `
             --report-dir build/vivado/npu_matrix_16x16/reports `
-            --model-dir $env:RESNET18_MODEL_DIR `
-            --output-archive "build/cd/npu-resnet18-$tag.zip" `
+            --assets "$env:RESNET18_DIR/model" `
+            --out "build/cd/resnet18-$tag" `
+            --archive "build/cd/npu-resnet18-$tag.zip" `
             --release-tag $tag `
             --source-commit $commit @reuse 2>&1
           $code = $LASTEXITCODE
@@ -554,8 +557,58 @@ jobs:
             build/cd/npu-resnet18-${{ needs.validate-source.outputs.release_tag }}.zip
             build/cd/SHA256SUMS
 
+  build-smollm:
+    needs: [validate-source, preflight-vivado, preflight-board]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-source.outputs.release_commit }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the export environment and LLVM 22
+        run: |
+          set -euo pipefail
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" | sudo tee /etc/apt/sources.list.d/llvm22.list
+          sudo apt-get update -q
+          sudo apt-get install -y llvm-22 llvm-22-dev mlir-22-tools libmlir-22-dev lld-22 clang-22 cmake ninja-build
+          python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu -r src/export/requirements.txt
+      # The pinned checkpoint, exported through PyTorch with this release's
+      # source; the host simulator's 32 tokens become the board's reference.
+      - name: Export the pinned model from this release's source
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, pathlib, urllib.request
+          source = json.loads(pathlib.Path('examples/smollm-safetensors/model-source.json').read_text())
+          root = pathlib.Path('examples/smollm-safetensors/model/checkpoint')
+          root.mkdir(parents=True, exist_ok=True)
+          for name, entry in source['files'].items():
+              path = root / name
+              urllib.request.urlretrieve(entry['url'], path)
+              if hashlib.sha256(path.read_bytes()).hexdigest() != entry['sha256']:
+                  raise SystemExit(f'{name}: SHA-256 differs from model-source.json')
+          PY
+          python -m src.export.cli build src/export/configs/smollm.yml --out build/smollm-package
+          python .github/cd/smollm.py reference --package build/smollm-package
+          python .github/cd/smollm.py seal --package build/smollm-package \
+            --commit '${{ needs.validate-source.outputs.release_commit }}' --tag '${{ needs.validate-source.outputs.release_tag }}'
+          mkdir -p build/smollm-release
+          tar -czf 'build/smollm-release/npu-smollm-${{ needs.validate-source.outputs.release_tag }}.tar.gz' \
+            --exclude=./ir -C build/smollm-package .
+          cd build/smollm-release
+          sha256sum *.tar.gz > SMOLLM_SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smollm-model-${{ needs.validate-source.outputs.release_tag }}
+          path: build/smollm-release/
+          if-no-files-found: error
+
   board-validation:
-    needs: [validate-source, build-overlay]
+    needs: [validate-source, build-overlay, build-smollm]
     runs-on: [self-hosted, pynq-z1]
     timeout-minutes: 240
     environment: pynq-z1-production
@@ -613,7 +666,7 @@ jobs:
           PYNQ_REMOTE_ROOT: ${{ vars.PYNQ_REMOTE_ROOT || '/home/xilinx/jupyter_notebooks/npu_matrix' }}
         run: |
           & .github/cd/invoke_reported.ps1 -Title 'board: matrix deploy' `
-            -Script examples/matrix-multiplication/deploy_release.ps1 `
+            -Script .github/cd/matrix_deploy.ps1 `
             -ArgumentList @(
               '-PackagePath', 'build/cd-package',
               '-ReleaseTag', '${{ needs.validate-source.outputs.release_tag }}',
@@ -662,15 +715,49 @@ jobs:
               '-RemoteRoot', $env:PYNQ_RESNET18_REMOTE_ROOT)
           exit $LASTEXITCODE
 
+      - name: Download the compiled SmolLM package
+        uses: actions/download-artifact@v4
+        with:
+          name: smollm-model-${{ needs.validate-source.outputs.release_tag }}
+          path: build/smollm-download
+
+      - name: Download the same release's ISA overlay
+        uses: actions/download-artifact@v4
+        with:
+          name: npu-build-${{ needs.validate-source.outputs.release_tag }}
+          path: build/smollm-overlay
+
+      - name: SmolLM deterministic physical generation stage
+        shell: pwsh
+        env:
+          PYNQ_SMOLLM_REMOTE_ROOT: ${{ vars.PYNQ_SMOLLM_REMOTE_ROOT }}
+        run: |
+          if (-not $env:PYNQ_SMOLLM_REMOTE_ROOT) { throw 'Set PYNQ_SMOLLM_REMOTE_ROOT in the production environment' }
+          $tag = '${{ needs.validate-source.outputs.release_tag }}'
+          $archive = "build/smollm-download/npu-smollm-$tag.tar.gz"
+          $expected = ((Get-Content build/smollm-download/SMOLLM_SHA256SUMS) -split '\s+')[0]
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'SmolLM archive checksum mismatch' }
+          & .github/cd/invoke_reported.ps1 -Title 'board: SmolLM deterministic generation' `
+            -Script .github/cd/smollm_accept.ps1 -ArgumentList @(
+              '-ModelArchive', $archive, '-OverlayDirectory', 'build/smollm-overlay/artifacts',
+              '-SourceCommit', '${{ needs.validate-source.outputs.release_commit }}',
+              '-ReleaseTag', $tag, '-DeploymentId', '${{ github.run_id }}-${{ github.run_attempt }}',
+              '-BoardHost', $env:PYNQ_BOARD_HOST, '-BoardUser', $env:PYNQ_BOARD_USER,
+              '-RemoteRoot', $env:PYNQ_SMOLLM_REMOTE_ROOT, '-EvidencePath', 'build/board/smollm-interactive.json')
+          exit $LASTEXITCODE
+
       - name: Retain board evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: npu-board-${{ needs.validate-source.outputs.release_tag }}
           if-no-files-found: error
-          path: build/board/resnet18-image-acceptance.json
+          path: |
+            build/board/resnet18-image-acceptance.json
+            build/board/smollm-interactive.json
 
   publish-draft:
-    needs: [validate-source, host-checks, build-model, build-overlay, board-validation]
+    needs: [validate-source, host-checks, build-model, build-overlay, build-smollm, board-validation]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -704,6 +791,12 @@ jobs:
              build/overlay/reports/build_evidence.txt \
              build/release/
 
+      - name: Download the validated SmolLM package
+        uses: actions/download-artifact@v4
+        with:
+          name: smollm-model-${{ needs.validate-source.outputs.release_tag }}
+          path: build/release
+
       - name: Download board acceptance evidence
         uses: actions/download-artifact@v4
         with:
@@ -718,8 +811,10 @@ jobs:
           set -euo pipefail
           cd build/release
           sha256sum --check --strict SHA256SUMS
+          sha256sum --check --strict SMOLLM_SHA256SUMS
           test -s "npu-resnet18-${TAG}.zip"
           test -s resnet18-image-acceptance.json
+          python -c 'import json; r=json.load(open("smollm-interactive.json")); assert r["success"] and r["backend"] == 1 and r["mmio"] and len(r["ids"]) == 32'
 
       - name: Publish the validated draft Release
         shell: bash
@@ -755,6 +850,9 @@ jobs:
             build/release/npu_matrix.manifest.json \
             build/release/build_evidence.txt \
             build/release/resnet18-image-acceptance.json \
+            build/release/smollm-interactive.json \
+            build/release/npu-smollm-"$TAG".tar.gz \
+            build/release/SMOLLM_SHA256SUMS \
             build/release/SHA256SUMS
 
       - name: Say what to do next

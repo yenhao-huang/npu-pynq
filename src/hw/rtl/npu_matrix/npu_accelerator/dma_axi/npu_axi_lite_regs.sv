@@ -44,11 +44,35 @@ module npu_axi_lite_regs #(
     output logic [31:0]                       cfg_a_stride,
     output logic [31:0]                       cfg_b_stride,
     output logic [31:0]                       cfg_c_stride,
-    output logic [31:0]                       cfg_timeout_cycles
+    output logic [31:0]                       cfg_timeout_cycles,
+
+    // Instruction-stream front end (ABI 1.1, capability ISA_FRONTEND).
+    input  logic                              isa_running,
+    input  logic                              isa_busy,
+    input  logic                              isa_done,
+    input  logic                              isa_error,
+    input  logic [7:0]                        isa_error_code,
+    input  logic [31:0]                       isa_pc,
+    input  logic [31:0]                       isa_jobs,
+    input  logic [31:0]                       isa_cycles,
+    input  logic [31:0]                       isa_instructions,
+    output logic                              isa_start_pulse,
+    // While the front end owns the controller it drives START and the job
+    // configuration through these same flip-flops, so the controller's inputs
+    // come straight from registers on both paths.
+    input  logic                              ext_own,
+    input  logic                              ext_start,
+    input  logic [15:0]                       ext_m,
+    input  logic [15:0]                       ext_n,
+    input  logic [15:0]                       ext_k,
+    output logic [31:0]                       isa_prog_addr,
+    output logic [31:0]                       isa_prog_len,
+    output logic [31:0]                       isa_data_base
 );
     localparam logic [31:0] ABI_MAGIC = 32'h3155504e;
-    localparam logic [31:0] ABI_VERSION = 32'h00010000;
-    localparam logic [31:0] ABI_CAPABILITIES = 32'h0000003b;
+    localparam logic [31:0] ABI_VERSION = 32'h00010001;
+    localparam logic [31:0] ABI_CAPABILITIES = 32'h0000007b;
+    localparam logic [31:0] ISA_VERSION = 32'h00000001;
 
     localparam logic [7:0] REG_MAGIC = 8'h00;
     localparam logic [7:0] REG_VERSION = 8'h04;
@@ -65,6 +89,17 @@ module npu_axi_lite_regs #(
     localparam logic [7:0] REG_TIMEOUT_CYCLES = 8'h30;
     localparam logic [7:0] REG_CYCLES_LO = 8'h34;
     localparam logic [7:0] REG_CYCLES_HI = 8'h38;
+    localparam logic [7:0] REG_ISA_CONTROL = 8'h40;
+    localparam logic [7:0] REG_ISA_STATUS = 8'h44;
+    localparam logic [7:0] REG_PROG_ADDR = 8'h48;
+    localparam logic [7:0] REG_PROG_LEN = 8'h4c;
+    localparam logic [7:0] REG_DATA_BASE = 8'h50;
+    localparam logic [7:0] REG_ISA_ERROR = 8'h54;
+    localparam logic [7:0] REG_ISA_PC = 8'h58;
+    localparam logic [7:0] REG_ISA_JOBS = 8'h5c;
+    localparam logic [7:0] REG_ISA_CYCLES = 8'h60;
+    localparam logic [7:0] REG_ISA_INSTRUCTIONS = 8'h64;
+    localparam logic [7:0] REG_ISA_VERSION = 8'h68;
 
     logic [C_S_AXI_ADDR_WIDTH-1:0] aw_hold_addr;
     logic                          aw_hold_valid;
@@ -120,6 +155,17 @@ module npu_axi_lite_regs #(
                 REG_TIMEOUT_CYCLES: read_word = cfg_timeout_cycles;
                 REG_CYCLES_LO:      read_word = cycles[31:0];
                 REG_CYCLES_HI:      read_word = cycles[63:32];
+                REG_ISA_STATUS:     read_word = {28'd0, isa_busy, isa_error,
+                                                isa_done, isa_running};
+                REG_PROG_ADDR:      read_word = isa_prog_addr;
+                REG_PROG_LEN:       read_word = isa_prog_len;
+                REG_DATA_BASE:      read_word = isa_data_base;
+                REG_ISA_ERROR:      read_word = {24'd0, isa_error_code};
+                REG_ISA_PC:         read_word = isa_pc;
+                REG_ISA_JOBS:       read_word = isa_jobs;
+                REG_ISA_CYCLES:     read_word = isa_cycles;
+                REG_ISA_INSTRUCTIONS: read_word = isa_instructions;
+                REG_ISA_VERSION:    read_word = ISA_VERSION;
                 default:            read_word = 32'd0;
             endcase
         end
@@ -159,9 +205,14 @@ module npu_axi_lite_regs #(
             cfg_b_stride <= 32'd0;
             cfg_c_stride <= 32'd0;
             cfg_timeout_cycles <= 32'd0;
+            isa_start_pulse <= 1'b0;
+            isa_prog_addr <= 32'd0;
+            isa_prog_len <= 32'd0;
+            isa_data_base <= 32'd0;
         end else begin
             start_pulse <= 1'b0;
             soft_reset_pulse <= 1'b0;
+            isa_start_pulse <= 1'b0;
 
             if (s_axi_awvalid && s_axi_awready) begin
                 aw_hold_addr <= s_axi_awaddr;
@@ -221,6 +272,16 @@ module npu_axi_lite_regs #(
                                 cfg_timeout_cycles, w_hold_data, w_hold_strb
                             );
                     end
+                    REG_ISA_CONTROL: begin
+                        if (w_hold_strb[0] && w_hold_data[0])
+                            isa_start_pulse <= 1'b1;
+                    end
+                    REG_PROG_ADDR:
+                        isa_prog_addr <= merge_wstrb(isa_prog_addr, w_hold_data, w_hold_strb);
+                    REG_PROG_LEN:
+                        isa_prog_len <= merge_wstrb(isa_prog_len, w_hold_data, w_hold_strb);
+                    REG_DATA_BASE:
+                        isa_data_base <= merge_wstrb(isa_data_base, w_hold_data, w_hold_strb);
                     default: begin
                     end
                 endcase
@@ -229,6 +290,17 @@ module npu_axi_lite_regs #(
                 s_axi_bvalid <= 1'b1;
             end else if (s_axi_bvalid && s_axi_bready) begin
                 s_axi_bvalid <= 1'b0;
+            end
+
+            if (ext_own) begin
+                start_pulse <= ext_start;
+                cfg_m <= ext_m;
+                cfg_n <= ext_n;
+                cfg_k <= ext_k;
+                cfg_a_stride <= {16'd0, ext_k};
+                cfg_b_stride <= {16'd0, ext_n};
+                cfg_c_stride <= {14'd0, ext_n, 2'b00};
+                cfg_timeout_cycles <= 32'hffff_ffff;
             end
 
             if (s_axi_arvalid && s_axi_arready) begin

@@ -1,0 +1,174 @@
+{
+  "host": "Darwin arm64",
+  "backend": "sim (C ISA simulator)",
+  "models": {
+    "smollm": {
+      "export_seconds": 17.24,
+      "weights_bytes": 135570176,
+      "npu_tasks": 242,
+      "npu_segments": 254,
+      "cpu_linalg_ops": 2484,
+      "pynq_library": true,
+      "options": {
+        "chunk": 16,
+        "max_seq": 512,
+        "bits": 8,
+        "group": 64,
+        "embed_bits": 8,
+        "kv": "f32",
+        "attention": "online",
+        "awq": true,
+        "layers": null,
+        "limits": {
+          "rows": 16,
+          "columns": 16,
+          "max_k": 256
+        }
+      },
+      "prompt": "What is the capital of France?",
+      "output": "The capital of France is Paris. Paris is a city located in the northern part of the country, and it is known",
+      "prompt_tokens": 16,
+      "generated_tokens": 24,
+      "prefill_seconds": 0.5342,
+      "decode_seconds": 1.0573,
+      "prefill_tok_per_s": 29.95,
+      "decode_tok_per_s": 22.699,
+      "npu": {
+        "calls": 3025,
+        "jobs": 1040400,
+        "cycles": 0,
+        "macs": 4954521600
+      }
+    },
+    "qwen3": {
+      "export_seconds": 7.72,
+      "weights_bytes": 598492672,
+      "npu_tasks": 226,
+      "npu_segments": 356,
+      "cpu_linalg_ops": 2768,
+      "pynq_library": true,
+      "options": {
+        "chunk": 16,
+        "max_seq": 512,
+        "bits": 8,
+        "group": 128,
+        "embed_bits": 8,
+        "kv": "f32",
+        "attention": "online",
+        "awq": false,
+        "layers": null,
+        "limits": {
+          "rows": 16,
+          "columns": 16,
+          "max_k": 256
+        }
+      },
+      "prompt": "What is the capital of France?",
+      "output": "<think>\nOkay, the user is asking for the capital of France. I know that France's capital is Paris. But",
+      "prompt_tokens": 15,
+      "generated_tokens": 24,
+      "prefill_seconds": 2.2516,
+      "decode_seconds": 4.8315,
+      "prefill_tok_per_s": 6.662,
+      "decode_tok_per_s": 4.967,
+      "npu": {
+        "calls": 2825,
+        "jobs": 3637600,
+        "cycles": 0,
+        "macs": 21505638400
+      }
+    },
+    "resnet18": {
+      "export_seconds": 1.15,
+      "weights_bytes": 11729440,
+      "npu_tasks": 21,
+      "npu_segments": 21,
+      "cpu_linalg_ops": 196,
+      "pynq_library": true,
+      "images": [
+        {
+          "image": "gallery-zebra.jpg",
+          "expected": "zebra",
+          "top5": [
+            "zebra",
+            "prairie chicken",
+            "impala",
+            "goose",
+            "tiger"
+          ],
+          "top1_correct": true,
+          "top1_matches_fp32": true,
+          "top5_overlap_fp32": 5,
+          "logit_cosine_fp32": 0.9994784593582153,
+          "host_seconds": 0.6306506670080125
+        },
+        {
+          "image": "gallery-volcano.jpg",
+          "expected": "volcano",
+          "top5": [
+            "volcano",
+            "torch",
+            "fire screen",
+            "fountain",
+            "lighter"
+          ],
+          "top1_correct": true,
+          "top1_matches_fp32": true,
+          "top5_overlap_fp32": 5,
+          "logit_cosine_fp32": 0.9988765120506287,
+          "host_seconds": 0.6112230841536075
+        },
+        {
+          "image": "gallery-daisy.jpg",
+          "expected": "daisy",
+          "top5": [
+            "daisy",
+            "bee",
+            "fly",
+            "admiral",
+            "long-horned beetle"
+          ],
+          "top1_correct": true,
+          "top1_matches_fp32": true,
+          "top5_overlap_fp32": 4,
+          "logit_cosine_fp32": 0.9997117519378662,
+          "host_seconds": 0.6134637088980526
+        },
+        {
+          "image": "gallery-pizza.jpg",
+          "expected": "pizza",
+          "top5": [
+            "pizza",
+            "meat loaf",
+            "trifle",
+            "potpie",
+            "mashed potato"
+          ],
+          "top1_correct": true,
+          "top1_matches_fp32": true,
+          "top5_overlap_fp32": 4,
+          "logit_cosine_fp32": 0.9996358752250671,
+          "host_seconds": 0.6203185829799622
+        },
+        {
+          "image": "gallery-goldfish.jpg",
+          "expected": "goldfish",
+          "top5": [
+            "goldfish",
+            "barracouta",
+            "tench",
+            "coho",
+            "hummingbird"
+          ],
+          "top1_correct": true,
+          "top1_matches_fp32": true,
+          "top5_overlap_fp32": 5,
+          "logit_cosine_fp32": 0.998577356338501,
+          "host_seconds": 0.6125754998065531
+        }
+      ],
+      "top1_correct": "5/5",
+      "mean_seconds": 0.6176463085692376
+    }
+  }
+}

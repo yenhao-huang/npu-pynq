@@ -1,104 +1,56 @@
-# Matrix multiplication deployment
+# Matrix multiplication on PYNQ-Z1
 
-This example defaults to a 16 x 16 systolic array. It builds the NPU overlay,
-deploys it to PYNQ-Z1, runs three matrix tests, and downloads JSON evidence. Run all PowerShell commands from the
-repository root.
+The smallest way to see the NPU work: multiply matrices on the board and check
+every result against NumPy. No model, no compiler, just the bitstream and a
+short test.
 
-## Requirements
+We last ran the three test cases (one full tile, four edge tiles, repeated
+runs) on a 16 x 16 board and they passed. The notebook in this guide hasn't
+been rerun since the runtime moved.
 
-- Vivado, Python, `ssh`, `scp`, and `tar` are available.
-- The board is reachable as `pynq` or `192.168.2.99`.
-- The Git worktree is clean before building deployable artifacts:
+## Before you start
 
-```powershell
-git status --short
+You need Linux. On Windows, run `wsl --install -d Ubuntu` in PowerShell, open
+Ubuntu, and clone the repository there. You also need Vivado with Zynq-7000
+support, and Python 3 with NumPy:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install numpy
 ```
 
-The command must print nothing. A dirty exploratory build may use
-`-tclargs --allow-dirty`, but it deliberately does not publish deployable
-artifacts.
+## Build the NPU bitstream and package it
 
-## 1. Prepare the board once
+Vivado refuses to build while `src/` has uncommitted changes, so commit those
+first. We recommend running Vivado on Windows, where it is installed: run the
+same Tcl there, then come back to Linux for the packaging step.
 
-```powershell
-ssh pynq
-sudo usermod -aG render,video xilinx
-exit
-ssh pynq id
-```
-
-The final output should include `render` and `video`. PYNQ also requires root
-for `/dev/mem` MMIO, so local deployment will ask for the board sudo password.
-
-## 2. Build and package
-
-```powershell
-vivado -mode batch -nojournal -nolog `
+```bash
+vivado -mode batch -nojournal -nolog \
   -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
-
-python examples/matrix-multiplication/package_example.py
+python -m src.deploy.matrix
 ```
 
-The package is created under
-`mount/matrix-multiplication/local-<commit>`.
+This checks the bitstream and writes everything the board needs to
+`dist/matrix-multiplication/local-<commit>`. Using a bitstream you built
+earlier? Add `--artifact-dir <directory>` and tell it which commits it came
+from with `--overlay-commit` and `--source-commit`.
 
-## 3. Deploy and test
+## Run on the board
 
-```powershell
-$package = Get-ChildItem mount/matrix-multiplication/local-* -Directory |
-  Sort-Object LastWriteTime -Descending |
-  Select-Object -First 1
-
-if (-not $package) { throw 'Build the package first.' }
-
-$deploy = @{
-  PackagePath = $package.FullName
-  ReleaseTag = 'v0.0.0'
-  DeploymentId = Get-Date -Format 'yyyyMMdd-HHmmss'
-  EvidencePath = 'build/board/local-evidence.json'
-  BoardHost = 'pynq'
-}
-
-& examples/matrix-multiplication/deploy_release.ps1 @deploy -DryRun
-& examples/matrix-multiplication/deploy_release.ps1 @deploy -InteractiveSudo
+```bash
+export PACKAGE="dist/matrix-multiplication/local-$(git rev-parse --short=8 HEAD)"
+ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/npu-matrix-local'
+scp -r "$PACKAGE/." xilinx@192.168.2.99:jupyter_notebooks/npu-matrix-local/
+ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/npu-matrix-local && sudo XILINX_XRT=/usr \
+  /usr/local/share/pynq-venv/bin/python3 -m src.test.matrix_acceptance \
+  --artifact-dir artifacts --release-tag local-demo --evidence board-evidence.json'
 ```
 
-Enter the board sudo password when prompted. Success prints:
+It asks for the board's sudo password. You're done when it prints
+`PASS: Phase 1C matrix multiplication example`.
 
-```text
-PASS: Phase 1C matrix multiplication example
-PASS: deployed v0.0.0 as <deployment-id> and retrieved board evidence
-```
-
-Read the evidence:
-
-```powershell
-Get-Content build/board/local-evidence.json
-```
-
-## Release CD
-
-`.github/workflows/cd.yml` uses the same deployment wrapper without
-`-InteractiveSudo`. It therefore uses `sudo -n`; the dedicated board must have
-a reviewed non-interactive sudo policy before GitHub Actions CD can pass. Never
-store a password or private key in this repository.
-
-## 16 x 16 notebook handoff
-
-The default build publishes matching BIT/HWH/manifest files under
-`build/vivado/npu_matrix_16x16/artifacts/`. Explicit `--array-size 2` builds
-remain under `build/vivado/npu_matrix/`; pass that artifact directory to
-`package_example.py --artifact-dir` when packaging a 2 x 2 demo.
-
-To leave execution to the notebook operator, copy the complete generated
-package to a dedicated directory under `/home/xilinx/jupyter_notebooks/`.
-Keep `artifacts/`, `runtime/`, and `src/` alongside
-`matrix_multiplication.ipynb`. Do not run the automated deploy-and-test
-command in section 3 for this handoff.
-
-Open `matrix_multiplication.ipynb` in the board's existing PYNQ Python kernel.
-The notebook verifies artifact hashes before loading the overlay and prints
-the physical limits; the default is `(16, 16, 256)`. It checks an 8 x 8
-output tile, a 9 x 9 output tile, and a repeated job
-against NumPy. Notebook execution programs the FPGA. Use a PYNQ kernel with
-the board's existing MMIO/DMA permissions.
+Prefer a notebook? Open
+<http://192.168.2.99:9090/notebooks/npu-matrix-local/matrix_multiplication.ipynb>,
+pick the root PYNQ kernel and run all cells.

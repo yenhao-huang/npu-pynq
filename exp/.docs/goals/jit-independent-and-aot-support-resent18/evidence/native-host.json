@@ -1,0 +1,40 @@
+{
+  "backend": "native-host-simulated-npu",
+  "load_seconds": 0.2713037460052874,
+  "inference_seconds": 0.5395236679978552,
+  "npu": {
+    "calls": 21,
+    "jobs": 35174,
+    "cycles": 0,
+    "macs": 1814073344,
+    "polls": 0
+  },
+  "max_abs_logit_difference": 0.0,
+  "top5": [
+    {
+      "index": 258,
+      "name": "Samoyed",
+      "probability": 0.8980227551502653
+    },
+    {
+      "index": 279,
+      "name": "Arctic fox",
+      "probability": 0.048389537299281374
+    },
+    {
+      "index": 270,
+      "name": "white wolf",
+      "probability": 0.0318289563760357
+    },
+    {
+      "index": 257,
+      "name": "Great Pyrenees",
+      "probability": 0.004697973531433586
+    },
+    {
+      "index": 259,
+      "name": "Pomeranian",
+      "probability": 0.004654208632290369
+    }
+  ]
+}

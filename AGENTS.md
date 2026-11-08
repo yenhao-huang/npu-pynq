@@ -13,7 +13,10 @@ on-board runtime.
 | `src/hw/constraints/` | `.xdc` timing and pin constraints | yes |
 | `src/hw/vivado_tcl/<design>/` | project-regenerating Tcl | yes |
 | `src/test/` | Makefile, golden model, cocotb tests, vectors | yes (not `build/`, not `waves/`) |
-| `src/export/` | trained model to NPU executable format | yes |
+| `src/deprecate/jit/` | deprecated self-contained just-in-time model, export, runtime and examples | yes |
+| `src/vendors/<vendor>/` | one accelerator's hardware spec, MLIR dialect (C++), and board driver; imported by export and runtime | yes |
+| `src/export/` | host-side model export: PyTorch front end (load, torchao quantization, torch.export, torch-mlir import), the C++ middle end `pynqo-middle-end` and the C++ back end `pynqo-backend` | yes |
+| `src/deploy/` | board bundles and sealed release archives | yes |
 | `src/runtime/` | on-board overlay loading and execution | yes |
 | `examples/` | demos built on export and runtime | yes |
 | `tools/ic/` | agent-facing lint/sim/debug/view/synth toolchain | yes |
@@ -24,7 +27,7 @@ on-board runtime.
 | `.codex/skills/deploy/` | setup and deployment skills | yes |
 | `.codex/skills/custom/ic_design/` | repository-specific IC design skills | yes |
 | `openspec/` | change proposals and specifications | yes |
-| `mount/` | deploy staging, mirrored to the board | no, empty by design |
+| `dist/` | deploy staging, mirrored to the board | no, empty by design |
 | `.ic/` | run store written by `tools/ic` | no, machine-local |
 | `vivado_projects/`, `results/` | Vivado output | no |
 
@@ -34,6 +37,8 @@ and on what may not be added.
 
 ## Rules
 
+- planning document default at C:/Users/User/Desktop/agent_workspace/npu/npu_repo_in_pynq
+- Load the PYNQ password from the `PYNQ_PASSWORD` environment variable in the `.env` file.
 - Write in English: documentation, code comments and docstrings, commit
   messages, and issue and pull-request bodies. Quoted tool output, log
   excerpts, error strings, and a person's own words are reproduced verbatim in
@@ -44,11 +49,17 @@ and on what may not be added.
   `vivado -mode batch -source src/hw/vivado_tcl/<design>/build_overlay.tcl`,
   and attach bitstreams to a GitHub Release.
 - `src/test/model/` defines the numeric contract that `src/hw/` implements and
-  `src/export/` must match: quantization, rounding, saturation, accumulator
+  `src/deprecate/jit/export/` must match: quantization, rounding, saturation, accumulator
   width and overflow. Change it only deliberately; both sides depend on it.
 - Dependencies point one way. `examples/` may import from `src/`; nothing under
   `src/` may import from `examples/`.
-- `mount/` holds build products staged for the board. Nothing is authored
+- Before creating or updating anything under `examples/`, read
+  [docs/rules/filetree.md](docs/rules/filetree.md) and
+  [docs/rules/create-example.md](docs/rules/create-example.md), and follow
+  their requirements.
+  Example guides are Linux only (Windows through WSL); keep them consistent
+  with the change.
+- `dist/` holds build products staged for the board. Nothing is authored
   there; it is empty in a clean checkout.
 - Every RTL change needs a corresponding testbench change, or a note in the
   commit explaining why coverage is unchanged.
@@ -88,6 +99,14 @@ and on what may not be added.
 
 Full Git rules:
 [docs/rules/git/](docs/rules/git/) — branches, commits, pull requests, issues.
+
+## GitHub authentication on Windows
+
+- The regular Windows `User` account has the persistent `gh` login. Codex's
+  `CodexSandboxOffline` account may report an invalid token after a restart.
+- If `gh auth status` fails in the sandbox, check it again with approved host-user
+  command execution and use that context for authorized GitHub operations.
+  Do not repeatedly log in inside the sandbox or expose tokens in chat.
 
 ## Commands
 

@@ -1,0 +1,32 @@
+{
+  "group": 64,
+  "model": "smollm",
+  "source": "HuggingFaceTB/SmolLM2-135M-Instruct",
+  "eval_tokens": 239,
+  "results": {
+    "W8A8": {
+      "top1_agreement": 0.9163179916317992,
+      "kl_divergence": 0.031119019775853254,
+      "ppl_fp32": 8.781082155772758,
+      "ppl_quant": 9.132743280725819
+    },
+    "W8A8+AWQ": {
+      "top1_agreement": 0.9456066945606695,
+      "kl_divergence": 0.00950368548783434,
+      "ppl_fp32": 8.781082155772758,
+      "ppl_quant": 8.791692532564738
+    },
+    "W4A8": {
+      "top1_agreement": 0.7740585774058577,
+      "kl_divergence": 0.32409587701800613,
+      "ppl_fp32": 8.781082155772758,
+      "ppl_quant": 12.105784324282451
+    },
+    "W4A8+AWQ": {
+      "top1_agreement": 0.7949790794979079,
+      "kl_divergence": 0.18297812065831975,
+      "ppl_fp32": 8.781082155772758,
+      "ppl_quant": 10.351048130314286
+    }
+  }
+}

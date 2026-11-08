@@ -66,7 +66,7 @@ package builder uses a fixed allowlist and refuses missing inputs.
 
 For local validation, the package builder discovers the repository from its
 own path and reads commit provenance from the verified overlay manifest. Its
-zero-option command writes to `mount/matrix-multiplication/local-<commit>`.
+zero-option command writes to `dist/matrix-multiplication/local-<commit>`.
 Release CD continues passing the stable release tag, commit, and paths
 explicitly so production inputs remain visible in workflow logs.
 

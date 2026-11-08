@@ -1,27 +1,11 @@
-"""Deterministic export pipeline for validated NPU model graphs."""
+"""Host-side export: a model and a config -> a package. Never runs on the board.
 
-from .planner import (
-    MemoryPlan,
-    MemoryPlanningError,
-    TensorAllocation,
-    plan_memory,
-)
-from .resnet import (
-    AccumulatorCertificate,
-    ExportError,
-    ExportedPackage,
-    certify_accumulators,
-    export_model,
-)
+    cli.py         the command line: build <config>
+    pipeline.py    load -> quantize -> export_graph -> to_mlir -> pynqo-middle-end -> pynqo-backend
+    configs/       one YAML file per model: source, quantization, graph, devices
+    frontend/      Python: load, quantization (torchao), export_graph, to_mlir
+    middle-end/    C++ (LLVM 22): pynqo-middle-end; rewrites on the torch dialect, then linalg
+    backend/       C++ (LLVM 22): pynqo-backend; partition, delegates, weights, CPU codegen
 
-__all__ = [
-    "MemoryPlan",
-    "MemoryPlanningError",
-    "TensorAllocation",
-    "plan_memory",
-    "AccumulatorCertificate",
-    "ExportError",
-    "ExportedPackage",
-    "certify_accumulators",
-    "export_model",
-]
+src/vendors sits below src/export; src/runtime never imports src/export.
+"""

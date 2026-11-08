@@ -1,0 +1,80 @@
+{
+  "libllvm22": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/libllvm22_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "29369392",
+    "SHA256": "e258852c4c0a5f5be0b001833f4c83ba78f70ea8b4030eb965bb3c2b75c001f3"
+  },
+  "llvm-22": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/llvm-22_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "19142524",
+    "SHA256": "d868ff03c7190d5d96e70740507f67145aff957330d3aa29e7965e54083f5e41"
+  },
+  "llvm-22-runtime": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/llvm-22-runtime_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "604988",
+    "SHA256": "7e83a4fb35c1f25075fddeb8cb199788e20507494595f4dee0873b23ea7d6be6"
+  },
+  "llvm-22-linker-tools": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/llvm-22-linker-tools_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "1235492",
+    "SHA256": "545eb1db7fee55e77d334a93062c2eea12caf71eb7165a45d248de1e22da8001"
+  },
+  "llvm-22-dev": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/llvm-22-dev_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "52452592",
+    "SHA256": "298148339d4980a7f3bf07ce6380b5aa2bfb091ad811d66f4fddb4c300643aa0"
+  },
+  "libclang-cpp22": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/libclang-cpp22_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "13233468",
+    "SHA256": "7538f5af87516d4de09ef6a328285ff13f23cdb6926e8a10516975eaca5a4054"
+  },
+  "libclang-common-22-dev": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/libclang-common-22-dev_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "806340",
+    "SHA256": "edc1a47768ab39c1c056bc5d6d4c7376b186c29ebed73e73ae88d8fd3f63c164"
+  },
+  "libclang1-22": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/libclang1-22_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "8060204",
+    "SHA256": "b5ef14d374a9f88231dc22c2278332ad1df0b0442776535432d593a09ef07bc8"
+  },
+  "clang-22": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/clang-22_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "173616",
+    "SHA256": "7e1d9988fd68249fb9cfb02ea4baf4216c7bcb27ef4097ec3567525137ce55d5"
+  },
+  "libmlir-22": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/libmlir-22_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "16544592",
+    "SHA256": "300b0f491692f0687a38b252602e40b5edb8b684b8a6ccbcc4bfe2fbf7f0854e"
+  },
+  "libmlir-22-dev": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/libmlir-22-dev_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "32540448",
+    "SHA256": "618b4469a2307649aa20b0ca97ab18c2a9e2cbd97e0915c7b45d929c1f545606"
+  },
+  "mlir-22-tools": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/mlir-22-tools_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "26906048",
+    "SHA256": "83d2ed0880c72dd59900d82af1df250cbe5631c2bc0ea3a5316fd826536e6ed2"
+  },
+  "lld-22": {
+    "Version": "1:22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86",
+    "Filename": "pool/main/l/llvm-toolchain-22/lld-22_22.1.8~++20260714014842+ca7933e47d3a-1~exp1~20260714134950.86_amd64.deb",
+    "Size": "1487772",
+    "SHA256": "c1fa5562d698d29c6dbf2a3c3aa30678c145c8574afb5f5f4ee521799e2607cf"
+  }
+}

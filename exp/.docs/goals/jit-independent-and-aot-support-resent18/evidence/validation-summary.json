@@ -1,0 +1,32 @@
+{
+  "active_without_jit": {
+    "core": {
+      "tests": 97,
+      "skipped": 11,
+      "status": "PASS"
+    },
+    "resnet18": {
+      "tests": 6,
+      "status": "PASS"
+    },
+    "matrix_delivery": {
+      "tests": 35,
+      "status": "PASS"
+    }
+  },
+  "jit": {
+    "tests": 90,
+    "status": "PASS"
+  },
+  "jit_example": {
+    "tests": 87,
+    "status": "PASS"
+  },
+  "linux_extra_ops": {
+    "passed": 4,
+    "import_errors": 2,
+    "reason": "existing PEP 701 f-strings require Python 3.12; Linux interpreter is 3.11"
+  },
+  "native_host_reference_max_abs_difference": 0.0,
+  "physical_notebook": "PASS"
+}

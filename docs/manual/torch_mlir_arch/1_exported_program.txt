@@ -1,0 +1,32 @@
+def forward(self, b_fc_qweight, b_fc_scale, b_fc_bias, x):
+    abs_1 = torch.ops.aten.abs.default(x)
+    amax = torch.ops.aten.amax.default(abs_1, [-1]);  abs_1 = None
+    clamp = torch.ops.aten.clamp.default(amax, 1e-08);  amax = None
+    div = torch.ops.aten.div.Tensor(clamp, 127);  clamp = None
+    unsqueeze = torch.ops.aten.unsqueeze.default(div, 1)
+    div_1 = torch.ops.aten.div.Tensor(x, unsqueeze);  x = unsqueeze = None
+    round_1 = torch.ops.aten.round.default(div_1);  div_1 = None
+    clamp_1 = torch.ops.aten.clamp.default(round_1, -127, 127);  round_1 = None
+    _assert_tensor_metadata = torch.ops.aten._assert_tensor_metadata.default(clamp_1, None, None, torch.float32, device = device(type='cpu'), layout = torch.strided);  _assert_tensor_metadata = None
+    _to_copy = torch.ops.aten._to_copy.default(clamp_1, dtype = torch.int8);  clamp_1 = None
+    _int_mm = torch.ops.aten._int_mm.default(_to_copy, b_fc_qweight);  _to_copy = b_fc_qweight = None
+    _assert_tensor_metadata_1 = torch.ops.aten._assert_tensor_metadata.default(_int_mm, None, None, torch.int32, device = device(type='cpu'), layout = torch.strided);  _assert_tensor_metadata_1 = None
+    _to_copy_1 = torch.ops.aten._to_copy.default(_int_mm, dtype = torch.float32);  _int_mm = None
+    unsqueeze_1 = torch.ops.aten.unsqueeze.default(div, 1);  div = None
+    mul = torch.ops.aten.mul.Tensor(_to_copy_1, unsqueeze_1);  _to_copy_1 = unsqueeze_1 = None
+    unsqueeze_2 = torch.ops.aten.unsqueeze.default(b_fc_scale, 0);  b_fc_scale = None
+    mul_1 = torch.ops.aten.mul.Tensor(mul, unsqueeze_2);  mul = unsqueeze_2 = None
+    add = torch.ops.aten.add.Tensor(mul_1, b_fc_bias);  mul_1 = b_fc_bias = None
+    relu = torch.ops.aten.relu.default(add);  add = None
+    return (relu,)
+
+
+# inputs
+b_fc_qweight: BUFFER target='fc.qweight' persistent=True
+b_fc_scale: BUFFER target='fc.scale' persistent=True
+b_fc_bias: BUFFER target='fc.bias' persistent=True
+x: USER_INPUT
+
+# outputs
+relu: USER_OUTPUT
+
