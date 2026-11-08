@@ -75,6 +75,17 @@ class ReleaseWorkflowTests(unittest.TestCase):
         for name in ('check', 'test-on-board'):
             self.assertEqual(self.jobs[name]['environment'], 'pynq-z1-production', name)
 
+    def test_windows_bash_steps_get_git_bash_not_wsl(self) -> None:
+        # A plain `bash` on the Windows runner is C:\Windows\System32\bash.exe (WSL).
+        for name in ('check', 'test-on-board'):
+            steps = self.jobs[name]['steps']
+            git_bash = next(i for i, s in enumerate(steps) if s.get('name') == 'Use Git Bash for bash steps')
+            self.assertIn(r'$env:ProgramFiles\Git\bin', steps[git_bash]['run'])
+            default = self.jobs[name].get('defaults', {}).get('run', {}).get('shell')
+            first_bash = next(i for i, s in enumerate(steps)
+                              if 'run' in s and s.get('shell', default) == 'bash')
+            self.assertLess(git_bash, first_bash, name)
+
     def test_both_model_jobs_take_their_matrix_from_models_json(self) -> None:
         for name in ('export', 'test-on-board'):
             include = self.jobs[name]['strategy']['matrix']['include']

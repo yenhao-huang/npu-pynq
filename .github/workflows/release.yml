@@ -44,6 +44,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      # On Windows, a plain `bash` resolves to WSL's C:\Windows\System32\bash.exe;
+      # the bash steps need Git Bash, with its ssh, scp and tar.
+      - name: Use Git Bash for bash steps
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_PATH -Value "$env:ProgramFiles\Git\bin"
+
       - name: Resolve the release version
         id: version
         shell: bash
@@ -271,6 +277,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.check.outputs.commit }}
+
+      # On Windows, a plain `bash` resolves to WSL's C:\Windows\System32\bash.exe;
+      # the bash steps need Git Bash, with its ssh, scp and tar.
+      - name: Use Git Bash for bash steps
+        shell: powershell
+        run: Add-Content -Path $env:GITHUB_PATH -Value "$env:ProgramFiles\Git\bin"
 
       - uses: actions/download-artifact@v4
         with:
