@@ -75,5 +75,5 @@ which is `dev` after #60 and before #94.
 ## Vivado and board
 
 Vivado runs only on the self-hosted runner, and the board runs only through
-`cd.yml` on a `release/vX.Y.Z` branch. See the `release-npu-pynq` skill
+`release.yml` on a `release/vX.Y.Z` branch. See the `release-npu-pynq` skill
 under `.codex/skills/deploy/`.

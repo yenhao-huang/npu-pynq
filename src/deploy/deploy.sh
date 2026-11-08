@@ -7,7 +7,8 @@
 # the runtime and the NPU driver sources into <dir>/src, adds the files, and
 # copies <dir> to ~/jupyter_notebooks/ on the board. What only the host uses
 # stays behind: other CPUs' libraries, ir/, compile.json and *.pth weights.
-# BOARD overrides the target (default xilinx@192.168.2.99).
+# BOARD overrides the target (default xilinx@192.168.2.99). ARCHIVE=<file.tar.gz>
+# writes the same tree to that file instead of sending it; a release ships it.
 set -euo pipefail
 
 dir=${1:?usage: deploy.sh <dir> [files...]}
@@ -31,5 +32,11 @@ for lib in "$dir"/package/*/model.so; do
   if [ -f "$lib" ] && [ "$cpu" != arm-cortex-a9 ]; then skip+=(--exclude="$name/package/$cpu"); fi
 done
 
-tar -C "$(dirname "$dir")" "${skip[@]}" -cf - "$name" |
-  ssh "$board" 'mkdir -p jupyter_notebooks && tar -xf - -C jupyter_notebooks'
+if [ -n "${ARCHIVE:-}" ]; then
+  mkdir -p "$(dirname "$ARCHIVE")"
+  archive="$(cd "$(dirname "$ARCHIVE")" && pwd)/$(basename "$ARCHIVE")"
+  tar -C "$(dirname "$dir")" "${skip[@]}" -czf "$archive" "$name"
+else
+  tar -C "$(dirname "$dir")" "${skip[@]}" -cf - "$name" |
+    ssh "$board" 'mkdir -p jupyter_notebooks && tar -xmf - -C jupyter_notebooks'
+fi
