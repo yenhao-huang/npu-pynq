@@ -12,14 +12,15 @@ npu_repo_in_pynq/
 |-- changelog/
 |   `-- vMAJOR.MINOR.PATCH.md
 |-- .github/
-|   |-- cd/
-|   |   |-- *.ps1             automated deployment and acceptance scripts
-|   |   `-- *.py              release version selection for the workflows
+|   |-- release/
+|   |   |-- models.json         the models a release ships, and how each is checked
+|   |   |-- board_check.sh      run a release archive on the board, bring its output back
+|   |   `-- version.py          the release version changelog/ declares
 |   `-- workflows/
-|       |-- cd.yml
 |       |-- ci.yml
 |       |-- exp-board.yml       issue-119 experiment runs on the self-hosted runners
-|       `-- release-publish.yml
+|       |-- release.yml         validate a release/vX.Y.Z branch, leave a draft Release
+|       `-- publish.yml         publish a validated, merged draft
 |-- .codex/
 |   `-- skills/
 |       |-- dev/                 shared development workflows
@@ -81,8 +82,8 @@ npu_repo_in_pynq/
 |   |   |                        torch/transforms/: one file per rewrite on the torch dialect
 |   |   `-- backend/             C++ pynqo-backend: partition, delegates/, package (weights.bin),
 |   |                            cpu/toolchain (LLVM IR, llc, link), device_register
-|   |-- deploy/                  board bundles and release archives: bundle.py, deploy.sh,
-|   |                            resnet18.py (+ resnet18_assets.py and pins), matrix.py
+|   |-- deploy/                  deploy.sh (send to the board, or ARCHIVE= a release archive),
+|   |                            resnet18_assets.py and its pins, matrix.py
 |   |-- deprecate/               retired code, kept for reference; nothing active imports it
 |   |   `-- jit/                 the self-contained just-in-time stack
 |   |       |-- model/           numeric and ResNet model contracts
@@ -94,8 +95,7 @@ npu_repo_in_pynq/
 |   |       `-- delivery/        frozen JIT delivery helpers
 |   `-- runtime/                 board-side execution; never imports src/export
 |       |-- cli.py               one entry point: python -m src.runtime.cli {llm,classifier} ...
-|       |-- share/               knows no task: loader.py (load and call an pynqo-package/2),
-|       |                        bundle.py (release bundle verification)
+|       |-- share/               knows no task: loader.py (load and call an pynqo-package/2)
 |       |-- delegate/            the __delegate__ dispatcher (dispatch.c) and device backends
 |       `-- tasks/               one package per manifest graph kind, each with its own cli.py
 |           |-- llm/             engine, tokenizer, sampling
@@ -223,10 +223,10 @@ and its vendor folder. Front-end stages do not import each other; only
 unittest src.test.tests.test_export_layering` enforces that, and that
 `src/runtime` and `src/vendors` never import `src/export`.
 
-`src/deploy/` stages a package for the board: the package with the board's
-library, the runtime and driver sources, the overlay and the example's files.
-A release bundle is sealed with every file's SHA-256, which
-`src/runtime/share/bundle.py` verifies on the board.
+`src/deploy/deploy.sh` sends an export directory to the board: the package with
+the board's library, the runtime and driver sources, the overlay and the
+example's files. With `ARCHIVE=` it writes the same tree to a `.tar.gz`, which
+is what a release ships and what its board check runs.
 
 `src/deprecate/jit/` owns the deprecated just-in-time quantized graph interpreter, its
 exporter, numeric contracts, examples, references, focused tests and delivery
@@ -247,15 +247,14 @@ named after the manifest's graph kind, builds its engine on that: `llm/`
 `cli.py` only picks the task; each task's `cli.py` owns its arguments. Tasks
 never import each other, and `share/` and `delegate/` import no task. The matrix example
 tiles its own jobs through the legacy DMA runtime (`src/test/matrix_acceptance.py`
-holds the copy CD runs); `share/bundle.py` verifies a release bundle without
-compiler dependencies.
+holds the copy its board runner uses).
 
 `examples/` demonstrates existing source functionality. Its tracked file list,
 platform deployment manuals, notebook requirements and generated-data locations
 are defined in [create-example.md](create-example.md).
 
-`.github/cd/` owns non-interactive deployment and acceptance scripts used by
-continuous delivery.
+`.github/release/` holds what `release.yml` runs beyond the workflow itself:
+the release model list, the board check, and the version resolver.
 
 `.codex/skills/` contains repository-local Codex skills and is the only allowed
 top-level location for them. Classify reusable development workflows under

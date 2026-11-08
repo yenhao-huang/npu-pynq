@@ -1,0 +1,18 @@
+[
+  {
+    "model": "resnet18",
+    "fetch": "python -m src.deploy.resnet18_assets model && python -m src.deploy.resnet18_assets demo && python -m src.deploy.resnet18_assets gallery",
+    "config": "src/export/configs/resnet18.yml",
+    "files": "examples/resnet18/resnet18.ipynb src/deploy/resnet18-gallery-source.json",
+    "run": "classifier --package package --image model/demo-image.jpg --labels model/imagenet-classes.txt --expected-class Samoyed",
+    "evidence": "--evidence"
+  },
+  {
+    "model": "smollm",
+    "fetch": "curl --fail --location --retry 3 --create-dirs --output 'examples/smollm-safetensors/model/checkpoint/#1' 'https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f77366fa6b3b4b768ec3050bf629380bac/{config.json,tokenizer.json,tokenizer_config.json,model.safetensors}'",
+    "config": "src/export/configs/smollm.yml",
+    "files": "examples/smollm-safetensors/smollm_safetensors.ipynb",
+    "run": "llm package --chat --prompt 'What is the capital of France?' --max-new 32",
+    "evidence": "--json"
+  }
+]

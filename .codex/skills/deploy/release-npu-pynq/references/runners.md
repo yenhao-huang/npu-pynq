@@ -1,14 +1,15 @@
 # Self-hosted runners for continuous deployment
 
-Two CD jobs cannot run on GitHub's hosted machines:
+Three jobs of `release.yml` cannot run on GitHub's hosted machines:
 
 | Job | Labels | What it needs |
 | --- | --- | --- |
-| `build-overlay` | `self-hosted`, `vivado` | A licensed Vivado install |
-| `board-validation` | `self-hosted`, `pynq-z1` | A physical PYNQ-Z1 on the direct link |
+| `check` | `self-hosted`, `vivado`, `pynq-z1` | Both of the below, on one runner |
+| `build-bitstream` | `self-hosted`, `vivado` | A licensed Vivado install |
+| `test-on-board` | `self-hosted`, `pynq-z1` | A physical PYNQ-Z1 on the direct link, and Git Bash |
 
-Both may live on the same Windows host, registered as one runner carrying all
-three labels, or as two runners.
+`check` needs one runner carrying all three labels, which is how this host is
+registered.
 
 ## What a queued job means
 
@@ -45,7 +46,7 @@ On this repository's Windows host the runner is:
 | Registration name | `DESKTOP-54U632L` |
 | Labels | `self-hosted`, `Windows`, `X64`, `vivado`, `pynq-z1` |
 | Started by | Scheduled task `GitHub Actions Runner`, at logon, as the signed-in user |
-| Model workspace for CD | None: the release's `build-model` job builds it on a hosted machine |
+| Model workspace for CD | None: the release's `export` job builds each model on a hosted machine |
 
 It runs as a logon task rather than a service on purpose. See "Why a logon
 task" below before changing that.
@@ -184,7 +185,7 @@ That is a person's setup task, not something this skill does.
 | `config.cmd remove` asks for a token | That is the removal token, from the runner's Remove button; not needed for a stale one |
 | Service start: error 1053 | The runner lives under `C:\Windows`; move it |
 | Checkout: "A branch or tag with the name 'vX.Y.Z' could not be found" | The workflow asked for a tag; CD never creates one (fixed: it checks out the commit) |
-| preflight-board: "xilinx cannot run sudo -n ... without a password" | The board is missing the CD sudo rule below; board steps never type a password |
+| check: "xilinx cannot run sudo -n ..." | The board is missing the CD sudo rule below; board steps never type a password |
 
 ## Board: passwordless sudo for the CD commands
 
@@ -202,7 +203,7 @@ sudo visudo -c
 ```
 
 `SETENV` is needed because the steps pass `XILINX_XRT=/usr` through sudo.
-`preflight-board` checks both commands with `sudo -n -l`, so a missing rule
+`check` checks both commands with `sudo -n -l`, so a missing rule
 fails there in seconds instead of after the Vivado build.
 
 ## When no runner exists yet

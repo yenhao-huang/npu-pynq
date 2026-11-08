@@ -1,9 +1,6 @@
 """Run a compiled image classifier package on an image and record block times.
 
     python -m src.runtime.cli classifier --package package --image cat.jpg --labels labels.txt
-
-With --package-root, the release bundle (src/deploy/resnet18.py) is verified
-first and supplies the package, demo image, labels and overlay.
 """
 
 from __future__ import annotations
@@ -23,40 +20,14 @@ from src.runtime.tasks.classifier import ImageEngine, preprocess, top_prediction
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="src.runtime.cli classifier")
-    parser.add_argument("--package", type=Path)
-    parser.add_argument("--image", type=Path)
-    parser.add_argument("--labels", type=Path)
-    parser.add_argument("--package-root", type=Path)
-    parser.add_argument("--package-archive", type=Path)
-    parser.add_argument("--archive-sha256")
-    parser.add_argument("--release-tag")
-    parser.add_argument("--verify-only", action="store_true")
+    parser.add_argument("--package", type=Path, required=True)
+    parser.add_argument("--image", type=Path, required=True)
+    parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--backend", choices=("sim", "pynq"), default="pynq")
     parser.add_argument("--overlay", type=Path)
     parser.add_argument("--expected-class")
     parser.add_argument("--evidence", type=Path)
     args = parser.parse_args(argv)
-    if args.package_root:
-        from src.runtime.share.bundle import verify_bundle, sha256_file
-        manifest = verify_bundle(args.package_root)
-        if args.release_tag and args.release_tag != manifest['release_tag']:
-            raise ValueError('Release tag mismatch')
-        if args.package_archive:
-            digest = sha256_file(args.package_archive)
-            if digest != args.archive_sha256:
-                raise ValueError('Archive SHA256 mismatch')
-        root = args.package_root
-        args.package = args.package or root/'package'
-        args.image = args.image or root/'model/demo-image.jpg'
-        args.labels = args.labels or root/'model/imagenet-classes.txt'
-        args.overlay = args.overlay or root/'npu_matrix.bit'
-    if args.verify_only:
-        if not args.package_root:
-            parser.error('--verify-only requires --package-root')
-        print('PASS: verified the release bundle')
-        return 0
-    if not all((args.package,args.image,args.labels)):
-        parser.error('--package, --image and --labels are required outside a delivery')
     started = time.perf_counter()
     times = {}
     t = time.perf_counter()
