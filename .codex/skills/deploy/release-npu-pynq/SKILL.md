@@ -45,8 +45,9 @@ otherwise. When `main` holds commits `dev` lacks (an earlier promotion), merge
 `origin/main` into the release branch first and keep the top-level
 `changelog/` files.
 
-Before the final CD run, update the README Quick Start download link and its
-`scp` and `unzip` commands to `npu-resnet18-vX.Y.Z.zip` for this release. Include
+Before the final CD run, update the README Quick Start download links and its
+`scp` and `tar` commands to `pynqo-resnet18-vX.Y.Z.tar.gz` and
+`pynqo-smollm-vX.Y.Z.tar.gz` for this release. Include
 that change in the release source before validation, preferably on `dev` before
 cutting the release branch. The new download URL becomes live when the release
 is published. GitHub's `/releases/latest/download/` URL still requires an exact
@@ -203,8 +204,8 @@ It refuses a draft that is missing assets, a commit that is not contained in
 Approving the `pynq-z1-release` environment is the release decision.
 
 After publication, verify that the README Quick Start link resolves to the
-published `npu-resnet18-vX.Y.Z.zip` asset and that its `scp` and `unzip`
-commands use the same filename. If the README update was missed before CD,
+published `pynqo-resnet18-vX.Y.Z.tar.gz` and `pynqo-smollm-vX.Y.Z.tar.gz`
+assets and that its `scp` and `tar` commands use the same filenames. If the README update was missed before CD,
 prepare a documentation-only follow-up PR to `main`; do not push a docs-only
 commit to the release branch just to fix the link, because that starts CD again.
 
