@@ -38,6 +38,13 @@ python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/p
 The first time, this builds the compiler tools: go get a coffee, it takes
 about 15 minutes and 4 GB of memory. After that an export takes about five.
 
+**(Optional)Try it on your computer**
+
+```bash
+python -m src.runtime.cli llm dist/smollm/package --backend sim \
+  --chat --stream --prompt "What is the capital of France?" --max-new 100
+```
+
 ## Build the NPU bitstream (recommended on Windows)
 
 The export targets a 16 x 16 NPU, so the bitstream must be one too. Build it
