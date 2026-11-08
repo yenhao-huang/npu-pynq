@@ -117,10 +117,12 @@ Note:
 
 ![PYNQ-Z1 NPU hardware architecture](docs/assets/npu-hardware-architecture.svg)
 
-The diagram groups the hardware by function: the Zynq processing system uses
-DMA and AXI to move data and control the accelerator. The accelerator contains
-the controller, operand memory, and systolic array. The overlay defaults to a
-16 x 16 array and also supports 8 x 8 and 2 x 2 builds.
+The diagram groups the hardware by function: the Zynq processing system
+controls the accelerator over AXI-Lite. The ISA front end fetches NPU programs
+from DDR, decodes them into matrix jobs, and moves the A/B tiles in and the C
+tiles out itself. The accelerator contains the controller, double-buffered
+operand memory, and systolic array. The overlay defaults to a 16 x 16 array
+and also supports 8 x 8 and 2 x 2 builds.
 
 ## Supported target and contracts
 
