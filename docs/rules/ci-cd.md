@@ -15,7 +15,9 @@ Rules:
   integration branches, and carries the `release-readiness` gate for pull
   requests into `main`.
 - `.github/workflows/release.yml` is the production delivery workflow. It runs
-  on a push to a `release/vMAJOR.MINOR.PATCH` branch cut from `dev`. A push
+  on a push to a `release/vMAJOR.MINOR.PATCH` branch cut from `dev`, unless the
+  push only changes documentation (`*.md`, `docs/`, `.codex/`); a README fix
+  on a release branch does not start the run again. A push
   event uses the workflow file from the branch it ran on, so a release validates
   the delivery path as well as itself, before anything reaches `main`:
 

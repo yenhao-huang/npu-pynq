@@ -47,6 +47,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertFalse((ROOT / '.github' / 'cd').exists())
         self.assertFalse((WORKFLOWS / 'cd.yml').exists())
 
+    def test_documentation_only_pushes_do_not_start_it(self) -> None:
+        self.assertEqual(self.release['on']['push']['paths-ignore'], ['**.md', 'docs/**', '.codex/**'])
+        self.assertIn('workflow_dispatch', self.release['on'])
+
     def test_the_jobs_and_their_order(self) -> None:
         self.assertEqual(list(self.jobs), JOBS)
         self.assertEqual(needs(self.jobs['export']), {'check'})
