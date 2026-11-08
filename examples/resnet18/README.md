@@ -64,16 +64,14 @@ the two files from Windows into WSL's `dist/resnet18/overlay/`.
 
 ## Run on the board
 
-Bundle the package, the bitstream and the pictures, copy them to the board and
+Copy the package, the bitstream, the pictures and the runtime to the board and
 classify the demo picture:
 
 ```bash
-python -m src.deploy.resnet18 dist/resnet18/package --overlay dist/resnet18/overlay --out dist/resnet18/board
-ssh xilinx@192.168.2.99 'mkdir -p ~/jupyter_notebooks/resnet18'
-scp -r dist/resnet18/board/. xilinx@192.168.2.99:jupyter_notebooks/resnet18/
+bash src/deploy/deploy.sh dist/resnet18 examples/resnet18/resnet18.ipynb src/deploy/resnet18-gallery-source.json
 ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/resnet18 && sudo env XILINX_XRT=/usr \
   /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli classifier --package package \
-  --overlay npu_matrix.bit --image model/demo-image.jpg \
+  --overlay overlay/npu_matrix.bit --image model/demo-image.jpg \
   --labels model/imagenet-classes.txt --expected-class Samoyed'
 ```
 
