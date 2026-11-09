@@ -8,7 +8,7 @@
 
 An open-source neural-network accelerator stack for the PYNQ-Z1. It connects
 bit-accurate quantized model contracts, deterministic export, a Python runtime,
-DMA-driven FPGA execution, reproducible Vivado builds, and Jupyter notebook
+instruction-stream NPU execution on the FPGA, reproducible Vivado builds, and Jupyter notebook
 validation. Status: research and development.
 
 ## Contents
@@ -71,8 +71,7 @@ The SmolLM build guide uses `dist/` for generated model assets and packages.
 
 Go to `examples/<model>/` and follow its README to export the model, build the
 overlay, and package it for the board:
-[ResNet-18](examples/resnet18/README.md),
-[matrix multiplication](examples/matrix-multiplication/README.md), and
+[ResNet-18](examples/resnet18/README.md) and
 [SmolLM](examples/smollm-safetensors/README.md).
 
 ## Software Stack
@@ -104,7 +103,9 @@ Note:
 ![PYNQ-Z1 NPU hardware architecture](docs/assets/npu-hardware-architecture.svg)
 
 The Zynq processing system drives the accelerator (controller, operand memory,
-systolic array) over DMA and AXI.
+systolic array) through AXI-Lite registers. The accelerator's instruction-stream
+front end fetches each program and moves its tiles between DDR and the array
+over its own AXI4 master on HP0.
 
 ## Supported target and contracts
 
@@ -112,7 +113,7 @@ systolic array) over DMA and AXI.
 | --- | --- |
 | Board | PYNQ-Z1 |
 | FPGA part | Zynq-7020, `xc7z020clg400-1` |
-| Overlay | `npu_matrix` with AXI DMA |
+| Overlay | `npu_matrix` with the ISA front end (ABI 1.1) |
 | Arithmetic | Signed INT8 operands, exact INT16 products, saturating INT32 accumulation |
 | Requantization | Q1.31 with explicit rounding and saturation contracts |
 | Host tooling | Python and Bash (Linux/WSL); Vivado only for hardware builds |

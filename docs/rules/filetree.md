@@ -51,7 +51,6 @@ npu_repo_in_pynq/
 |   |           `-- build_overlay.tcl
 |   |-- test/
 |   |   |-- Makefile
-|   |   |-- matrix_acceptance.py     M/N tiling; physical full-tile, edge-tile and repeat checks
 |   |   |-- model/
 |   |   |   `-- *.py
 |   |   |-- cocotb/
@@ -66,8 +65,7 @@ npu_repo_in_pynq/
 |   |       `-- driver/          board side; follows spec/
 |   |           |-- npu_rt/      libnpu_rt (C++): the NPU delegate backend, PYNQ and SIM backends,
 |   |           |                built on the target with its own g++ and CMake
-|   |           |-- overlay/     build.py writes the BIT/HWH manifest; verify.py checks it before loading
-|   |           `-- legacy/      dma.py: the ABI 1.0 DMA runtime of the matrix example
+|   |           `-- overlay/     build.py writes the BIT/HWH manifest; verify.py checks it before loading
 |   |-- export/                  host-side model -> package; never runs on the board
 |   |   |-- cli.py               build <config>
 |   |   |-- pipeline.py          load -> quantize -> export_graph -> to_mlir -> pynqo-backend
@@ -83,7 +81,7 @@ npu_repo_in_pynq/
 |   |   `-- backend/             C++ pynqo-backend: partition, delegates/, package (weights.bin),
 |   |                            cpu/toolchain (LLVM IR, llc, link), device_register
 |   |-- deploy/                  deploy.sh (send to the board, or ARCHIVE= a release archive),
-|   |                            resnet18_assets.py and its pins, matrix.py
+|   |                            resnet18_assets.py and its pins
 |   |-- deprecate/               retired code, kept for reference; nothing active imports it
 |   |   `-- jit/                 the self-contained just-in-time stack
 |   |       |-- model/           numeric and ResNet model contracts
@@ -202,8 +200,7 @@ ISA programs; its C++ encoder is a port of `isa.py` and `layout.py`.
 `driver/npu_rt/` is libnpu_rt, which the runtime's `__delegate__` dispatcher
 calls for every NPU region; its SIM backend is a C++ port of `isa_sim.py`.
 `driver/overlay/` writes the overlay manifest after Vivado and verifies it
-before the board loads the bitstream; `driver/legacy/dma.py` is the ABI 1.0
-runtime the matrix example uses.
+before the board loads the bitstream.
 
 `src/export/` turns a model into a package on the host, entirely from a
 config (`configs/*.yml`): `frontend/load/` builds the float model with its
@@ -245,9 +242,7 @@ buffers `pynq.allocate` provides). Each task under `tasks/`, one directory
 named after the manifest's graph kind, builds its engine on that: `llm/`
 (prefill, decode, two KV cache sets swapped per call) and `classifier/`.
 `cli.py` only picks the task; each task's `cli.py` owns its arguments. Tasks
-never import each other, and `share/` and `delegate/` import no task. The matrix example
-tiles its own jobs through the legacy DMA runtime (`src/test/matrix_acceptance.py`
-holds the copy its board runner uses).
+never import each other, and `share/` and `delegate/` import no task.
 
 `examples/` demonstrates existing source functionality. Its tracked file list,
 platform deployment manuals, notebook requirements and generated-data locations
@@ -332,7 +327,8 @@ One directory per design under `src/hw/rtl/`, `src/hw/tb/`, and
 `src/hw/vivado_tcl/`. The design directory name must match across all three.
 RTL may be divided into nested module directories that follow the instance
 hierarchy. In `npu_matrix`, `npu_accelerator/` contains the top module,
-`dma_axi/`, and `npu_matrix_core/`; the core contains `controller/` and
+`axi_lite/` (the AXI-Lite register file), `npu_isa_frontend/`, and
+`npu_matrix_core/`; the core contains `controller/` and
 `npu_matrix_datapath/`, and the datapath contains `memory/` and
 `systolic_array/`. Testbenches remain in `src/hw/tb/<design>/`.
 
