@@ -139,7 +139,7 @@ module tb_npu_matrix_controller_pipeline_8x8;
         end
     endtask
 
-    // Streams frame_bytes[0:count-1] as one DMA transfer: IN_BYTES bytes per
+    // Streams frame_bytes[0:count-1] as one tile frame: IN_BYTES bytes per
     // beat, a partial final beat marked by TKEEP, TLAST on that beat, and a
     // two-cycle stall before every stall_every-th beat.
     task automatic send_frame(input integer count, input integer stall_every);

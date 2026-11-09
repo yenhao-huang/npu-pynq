@@ -18,8 +18,8 @@ link before editing.
    `src/hw/rtl/npu_matrix/`. Check `build_overlay.tcl` if a label describes
    Vivado IP or an AXI connection.
 3. Map each visible functional label to its corresponding current directory
-   name. Preserve names for external components such as ARM, DDR, and Xilinx
-   AXI DMA. The diagram is a high-level view: do not add boxes for every nested
+   name. Preserve names for external components such as ARM and DDR.
+   The diagram is a high-level view: do not add boxes for every nested
    directory unless the user asks for a more detailed diagram.
 4. Make the smallest requested SVG text changes. Preserve the existing
    `viewBox`, coordinates, box sizes, colors, gradients, borders, arrows,

@@ -71,7 +71,7 @@ set_property simulator_language Mixed [current_project]
 set rtl_files [list \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath systolic_array npu_pe.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath systolic_array npu_systolic_array.sv] \
-    [file join $repo_root src hw rtl npu_matrix npu_accelerator dma_axi npu_axi_lite_regs.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator axi_lite npu_axi_lite_regs.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath memory npu_operand_buffer.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core controller npu_matrix_controller.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath npu_matrix_datapath.sv] \
@@ -108,71 +108,43 @@ set reset0 [create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:* reset0]
 set reset_inverter [create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:* reset_inverter]
 set_property -dict [list CONFIG.C_OPERATION {not} CONFIG.C_SIZE {1}] $reset_inverter
 set control_ic [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:* control_ic]
-set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {2}] $control_ic
+set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {1}] $control_ic
 set memory_ic [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:* memory_ic]
-set_property -dict [list CONFIG.NUM_SI {3} CONFIG.NUM_MI {1}] $memory_ic
-set dma [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:* axi_dma_0]
-set_property -dict [list \
-    CONFIG.c_include_sg {0} \
-    CONFIG.c_include_mm2s {1} \
-    CONFIG.c_include_s2mm {1} \
-    CONFIG.c_m_axi_mm2s_data_width {64} \
-    CONFIG.c_m_axis_mm2s_tdata_width {64} \
-    CONFIG.c_s_axis_s2mm_tdata_width {32} \
-    CONFIG.c_sg_length_width {23}] $dma
+set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {1}] $memory_ic
 set accelerator [create_bd_cell -type module -reference npu_accelerator npu_accelerator_0]
 set_property -dict [list \
     CONFIG.ROWS $array_size \
     CONFIG.COLUMNS $array_size \
     CONFIG.MAX_K {256} \
     CONFIG.IN_BYTES {8}] $accelerator
-set irq_concat [create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:* irq_concat]
-set_property CONFIG.NUM_PORTS {3} $irq_concat
 
 connect_bd_intf_net [get_bd_intf_pins ps7/M_AXI_GP0] [get_bd_intf_pins control_ic/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins control_ic/M00_AXI] [get_bd_intf_pins npu_accelerator_0/s_axi]
-connect_bd_intf_net [get_bd_intf_pins control_ic/M01_AXI] [get_bd_intf_pins axi_dma_0/S_AXI_LITE]
-connect_bd_intf_net [get_bd_intf_pins axi_dma_0/M_AXI_MM2S] [get_bd_intf_pins memory_ic/S00_AXI]
-connect_bd_intf_net [get_bd_intf_pins axi_dma_0/M_AXI_S2MM] [get_bd_intf_pins memory_ic/S01_AXI]
-connect_bd_intf_net [get_bd_intf_pins npu_accelerator_0/m_axi] [get_bd_intf_pins memory_ic/S02_AXI]
+connect_bd_intf_net [get_bd_intf_pins npu_accelerator_0/m_axi] [get_bd_intf_pins memory_ic/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins memory_ic/M00_AXI] [get_bd_intf_pins ps7/S_AXI_HP0]
-connect_bd_intf_net [get_bd_intf_pins axi_dma_0/M_AXIS_MM2S] [get_bd_intf_pins npu_accelerator_0/s_axis]
-connect_bd_intf_net [get_bd_intf_pins npu_accelerator_0/m_axis] [get_bd_intf_pins axi_dma_0/S_AXIS_S2MM]
 
 connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
     [get_bd_pins reset0/slowest_sync_clk] \
     [get_bd_pins control_ic/ACLK] [get_bd_pins control_ic/S00_ACLK] \
-    [get_bd_pins control_ic/M00_ACLK] [get_bd_pins control_ic/M01_ACLK] \
+    [get_bd_pins control_ic/M00_ACLK] \
     [get_bd_pins memory_ic/ACLK] [get_bd_pins memory_ic/S00_ACLK] \
-    [get_bd_pins memory_ic/S01_ACLK] [get_bd_pins memory_ic/S02_ACLK] \
     [get_bd_pins memory_ic/M00_ACLK] \
     [get_bd_pins ps7/M_AXI_GP0_ACLK] [get_bd_pins ps7/S_AXI_HP0_ACLK] \
-    [get_bd_pins axi_dma_0/s_axi_lite_aclk] \
-    [get_bd_pins axi_dma_0/m_axi_mm2s_aclk] \
-    [get_bd_pins axi_dma_0/m_axi_s2mm_aclk] \
     [get_bd_pins npu_accelerator_0/s_axi_aclk]
 connect_bd_net [get_bd_pins ps7/FCLK_RESET0_N] [get_bd_pins reset_inverter/Op1]
 connect_bd_net [get_bd_pins reset_inverter/Res] [get_bd_pins reset0/ext_reset_in]
 connect_bd_net [get_bd_pins reset0/interconnect_aresetn] \
     [get_bd_pins control_ic/ARESETN] [get_bd_pins control_ic/S00_ARESETN] \
-    [get_bd_pins control_ic/M00_ARESETN] [get_bd_pins control_ic/M01_ARESETN] \
+    [get_bd_pins control_ic/M00_ARESETN] \
     [get_bd_pins memory_ic/ARESETN] [get_bd_pins memory_ic/S00_ARESETN] \
-    [get_bd_pins memory_ic/S01_ARESETN] [get_bd_pins memory_ic/S02_ARESETN] \
     [get_bd_pins memory_ic/M00_ARESETN]
 connect_bd_net [get_bd_pins reset0/peripheral_aresetn] \
-    [get_bd_pins axi_dma_0/axi_resetn] \
     [get_bd_pins npu_accelerator_0/s_axi_aresetn]
-connect_bd_net [get_bd_pins axi_dma_0/mm2s_introut] [get_bd_pins irq_concat/In0]
-connect_bd_net [get_bd_pins axi_dma_0/s2mm_introut] [get_bd_pins irq_concat/In1]
-connect_bd_net [get_bd_pins npu_accelerator_0/irq] [get_bd_pins irq_concat/In2]
-connect_bd_net [get_bd_pins irq_concat/dout] [get_bd_pins ps7/IRQ_F2P]
+connect_bd_net [get_bd_pins npu_accelerator_0/irq] [get_bd_pins ps7/IRQ_F2P]
 
 create_bd_addr_seg -range 0x00010000 -offset 0x43C00000 \
     [get_bd_addr_spaces ps7/Data] \
     [get_bd_addr_segs npu_accelerator_0/s_axi/reg0] SEG_npu_accelerator
-create_bd_addr_seg -range 0x00010000 -offset 0x40400000 \
-    [get_bd_addr_spaces ps7/Data] \
-    [get_bd_addr_segs axi_dma_0/S_AXI_LITE/Reg] SEG_axi_dma
 assign_bd_address
 
 validate_bd_design
@@ -187,7 +159,6 @@ update_compile_order -fileset sources_1
 
 set address_file [open [file join $report_dir address_map.txt] w]
 puts $address_file "accelerator=0x43C00000 range=0x00010000"
-puts $address_file "dma=0x40400000 range=0x00010000"
 foreach segment [get_bd_addr_segs] {
     puts $address_file "[get_property NAME $segment] offset=[get_property OFFSET $segment] range=[get_property RANGE $segment]"
 }

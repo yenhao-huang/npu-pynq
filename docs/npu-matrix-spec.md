@@ -7,15 +7,16 @@ array configurations. The 8x8 target is the default. Explicit 2x2 builds remain 
 
 The RTL directory follows the instance hierarchy. Under the design directory
 `src/hw/rtl/npu_matrix/`, `npu_accelerator/` contains its top-level
-module, `dma_axi/`, and `npu_matrix_core/`. The core directory contains its
-module, `controller/`, and `npu_matrix_datapath/`; the datapath directory
-contains its module, `memory/`, and `systolic_array/`. The DMA engine remains
-a Xilinx IP in the Vivado design.
+module, `axi_lite/`, `npu_isa_frontend/`, and `npu_matrix_core/`. The core
+directory contains its module, `controller/`, and `npu_matrix_datapath/`; the
+datapath directory contains its module, `memory/`, and `systolic_array/`. The
+block design has no Xilinx AXI DMA: the accelerator's own AXI4 master on HP0
+moves every program word and tile.
 
-- **DMA and AXI:** Vivado instantiates the Xilinx AXI DMA IP and connects its
-  AXI-Stream ports to `npu_accelerator`. The separate
-  `npu_axi_lite_regs` RTL module owns the accelerator's control/status register
-  interface. The refactor does not replace the DMA IP or change the register map.
+- **AXI:** `axi_lite/npu_axi_lite_regs` owns the accelerator's control/status
+  register interface on GP0. `npu_isa_frontend/` fetches programs and moves
+  A/B/C tiles over the AXI4 master, and feeds the controller's operand stream
+  and drains its result stream through two `npu_axis_skid` register slices.
 - **Controller:** `npu_matrix_controller` owns job validation, load/compute/output
   sequencing, stream handshakes, buffer addresses and enables, timeout/error
   handling, and the output selection. It does not store operands or instantiate
@@ -30,10 +31,10 @@ a Xilinx IP in the Vivado design.
   ping-pong buffer, issue #64).
 - **Systolic array:** `npu_systolic_array` owns the processing elements and
   accumulators. `npu_matrix_core` wires it and the operand memories to the
-  controller; `npu_accelerator` wires that core to AXI-Lite and streams.
+  controller; `npu_accelerator` wires that core to the AXI-Lite registers and
+the ISA front end.
 
-The external AXI-Stream interfaces and matrix results are unchanged by the
-module split. Issue #64 adds a two-entry job queue: the next job's operands
+Issue #64 adds a two-entry job queue: the next job's operands
 load into one half of every bank while the current job computes and drains
 from the other. STATUS bit 3 (ACCEPT) reports a free queue entry and gates the
 configuration registers, and CAPABILITIES bit 5 (PIPELINED_JOBS) advertises
@@ -73,16 +74,18 @@ For a release candidate, run the 8x8 Vivado command without
 DRC, and setup timing with nonnegative WNS before BIT/HWH artifacts are
 published. The build evidence records the selected row and column counts.
 
-Finally, deploy the matching BIT/HWH pair to a PYNQ-Z1 and run the matrix
-example's board smoke test. Open-source simulation does not substitute for
+Finally, deploy the matching BIT/HWH pair to a PYNQ-Z1 and run the release
+board check (`.github/release/board_check.sh`): ResNet-18 and SmolLM2 must
+match the host simulator. Open-source simulation does not substitute for
 Vivado timing/resource evidence or physical-board validation.
 
 ## Operand input stream
 
-A and B reach the accelerator as two AXI4-Stream frames from AXI DMA MM2S,
-eight INT8 operands per 64-bit beat in row-major byte order. A frame whose
-length is not a multiple of eight ends with one partial beat marked by TKEEP.
-Software still sends `M*K` and `K*N` byte transfers. A row aligner writes one
+A and B reach the controller as two AXI4-Stream frames from the front end's
+load/store unit, eight INT8 operands per 64-bit beat in row-major byte order.
+A frame whose length is not a multiple of eight ends with one partial beat
+marked by TKEEP. The load/store unit reads `M*K` and `K*N` byte tiles from
+DDR. A row aligner writes one
 row-aligned word per cycle into the operand banks, so a stall-free physical job
 takes `M*ceil(K/8) + K*ceil(N/8) + M*N + M + N + 3` cycles when it runs alone.
 Back-to-back jobs issued on ACCEPT settle at
@@ -99,20 +102,25 @@ implementation used 17,302 slice LUTs (32.52%), 8,528 slice registers (8.02%),
 routing errors, setup failures, hold failures, or DRC errors.
 
 These figures predate the 64-bit packed operand stream (#93), which changes
-the input buffers and the DMA MM2S width; they must be re-measured from the
+the input buffers; they must be re-measured from the
 next Vivado build.
 
 These figures establish build feasibility for the PYNQ-Z1 target. A physical
-matrix smoke test is still required for each release artifact because the
+board check is still required for each release artifact because the
 repository does not treat implementation evidence as board evidence.
 
 ## Instruction-stream front end (ABI 1.1)
 
 ABI 1.1 adds capability bit 6, `ISA_FRONTEND`: the NPU fetches and executes a
-program from DDR instead of having the ARM sequence every tile. The register
-and DMA path of ABI 1.0 is unchanged and still works; while a program is in
-flight (`ISA_STATUS.BUSY`), the front end owns the matrix controller and the DMA
-streams are held off.
+program from DDR instead of having the ARM sequence every tile. It is the only
+way to run a job: the ABI 1.0 path, where software wrote a job through
+`CONTROL.START` and streamed its operands through a Xilinx AXI DMA, was removed
+with the DMA (#150). The register window and version word are unchanged.
+While a program is in flight (`ISA_STATUS.BUSY`) the front end loads START and
+the job shape into the controller's registers, so `M`, `N`, `K` and the stride
+registers (0x18-0x2C) read back the last job it issued. `CONTROL.SOFT_RESET`
+still resets the controller; `CONTROL.START` has no operand source and is not
+supported.
 
 ```text
             AXI-Lite (GP0)                         AXI4 master (HP0, 64-bit)

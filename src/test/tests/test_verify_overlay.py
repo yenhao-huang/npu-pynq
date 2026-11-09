@@ -18,21 +18,8 @@ HWH = """<?xml version="1.0" encoding="UTF-8"?>
       <PARAMETER NAME="C_HIGHADDR" VALUE="0x43C0FFFF"/>
     </PARAMETERS>
   </MODULE>
-  <MODULE INSTANCE="axi_dma_0">
-    <PARAMETERS>
-      <PARAMETER NAME="C_INCLUDE_SG" VALUE="0"/>
-      <PARAMETER NAME="C_INCLUDE_MM2S" VALUE="1"/>
-      <PARAMETER NAME="C_INCLUDE_S2MM" VALUE="1"/>
-      <PARAMETER NAME="C_M_AXI_MM2S_DATA_WIDTH" VALUE="64"/>
-      <PARAMETER NAME="C_M_AXIS_MM2S_TDATA_WIDTH" VALUE="64"/>
-      <PARAMETER NAME="C_S_AXIS_S2MM_TDATA_WIDTH" VALUE="32"/>
-      <PARAMETER NAME="C_BASEADDR" VALUE="0x40400000"/>
-      <PARAMETER NAME="C_HIGHADDR" VALUE="0x4040FFFF"/>
-    </PARAMETERS>
-  </MODULE>
-  <PORT INSTANCE="npu_accelerator_0" PORT="s_axis_tdata"/>
-  <PORT INSTANCE="npu_accelerator_0" PORT="s_axis_tkeep"/>
-  <PORT INSTANCE="npu_accelerator_0" PORT="m_axis_tdata"/>
+  <PORT INSTANCE="npu_accelerator_0" PORT="m_axi_araddr"/>
+  <PORT INSTANCE="npu_accelerator_0" PORT="m_axi_awaddr"/>
   <PORT INSTANCE="npu_accelerator_0" PORT="irq"/>
   <BUS SLAVEBUSINTERFACE="S_AXI_HP0"/>
   <CLOCK VALUE="100000000"/>
@@ -103,27 +90,21 @@ class OverlayProvenanceTests(unittest.TestCase):
                 array_size=8,
             )
 
-    def test_byte_wide_input_stream_is_rejected(self):
-        # An overlay built before the 64-bit operand stream (#93) must not pass
-        # as a current one: its DMA sends one byte per beat and has no TKEEP.
-        hwh_8bit = HWH.replace(
-            'NAME="C_M_AXIS_MM2S_TDATA_WIDTH" VALUE="64"',
-            'NAME="C_M_AXIS_MM2S_TDATA_WIDTH" VALUE="8"',
-        )
-        (self.artifact_dir / "npu_matrix.hwh").write_text(hwh_8bit, encoding="utf-8")
-        with self.assertRaises(OverlayVerificationError):
-            write_manifest(
-                self.artifact_dir, source_commit="e" * 40, vivado_version="2026.1"
-            )
-
-        no_tkeep = HWH.replace(
-            '  <PORT INSTANCE="npu_accelerator_0" PORT="s_axis_tkeep"/>\n', ""
-        )
-        (self.artifact_dir / "npu_matrix.hwh").write_text(no_tkeep, encoding="utf-8")
-        with self.assertRaises(OverlayVerificationError):
-            write_manifest(
-                self.artifact_dir, source_commit="e" * 40, vivado_version="2026.1"
-            )
+    def test_missing_instruction_master_is_rejected(self):
+        # The accelerator moves every tile over its own AXI4 master (HP0); an
+        # overlay whose master is not connected cannot run a package.
+        for port in ("m_axi_araddr", "m_axi_awaddr"):
+            with self.subTest(port=port):
+                unconnected = HWH.replace(
+                    f'  <PORT INSTANCE="npu_accelerator_0" PORT="{port}"/>\n', ""
+                )
+                (self.artifact_dir / "npu_matrix.hwh").write_text(
+                    unconnected, encoding="utf-8"
+                )
+                with self.assertRaises(OverlayVerificationError):
+                    write_manifest(
+                        self.artifact_dir, source_commit="e" * 40, vivado_version="2026.1"
+                    )
 
     def test_modified_artifact_is_rejected(self):
         write_manifest(

@@ -45,6 +45,14 @@ otherwise. When `main` holds commits `dev` lacks (an earlier promotion), merge
 `origin/main` into the release branch first and keep the top-level
 `changelog/` files.
 
+Before the final CD run, update the README Quick Start download links and its
+`scp` and `tar` commands to `pynqo-resnet18-vX.Y.Z.tar.gz` and
+`pynqo-smollm-vX.Y.Z.tar.gz` for this release. Include
+that change in the release source before validation, preferably on `dev` before
+cutting the release branch. The new download URL becomes live when the release
+is published. GitHub's `/releases/latest/download/` URL still requires an exact
+asset filename; `<latest>` is a version placeholder, not a literal filename.
+
 ## 2. Bring the runners online
 
 Do this yourself, before pushing. Three jobs need this host's runners, and a
@@ -195,6 +203,12 @@ gh workflow run publish.yml -f release_tag=vX.Y.Z
 It refuses a draft that is missing assets, a commit that is not contained in
 `main`, and a tag that already exists. It builds nothing and touches no board.
 Approving the `pynq-z1-release` environment is the release decision.
+
+After publication, verify that the README Quick Start link resolves to the
+published `pynqo-resnet18-vX.Y.Z.tar.gz` and `pynqo-smollm-vX.Y.Z.tar.gz`
+assets and that its `scp` and `tar` commands use the same filenames. If the README update was missed before CD,
+prepare a documentation-only follow-up PR to `main`; do not push a docs-only
+commit to the release branch just to fix the link, because that starts CD again.
 
 ## Reporting state
 
