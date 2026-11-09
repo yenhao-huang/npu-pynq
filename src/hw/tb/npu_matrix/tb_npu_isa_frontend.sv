@@ -20,11 +20,6 @@ module tb_npu_isa_frontend;
     logic s_axi_awready, s_axi_wready, s_axi_bvalid, s_axi_arready, s_axi_rvalid;
     logic [1:0] s_axi_bresp, s_axi_rresp;
     logic [31:0] s_axi_rdata;
-    logic [63:0] s_axis_tdata = 0;
-    logic [7:0] s_axis_tkeep = 0;
-    logic s_axis_tvalid = 0, s_axis_tready, s_axis_tlast = 0;
-    logic [31:0] m_axis_tdata;
-    logic m_axis_tvalid, m_axis_tready = 0, m_axis_tlast;
     logic irq;
 
     logic [31:0] m_axi_araddr, m_axi_awaddr;
