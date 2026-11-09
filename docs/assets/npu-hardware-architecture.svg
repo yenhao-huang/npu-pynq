@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 930" role="img" aria-labelledby="title desc">
   <title id="title">PYNQ-Z1 NPU hardware architecture</title>
-  <desc id="desc">High-level diagram showing the processing system, programmable logic, npu_accelerator, dma_axi, npu_matrix_core, controller, memory, and systolic_array functions.</desc>
+  <desc id="desc">High-level diagram showing the processing system, programmable logic, npu_accelerator, dma_axi, npu_isa_frontend, npu_matrix_core, controller, memory, and systolic_array functions.</desc>
   <defs>
     <radialGradient id="background"><stop offset="0" stop-color="#101c28"/><stop offset="1" stop-color="#071019"/></radialGradient>
     <linearGradient id="silver" x2="1" y2="1"><stop offset="0" stop-color="#dddddd"/><stop offset="1" stop-color="#adb3ba"/></linearGradient>
@@ -37,16 +37,20 @@
   <text class="detail" x="202" y="340" text-anchor="middle">software control</text>
   <rect class="card steel" x="70" y="545" width="265" height="140"/>
   <text class="module" x="202" y="611" text-anchor="middle">DDR Memory</text>
-  <text class="detail" x="202" y="645" text-anchor="middle">operands / results</text>
+  <text class="detail" x="202" y="645" text-anchor="middle">programs / tiles</text>
 
   <rect class="panel" x="405" y="115" width="1167" height="715" stroke="#ef367c"/>
   <text class="section" x="988" y="162" text-anchor="middle" fill="#ef367c">Programmable Logic (PL)</text>
   <rect class="panel" x="430" y="190" width="1115" height="560" stroke="#ffffff"/>
   <text class="section" x="592" y="229" text-anchor="middle" fill="#ffffff">npu_accelerator</text>
-  <rect class="card steel" x="455" y="260" width="275" height="425"/>
-  <text class="module" x="592" y="400" text-anchor="middle">dma_axi</text>
-  <text class="detail" x="592" y="438" text-anchor="middle">AXI-Lite registers</text>
-  <text class="detail" x="592" y="477" text-anchor="middle">stream I/O</text>
+  <rect class="card steel" x="455" y="260" width="275" height="175"/>
+  <text class="module" x="592" y="322" text-anchor="middle">dma_axi</text>
+  <text class="detail" x="592" y="360" text-anchor="middle">AXI-Lite registers</text>
+  <text class="detail" x="592" y="395" text-anchor="middle">stream I/O</text>
+  <rect class="card steel" x="455" y="485" width="275" height="200"/>
+  <text class="module" x="592" y="560" text-anchor="middle">npu_isa_frontend</text>
+  <text class="detail" x="592" y="598" text-anchor="middle">fetch · decode · LSU</text>
+  <text class="detail" x="592" y="633" text-anchor="middle">AXI4 master</text>
 
   <rect class="panel" x="790" y="220" width="735" height="505" stroke="#70e3d4"/>
   <text class="section" x="1157" y="263" text-anchor="middle" fill="#70e3d4">npu_matrix_core</text>
@@ -55,11 +59,11 @@
   <text class="detail" x="965" y="405" text-anchor="middle">jobs + registers</text>
   <rect class="card yellow" x="830" y="505" width="270" height="175"/>
   <text class="module" x="965" y="571" text-anchor="middle">memory</text>
-  <text class="detail" x="965" y="609" text-anchor="middle">A / B operand buffers</text>
+  <text class="detail" x="965" y="609" text-anchor="middle">A / B double buffering</text>
   <rect class="card rose" x="1170" y="330" width="305" height="315"/>
   <text class="module" x="1322" y="438" text-anchor="middle">systolic_array</text>
-  <text class="detail" x="1322" y="485" text-anchor="middle">8 × 8 default</text>
-  <text class="detail" x="1322" y="520" text-anchor="middle">2 × 2 supported</text>
+  <text class="detail" x="1322" y="485" text-anchor="middle">16 × 16 default</text>
+  <text class="detail" x="1322" y="520" text-anchor="middle">8 × 8, 2 × 2 supported</text>
 
   <path class="flow both" d="M335 310H455"/>
   <text class="label" x="395" y="297" text-anchor="middle">control</text>
@@ -69,10 +73,12 @@
   <text class="label" x="780" y="347" text-anchor="middle">control</text>
   <path class="flow" d="M730 575H830"/>
   <text class="label" x="780" y="555" text-anchor="middle">operands</text>
+  <path class="flow" d="M592 435V485"/>
+  <text class="label" x="612" y="466">start</text>
   <path class="flow" d="M965 450V505"/>
   <path class="flow both" d="M1100 385H1170"/>
   <path class="flow" d="M1100 585H1170"/>
   <text class="label" x="1135" y="567" text-anchor="middle">A / B</text>
 
-  <text class="label" x="800" y="875" text-anchor="middle">PS ↔ dma_axi ↔ NPU  ·  Control above, operand data below</text>
+  <text class="label" x="800" y="875" text-anchor="middle">PS ↔ dma_axi / npu_isa_frontend ↔ NPU  ·  Control above, programs and operand data below</text>
 </svg>
