@@ -36,7 +36,7 @@ module tb_npu_matrix_scaling;
         words = rows * ((row_bytes + IN_BYTES - 1) / IN_BYTES);
     endfunction
 
-    // Drive one operand frame as AXI DMA MM2S does: IN_BYTES bytes per beat,
+    // Drive one operand frame as the ISA load/store unit does: IN_BYTES bytes per beat,
     // TKEEP on the partial final beat, TLAST on the final beat. TVALID is held
     // until each beat is accepted; with stalls, every seventh beat is preceded
     // by an idle cycle.

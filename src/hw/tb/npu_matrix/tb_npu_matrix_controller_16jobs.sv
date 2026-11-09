@@ -7,7 +7,7 @@
 // an exact INT32 golden model, and the pass prints both wall-clock spans plus
 // the per-job CYCLES the controller reported.
 //
-// Operands arrive as packed IN_BYTES-byte beats, one DMA transfer per A and B
+// Operands arrive as packed IN_BYTES-byte beats, one frame per A and B
 // frame, exactly as npu_matrix_core expects them.
 //
 // ROWS, COLUMNS, JOB_K, NUM_JOBS and IN_BYTES are parameters so the experiment
@@ -96,7 +96,7 @@ module tb_npu_matrix_controller_16jobs #(
         end
     endtask
 
-    // Streams frame_bytes[0:count-1] as one DMA transfer: IN_BYTES bytes per
+    // Streams frame_bytes[0:count-1] as one tile frame: IN_BYTES bytes per
     // beat with TVALID held high, a partial final beat marked by TKEEP, and
     // TLAST on that final beat.
     task automatic send_frame(input integer count);

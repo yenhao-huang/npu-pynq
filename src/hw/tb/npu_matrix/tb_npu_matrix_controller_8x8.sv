@@ -61,7 +61,7 @@ module tb_npu_matrix_controller_8x8;
     always @(posedge clk)
         if (s_axis_tvalid && s_axis_tready) input_beats <= input_beats + 1;
 
-    // Stream stream_bytes[0:count-1] as one DMA transfer: IN_BYTES bytes per
+    // Stream stream_bytes[0:count-1] as one tile frame: IN_BYTES bytes per
     // beat with TVALID held high back to back, a partial final beat marked by
     // TKEEP, and TLAST on that final beat.
     task automatic send_bytes(input integer count);

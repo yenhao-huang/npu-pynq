@@ -84,7 +84,7 @@ module tb_npu_matrix_controller;
         end
     endtask
 
-    // Send stream_bytes[0:count-1] the way AXI DMA MM2S does: IN_BYTES bytes
+    // Send stream_bytes[0:count-1] the way the ISA load/store unit does: IN_BYTES bytes
     // per beat, lowest byte in lane 0, and a final beat whose TKEEP marks only
     // the remaining bytes.
     task automatic send_bytes(input integer count);
