@@ -41,31 +41,45 @@ The SmolLM build guide uses `dist/` for generated model assets and packages.
 ### Quick start
 
 1. Download the package on your computer:
-   [npu-resnet18-v1.0.6.zip](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.6/npu-resnet18-v1.0.6.zip).
-2. Copy it to the PYNQ-Z1 (`<user>` is the board account, `xilinx` by default):
+   [pynqo-resnet18-v1.0.8.tar.gz](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.8/pynqo-resnet18-v1.0.8.tar.gz).
+   It holds the compiled model, the overlay, the runtime and the notebook.
+2. Copy it to the PYNQ-Z1:
 
    ```bash
-   scp npu-resnet18-v1.0.6.zip <user>@192.168.2.99:~/jupyter_notebooks/
+   scp pynqo-resnet18-v1.0.8.tar.gz xilinx@192.168.2.99:~/jupyter_notebooks/
    ```
 
 3. Log in to the board:
 
    ```bash
-   ssh <user>@192.168.2.99
+   ssh xilinx@192.168.2.99
    ```
 
-4. Extract the package:
+4. Extract the package. It unpacks into `resnet18/`; `-m` avoids timestamp
+   warnings when the board's clock is behind:
 
    ```bash
    cd ~/jupyter_notebooks
-   unzip npu-resnet18-v1.0.6.zip -d npu-resnet18
+   tar -xzmf pynqo-resnet18-v1.0.8.tar.gz
    ```
 
 5. Open the notebook in Jupyter at
-   <http://192.168.2.99:9090/notebooks/npu-resnet18/resnet18.ipynb> and run the
+   <http://192.168.2.99:9090/notebooks/resnet18/resnet18.ipynb> and run the
    cells in order. Pick a bundled picture or upload your own; the last cell
    prints the top-5 ImageNet labels, their scores, and a CORRECT or INCORRECT
    verdict.
+
+SmolLM2-135M-Instruct comes the same way:
+[pynqo-smollm-v1.0.8.tar.gz](https://github.com/yenhao-huang/npu-pynq/releases/download/v1.0.8/pynqo-smollm-v1.0.8.tar.gz)
+unpacks into `smollm/`. Copy and extract it as in steps 2 to 4, then open
+<http://192.168.2.99:9090/notebooks/smollm/smollm_safetensors.ipynb>, or run
+it from the board's shell:
+
+```bash
+cd ~/jupyter_notebooks/smollm
+sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli llm package \
+  --overlay overlay/npu_matrix.bit --chat --stream --prompt "What is the capital of France?" --max-new 32
+```
 
 ### Build from scratch
 
@@ -102,10 +116,12 @@ Note:
 
 ![PYNQ-Z1 NPU hardware architecture](docs/assets/npu-hardware-architecture.svg)
 
-The Zynq processing system drives the accelerator (controller, operand memory,
-systolic array) through AXI-Lite registers. The accelerator's instruction-stream
-front end fetches each program and moves its tiles between DDR and the array
-over its own AXI4 master on HP0.
+The diagram groups the hardware by function: the Zynq processing system
+controls the accelerator over AXI-Lite. The ISA front end fetches NPU programs
+from DDR, decodes them into matrix jobs, and moves the A/B tiles in and the C
+tiles out itself over its own AXI4 master on HP0. The accelerator contains the
+controller, double-buffered operand memory, and systolic array. The overlay
+defaults to a 16 x 16 array and also supports 8 x 8 and 2 x 2 builds.
 
 ## Supported target and contracts
 
