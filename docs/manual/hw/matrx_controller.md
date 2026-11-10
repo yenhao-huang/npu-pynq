@@ -1,10 +1,10 @@
-# `npu_matrix_controller`
+# `matrix_controller`
 
-`src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/controller/npu_matrix_controller.sv`
+`src/hw/rtl/npu_accelerator/matrix_core/controller/matrix_controller.sv`
 turns AXI-Lite job descriptions and packed AXI-Stream operand frames into
 AXI-Stream result frames. It sequences the operand banks and the systolic array
-in `npu_matrix_datapath`, but it stores no operands itself. Register decode
-lives in `npu_csr`.
+in `matrix_datapath`, but it stores no operands itself. Register decode
+lives in `csr`.
 
 This document was created by the change that added the A/B ping-pong buffer
 (issue #64). It describes the controller as it stands after that change. The
@@ -62,7 +62,7 @@ waiting for the array. Software must size it accordingly.
 
 ## 4. Operand banks and halves
 
-`npu_matrix_datapath` instantiates one `npu_operand_buffer` per array edge:
+`matrix_datapath` instantiates one `operand_buffer` per array edge:
 `gen_a_banks[r]` holds row `r` of `A`, and `gen_b_banks[c]` holds column `c`
 of `B`. Each buffer has one write port, fed by the row aligner, and one
 synchronous read port, feeding the array's boundary register.
@@ -207,8 +207,8 @@ need one of:
 
 ## 10. Measured behaviour
 
-`src/hw/tb/npu_matrix/tb_npu_matrix_controller_16jobs.sv` runs 16 stall-free
-jobs twice, both through `npu_matrix_core` with 64-bit packed beats:
+`src/hw/tb/npu_accelerator/tb_matrix_controller_16jobs.sv` runs 16 stall-free
+jobs twice, both through `matrix_core` with 64-bit packed beats:
 - serialized, where `START` waits for `!BUSY`;
 - pipelined, where `START` waits for `ACCEPT`.
 
@@ -226,7 +226,7 @@ serialized pass against the core before this change, with
 
 `docs/goal/ping-pong-buffer-prompt.md` has the full sweep, including 4x4.
 
-`tb_npu_matrix_controller_pipeline.sv` (2x2) and `_pipeline_8x8.sv` cover the
+`tb_matrix_controller_pipeline.sv` (2x2) and `_pipeline_8x8.sv` cover the
 same mechanism with packed beats, and the 2x2 bench also injects input stalls
 and output backpressure. Both check:
 - half swapping;
@@ -235,7 +235,7 @@ and output backpressure. Both check:
 - `STREAM_LENGTH` on a queued pipeline;
 - a queued job's own timeout.
 
-`tb_npu_matrix_scaling.sv` keeps the issue #59 and #94 checks at 4, 8 and 16:
+`tb_matrix_scaling.sv` keeps the issue #59 and #94 checks at 4, 8 and 16:
 - exact no-stall latency;
 - stalled and partial tiles;
 - B aborted after overlapped compute.

@@ -31,8 +31,8 @@ class OverlayProvenanceTests(unittest.TestCase):
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.artifact_dir = Path(self.temporary_directory.name)
-        (self.artifact_dir / "npu_matrix.bit").write_bytes(b"bitstream")
-        (self.artifact_dir / "npu_matrix.hwh").write_text(HWH, encoding="utf-8")
+        (self.artifact_dir / "npu_accelerator.bit").write_bytes(b"bitstream")
+        (self.artifact_dir / "npu_accelerator.hwh").write_text(HWH, encoding="utf-8")
 
     def tearDown(self):
         self.temporary_directory.cleanup()
@@ -52,7 +52,7 @@ class OverlayProvenanceTests(unittest.TestCase):
         hwh_8x8 = hwh_8x8.replace(
             'NAME="COLUMNS" VALUE="2"', 'NAME="COLUMNS" VALUE="8"'
         )
-        (self.artifact_dir / "npu_matrix.hwh").write_text(
+        (self.artifact_dir / "npu_accelerator.hwh").write_text(
             hwh_8x8, encoding="utf-8"
         )
         write_manifest(
@@ -69,7 +69,7 @@ class OverlayProvenanceTests(unittest.TestCase):
         hwh_16x16 = hwh_16x16.replace(
             'NAME="COLUMNS" VALUE="2"', 'NAME="COLUMNS" VALUE="16"'
         )
-        (self.artifact_dir / "npu_matrix.hwh").write_text(
+        (self.artifact_dir / "npu_accelerator.hwh").write_text(
             hwh_16x16, encoding="utf-8"
         )
         write_manifest(
@@ -98,7 +98,7 @@ class OverlayProvenanceTests(unittest.TestCase):
                 unconnected = HWH.replace(
                     f'  <PORT INSTANCE="npu_accelerator_0" PORT="{port}"/>\n', ""
                 )
-                (self.artifact_dir / "npu_matrix.hwh").write_text(
+                (self.artifact_dir / "npu_accelerator.hwh").write_text(
                     unconnected, encoding="utf-8"
                 )
                 with self.assertRaises(OverlayVerificationError):
@@ -112,7 +112,7 @@ class OverlayProvenanceTests(unittest.TestCase):
             source_commit="b" * 40,
             vivado_version="2026.1",
         )
-        (self.artifact_dir / "npu_matrix.bit").write_bytes(b"stale")
+        (self.artifact_dir / "npu_accelerator.bit").write_bytes(b"stale")
         with self.assertRaises(OverlayVerificationError):
             verify_artifacts(self.artifact_dir)
 

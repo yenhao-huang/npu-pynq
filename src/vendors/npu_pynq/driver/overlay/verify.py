@@ -105,9 +105,9 @@ def inspect_hwh(hwh_path: Path, *, array_size: int = 2) -> dict[str, object]:
 
 
 def _artifact_paths(artifact_dir: Path) -> tuple[Path, Path, Path]:
-    bit_path = artifact_dir / "npu_matrix.bit"
-    hwh_path = artifact_dir / "npu_matrix.hwh"
-    manifest_path = artifact_dir / "npu_matrix.manifest.json"
+    bit_path = artifact_dir / "npu_accelerator.bit"
+    hwh_path = artifact_dir / "npu_accelerator.hwh"
+    manifest_path = artifact_dir / "npu_accelerator.manifest.json"
     if bit_path.stem != hwh_path.stem:
         raise OverlayVerificationError("BIT and HWH basenames differ")
     for path in (bit_path, hwh_path):
@@ -146,7 +146,7 @@ def main() -> int:
     parser.add_argument("artifact_dir", type=Path)
     arguments = parser.parse_args()
     verify_artifacts(arguments.artifact_dir.resolve())
-    print("PASS: npu_matrix BIT/HWH provenance and metadata")
+    print("PASS: npu_accelerator BIT/HWH provenance and metadata")
     return 0
 
 

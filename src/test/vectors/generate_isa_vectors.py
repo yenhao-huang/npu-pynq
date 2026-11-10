@@ -1,4 +1,4 @@
-"""Generate the instruction-stream vectors for tb_npu_isa_frontend.
+"""Generate the instruction-stream vectors for tb_scalar_core.
 
 Each case is a memory image holding a program (at physical address 0) and the
 data region it computes on (at DATA_BASE), plus the image the golden ISA

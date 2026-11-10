@@ -44,8 +44,8 @@ Inside Claude Code, approve the project MCP server when prompted. Run `/mcp`
 and confirm that `ic-tools` is connected. In an NPU repository checkout, ask:
 
 ```text
-Use the IC lint tool on src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv,
-top npu_pe. Report errors and warnings. Leave the source unchanged.
+Use the IC lint tool on src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv,
+top pe. Report errors and warnings. Leave the source unchanged.
 ```
 
 For other agents, such as Codex or pi, see [docs/manual/installation.md](docs/manual/installation.md).

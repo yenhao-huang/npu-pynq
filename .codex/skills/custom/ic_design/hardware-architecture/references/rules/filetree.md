@@ -10,8 +10,8 @@ README.
 The active product image is selected by the Markdown image link in
 `README.md`. At creation, that link points to
 `docs/assets/npu-hardware-architecture.svg`. Treat
-`src/hw/rtl/npu_matrix/` as the source of visible module and directory names.
-The design wrapper `npu_matrix/` is not itself a functional block.
+`src/hw/rtl/npu_accelerator/` as the source of visible module and directory names.
+The design wrapper `npu_accelerator/` is not itself a functional block.
 
 Follow `docs/rules/filetree.md` for repository paths and generated artifacts.
 Keep render previews in ignored build output, not beside the source SVG.

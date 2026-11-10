@@ -160,7 +160,7 @@ jobs:
       actions: read
     timeout-minutes: 180
     env:
-      OUT: build/vivado/npu_matrix_16x16
+      OUT: build/vivado/npu_accelerator_16x16
     steps:
       - uses: actions/checkout@v4
         with:
@@ -218,7 +218,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { $reason = 'it does not verify' }
           }
           if (-not $reason) {
-            $built = "$((Get-Content -Raw "$env:OUT/artifacts/npu_matrix.manifest.json" | ConvertFrom-Json).source_commit)".ToLowerInvariant()
+            $built = "$((Get-Content -Raw "$env:OUT/artifacts/npu_accelerator.manifest.json" | ConvertFrom-Json).source_commit)".ToLowerInvariant()
             git merge-base --is-ancestor $built $release
             if ($LASTEXITCODE -ne 0) { $reason = "$built is not an ancestor of $release" }
           }
@@ -240,7 +240,7 @@ jobs:
         if: steps.reuse.outputs.reuse != 'true'
         shell: pwsh
         run: |
-          vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
+          vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_accelerator/build_overlay.tcl
           if ($LASTEXITCODE -ne 0) { throw "Vivado failed with exit code $LASTEXITCODE" }
 
       - name: Verify the bitstream and its report
@@ -255,9 +255,9 @@ jobs:
           name: bitstream-${{ needs.check.outputs.tag }}
           if-no-files-found: error
           path: |
-            ${{ env.OUT }}/artifacts/npu_matrix.bit
-            ${{ env.OUT }}/artifacts/npu_matrix.hwh
-            ${{ env.OUT }}/artifacts/npu_matrix.manifest.json
+            ${{ env.OUT }}/artifacts/npu_accelerator.bit
+            ${{ env.OUT }}/artifacts/npu_accelerator.hwh
+            ${{ env.OUT }}/artifacts/npu_accelerator.manifest.json
             ${{ env.OUT }}/reports/build_evidence.txt
             ${{ env.OUT }}/reports/*.rpt
 
@@ -305,13 +305,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/${{ matrix.model }}/overlay
-          cp build/bitstream/artifacts/npu_matrix.* dist/${{ matrix.model }}/overlay/
+          cp build/bitstream/artifacts/npu_accelerator.* dist/${{ matrix.model }}/overlay/
           bash src/deploy/deploy.sh dist/${{ matrix.model }} ${{ matrix.files }}
 
       - name: Run on the board
         run: |
           bash .github/release/board_check.sh "$ARCHIVE" "$EVIDENCE" \
-            ${{ matrix.run }} --overlay overlay/npu_matrix.bit ${{ matrix.evidence }} board.json
+            ${{ matrix.run }} --overlay overlay/npu_accelerator.bit ${{ matrix.evidence }} board.json
 
       - name: Compare with the host simulator
         run: |
@@ -367,7 +367,7 @@ jobs:
       - name: Gather the assets
         run: |
           set -euo pipefail
-          cp build/bitstream/artifacts/npu_matrix.* build/release/
+          cp build/bitstream/artifacts/npu_accelerator.* build/release/
           cp build/bitstream/reports/build_evidence.txt build/release/bitstream-report.txt
           for model in $(jq -r '.[].model' .github/release/models.json); do
             test -s "build/release/pynqo-$model-$TAG.tar.gz"

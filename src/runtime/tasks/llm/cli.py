@@ -1,6 +1,6 @@
 """Run an exported LLM package on the board (or the host simulator).
 
-    python -m src.runtime.cli llm package --overlay npu_matrix.bit --chat --stream --prompt "Hello"
+    python -m src.runtime.cli llm package --overlay npu_accelerator.bit --chat --stream --prompt "Hello"
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ def main(argv=None) -> int:
     r.add_argument("--chat", action="store_true")
     r.add_argument("--max-new", "--max-new-tokens", type=int, default=32)
     r.add_argument("--backend", choices=("sim", "pynq"), default=None)
-    r.add_argument("--overlay", default=os.environ.get("NPU_OVERLAY", "npu_matrix.bit"))
+    r.add_argument("--overlay", default=os.environ.get("NPU_OVERLAY", "npu_accelerator.bit"))
     r.add_argument("--temperature", type=float, default=0.0)
     r.add_argument("--top-k", type=int, default=0)
     r.add_argument("--top-p", type=float, default=1.0)

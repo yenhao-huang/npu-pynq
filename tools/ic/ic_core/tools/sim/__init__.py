@@ -26,7 +26,7 @@ class SimIn(Backendable):
     files: list[str] = Field(
         description="All sources to compile: RTL and the testbench together"
     )
-    tb: str = Field(description="Top-level testbench module name, e.g. tb_npu_pe")
+    tb: str = Field(description="Top-level testbench module name, e.g. tb_pe")
     top: str | None = Field(
         default=None,
         description="Name of the design under test. Recorded for run history; optional.",

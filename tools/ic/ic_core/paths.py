@@ -4,7 +4,7 @@ Two separate questions that are easy to conflate:
 
 - **Which directory do relative paths in a request resolve against?**
   The caller's working directory. A person in `src/hw/` typing
-  `ic lint --files rtl/npu_pe.sv` means the file next to them.
+  `ic lint --files rtl/pe.sv` means the file next to them.
 - **Where does the run store live?**
   One place per project, so the CLI, the daemon, the MCP server and the pi
   extension all see the same handles no matter where each was started.

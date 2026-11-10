@@ -78,7 +78,7 @@ it from the board's shell:
 ```bash
 cd ~/jupyter_notebooks/smollm
 sudo env XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli llm package \
-  --overlay overlay/npu_matrix.bit --chat --stream --prompt "What is the capital of France?" --max-new 32
+  --overlay overlay/npu_accelerator.bit --chat --stream --prompt "What is the capital of France?" --max-new 32
 ```
 
 ### Build from scratch
@@ -129,7 +129,7 @@ defaults to a 16 x 16 array and also supports 8 x 8 and 2 x 2 builds.
 | --- | --- |
 | Board | PYNQ-Z1 |
 | FPGA part | Zynq-7020, `xc7z020clg400-1` |
-| Overlay | `npu_matrix` with the ISA front end (ABI 1.1) |
+| Overlay | `npu_accelerator` with the ISA front end (ABI 1.1) |
 | Arithmetic | Signed INT8 operands, exact INT16 products, saturating INT32 accumulation |
 | Requantization | Q1.31 with explicit rounding and saturation contracts |
 | Host tooling | Python and Bash (Linux/WSL); Vivado only for hardware builds |

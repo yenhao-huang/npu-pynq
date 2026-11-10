@@ -47,7 +47,7 @@ Paste this prompt into pi:
 
 ```text
 Actually call the native lint tool on
-src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv, with top=npu_pe.
+src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv, with top=pe.
 Leave the source unchanged. Report ok, error_count, and warning_count from
 the returned result. Explain any warnings. Do not replace the tool with Bash.
 ```
@@ -65,7 +65,7 @@ Paste this prompt into pi:
 
 ```text
 Use all eight native IC tools and leave all source files unchanged.
-1. lint: files=["src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv"], top="npu_pe".
+1. lint: files=["src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv"], top="pe".
 2. sim: files=["tools/ic/tests/fixtures/counter.sv",
    "tools/ic/tests/fixtures/tb_counter.sv"], tb="tb_counter".
 3. Use the wave handle returned by this sim for every waveform tool below.
@@ -88,7 +88,7 @@ blocked downstream checks as not verified; do not invent results or handles.
 
 | Tool | Expected evidence |
 | --- | --- |
-| `lint` | Zero lint errors for `npu_pe`. |
+| `lint` | Zero lint errors for `pe`. |
 | `sim` | Build completes and a wave handle is returned, with the fixture's intentional test failure. A compiler/dependency failure does not pass. |
 | `signals` | The returned signal catalogue includes the reference and DUT count signals. |
 | `first_mismatch` | First mismatch at cycle **8**: reference **8**, DUT **7**. |

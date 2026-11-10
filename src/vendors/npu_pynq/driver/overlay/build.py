@@ -77,7 +77,7 @@ def main() -> int:
         array_size=arguments.array_size,
     )
     verify_artifacts(artifact_dir)
-    print("PASS: npu_matrix BIT/HWH provenance and metadata")
+    print("PASS: npu_accelerator BIT/HWH provenance and metadata")
     return 0
 
 

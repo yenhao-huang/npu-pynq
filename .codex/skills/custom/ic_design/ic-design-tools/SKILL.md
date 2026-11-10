@@ -28,13 +28,13 @@ pip install -e tools/ic
 diagnostic in full.
 
 ```bash
-ic lint --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe
+ic lint --files src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv --top pe
 ```
 
 **2. Simulate to get a verdict and a waveform handle.**
 
 ```bash
-ic sim --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv src/hw/tb/npu_matrix/tb_npu_pe.sv --tb tb_npu_pe --top npu_pe
+ic sim --files src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv src/hw/tb/npu_accelerator/tb_pe.sv --tb tb_pe --top pe
 ```
 
 Returns `ok`, a few log lines explaining the verdict, and
@@ -60,7 +60,7 @@ ic value_range --wave 166d08/wave.fst --signal accumulator --from-cycle 38 --to-
 
 **5. If you do not know the signal names**, list them first. Signal arguments
 accept a unique suffix, so `accumulator` works for
-`TOP.tb_npu_pe.dut.accumulator`.
+`TOP.tb_pe.dut.accumulator`.
 
 ```bash
 ic signals --wave 166d08/wave.fst --pattern 'acc*'
@@ -71,12 +71,12 @@ loop. `full` (Vivado) takes minutes and is the only trustworthy source of
 timing for the Zynq-7020.
 
 ```bash
-ic synth --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --mode estimate
+ic synth --files src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv --top pe --mode estimate
 
 # Power, area and fmax against a standard-cell library, for ranking two
 # implementations. Needs OpenROAD and IC_PDK_LIBERTY; says nothing about the
 # Zynq-7020, which is what `synth` is for.
-ic ppa --files src/hw/rtl/npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv --top npu_pe --clock-port clk --clock-period-ns 5
+ic ppa --files src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv --top pe --clock-port clk --clock-period-ns 5
 ```
 
 **7. To hand a problem to a person**, open the waveform for them with the

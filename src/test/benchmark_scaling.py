@@ -23,23 +23,23 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     rtl_root = args.rtl_root.resolve() / "src/hw/rtl"
     modular_paths = (
-        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_pe.sv",
-        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/systolic_array/npu_systolic_array.sv",
-        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/memory/npu_operand_buffer.sv",
-        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_datapath/npu_matrix_datapath.sv",
-        "npu_matrix/npu_accelerator/npu_matrix_core/controller/npu_matrix_controller.sv",
-        "npu_matrix/npu_accelerator/npu_matrix_core/npu_matrix_core.sv",
+        "npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv",
+        "npu_accelerator/matrix_core/matrix_datapath/systolic_array/systolic_array.sv",
+        "npu_accelerator/matrix_core/matrix_datapath/memory/operand_buffer.sv",
+        "npu_accelerator/matrix_core/matrix_datapath/matrix_datapath.sv",
+        "npu_accelerator/matrix_core/controller/matrix_controller.sv",
+        "npu_accelerator/matrix_core/matrix_core.sv",
     )
     baseline_paths = (
-        "systolic_array/npu_pe.sv",
-        "systolic_array/npu_systolic_array.sv",
-        "npu_matrix/npu_matrix_controller.sv",
+        "systolic_array/pe.sv",
+        "systolic_array/systolic_array.sv",
+        "npu_accelerator/matrix_controller.sv",
     )
     if (rtl_root / modular_paths[-1]).is_file():
         rtl = [rtl_root / path for path in modular_paths]
     else:
         rtl = [rtl_root / path for path in baseline_paths]
-    tb = args.rtl_root.resolve() / "src/hw/tb/npu_matrix/tb_npu_matrix_scaling.sv"
+    tb = args.rtl_root.resolve() / "src/hw/tb/npu_accelerator/tb_matrix_scaling.sv"
     evidence = {
         "scope": "RTL simulation; assumed clock, excludes host/DMA setup and DDR stalls",
         "clock_mhz": args.clock_mhz,
@@ -49,9 +49,9 @@ def main() -> None:
     for size in args.sizes:
         executable = args.output.resolve() / f"scaling{size}.vvp"
         commands = [
-            ["iverilog", "-g2012", "-s", "tb_npu_matrix_scaling",
-             f"-Ptb_npu_matrix_scaling.SIZE={size}", "-o", str(executable),
-             f"-Ptb_npu_matrix_scaling.EXPECT_OVERLAP={int(not args.baseline)}",
+            ["iverilog", "-g2012", "-s", "tb_matrix_scaling",
+             f"-Ptb_matrix_scaling.SIZE={size}", "-o", str(executable),
+             f"-Ptb_matrix_scaling.EXPECT_OVERLAP={int(not args.baseline)}",
              *map(str, rtl), str(tb)],
             ["vvp", str(executable)],
         ]
@@ -62,7 +62,7 @@ def main() -> None:
             (args.output / f"{stage}{size}.log").write_text(output)
             if result.returncode or re.search(r"\b(fail|fatal|error|mismatch)\b", output, re.I):
                 raise RuntimeError(f"{stage} failed; see {args.output}/{stage}{size}.log")
-        if f"PASS tb_npu_matrix_scaling SIZE={size}" not in output:
+        if f"PASS tb_matrix_scaling SIZE={size}" not in output:
             raise RuntimeError("simulation did not report PASS")
         for line in output.splitlines():
             if not line.startswith("METRIC "):
