@@ -173,7 +173,18 @@ the matrix core.
                                     | (registered in EX)    |
                                     v                       v
                            matrix_controller + 16 x 16 systolic array
+
+   scalar_core_controller: START admission, run state, stop (IF), drained (ID),
+   fault latch (EX), RUNNING/DONE/ERROR/BUSY, ISA_ERROR, ISA_JOBS, ISA_CYCLES
 ```
+
+`scalar_core_controller` is the scalar core's program-level run control, as
+`matrix_controller` is the matrix core's per-job sequencer. The stages report
+events to it (decode: an instruction it cannot execute, END retiring; execute:
+a job issued, a job written back; fetch, load/store and the matrix core: a
+fault) and it returns `running`, `stop`, `drained` and the fault latch. The
+issue handshake itself, with the registered START and M/N/K, stays in
+`scalar_core`'s execute stage.
 
 The instruction set is defined once, in `src/vendors/npu_pynq/isa/isa.py`; `src/vendors/npu_pynq/isa/sim.py` is
 its bit-accurate simulator and `src/vendors/npu_pynq/isa/layout.py` the tiled-GEMM layout that

@@ -48,9 +48,10 @@
   <text class="detail" x="592" y="360" text-anchor="middle">AXI-Lite registers</text>
   <text class="detail" x="592" y="395" text-anchor="middle">PROG_ADDR · START · IRQ</text>
   <rect class="card steel" x="455" y="485" width="275" height="200"/>
-  <text class="module" x="592" y="560" text-anchor="middle">scalar_core</text>
-  <text class="detail" x="592" y="598" text-anchor="middle">fetch · decode · LSU</text>
-  <text class="detail" x="592" y="633" text-anchor="middle">AXI4 master</text>
+  <text class="module" x="592" y="545" text-anchor="middle">scalar_core</text>
+  <text class="detail" x="592" y="583" text-anchor="middle">controller · fetch</text>
+  <text class="detail" x="592" y="618" text-anchor="middle">decode · LSU</text>
+  <text class="detail" x="592" y="653" text-anchor="middle">AXI4 master</text>
 
   <rect class="panel" x="790" y="220" width="735" height="505" stroke="#70e3d4"/>
   <text class="section" x="1157" y="263" text-anchor="middle" fill="#70e3d4">matrix_core</text>
