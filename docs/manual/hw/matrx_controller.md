@@ -1,10 +1,18 @@
 # `matrix_controller`
 
 `src/hw/rtl/npu_accelerator/matrix_core/controller/matrix_controller.sv`
-turns AXI-Lite job descriptions and packed AXI-Stream operand frames into
+turns job commands and packed AXI-Stream operand frames into
 AXI-Stream result frames. It sequences the operand banks and the systolic array
-in `matrix_datapath`, but it stores no operands itself. Register decode
-lives in `csr`.
+in `matrix_datapath`, but it stores no operands itself.
+
+Since register ABI 2.0 the job commands come from the scalar core, not from
+AXI-Lite registers: in `npu_accelerator` the scalar core drives `start_pulse`
+and `cfg_m/n/k` from flip-flops, the strides are tied to the dense row-major
+values of the shape and `cfg_timeout_cycles` to `0xFFFFFFFF`, and `csr` drives
+only `soft_reset_pulse` and reads `status_*`, `error_code` and `cycles`. The
+sections below describe the module's own interface, which is unchanged; the
+references to the AXI-Lite `M`, `N`, `K`, stride and `TIMEOUT_CYCLES`
+registers describe ABI 1.x, which retired them.
 
 This document was created by the change that added the A/B ping-pong buffer
 (issue #64). It describes the controller as it stands after that change. The

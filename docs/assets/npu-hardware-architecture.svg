@@ -56,7 +56,7 @@
   <text class="section" x="1157" y="263" text-anchor="middle" fill="#70e3d4">matrix_core</text>
   <rect class="card turquoise" x="830" y="305" width="270" height="145"/>
   <text class="module" x="965" y="367" text-anchor="middle">controller</text>
-  <text class="detail" x="965" y="405" text-anchor="middle">jobs + registers</text>
+  <text class="detail" x="965" y="405" text-anchor="middle">two-job queue</text>
   <rect class="card yellow" x="830" y="505" width="270" height="175"/>
   <text class="module" x="965" y="571" text-anchor="middle">memory</text>
   <text class="detail" x="965" y="609" text-anchor="middle">A / B double buffering</text>
@@ -70,7 +70,9 @@
   <path class="flow both" d="M335 615H455"/>
   <text class="label" x="395" y="602" text-anchor="middle">data</text>
   <path class="flow both" d="M730 365H830"/>
-  <text class="label" x="780" y="347" text-anchor="middle">control</text>
+  <text class="label" x="780" y="347" text-anchor="middle">status</text>
+  <path class="flow" d="M730 515H745V425H830"/>
+  <text class="label" x="752" y="476">jobs</text>
   <path class="flow" d="M730 575H830"/>
   <text class="label" x="780" y="555" text-anchor="middle">operands</text>
   <path class="flow" d="M592 435V485"/>
@@ -80,5 +82,5 @@
   <path class="flow" d="M1100 585H1170"/>
   <text class="label" x="1135" y="567" text-anchor="middle">A / B</text>
 
-  <text class="label" x="800" y="875" text-anchor="middle">PS ↔ csr / scalar_core ↔ NPU  ·  Control above, programs and operand data below</text>
+  <text class="label" x="800" y="875" text-anchor="middle">PS → csr → scalar_core → matrix_core  ·  scalar_core alone issues jobs; csr reads status</text>
 </svg>

@@ -10,6 +10,11 @@
 //                           the operands from DDR into the controller's input
 //                           stream and its results back to DDR
 //
+// The scalar core is the matrix core's only command source: ctl_start and the
+// job shape go straight to it, and both come from flip-flops here, because the
+// 100 MHz margin of the 16 x 16 array leaves no room for logic in front of the
+// controller.
+//
 // IF and the LSU share one AXI4 master. Read bursts carry a one-bit tag in an
 // in-order FIFO (one AXI ID, so R returns in AR order) that routes R beats
 // back to their requester.
@@ -111,8 +116,9 @@ module scalar_core #(
     logic ld_ready, st_ready;
     logic [12:0] a_bytes, b_bytes;
     logic [8:0] c_words;
-    // START reaches the controller one register later (npu_accelerator), so its
-    // ACCEPT is stale for two cycles after an issue.
+    // A job issues in EX (issue); START reaches the controller one register
+    // later (ctl_start), so its ACCEPT is stale for two cycles after an issue.
+    logic issue;
     logic [1:0] cooldown;
 
     assign start = isa_start && !isa_busy;
@@ -147,23 +153,37 @@ module scalar_core #(
 
     // ------------------------------------------------------------- execute
     // A job issues when the controller has a free queue entry and the LSU can
-    // take both its load and its store; START and the shape reach the
-    // controller in the same cycle, and the controller's ACCEPT reflects the
-    // new occupancy one cycle later, so back-to-back issue is safe.
+    // take both its load and its store. START and the shape are registered
+    // and reach the controller together on the next cycle; its ACCEPT reflects
+    // the new occupancy one cycle after that, which the two-cycle cooldown
+    // covers.
     always_comb begin
         job_ready = ctl_accept && ld_ready && st_ready && !fault_latched && (cooldown == 2'd0);
-        ctl_start = job_valid && job_ready;
-        ctl_m = {8'd0, job_m};
-        ctl_n = {8'd0, job_n};
-        ctl_k = job_k;
+        issue = job_valid && job_ready;
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            ctl_start <= 1'b0;
+            ctl_m <= 16'd0;
+            ctl_n <= 16'd0;
+            ctl_k <= 16'd0;
+        end else begin
+            ctl_start <= issue;
+            if (issue) begin
+                ctl_m <= {8'd0, job_m};
+                ctl_n <= {8'd0, job_n};
+                ctl_k <= job_k;
+            end
+        end
     end
 
     scalar_core_lsu lsu (
         .clk(clk), .rst_n(rst_n), .clear_errors(start),
-        .ld_valid(ctl_start), .ld_ready(ld_ready),
+        .ld_valid(issue), .ld_ready(ld_ready),
         .ld_a_addr(job_a), .ld_a_bytes(a_bytes),
         .ld_b_addr(job_b), .ld_b_bytes(b_bytes),
-        .st_valid(ctl_start), .st_ready(st_ready),
+        .st_valid(issue), .st_ready(st_ready),
         .st_c_addr(job_c), .st_words(c_words),
         .ar_valid(l_ar_valid), .ar_ready(l_ar_ready),
         .ar_addr(l_ar_addr), .ar_len(l_ar_len),
@@ -241,9 +261,9 @@ module scalar_core #(
             isa_fault_code <= 8'd0;
             isa_cycles <= 32'd0;
         end else begin
-            if (ctl_start)
+            if (issue)
                 jobs_issued <= jobs_issued + 32'd1;
-            cooldown <= ctl_start ? 2'd2 : (cooldown != 2'd0 ? cooldown - 2'd1 : 2'd0);
+            cooldown <= issue ? 2'd2 : (cooldown != 2'd0 ? cooldown - 2'd1 : 2'd0);
             if (job_written)
                 jobs_written <= jobs_written + 32'd1;
             if (dec_running && fault && !fault_latched) begin

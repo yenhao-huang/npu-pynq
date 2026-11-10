@@ -32,15 +32,7 @@ module tb_csr;
     logic                     status_error = 1'b0;
     logic [7:0]               error_code = 8'd0;
     logic [63:0]              cycles = 64'd0;
-    wire                      start_pulse;
     wire                      soft_reset_pulse;
-    wire [15:0]               cfg_m;
-    wire [15:0]               cfg_n;
-    wire [15:0]               cfg_k;
-    wire [31:0]               cfg_a_stride;
-    wire [31:0]               cfg_b_stride;
-    wire [31:0]               cfg_c_stride;
-    wire [31:0]               cfg_timeout_cycles;
     logic                     isa_running = 1'b0;
     logic                     isa_busy = 1'b0;
     logic                     isa_done = 1'b0;
@@ -56,14 +48,11 @@ module tb_csr;
     wire [31:0]               isa_data_base;
     integer isa_start_count = 0;
 
-    integer start_count = 0;
     integer reset_count = 0;
 
     always #5 clk = ~clk;
 
     always @(posedge clk) begin
-        if (start_pulse)
-            start_count <= start_count + 1;
         if (soft_reset_pulse)
             reset_count <= reset_count + 1;
         if (isa_start_pulse)
@@ -101,15 +90,7 @@ module tb_csr;
         .status_error(status_error),
         .error_code(error_code),
         .cycles(cycles),
-        .start_pulse(start_pulse),
         .soft_reset_pulse(soft_reset_pulse),
-        .cfg_m(cfg_m),
-        .cfg_n(cfg_n),
-        .cfg_k(cfg_k),
-        .cfg_a_stride(cfg_a_stride),
-        .cfg_b_stride(cfg_b_stride),
-        .cfg_c_stride(cfg_c_stride),
-        .cfg_timeout_cycles(cfg_timeout_cycles),
         .isa_running(isa_running),
         .isa_busy(isa_busy),
         .isa_done(isa_done),
@@ -122,12 +103,7 @@ module tb_csr;
         .isa_start_pulse(isa_start_pulse),
         .isa_prog_addr(isa_prog_addr),
         .isa_prog_len(isa_prog_len),
-        .isa_data_base(isa_data_base),
-        .ext_own(1'b0),
-        .ext_start(1'b0),
-        .ext_m(16'd0),
-        .ext_n(16'd0),
-        .ext_k(16'd0)
+        .isa_data_base(isa_data_base)
     );
 
     task automatic expect_word;
@@ -223,6 +199,7 @@ module tb_csr;
     reg [31:0] read_value;
     integer prior_start_count;
     integer prior_reset_count;
+    integer offset;
 
     initial begin
         repeat (4) @(posedge clk);
@@ -232,27 +209,20 @@ module tb_csr;
         axi_read(8'h00, 2, read_value);
         expect_word(read_value, 32'h3155504e, "MAGIC");
         axi_read(8'h04, 0, read_value);
-        expect_word(read_value, 32'h00010001, "VERSION");
+        expect_word(read_value, 32'h00020000, "VERSION 2.0");
         axi_read(8'h08, 0, read_value);
         expect_word(read_value, 32'h0000007b, "CAPABILITIES");
         axi_read(8'h3c, 0, read_value);
         expect_word(read_value, 32'h00000000, "RESERVED");
 
-        axi_write(8'h18, 32'h00000102, 4'b0011, 0, 3, 2);
-        expect_word({16'd0, cfg_m}, 32'h00000102, "M independent W delay");
-        axi_write(8'h18, 32'h0000aa00, 4'b0010, 3, 0, 0);
-        expect_word({16'd0, cfg_m}, 32'h0000aa02, "M WSTRB merge");
-        axi_write(8'h1c, 32'd2, 4'b1111, 0, 0, 0);
-        axi_write(8'h20, 32'd8, 4'b1111, 0, 1, 0);
-        axi_write(8'h24, 32'd8, 4'b1111, 1, 0, 0);
-        axi_write(8'h28, 32'd2, 4'b1111, 0, 0, 0);
-        axi_write(8'h2c, 32'd8, 4'b1111, 0, 0, 0);
-        axi_write(8'h30, 32'd1000, 4'b1111, 0, 0, 0);
-
-        axi_read(8'h18, 1, read_value);
-        expect_word(read_value, 32'h0000aa02, "M readback");
-        axi_read(8'h20, 0, read_value);
-        expect_word(read_value, 32'd8, "K readback");
+        // ABI 2.0 retired the direct-job registers: 0x18-0x30 (M, N, K,
+        // A/B/C_STRIDE, TIMEOUT_CYCLES) are reserved, ignore writes and read
+        // as zero.
+        for (offset = 8'h18; offset <= 8'h30; offset = offset + 4) begin
+            axi_write(offset[7:0], 32'hffffffff, 4'b1111, offset % 3, (offset / 4) % 2, 0);
+            axi_read(offset[7:0], 0, read_value);
+            expect_word(read_value, 32'h00000000, "retired job register reads zero");
+        end
 
         status_busy = 1'b1;
         status_done = 1'b1;
@@ -268,29 +238,24 @@ module tb_csr;
         axi_read(8'h38, 0, read_value);
         expect_word(read_value, 32'h11223344, "CYCLES_HI");
 
-        // A busy engine that can still admit a job stages the next one's
-        // configuration; only a full queue freezes the configuration window.
-        axi_write(8'h1c, 32'd1, 4'b1111, 0, 0, 0);
-        expect_word({16'd0, cfg_n}, 32'd1, "busy-but-accepting config staged");
-        axi_write(8'h1c, 32'd2, 4'b1111, 0, 0, 0);
-        expect_word({16'd0, cfg_n}, 32'd2, "busy-but-accepting config restored");
-
         status_accept = 1'b0;
         axi_read(8'h10, 0, read_value);
         expect_word(read_value, 32'h00000007, "STATUS without ACCEPT");
-        axi_write(8'h1c, 32'd1, 4'b1111, 0, 0, 0);
-        expect_word({16'd0, cfg_n}, 32'd2, "full-queue config ignored");
-        axi_write(8'h30, 32'd7, 4'b1111, 0, 0, 0);
-        expect_word(cfg_timeout_cycles, 32'd1000, "full-queue timeout ignored");
         status_accept = 1'b1;
 
-        prior_start_count = start_count;
+        // CONTROL.START (bit 0) was retired in ABI 2.0: the csr has no matrix
+        // command output, and the write starts nothing, neither a soft reset
+        // nor a program.
+        prior_start_count = isa_start_count;
+        prior_reset_count = reset_count;
         axi_write(8'h0c, 32'h00000001, 4'b0001, 2, 0, 0);
-        @(posedge clk);
-        if (start_count !== prior_start_count + 1) begin
-            $display("MISMATCH START pulse count");
+        repeat (2) @(posedge clk);
+        if (isa_start_count !== prior_start_count || reset_count !== prior_reset_count) begin
+            $display("MISMATCH retired CONTROL.START had an effect");
             $fatal(1);
         end
+        axi_read(8'h0c, 0, read_value);
+        expect_word(read_value, 32'h00000000, "CONTROL reads zero");
 
         status_busy = 1'b0;
         status_done = 1'b0;
@@ -303,19 +268,19 @@ module tb_csr;
             $display("MISMATCH SOFT_RESET pulse count");
             $fatal(1);
         end
-        expect_word({16'd0, cfg_m}, 32'd0, "soft reset M");
-        expect_word({16'd0, cfg_n}, 32'd0, "soft reset N");
-        expect_word({16'd0, cfg_k}, 32'd0, "soft reset K");
-        expect_word(cfg_a_stride, 32'd0, "soft reset A_STRIDE");
-        expect_word(cfg_b_stride, 32'd0, "soft reset B_STRIDE");
-        expect_word(cfg_c_stride, 32'd0, "soft reset C_STRIDE");
-        expect_word(cfg_timeout_cycles, 32'd0, "soft reset TIMEOUT");
+        prior_reset_count = reset_count;
+        axi_write(8'h0c, 32'h00000002, 4'b0010, 0, 0, 0);
+        @(posedge clk);
+        if (reset_count !== prior_reset_count) begin
+            $display("MISMATCH SOFT_RESET without byte-0 strobe");
+            $fatal(1);
+        end
 
         axi_write(8'h3c, 32'hffffffff, 4'b1111, 0, 0, 0);
         axi_read(8'h3c, 0, read_value);
         expect_word(read_value, 32'h00000000, "reserved remains zero");
 
-        // ABI 1.1: the instruction-stream front end's registers.
+        // The instruction-stream front end's registers.
         axi_write(8'h48, 32'h1f000040, 4'b1111, 0, 0, 0);
         axi_write(8'h4c, 32'd1234, 4'b1111, 1, 0, 0);
         axi_write(8'h50, 32'h1e000000, 4'b1111, 0, 1, 0);

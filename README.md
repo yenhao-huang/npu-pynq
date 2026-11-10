@@ -129,7 +129,7 @@ defaults to a 16 x 16 array and also supports 8 x 8 and 2 x 2 builds.
 | --- | --- |
 | Board | PYNQ-Z1 |
 | FPGA part | Zynq-7020, `xc7z020clg400-1` |
-| Overlay | `npu_accelerator` with the ISA front end (ABI 1.1) |
+| Overlay | `npu_accelerator` with the ISA front end (register ABI 2.0) |
 | Arithmetic | Signed INT8 operands, exact INT16 products, saturating INT32 accumulation |
 | Requantization | Q1.31 with explicit rounding and saturation contracts |
 | Host tooling | Python and Bash (Linux/WSL); Vivado only for hardware builds |

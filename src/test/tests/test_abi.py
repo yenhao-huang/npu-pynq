@@ -5,8 +5,12 @@ import re
 
 from src.vendors.npu_pynq.spec.abi import (
     ABI_MAGIC,
+    ABI_MAJOR,
+    ABI_MINOR,
     ABI_WINDOW_BYTES,
     REQUIRED_CAPABILITIES,
+    RETIRED_CONTROL_BITS,
+    RETIRED_REGISTERS,
     AbiCompatibilityError,
     AbiVersion,
     Capability,
@@ -33,22 +37,28 @@ class ConstantTests(unittest.TestCase):
             "CONTROL": 0x0C,
             "STATUS": 0x10,
             "ERROR": 0x14,
-            "M": 0x18,
-            "N": 0x1C,
-            "K": 0x20,
-            "A_STRIDE": 0x24,
-            "B_STRIDE": 0x28,
-            "C_STRIDE": 0x2C,
-            "TIMEOUT_CYCLES": 0x30,
             "CYCLES_LO": 0x34,
             "CYCLES_HI": 0x38,
         }
         self.assertEqual({item.name: item.value for item in Register}, expected)
         self.assertEqual(len({item.value for item in Register}), len(Register))
 
+    def test_abi_2_0_retires_the_direct_job_path(self):
+        self.assertEqual((ABI_MAJOR, ABI_MINOR), (2, 0))
+        self.assertEqual(AbiVersion().encode(), 0x00020000)
+        self.assertEqual(
+            RETIRED_REGISTERS,
+            {"M": 0x18, "N": 0x1C, "K": 0x20, "A_STRIDE": 0x24,
+             "B_STRIDE": 0x28, "C_STRIDE": 0x2C, "TIMEOUT_CYCLES": 0x30},
+        )
+        live = {item.value for item in Register} | {item.value for item in IsaRegister}
+        self.assertFalse(live & set(RETIRED_REGISTERS.values()))
+        self.assertEqual(RETIRED_CONTROL_BITS, 1)
+        self.assertFalse(hasattr(Control, "START"))
+        self.assertEqual(int(Control.SOFT_RESET) & RETIRED_CONTROL_BITS, 0)
+
     def test_control_status_and_errors_are_exact(self):
-        self.assertEqual(Control.START, 1)
-        self.assertEqual(Control.SOFT_RESET, 2)
+        self.assertEqual({item.name: item.value for item in Control}, {"SOFT_RESET": 2})
         self.assertEqual(Status.BUSY, 1)
         self.assertEqual(Status.DONE, 2)
         self.assertEqual(Status.ERROR, 4)
@@ -69,24 +79,26 @@ class ConstantTests(unittest.TestCase):
 
 class CompatibilityTests(unittest.TestCase):
     def test_version_round_trip(self):
-        version = AbiVersion(major=1, minor=7)
+        version = AbiVersion(major=2, minor=7)
         self.assertEqual(AbiVersion.decode(version.encode()), version)
-        self.assertEqual(version.encode(), 0x00010007)
+        self.assertEqual(version.encode(), 0x00020007)
 
     def test_newer_minor_with_required_capabilities_is_compatible(self):
         version = negotiate_abi(
             magic=ABI_MAGIC,
-            version_word=AbiVersion(1, 9).encode(),
+            version_word=AbiVersion(2, 9).encode(),
             capabilities=int(REQUIRED_CAPABILITIES | Capability.REQUANT_INT8),
         )
-        self.assertEqual(version, AbiVersion(1, 9))
+        self.assertEqual(version, AbiVersion(2, 9))
 
     def test_bad_magic_major_or_capabilities_are_rejected(self):
         cases = (
-            (0, AbiVersion(1, 0).encode(), int(REQUIRED_CAPABILITIES)),
-            (ABI_MAGIC, AbiVersion(2, 0).encode(), int(REQUIRED_CAPABILITIES)),
-            (ABI_MAGIC, AbiVersion(1, 0).encode(), int(Capability.MATRIX_INT8)),
-            (ABI_MAGIC, AbiVersion(1, 1).encode(), int(REQUIRED_CAPABILITIES & ~Capability.ISA_FRONTEND)),
+            (0, AbiVersion(2, 0).encode(), int(REQUIRED_CAPABILITIES)),
+            # ABI 1.x hardware still decodes the retired direct-job registers.
+            (ABI_MAGIC, AbiVersion(1, 1).encode(), int(REQUIRED_CAPABILITIES)),
+            (ABI_MAGIC, AbiVersion(3, 0).encode(), int(REQUIRED_CAPABILITIES)),
+            (ABI_MAGIC, AbiVersion(2, 0).encode(), int(Capability.MATRIX_INT8)),
+            (ABI_MAGIC, AbiVersion(2, 0).encode(), int(REQUIRED_CAPABILITIES & ~Capability.ISA_FRONTEND)),
         )
         for magic, version, capabilities in cases:
             with self.subTest(magic=magic, version=version, capabilities=capabilities):
@@ -99,18 +111,18 @@ class PipelinedJobAbiTest(unittest.TestCase):
         self.assertNotIn(Capability.PIPELINED_JOBS, REQUIRED_CAPABILITIES)
         version = negotiate_abi(
             magic=ABI_MAGIC,
-            version_word=AbiVersion(1, 0).encode(),
+            version_word=AbiVersion(2, 0).encode(),
             capabilities=int(REQUIRED_CAPABILITIES),
         )
-        self.assertEqual(version, AbiVersion(1, 0))
+        self.assertEqual(version, AbiVersion(2, 0))
 
     def test_pipelined_device_still_negotiates(self):
         version = negotiate_abi(
             magic=ABI_MAGIC,
-            version_word=AbiVersion(1, 0).encode(),
+            version_word=AbiVersion(2, 0).encode(),
             capabilities=int(REQUIRED_CAPABILITIES | Capability.PIPELINED_JOBS),
         )
-        self.assertEqual(version, AbiVersion(1, 0))
+        self.assertEqual(version, AbiVersion(2, 0))
 
     def test_accept_occupies_the_reserved_status_bit(self):
         self.assertEqual(int(Status.ACCEPT), 1 << 3)
@@ -128,6 +140,21 @@ class DriverMatchesSpecTests(unittest.TestCase):
         self.assertEqual(int(REQUIRED_CAPABILITIES) & ~reported, 0)
         version = negotiate_abi(ABI_MAGIC, AbiVersion().encode(), reported)
         self.assertEqual(version, AbiVersion())
+
+    def test_the_hardware_reports_the_spec_version(self):
+        regs = (ROOT / "src/hw/rtl/npu_accelerator/csr/csr.sv").read_text()
+        word = int(re.search(r"ABI_VERSION = 32'h([0-9a-fA-F]+)", regs).group(1), 16)
+        self.assertEqual(AbiVersion.decode(word), AbiVersion())
+
+    def test_the_csr_no_longer_decodes_the_retired_registers(self):
+        regs = (ROOT / "src/hw/rtl/npu_accelerator/csr/csr.sv").read_text()
+        decoded = {int(value, 16) for value in re.findall(r"REG_\w+ = 8'h([0-9a-fA-F]+)", regs)}
+        self.assertTrue(decoded)
+        self.assertFalse(decoded & set(RETIRED_REGISTERS.values()))
+        # No job command leaves the csr: the scalar core drives the matrix core.
+        self.assertNotRegex(regs, r"output\s+logic\s+start_pulse")
+        self.assertNotRegex(regs, r"\bcfg_(m|n|k)\b")
+        self.assertNotIn("ext_own", regs)
 
     def test_npu_rt_registers_and_status_bits(self):
         source = (ROOT / "src/vendors/npu_pynq/driver/npu_rt/pynq.cpp").read_text()
