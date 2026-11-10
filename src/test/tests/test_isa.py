@@ -108,7 +108,7 @@ class HardwareContractTest(unittest.TestCase):
         rtl_ops = {name.lower(): int(value, 16)
                    for name, value in re.findall(r"OP_(\w+) = 8'h([0-9a-fA-F]+)", decode)}
         self.assertEqual(rtl_ops, isa.OPCODES)
-        regs = (root / "axi_lite/npu_axi_lite_regs.sv").read_text()
+        regs = (root / "csr/npu_csr.sv").read_text()
         rtl_regs = {name: int(value, 16)
                     for name, value in re.findall(r"REG_(ISA_\w+|PROG_\w+|DATA_BASE) = 8'h([0-9a-fA-F]+)", regs)}
         expected = {("ISA_" + r.name if r.name in ("CONTROL", "STATUS", "ERROR", "PC", "JOBS", "CYCLES",

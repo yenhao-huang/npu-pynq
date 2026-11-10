@@ -2,7 +2,7 @@
 
 ``isa.py`` is what the NPU reads in its instruction stream; this is everything
 around it: identity and version, capability bits, the AXI-Lite register map,
-control and status bits, and error codes. The RTL (``axi_lite/``) and the board
+control and status bits, and error codes. The RTL (``csr/``, the control and status registers) and the board
 driver (``driver/npu_rt/pynq.cpp``) must match it; ``src/test/tests/test_abi.py``
 and ``test_isa.py`` check both.
 """

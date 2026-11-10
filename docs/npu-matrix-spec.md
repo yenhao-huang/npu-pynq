@@ -7,13 +7,13 @@ array configurations. The 8x8 target is the default. Explicit 2x2 builds remain 
 
 The RTL directory follows the instance hierarchy. Under the design directory
 `src/hw/rtl/npu_matrix/`, `npu_accelerator/` contains its top-level
-module, `axi_lite/`, `npu_isa_frontend/`, and `npu_matrix_core/`. The core
+module, `csr/`, `npu_isa_frontend/`, and `npu_matrix_core/`. The core
 directory contains its module, `controller/`, and `npu_matrix_datapath/`; the
 datapath directory contains its module, `memory/`, and `systolic_array/`. The
 block design has no Xilinx AXI DMA: the accelerator's own AXI4 master on HP0
 moves every program word and tile.
 
-- **AXI:** `axi_lite/npu_axi_lite_regs` owns the accelerator's control/status
+- **AXI:** `csr/npu_csr` (control and status registers) owns the accelerator's control/status
   register interface on GP0. `npu_isa_frontend/` fetches programs and moves
   A/B/C tiles over the AXI4 master, and feeds the controller's operand stream
   and drains its result stream through two `npu_axis_skid` register slices.

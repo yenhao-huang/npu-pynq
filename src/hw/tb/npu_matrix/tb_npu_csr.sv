@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module tb_npu_axi_lite_regs;
+module tb_npu_csr;
     localparam integer ADDR_WIDTH = 8;
     localparam integer DATA_WIDTH = 32;
 
@@ -70,7 +70,7 @@ module tb_npu_axi_lite_regs;
             isa_start_count <= isa_start_count + 1;
     end
 
-    npu_axi_lite_regs #(
+    npu_csr #(
         .C_S_AXI_ADDR_WIDTH(ADDR_WIDTH),
         .C_S_AXI_DATA_WIDTH(DATA_WIDTH)
     ) dut (
@@ -351,7 +351,7 @@ module tb_npu_axi_lite_regs;
         axi_read(8'h68, 0, read_value);
         expect_word(read_value, 32'd1, "ISA_VERSION");
 
-        $display("PASS tb_npu_axi_lite_regs");
+        $display("PASS tb_npu_csr");
         $finish;
     end
 endmodule

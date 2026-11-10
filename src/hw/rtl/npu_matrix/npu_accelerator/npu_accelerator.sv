@@ -164,7 +164,7 @@ module npu_accelerator #(
         .*
     );
 
-    npu_axi_lite_regs #(
+    npu_csr #(
         .C_S_AXI_DATA_WIDTH(C_S_AXI_DATA_WIDTH),
         .C_S_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH)
     ) control_regs (
