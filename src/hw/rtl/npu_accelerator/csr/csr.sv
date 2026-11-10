@@ -1,5 +1,13 @@
 `timescale 1ns/1ps
 
+// Control and status registers (ABI 2.0, src/vendors/npu_pynq/spec/abi.py).
+//
+// Software starts a program through the instruction-stream registers; the
+// scalar core is the matrix core's only command source. This block issues no
+// matrix job: it reports the matrix core's STATUS, ERROR and cycle counter and
+// pulses CONTROL.SOFT_RESET. ABI 2.0 retired the ABI 1.x direct-job registers:
+// CONTROL bit 0 (START) is ignored, and 0x18-0x30 (M, N, K, A/B/C_STRIDE,
+// TIMEOUT_CYCLES) are reserved, read as zero, and ignore writes.
 module csr #(
     parameter integer C_S_AXI_DATA_WIDTH = 32,
     parameter integer C_S_AXI_ADDR_WIDTH = 8
@@ -36,17 +44,9 @@ module csr #(
     input  logic                              status_error,
     input  logic [7:0]                        error_code,
     input  logic [63:0]                       cycles,
-    output logic                              start_pulse,
     output logic                              soft_reset_pulse,
-    output logic [15:0]                       cfg_m,
-    output logic [15:0]                       cfg_n,
-    output logic [15:0]                       cfg_k,
-    output logic [31:0]                       cfg_a_stride,
-    output logic [31:0]                       cfg_b_stride,
-    output logic [31:0]                       cfg_c_stride,
-    output logic [31:0]                       cfg_timeout_cycles,
 
-    // Instruction-stream front end (ABI 1.1, capability ISA_FRONTEND).
+    // Instruction-stream front end (capability ISA_FRONTEND).
     input  logic                              isa_running,
     input  logic                              isa_busy,
     input  logic                              isa_done,
@@ -57,20 +57,12 @@ module csr #(
     input  logic [31:0]                       isa_cycles,
     input  logic [31:0]                       isa_instructions,
     output logic                              isa_start_pulse,
-    // While the front end owns the controller it drives START and the job
-    // configuration through these same flip-flops, so the controller's inputs
-    // come straight from registers on both paths.
-    input  logic                              ext_own,
-    input  logic                              ext_start,
-    input  logic [15:0]                       ext_m,
-    input  logic [15:0]                       ext_n,
-    input  logic [15:0]                       ext_k,
     output logic [31:0]                       isa_prog_addr,
     output logic [31:0]                       isa_prog_len,
     output logic [31:0]                       isa_data_base
 );
     localparam logic [31:0] ABI_MAGIC = 32'h3155504e;
-    localparam logic [31:0] ABI_VERSION = 32'h00010001;
+    localparam logic [31:0] ABI_VERSION = 32'h00020000;
     localparam logic [31:0] ABI_CAPABILITIES = 32'h0000007b;
     localparam logic [31:0] ISA_VERSION = 32'h00000001;
 
@@ -80,13 +72,7 @@ module csr #(
     localparam logic [7:0] REG_CONTROL = 8'h0c;
     localparam logic [7:0] REG_STATUS = 8'h10;
     localparam logic [7:0] REG_ERROR = 8'h14;
-    localparam logic [7:0] REG_M = 8'h18;
-    localparam logic [7:0] REG_N = 8'h1c;
-    localparam logic [7:0] REG_K = 8'h20;
-    localparam logic [7:0] REG_A_STRIDE = 8'h24;
-    localparam logic [7:0] REG_B_STRIDE = 8'h28;
-    localparam logic [7:0] REG_C_STRIDE = 8'h2c;
-    localparam logic [7:0] REG_TIMEOUT_CYCLES = 8'h30;
+    // 0x18-0x30: retired in ABI 2.0, reserved.
     localparam logic [7:0] REG_CYCLES_LO = 8'h34;
     localparam logic [7:0] REG_CYCLES_HI = 8'h38;
     localparam logic [7:0] REG_ISA_CONTROL = 8'h40;
@@ -121,20 +107,6 @@ module csr #(
         end
     endfunction
 
-    function automatic [15:0] merge_wstrb16;
-        input [15:0] current_value;
-        input [31:0] write_value;
-        input [3:0] write_strobes;
-        integer byte_index;
-        begin
-            merge_wstrb16 = current_value;
-            for (byte_index = 0; byte_index < 2; byte_index = byte_index + 1) begin
-                if (write_strobes[byte_index])
-                    merge_wstrb16[byte_index*8 +: 8] = write_value[byte_index*8 +: 8];
-            end
-        end
-    endfunction
-
     function automatic [31:0] read_word;
         input [7:0] address;
         begin
@@ -146,13 +118,6 @@ module csr #(
                 REG_STATUS:         read_word = {28'd0, status_accept, status_error,
                                                 status_done, status_busy};
                 REG_ERROR:          read_word = {24'd0, error_code};
-                REG_M:              read_word = {16'd0, cfg_m};
-                REG_N:              read_word = {16'd0, cfg_n};
-                REG_K:              read_word = {16'd0, cfg_k};
-                REG_A_STRIDE:       read_word = cfg_a_stride;
-                REG_B_STRIDE:       read_word = cfg_b_stride;
-                REG_C_STRIDE:       read_word = cfg_c_stride;
-                REG_TIMEOUT_CYCLES: read_word = cfg_timeout_cycles;
                 REG_CYCLES_LO:      read_word = cycles[31:0];
                 REG_CYCLES_HI:      read_word = cycles[63:32];
                 REG_ISA_STATUS:     read_word = {28'd0, isa_busy, isa_error,
@@ -173,9 +138,9 @@ module csr #(
 
     initial begin
         if (C_S_AXI_DATA_WIDTH != 32)
-            $fatal(1, "csr ABI v1 requires 32-bit AXI data");
+            $fatal(1, "csr ABI v2 requires 32-bit AXI data");
         if (C_S_AXI_ADDR_WIDTH < 8)
-            $fatal(1, "csr ABI v1 requires at least 8 address bits");
+            $fatal(1, "csr ABI v2 requires at least 8 address bits");
     end
 
     always_comb begin
@@ -196,21 +161,12 @@ module csr #(
             s_axi_bvalid <= 1'b0;
             s_axi_rdata <= '0;
             s_axi_rvalid <= 1'b0;
-            start_pulse <= 1'b0;
             soft_reset_pulse <= 1'b0;
-            cfg_m <= 16'd0;
-            cfg_n <= 16'd0;
-            cfg_k <= 16'd0;
-            cfg_a_stride <= 32'd0;
-            cfg_b_stride <= 32'd0;
-            cfg_c_stride <= 32'd0;
-            cfg_timeout_cycles <= 32'd0;
             isa_start_pulse <= 1'b0;
             isa_prog_addr <= 32'd0;
             isa_prog_len <= 32'd0;
             isa_data_base <= 32'd0;
         end else begin
-            start_pulse <= 1'b0;
             soft_reset_pulse <= 1'b0;
             isa_start_pulse <= 1'b0;
 
@@ -227,50 +183,9 @@ module csr #(
             if (aw_hold_valid && w_hold_valid && !s_axi_bvalid) begin
                 case (aw_hold_addr[7:0])
                     REG_CONTROL: begin
-                        if (w_hold_strb[0]) begin
-                            if (w_hold_data[1]) begin
-                                soft_reset_pulse <= 1'b1;
-                                cfg_m <= 16'd0;
-                                cfg_n <= 16'd0;
-                                cfg_k <= 16'd0;
-                                cfg_a_stride <= 32'd0;
-                                cfg_b_stride <= 32'd0;
-                                cfg_c_stride <= 32'd0;
-                                cfg_timeout_cycles <= 32'd0;
-                            end else if (w_hold_data[0]) begin
-                                start_pulse <= 1'b1;
-                            end
-                        end
-                    end
-                    REG_M: begin
-                        if (status_accept)
-                            cfg_m <= merge_wstrb16(cfg_m, w_hold_data, w_hold_strb);
-                    end
-                    REG_N: begin
-                        if (status_accept)
-                            cfg_n <= merge_wstrb16(cfg_n, w_hold_data, w_hold_strb);
-                    end
-                    REG_K: begin
-                        if (status_accept)
-                            cfg_k <= merge_wstrb16(cfg_k, w_hold_data, w_hold_strb);
-                    end
-                    REG_A_STRIDE: begin
-                        if (status_accept)
-                            cfg_a_stride <= merge_wstrb(cfg_a_stride, w_hold_data, w_hold_strb);
-                    end
-                    REG_B_STRIDE: begin
-                        if (status_accept)
-                            cfg_b_stride <= merge_wstrb(cfg_b_stride, w_hold_data, w_hold_strb);
-                    end
-                    REG_C_STRIDE: begin
-                        if (status_accept)
-                            cfg_c_stride <= merge_wstrb(cfg_c_stride, w_hold_data, w_hold_strb);
-                    end
-                    REG_TIMEOUT_CYCLES: begin
-                        if (status_accept)
-                            cfg_timeout_cycles <= merge_wstrb(
-                                cfg_timeout_cycles, w_hold_data, w_hold_strb
-                            );
+                        // Bit 0 (START) was retired in ABI 2.0 and is ignored.
+                        if (w_hold_strb[0] && w_hold_data[1])
+                            soft_reset_pulse <= 1'b1;
                     end
                     REG_ISA_CONTROL: begin
                         if (w_hold_strb[0] && w_hold_data[0])
@@ -290,17 +205,6 @@ module csr #(
                 s_axi_bvalid <= 1'b1;
             end else if (s_axi_bvalid && s_axi_bready) begin
                 s_axi_bvalid <= 1'b0;
-            end
-
-            if (ext_own) begin
-                start_pulse <= ext_start;
-                cfg_m <= ext_m;
-                cfg_n <= ext_n;
-                cfg_k <= ext_k;
-                cfg_a_stride <= {16'd0, ext_k};
-                cfg_b_stride <= {16'd0, ext_n};
-                cfg_c_stride <= {14'd0, ext_n, 2'b00};
-                cfg_timeout_cycles <= 32'hffff_ffff;
             end
 
             if (s_axi_arvalid && s_axi_arready) begin

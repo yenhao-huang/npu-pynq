@@ -67,10 +67,7 @@ module npu_accelerator #(
     output logic                              m_axi_bready,
     output logic                              irq
 );
-    logic start_pulse, soft_reset_pulse;
-    logic [15:0] cfg_m, cfg_n, cfg_k;
-    logic [31:0] cfg_a_stride, cfg_b_stride, cfg_c_stride;
-    logic [31:0] cfg_timeout_cycles;
+    logic soft_reset_pulse;
     logic status_busy, status_accept, status_done, status_error;
     logic [7:0] error_code;
     logic [63:0] cycles;
@@ -80,21 +77,29 @@ module npu_accelerator #(
     logic [31:0] isa_pc, isa_jobs, isa_cycles, isa_instructions;
     logic [31:0] isa_prog_addr, isa_prog_len, isa_data_base;
 
-    // The front end drives the controller while a program is in flight. Every
-    // input of the controller still comes from a flip-flop: the front end
-    // loads START and the job shape into the register file's own flops, the
-    // owner flag is a register, and both streams between the front end's
+    // Command path: CPU -> csr -> scalar core -> matrix core. The csr only
+    // starts a program; the scalar core is the matrix core's sole command
+    // source. Every input of the matrix controller comes from a flip-flop:
+    // START and the job shape are registered at the scalar core's EX output,
+    // SOFT_RESET is a csr flop, and both streams between the scalar core's
     // load/store unit and the controller cross a two-entry skid buffer. The
     // 100 MHz margin of the 16 x 16 array leaves no room for logic there.
-    logic own_isa;
-    logic fe_start;
-    logic [15:0] fe_m, fe_n, fe_k;
-    // Stream into the controller: front end -> skid -> core.
+    logic job_start;
+    logic [15:0] job_m, job_n, job_k;
+    // The scalar core moves dense row-major tiles and has no timeout of its
+    // own, so the controller's per-job stride and timeout inputs are tied to
+    // what that implies (as the csr forced them while the scalar core owned
+    // the controller in ABI 1.x): strides equal the row lengths, which makes
+    // the stride check constant, and the timeout is the maximum, about 43 s at
+    // 100 MHz.
+    logic [31:0] job_a_stride, job_b_stride, job_c_stride;
+    localparam logic [31:0] JOB_TIMEOUT_CYCLES = 32'hffff_ffff;
+    // Stream into the controller: scalar core LSU -> skid -> matrix core.
     logic [IN_BYTES*8-1:0] core_s_tdata;
     logic [IN_BYTES-1:0] core_s_tkeep;
     logic in_tready;
     logic core_s_tvalid, core_s_tready, core_s_tlast;
-    // Stream out of the controller: core -> skid -> front end.
+    // Stream out of the controller: matrix core -> skid -> scalar core LSU.
     logic [31:0] core_m_tdata, out_tdata;
     logic core_m_tvalid, core_m_tready, core_m_tlast;
     logic out_tvalid, out_tlast;
@@ -103,13 +108,9 @@ module npu_accelerator #(
     logic fe_s_tvalid, fe_s_tlast, fe_m_tready;
 
     assign irq = status_done | status_error | isa_done | isa_error;
-
-    always_ff @(posedge s_axi_aclk or negedge s_axi_aresetn) begin
-        if (!s_axi_aresetn)
-            own_isa <= 1'b0;
-        else
-            own_isa <= isa_busy;
-    end
+    assign job_a_stride = {16'd0, job_k};
+    assign job_b_stride = {16'd0, job_n};
+    assign job_c_stride = {14'd0, job_n, 2'b00};
 
     axis_skid #(.WIDTH(IN_BYTES * 9 + 1)) input_slice (
         .clk(s_axi_aclk), .rst_n(s_axi_aresetn),
@@ -129,7 +130,7 @@ module npu_accelerator #(
         .ROWS(ROWS),
         .COLUMNS(COLUMNS),
         .MAX_K(MAX_K)
-    ) frontend (
+    ) u_scalar_core (
         .clk(s_axi_aclk),
         .rst_n(s_axi_aresetn),
         .isa_start(isa_start_pulse),
@@ -145,10 +146,10 @@ module npu_accelerator #(
         .isa_instructions(isa_instructions),
         .isa_jobs(isa_jobs),
         .isa_cycles(isa_cycles),
-        .ctl_start(fe_start),
-        .ctl_m(fe_m),
-        .ctl_n(fe_n),
-        .ctl_k(fe_k),
+        .ctl_start(job_start),
+        .ctl_m(job_m),
+        .ctl_n(job_n),
+        .ctl_k(job_k),
         .ctl_accept(status_accept),
         .ctl_error(status_error),
         .ctl_error_code(error_code),
@@ -167,7 +168,7 @@ module npu_accelerator #(
     csr #(
         .C_S_AXI_DATA_WIDTH(C_S_AXI_DATA_WIDTH),
         .C_S_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH)
-    ) control_regs (
+    ) u_csr (
         .*,
         .status_busy(status_busy),
         .status_accept(status_accept),
@@ -175,20 +176,7 @@ module npu_accelerator #(
         .status_error(status_error),
         .error_code(error_code),
         .cycles(cycles),
-        .start_pulse(start_pulse),
-        .soft_reset_pulse(soft_reset_pulse),
-        .cfg_m(cfg_m),
-        .cfg_n(cfg_n),
-        .cfg_k(cfg_k),
-        .cfg_a_stride(cfg_a_stride),
-        .cfg_b_stride(cfg_b_stride),
-        .cfg_c_stride(cfg_c_stride),
-        .cfg_timeout_cycles(cfg_timeout_cycles),
-        .ext_own(own_isa),
-        .ext_start(fe_start),
-        .ext_m(fe_m),
-        .ext_n(fe_n),
-        .ext_k(fe_k)
+        .soft_reset_pulse(soft_reset_pulse)
     );
 
     matrix_core #(
@@ -196,18 +184,18 @@ module npu_accelerator #(
         .COLUMNS(COLUMNS),
         .MAX_K(MAX_K),
         .IN_BYTES(IN_BYTES)
-    ) controller (
+    ) u_matrix_core (
         .clk(s_axi_aclk),
         .rst_n(s_axi_aresetn),
-        .start_pulse(start_pulse),
+        .start_pulse(job_start),
         .soft_reset_pulse(soft_reset_pulse),
-        .cfg_m(cfg_m),
-        .cfg_n(cfg_n),
-        .cfg_k(cfg_k),
-        .cfg_a_stride(cfg_a_stride),
-        .cfg_b_stride(cfg_b_stride),
-        .cfg_c_stride(cfg_c_stride),
-        .cfg_timeout_cycles(cfg_timeout_cycles),
+        .cfg_m(job_m),
+        .cfg_n(job_n),
+        .cfg_k(job_k),
+        .cfg_a_stride(job_a_stride),
+        .cfg_b_stride(job_b_stride),
+        .cfg_c_stride(job_c_stride),
+        .cfg_timeout_cycles(JOB_TIMEOUT_CYCLES),
         .s_axis_tdata(core_s_tdata),
         .s_axis_tkeep(core_s_tkeep),
         .s_axis_tvalid(core_s_tvalid),

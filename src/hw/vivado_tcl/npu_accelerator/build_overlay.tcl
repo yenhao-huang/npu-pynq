@@ -81,6 +81,7 @@ set rtl_files [list \
     [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core_fetch.sv] \
     [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core_decode.sv] \
     [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core_lsu.sv] \
+    [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core_controller.sv] \
     [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core.sv] \
     [file join $repo_root src hw rtl npu_accelerator npu_accelerator.sv]]
 foreach rtl_file $rtl_files {

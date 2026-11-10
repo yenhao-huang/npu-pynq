@@ -14,9 +14,19 @@ block design has no Xilinx AXI DMA: the accelerator's own AXI4 master on HP0
 moves every program word and tile.
 
 - **AXI:** `csr/csr` (control and status registers) owns the accelerator's control/status
-  register interface on GP0. `scalar_core/` fetches programs and moves
+  register interface on GP0. It starts programs and reports status; it issues
+  no matrix job. `scalar_core/` fetches programs and moves
   A/B/C tiles over the AXI4 master, and feeds the controller's operand stream
   and drains its result stream through two `axis_skid` register slices.
+- **Command path:** `CPU -> csr -> scalar_core -> matrix_core`. The scalar
+  core (instance `u_scalar_core`) is the only command source of the matrix
+  core (instance `u_matrix_core`): it drives START and M/N/K directly, from
+  flip-flops at its EX stage, because the 16 x 16 array has no 100 MHz margin
+  for logic in front of the controller. The csr (instance `u_csr`) drives
+  only SOFT_RESET into the matrix core and reads back its STATUS, ERROR and
+  cycle counter. The controller's stride and timeout inputs are tied in
+  `npu_accelerator` to the dense row-major strides of the job shape and to the
+  largest timeout (`0xFFFFFFFF` cycles, about 43 s at 100 MHz).
 - **Controller:** `matrix_controller` owns job validation, load/compute/output
   sequencing, stream handshakes, buffer addresses and enables, timeout/error
   handling, and the output selection. It does not store operands or instantiate
@@ -31,14 +41,14 @@ moves every program word and tile.
   ping-pong buffer, issue #64).
 - **Systolic array:** `systolic_array` owns the processing elements and
   accumulators. `matrix_core` wires it and the operand memories to the
-  controller; `npu_accelerator` wires that core to the AXI-Lite registers and
-the ISA front end.
+  controller; `npu_accelerator` wires that core to the scalar core and the
+  AXI-Lite registers.
 
 Issue #64 adds a two-entry job queue: the next job's operands
 load into one half of every bank while the current job computes and drains
-from the other. STATUS bit 3 (ACCEPT) reports a free queue entry and gates the
-configuration registers, and CAPABILITIES bit 5 (PIPELINED_JOBS) advertises
-this. A driver that waits for `!BUSY` still runs one job at a time.
+from the other. STATUS bit 3 (ACCEPT) reports a free queue entry, which the
+scalar core waits for before it issues the next GEMM, and CAPABILITIES bit 5
+(PIPELINED_JOBS) advertises this.
 
 ## Select a configuration
 
@@ -109,18 +119,45 @@ These figures establish build feasibility for the PYNQ-Z1 target. A physical
 board check is still required for each release artifact because the
 repository does not treat implementation evidence as board evidence.
 
+## Register ABI 2.0
+
+`src/vendors/npu_pynq/spec/abi.py` is the authority; `VERSION` reads
+`0x00020000`. The minor version grows when registers or capability bits are
+added; the major version grows when software written for the previous one can
+no longer work, and `negotiate_abi` rejects a different major.
+
+| Offset | Register | Access | Meaning |
+| --- | --- | --- | --- |
+| 0x00 | MAGIC | R | `0x3155504E` |
+| 0x04 | VERSION | R | major [31:16], minor [15:0]: 2.0 |
+| 0x08 | CAPABILITIES | R | `0x7B`, unchanged from ABI 1.1 |
+| 0x0C | CONTROL | W | bit 1 SOFT_RESET (resets the matrix core); bit 0 retired, ignored; reads 0 |
+| 0x10 | STATUS | R | matrix core: bit 0 BUSY, 1 DONE, 2 ERROR, 3 ACCEPT |
+| 0x14 | ERROR | R | matrix core error code |
+| 0x18-0x30 | (retired) | - | reserved: read 0, writes ignored |
+| 0x34 | CYCLES_LO | R | matrix core cycle counter [31:0] |
+| 0x38 | CYCLES_HI | R | matrix core cycle counter [63:32] |
+| 0x40-0x68 | ISA registers | | see below |
+
+ABI 2.0 retires the ABI 1.x direct-job path: `CONTROL.START` (bit 0) and the
+job registers `M`, `N`, `K`, `A_STRIDE`, `B_STRIDE`, `C_STRIDE` and
+`TIMEOUT_CYCLES` (0x18-0x30). Since the Xilinx AXI DMA was removed (#150) a
+direct job had no operand source, the board driver never used it, and the
+scalar core overwrote those registers while a program ran. The csr no longer
+holds the job; the scalar core drives the matrix core directly. Strides and the
+timeout are not configurable: tiles are dense and row-major, and the
+controller's timeout is fixed at its maximum, so the matrix-core codes 2
+(`INVALID_STRIDE`) and 6 (`INVALID_TIMEOUT`) cannot occur. Software written
+for ABI 1.x direct jobs must move to the instruction stream; ABI 1.x software
+that only uses the ISA registers keeps working, but a strict `negotiate_abi`
+check rejects the new major version.
+
 ## Instruction-stream front end (ABI 1.1)
 
 ABI 1.1 adds capability bit 6, `ISA_FRONTEND`: the NPU fetches and executes a
-program from DDR instead of having the ARM sequence every tile. It is the only
-way to run a job: the ABI 1.0 path, where software wrote a job through
-`CONTROL.START` and streamed its operands through a Xilinx AXI DMA, was removed
-with the DMA (#150). The register window and version word are unchanged.
-While a program is in flight (`ISA_STATUS.BUSY`) the front end loads START and
-the job shape into the controller's registers, so `M`, `N`, `K` and the stride
-registers (0x18-0x2C) read back the last job it issued. `CONTROL.SOFT_RESET`
-still resets the controller; `CONTROL.START` has no operand source and is not
-supported.
+program from DDR instead of having the ARM sequence every tile. Since ABI 2.0
+it is the only way to run a job (see above). `CONTROL.SOFT_RESET` still resets
+the matrix core.
 
 ```text
             AXI-Lite (GP0)                         AXI4 master (HP0, 64-bit)
@@ -133,9 +170,21 @@ supported.
    | 16-beat bursts    |   | offsets, REPEAT  |   | m_axis -> C tile   |
    +-------------------+   +------------------+   +---------+---------+
                                     | START, M/N/K          |
+                                    | (registered in EX)    |
                                     v                       v
                            matrix_controller + 16 x 16 systolic array
+
+   scalar_core_controller: START admission, run state, stop (IF), drained (ID),
+   fault latch (EX), RUNNING/DONE/ERROR/BUSY, ISA_ERROR, ISA_JOBS, ISA_CYCLES
 ```
+
+`scalar_core_controller` is the scalar core's program-level run control, as
+`matrix_controller` is the matrix core's per-job sequencer. The stages report
+events to it (decode: an instruction it cannot execute, END retiring; execute:
+a job issued, a job written back; fetch, load/store and the matrix core: a
+fault) and it returns `running`, `stop`, `drained` and the fault latch. The
+issue handshake itself, with the registered START and M/N/K, stays in
+`scalar_core`'s execute stage.
 
 The instruction set is defined once, in `src/vendors/npu_pynq/isa/isa.py`; `src/vendors/npu_pynq/isa/sim.py` is
 its bit-accurate simulator and `src/vendors/npu_pynq/isa/layout.py` the tiled-GEMM layout that
@@ -167,7 +216,7 @@ beats and never crossing a 128-byte line.
 | 0x48 | PROG_ADDR | RW | physical address of word 0, 8-byte aligned |
 | 0x4C | PROG_LEN | RW | program length in words; fetch never reads past it |
 | 0x50 | DATA_BASE | RW | physical address that tile offsets are relative to |
-| 0x54 | ISA_ERROR | R | 0x10 illegal opcode, 0x11 bad shape, 0x12 misaligned, 0x13 AXI read, 0x14 AXI write, 0x15 fetch; 1-6 forward the controller's code |
+| 0x54 | ISA_ERROR | R | 0x10 illegal opcode, 0x11 bad shape, 0x12 misaligned, 0x13 AXI read, 0x14 AXI write, 0x15 fetch; 1-6 forward the controller's code (2 and 6 cannot occur) |
 | 0x58 | ISA_PC | R | words consumed by decode |
 | 0x5C | ISA_JOBS | R | jobs written back by the last program |
 | 0x60 | ISA_CYCLES | R | cycles the last program ran |

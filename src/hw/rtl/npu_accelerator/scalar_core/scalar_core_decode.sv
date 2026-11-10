@@ -4,7 +4,14 @@
 // architectural state (shape, A/B/C offsets, post-increments) and emits one
 // physical matrix job per GEMM execution. REPEAT n makes the following word
 // execute n times; for GEMM that is n jobs, walking tiles by post-increment.
-// FENCE and END wait until the execute stage has written every job back.
+//
+// The stage holds the instruction being executed, the architectural state,
+// REPEAT, the pending job, and the PC and instruction counters. It does not
+// hold the run state: scalar_core_controller does. Decode executes only while
+// `running`, holds FENCE and END until the controller reports `drained`
+// (every job written back), and reports what the controller must act on:
+// `decode_error` with its code for an instruction it cannot execute, and
+// `program_end` when END retires. `fault` drops the pending job.
 // Opcodes and error codes match src/vendors/npu_pynq/isa/isa.py.
 module scalar_core_decode #(
     parameter integer ROWS = 16,
@@ -13,7 +20,10 @@ module scalar_core_decode #(
 ) (
     input  logic        clk,
     input  logic        rst_n,
+    // Run control, from scalar_core_controller.
     input  logic        start,
+    input  logic        running,
+    input  logic        drained,
     input  logic        fault,
     input  logic [31:0] data_base,
 
@@ -21,7 +31,6 @@ module scalar_core_decode #(
     input  logic [63:0] instr_data,
     output logic        instr_ready,
 
-    input  logic        ex_idle,
     output logic        job_valid,
     input  logic        job_ready,
     output logic [7:0]  job_m,
@@ -35,10 +44,11 @@ module scalar_core_decode #(
     output logic [12:0] job_b_bytes,
     output logic [8:0]  job_c_words,
 
-    output logic        running,
-    output logic        done,
-    output logic        error,
-    output logic [7:0]  error_code,
+    // Events to scalar_core_controller, valid in the cycle they happen.
+    output logic        decode_error,
+    output logic [7:0]  decode_error_code,
+    output logic        program_end,
+
     output logic [31:0] pc,
     output logic [31:0] instructions
 );
@@ -72,17 +82,43 @@ module scalar_core_decode #(
     logic [18:0] a_inc, b_inc, c_inc;
 
     logic [7:0]  op;
-    logic        shape_ok, drained, emit;
+    logic        shape_ok, emit;
 
     always_comb begin
         op = cur_word[63:56];
         shape_ok = (m != 8'd0) && ({24'd0, m} <= 32'(ROWS)) &&
             (n != 8'd0) && ({24'd0, n} <= 32'(COLUMNS)) &&
             (k != 16'd0) && ({16'd0, k} <= 32'(MAX_K));
-        drained = ex_idle && !job_valid;
         emit = running && cur_valid && (op == OP_GEMM) && shape_ok &&
             (!job_valid || job_ready);
         instr_ready = running && !cur_valid;
+
+        // What the instruction in execution asks of the controller.
+        decode_error = 1'b0;
+        decode_error_code = 8'd0;
+        program_end = 1'b0;
+        if (running && cur_valid) begin
+            case (op)
+                OP_NOP, OP_SHAPE, OP_INCR, OP_FENCE: ;
+                OP_ADDR_A, OP_ADDR_B, OP_ADDR_C: begin
+                    if (cur_word[2:0] != 3'd0) begin
+                        decode_error = 1'b1;
+                        decode_error_code = ERR_MISALIGNED;
+                    end
+                end
+                OP_END: program_end = drained;
+                OP_GEMM: begin
+                    if (!shape_ok) begin
+                        decode_error = 1'b1;
+                        decode_error_code = ERR_BAD_SHAPE;
+                    end
+                end
+                default: begin
+                    decode_error = 1'b1;
+                    decode_error_code = ERR_ILLEGAL_OPCODE;
+                end
+            endcase
+        end
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -99,10 +135,6 @@ module scalar_core_decode #(
             job_m <= 8'd0; job_n <= 8'd0; job_k <= 16'd0;
             job_a <= 32'd0; job_b <= 32'd0; job_c <= 32'd0;
             job_a_bytes <= 13'd0; job_b_bytes <= 13'd0; job_c_words <= 9'd0;
-            running <= 1'b0;
-            done <= 1'b0;
-            error <= 1'b0;
-            error_code <= 8'd0;
             pc <= 32'd0;
             instructions <= 32'd0;
         end else if (start) begin
@@ -112,10 +144,6 @@ module scalar_core_decode #(
             a_off <= 32'd0; b_off <= 32'd0; c_off <= 32'd0;
             a_inc <= '0; b_inc <= '0; c_inc <= '0;
             job_valid <= 1'b0;
-            running <= 1'b1;
-            done <= 1'b0;
-            error <= 1'b0;
-            error_code <= 8'd0;
             pc <= 32'd0;
             instructions <= 32'd0;
         end else begin
@@ -146,11 +174,8 @@ module scalar_core_decode #(
                         cur_valid <= 1'b0;
                     end
                     OP_ADDR_A, OP_ADDR_B, OP_ADDR_C: begin
-                        if (cur_word[2:0] != 3'd0) begin
-                            error <= 1'b1;
-                            error_code <= ERR_MISALIGNED;
-                            running <= 1'b0;
-                        end
+                        // A misaligned offset is reported through
+                        // decode_error and is still written.
                         if (op == OP_ADDR_A) a_off <= cur_word[31:0];
                         if (op == OP_ADDR_B) b_off <= cur_word[31:0];
                         if (op == OP_ADDR_C) c_off <= cur_word[31:0];
@@ -167,18 +192,14 @@ module scalar_core_decode #(
                             cur_valid <= 1'b0;
                     end
                     OP_END: begin
-                        if (drained) begin
+                        // program_end: the controller ends the run.
+                        if (drained)
                             cur_valid <= 1'b0;
-                            running <= 1'b0;
-                            done <= 1'b1;
-                        end
                     end
                     OP_GEMM: begin
-                        if (!shape_ok) begin
-                            error <= 1'b1;
-                            error_code <= ERR_BAD_SHAPE;
-                            running <= 1'b0;
-                        end else if (emit) begin
+                        // A bad shape is reported through decode_error and
+                        // never emits (emit requires shape_ok).
+                        if (emit) begin
                             job_valid <= 1'b1;
                             job_m <= m;
                             job_n <= n;
@@ -197,20 +218,16 @@ module scalar_core_decode #(
                                 cur_valid <= 1'b0;
                         end
                     end
-                    default: begin
-                        error <= 1'b1;
-                        error_code <= ERR_ILLEGAL_OPCODE;
-                        running <= 1'b0;
-                    end
+                    // An illegal opcode is reported through decode_error.
+                    default: ;
                 endcase
             end
 
-            // A fault elsewhere (fetch, load/store, controller) stops decode;
-            // the front end reports its code.
-            if (fault) begin
-                running <= 1'b0;
+            // A fault elsewhere (fetch, load/store, matrix core) stops the
+            // run in the controller, which reports its code; the job that
+            // has not issued yet is dropped here.
+            if (fault)
                 job_valid <= 1'b0;
-            end
         end
     end
 endmodule

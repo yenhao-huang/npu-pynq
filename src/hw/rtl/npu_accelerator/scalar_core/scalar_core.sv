@@ -3,12 +3,30 @@
 // Scalar core of the NPU: runs the instruction stream and drives the matrix
 // core. (The software ABI still calls it the ISA front end.)
 //
-//   IF  scalar_core_fetch   PC and prefetch queue, reads PROG_ADDR..+8*PROG_LEN
-//   ID  scalar_core_decode  architectural state, REPEAT, one job per GEMM
-//   EX  this module         starts the matrix controller for each job and hands
-//                           its A/B/C addresses to scalar_core_lsu, which moves
-//                           the operands from DDR into the controller's input
-//                           stream and its results back to DDR
+//   IF   scalar_core_fetch       PC and prefetch queue, reads
+//                                PROG_ADDR..+8*PROG_LEN
+//   ID   scalar_core_decode      instruction decode, architectural state,
+//                                REPEAT, one job per GEMM
+//   EX   this module             issues each job: starts the matrix controller
+//                                and hands the A/B/C addresses to
+//        scalar_core_lsu         which moves the operands from DDR into the
+//                                controller's input stream and its results
+//                                back to DDR
+//   ctl  scalar_core_controller  program-level run control across the stages:
+//                                start admission, run state, stop, drained,
+//                                busy, faults and the reported error
+//
+// Besides the instances, this module holds only what joins them: the EX issue
+// handshake with its registered START and shape, and the arbitration of the
+// AXI read channel between IF and the LSU. The issue logic is here and not in
+// the controller because it is one job's handshake between ID, the LSU and
+// the matrix core, not program state; the controller gates it (fault_latched)
+// and counts its result (issue).
+//
+// The scalar core is the matrix core's only command source: ctl_start and the
+// job shape go straight to it, and both come from flip-flops here, because the
+// 100 MHz margin of the 16 x 16 array leaves no room for logic in front of the
+// controller.
 //
 // IF and the LSU share one AXI4 master. Read bursts carry a one-bit tag in an
 // in-order FIFO (one AXI ID, so R returns in AR order) that routes R beats
@@ -83,12 +101,8 @@ module scalar_core #(
     input  logic        m_axi_bvalid,
     output logic        m_axi_bready
 );
-    localparam logic [7:0] ERR_AXI_READ = 8'h13;
-    localparam logic [7:0] ERR_AXI_WRITE = 8'h14;
-    localparam logic [7:0] ERR_FETCH = 8'h15;
-
-    logic start;
-    logic dec_running, dec_done, dec_error;
+    logic start, stop, drained;
+    logic dec_error, dec_end;
     logic [7:0] dec_error_code;
     logic instr_valid, instr_ready;
     logic [63:0] instr_data;
@@ -98,9 +112,6 @@ module scalar_core #(
     logic [31:0] job_a, job_b, job_c;
     logic fetch_error, read_error, write_error, job_written;
     logic fault, fault_latched;
-    logic [7:0] fault_code, isa_fault_code;
-    logic [31:0] jobs_issued, jobs_written;
-    logic ex_idle;
 
     logic f_ar_valid, f_ar_ready, f_r_valid, f_r_ready;
     logic [31:0] f_ar_addr;
@@ -111,16 +122,30 @@ module scalar_core #(
     logic ld_ready, st_ready;
     logic [12:0] a_bytes, b_bytes;
     logic [8:0] c_words;
-    // START reaches the controller one register later (npu_accelerator), so its
-    // ACCEPT is stale for two cycles after an issue.
+    // A job issues in EX (issue); START reaches the controller one register
+    // later (ctl_start), so its ACCEPT is stale for two cycles after an issue.
+    logic issue;
     logic [1:0] cooldown;
 
-    assign start = isa_start && !isa_busy;
-    assign ex_idle = (jobs_issued == jobs_written);
+    scalar_core_controller u_controller (
+        .clk(clk), .rst_n(rst_n),
+        .isa_start(isa_start), .start(start),
+        .decode_error(dec_error), .decode_error_code(dec_error_code),
+        .program_end(dec_end),
+        .job_valid(job_valid), .issue(issue), .job_written(job_written),
+        .fetch_error(fetch_error), .read_error(read_error),
+        .write_error(write_error),
+        .ctl_error(ctl_error), .ctl_error_code(ctl_error_code),
+        .running(isa_running), .stop(stop), .drained(drained),
+        .fault(fault), .fault_latched(fault_latched),
+        .busy(isa_busy), .done(isa_done),
+        .error(isa_error), .error_code(isa_error_code),
+        .jobs(isa_jobs), .cycles(isa_cycles)
+    );
 
     scalar_core_fetch fetch (
         .clk(clk), .rst_n(rst_n),
-        .start(start), .stop(!dec_running),
+        .start(start), .stop(stop),
         .prog_addr(prog_addr), .prog_len(prog_len),
         .ar_valid(f_ar_valid), .ar_ready(f_ar_ready),
         .ar_addr(f_ar_addr), .ar_len(f_ar_len),
@@ -132,38 +157,55 @@ module scalar_core #(
 
     scalar_core_decode #(.ROWS(ROWS), .COLUMNS(COLUMNS), .MAX_K(MAX_K)) decode (
         .clk(clk), .rst_n(rst_n),
-        .start(start), .fault(fault), .data_base(data_base),
+        .start(start), .running(isa_running), .drained(drained),
+        .fault(fault), .data_base(data_base),
         .instr_valid(instr_valid), .instr_data(instr_data),
         .instr_ready(instr_ready),
-        .ex_idle(ex_idle),
         .job_valid(job_valid), .job_ready(job_ready),
         .job_m(job_m), .job_n(job_n), .job_k(job_k),
         .job_a(job_a), .job_b(job_b), .job_c(job_c),
         .job_a_bytes(a_bytes), .job_b_bytes(b_bytes), .job_c_words(c_words),
-        .running(dec_running), .done(dec_done),
-        .error(dec_error), .error_code(dec_error_code),
+        .decode_error(dec_error), .decode_error_code(dec_error_code),
+        .program_end(dec_end),
         .pc(isa_pc), .instructions(isa_instructions)
     );
 
     // ------------------------------------------------------------- execute
     // A job issues when the controller has a free queue entry and the LSU can
-    // take both its load and its store; START and the shape reach the
-    // controller in the same cycle, and the controller's ACCEPT reflects the
-    // new occupancy one cycle later, so back-to-back issue is safe.
+    // take both its load and its store. START and the shape are registered
+    // and reach the controller together on the next cycle; its ACCEPT reflects
+    // the new occupancy one cycle after that, which the two-cycle cooldown
+    // covers. An admitted program start leaves the cooldown as it is.
     always_comb begin
         job_ready = ctl_accept && ld_ready && st_ready && !fault_latched && (cooldown == 2'd0);
-        ctl_start = job_valid && job_ready;
-        ctl_m = {8'd0, job_m};
-        ctl_n = {8'd0, job_n};
-        ctl_k = job_k;
+        issue = job_valid && job_ready;
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            ctl_start <= 1'b0;
+            ctl_m <= 16'd0;
+            ctl_n <= 16'd0;
+            ctl_k <= 16'd0;
+            cooldown <= 2'd0;
+        end else begin
+            if (!start)
+                cooldown <= issue ? 2'd2 : (cooldown != 2'd0 ? cooldown - 2'd1 : 2'd0);
+            ctl_start <= issue;
+            if (issue) begin
+                ctl_m <= {8'd0, job_m};
+                ctl_n <= {8'd0, job_n};
+                ctl_k <= job_k;
+            end
+        end
     end
 
     scalar_core_lsu lsu (
         .clk(clk), .rst_n(rst_n), .clear_errors(start),
-        .ld_valid(ctl_start), .ld_ready(ld_ready),
+        .ld_valid(issue), .ld_ready(ld_ready),
         .ld_a_addr(job_a), .ld_a_bytes(a_bytes),
         .ld_b_addr(job_b), .ld_b_bytes(b_bytes),
-        .st_valid(ctl_start), .st_ready(st_ready),
+        .st_valid(issue), .st_ready(st_ready),
         .st_c_addr(job_c), .st_words(c_words),
         .ar_valid(l_ar_valid), .ar_ready(l_ar_ready),
         .ar_addr(l_ar_addr), .ar_len(l_ar_len),
@@ -214,54 +256,4 @@ module scalar_core #(
         m_axi_awcache = 4'b0011;
         m_axi_awprot = 3'b000;
     end
-
-    // -------------------------------------------------------------- status
-    always_comb begin
-        fault = fetch_error || read_error || write_error || ctl_error;
-        fault_code = ctl_error ? ctl_error_code :
-            fetch_error ? ERR_FETCH :
-            read_error ? ERR_AXI_READ : ERR_AXI_WRITE;
-        isa_running = dec_running;
-        isa_busy = dec_running || job_valid || !ex_idle;
-        isa_done = dec_done;
-        isa_error = dec_error || fault_latched;
-        isa_error_code = fault_latched ? isa_fault_code : dec_error_code;
-    end
-
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            jobs_issued <= 32'd0;
-            jobs_written <= 32'd0;
-            cooldown <= 2'd0;
-            fault_latched <= 1'b0;
-            isa_fault_code <= 8'd0;
-            isa_cycles <= 32'd0;
-        end else if (start) begin
-            fault_latched <= 1'b0;
-            isa_fault_code <= 8'd0;
-            isa_cycles <= 32'd0;
-        end else begin
-            if (ctl_start)
-                jobs_issued <= jobs_issued + 32'd1;
-            cooldown <= ctl_start ? 2'd2 : (cooldown != 2'd0 ? cooldown - 2'd1 : 2'd0);
-            if (job_written)
-                jobs_written <= jobs_written + 32'd1;
-            if (dec_running && fault && !fault_latched) begin
-                fault_latched <= 1'b1;
-                isa_fault_code <= fault_code;
-            end
-            if (dec_running)
-                isa_cycles <= isa_cycles + 32'd1;
-        end
-    end
-
-    // Jobs written back since the last start.
-    logic [31:0] jobs_at_start;
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n)
-            jobs_at_start <= 32'd0;
-        else if (start)
-            jobs_at_start <= jobs_written;
-    end
-    assign isa_jobs = jobs_written - jobs_at_start;
 endmodule

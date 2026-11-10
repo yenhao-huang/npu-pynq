@@ -62,6 +62,21 @@ module tb_scalar_core;
         end
     endtask
 
+    // The scalar core drives the matrix core directly with a registered START.
+    // Its two-cycle cooldown must cover the controller's ACCEPT latency, so no
+    // START may ever reach a full queue (that would raise ERR_BUSY_START), and
+    // the shape must be in the controller's legal range when it does.
+    always @(posedge s_axi_aclk) begin
+        if (s_axi_aresetn && dut.u_matrix_core.start_pulse) begin
+            if (!dut.u_matrix_core.status_accept)
+                fail("scalar core issued START to a full matrix-core queue");
+            if (dut.u_matrix_core.cfg_m == 0 || dut.u_matrix_core.cfg_m > 16 ||
+                dut.u_matrix_core.cfg_n == 0 || dut.u_matrix_core.cfg_n > 16 ||
+                dut.u_matrix_core.cfg_k == 0 || dut.u_matrix_core.cfg_k > 256)
+                fail("scalar core issued an out-of-range job shape");
+        end
+    end
+
     task automatic check_burst(input [31:0] addr, input [7:0] len, input [2:0] size, input [1:0] burst);
         begin
             if (len > 8'd15) fail("burst longer than 16 beats");
@@ -170,7 +185,7 @@ module tb_scalar_core;
         repeat (5) @(posedge s_axi_aclk);
         s_axi_aresetn = 1;
         axi_read(8'h04, value);
-        if (value != 32'h00010001) fail("VERSION is not 1.1");
+        if (value != 32'h00020000) fail("VERSION is not 2.0");
         axi_read(8'h08, value);
         if (value[6] != 1'b1) fail("CAPABILITIES lacks ISA_FRONTEND");
         axi_read(8'h68, value);

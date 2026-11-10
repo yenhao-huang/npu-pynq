@@ -3,8 +3,13 @@
 // Runs a hand-assembled two-job program on the 2 x 2 npu_accelerator through
 // its public interfaces only: AXI-Lite registers and the AXI4 master. The
 // memory model inserts pseudo-random ready/valid gaps, so both skid buffers
-// between the front end and the controller see back-pressure. The program
+// between the scalar core and the matrix core see back-pressure. The program
 // runs twice to show the accelerator is reusable after DONE.
+//
+// ABI 2.0: the scalar core is the matrix core's only command source. A write
+// to the retired CONTROL.START or to the retired M/N/K registers must start no
+// matrix job; every START the matrix core sees comes from the scalar core
+// while a program is in flight, one per GEMM.
 module tb_npu_accelerator;
     localparam integer MEM_WORDS = 256;
     localparam integer QDEPTH = 16;
@@ -46,6 +51,20 @@ module tb_npu_accelerator;
             $fatal(1);
         end
     endtask
+
+    // ------------------------------------------- matrix-core command monitor
+    // Hierarchical probes only: the instance names are part of the design's
+    // documented structure (u_scalar_core, u_matrix_core).
+    integer matrix_starts = 0;
+    always @(posedge s_axi_aclk) begin
+        if (s_axi_aresetn && dut.u_matrix_core.start_pulse) begin
+            if (dut.u_matrix_core.start_pulse !== dut.u_scalar_core.ctl_start)
+                fail("matrix core START does not come from the scalar core");
+            if (!dut.u_scalar_core.isa_busy)
+                fail("matrix core started while no program is in flight");
+            matrix_starts <= matrix_starts + 1;
+        end
+    end
 
     // ------------------------------------------------- AXI memory model
     logic [63:0] mem [0:MEM_WORDS-1];
@@ -179,7 +198,7 @@ module tb_npu_accelerator;
     endtask
 
     logic [31:0] value;
-    integer run, polls, i;
+    integer run, polls, i, starts_before;
 
     initial begin
         repeat (4) @(posedge s_axi_aclk);
@@ -188,18 +207,41 @@ module tb_npu_accelerator;
         axi_read(8'h00, value);
         if (value != 32'h3155504e) fail("MAGIC through public AXI");
         axi_read(8'h04, value);
-        if (value != 32'h00010001) fail("VERSION is not 1.1");
+        if (value != 32'h00020000) fail("VERSION is not 2.0");
         axi_read(8'h08, value);
         if (value[6] != 1'b1) fail("CAPABILITIES lacks ISA_FRONTEND");
         axi_read(8'h68, value);
         if (value != 32'd1) fail("ISA_VERSION is not 1");
         if (irq !== 1'b0) fail("IRQ asserted before any program ran");
 
+        // The retired direct-job path: a valid ABI 1.x job (M=N=K=2, dense
+        // strides, a timeout) followed by CONTROL.START must do nothing.
+        axi_write(8'h18, 32'd2);           // M (retired)
+        axi_write(8'h1c, 32'd2);           // N (retired)
+        axi_write(8'h20, 32'd2);           // K (retired)
+        axi_write(8'h24, 32'd2);           // A_STRIDE (retired)
+        axi_write(8'h28, 32'd2);           // B_STRIDE (retired)
+        axi_write(8'h2c, 32'd8);           // C_STRIDE (retired)
+        axi_write(8'h30, 32'd1000);        // TIMEOUT_CYCLES (retired)
+        axi_write(8'h0c, 32'd1);           // CONTROL.START (retired)
+        repeat (8) @(posedge s_axi_aclk);
+        if (matrix_starts != 0) fail("retired CONTROL.START reached the matrix core");
+        axi_read(8'h10, value);
+        if (value != 32'h8) fail("matrix STATUS is not idle with ACCEPT after CONTROL.START");
+        axi_read(8'h14, value);
+        if (value != 0) fail("matrix ERROR set by CONTROL.START");
+        axi_read(8'h18, value);
+        if (value != 0) fail("retired M does not read zero");
+        axi_read(8'h44, value);
+        if (value != 0) fail("CONTROL.START started the scalar core");
+        if (irq !== 1'b0) fail("IRQ asserted by CONTROL.START");
+
         for (run = 0; run < 2; run = run + 1) begin
             load_memory();
             axi_write(8'h48, 32'd0);           // PROG_ADDR
             axi_write(8'h4c, PROG_WORDS);      // PROG_LEN
             axi_write(8'h50, DATA_BASE);       // DATA_BASE
+            starts_before = matrix_starts;
             axi_write(8'h40, 32'd1);           // ISA_CONTROL.START
             polls = 0;
             do begin
@@ -218,13 +260,13 @@ module tb_npu_accelerator;
             if (value != PROG_WORDS) fail("ISA_INSTRUCTIONS is not the program length");
             axi_read(8'h60, value);
             if (value == 0) fail("ISA_CYCLES is zero");
-            // The controller's job registers mirror the last job the front end issued.
-            axi_read(8'h18, value);
-            if (value != 1) fail("M does not mirror the last job");
-            axi_read(8'h1c, value);
-            if (value != 2) fail("N does not mirror the last job");
-            axi_read(8'h20, value);
-            if (value != 2) fail("K does not mirror the last job");
+            if (matrix_starts - starts_before != 2) fail("matrix core did not see one START per GEMM");
+            // The job shape no longer passes through the csr: M, N and K are
+            // retired and read zero after a program.
+            for (i = 8'h18; i <= 8'h20; i = i + 4) begin
+                axi_read(i[7:0], value);
+                if (value != 0) fail("retired job register is not zero after a program");
+            end
             axi_read(8'h14, value);
             if (value != 0) fail("controller ERROR is set");
 
