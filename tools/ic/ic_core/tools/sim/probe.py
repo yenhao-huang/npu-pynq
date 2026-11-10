@@ -12,7 +12,7 @@ the checked-in sources stay untouched:
     module ic_trace_probe;
       initial begin $dumpfile("wave.fst"); $dumpvars(0); end
     endmodule
-    bind tb_npu_pe ic_trace_probe ic_trace_probe_i();
+    bind tb_pe ic_trace_probe ic_trace_probe_i();
 
 `bind` is IEEE 1800 and Verilator 5 supports it. Icarus 11 does not -- it
 rejects `bind` as a syntax error -- so for Icarus the probe is instead elaborated

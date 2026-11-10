@@ -45,7 +45,7 @@ Rules:
   the same token IDs for an LLM, with NPU jobs counted.
 - The archive the board ran is the release asset. A passing run publishes a
   **draft** Release holding `pynqo-<model>-<tag>.tar.gz` and `board-<model>.json`
-  for each model, `npu_matrix.bit/.hwh/.manifest.json`, `bitstream-report.txt`,
+  for each model, `npu_accelerator.bit/.hwh/.manifest.json`, `bitstream-report.txt`,
   and one `SHA256SUMS` covering them. A draft has no tag and is not public. A
   failed run publishes nothing, and rerunning recreates the draft.
 - The release never creates a tag. `.github/workflows/publish.yml` publishes

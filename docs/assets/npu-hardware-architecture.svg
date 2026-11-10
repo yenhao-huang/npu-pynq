@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 930" role="img" aria-labelledby="title desc">
   <title id="title">PYNQ-Z1 NPU hardware architecture</title>
-  <desc id="desc">High-level diagram showing the processing system, programmable logic, npu_accelerator, csr, npu_isa_frontend, npu_matrix_core, controller, memory, and systolic_array functions.</desc>
+  <desc id="desc">High-level diagram showing the processing system, programmable logic, npu_accelerator, csr, scalar_core, matrix_core, controller, memory, and systolic_array functions.</desc>
   <defs>
     <radialGradient id="background"><stop offset="0" stop-color="#101c28"/><stop offset="1" stop-color="#071019"/></radialGradient>
     <linearGradient id="silver" x2="1" y2="1"><stop offset="0" stop-color="#dddddd"/><stop offset="1" stop-color="#adb3ba"/></linearGradient>
@@ -48,12 +48,12 @@
   <text class="detail" x="592" y="360" text-anchor="middle">AXI-Lite registers</text>
   <text class="detail" x="592" y="395" text-anchor="middle">PROG_ADDR · START · IRQ</text>
   <rect class="card steel" x="455" y="485" width="275" height="200"/>
-  <text class="module" x="592" y="560" text-anchor="middle">npu_isa_frontend</text>
+  <text class="module" x="592" y="560" text-anchor="middle">scalar_core</text>
   <text class="detail" x="592" y="598" text-anchor="middle">fetch · decode · LSU</text>
   <text class="detail" x="592" y="633" text-anchor="middle">AXI4 master</text>
 
   <rect class="panel" x="790" y="220" width="735" height="505" stroke="#70e3d4"/>
-  <text class="section" x="1157" y="263" text-anchor="middle" fill="#70e3d4">npu_matrix_core</text>
+  <text class="section" x="1157" y="263" text-anchor="middle" fill="#70e3d4">matrix_core</text>
   <rect class="card turquoise" x="830" y="305" width="270" height="145"/>
   <text class="module" x="965" y="367" text-anchor="middle">controller</text>
   <text class="detail" x="965" y="405" text-anchor="middle">jobs + registers</text>
@@ -80,5 +80,5 @@
   <path class="flow" d="M1100 585H1170"/>
   <text class="label" x="1135" y="567" text-anchor="middle">A / B</text>
 
-  <text class="label" x="800" y="875" text-anchor="middle">PS ↔ csr / npu_isa_frontend ↔ NPU  ·  Control above, programs and operand data below</text>
+  <text class="label" x="800" y="875" text-anchor="middle">PS ↔ csr / scalar_core ↔ NPU  ·  Control above, programs and operand data below</text>
 </svg>

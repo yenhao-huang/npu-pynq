@@ -55,10 +55,10 @@ on Windows, where Vivado is installed; PowerShell from the repository root
 works. It refuses to run while `src/` has uncommitted changes.
 
 ```powershell
-vivado -mode batch -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl -tclargs --out dist/resnet18/overlay
+vivado -mode batch -source src/hw/vivado_tcl/npu_accelerator/build_overlay.tcl -tclargs --out dist/resnet18/overlay
 ```
 
-Already have a 16 x 16 `npu_matrix.bit` and `npu_matrix.hwh`? Skip Vivado and
+Already have a 16 x 16 `npu_accelerator.bit` and `npu_accelerator.hwh`? Skip Vivado and
 put them in `dist/resnet18/overlay/`. Cloned the repository inside WSL? Copy
 the two files from Windows into WSL's `dist/resnet18/overlay/`.
 
@@ -71,7 +71,7 @@ classify the demo picture:
 bash src/deploy/deploy.sh dist/resnet18 examples/resnet18/resnet18.ipynb src/deploy/resnet18-gallery-source.json
 ssh -t xilinx@192.168.2.99 'cd ~/jupyter_notebooks/resnet18 && sudo env XILINX_XRT=/usr \
   /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli classifier --package package \
-  --overlay overlay/npu_matrix.bit --image model/demo-image.jpg \
+  --overlay overlay/npu_accelerator.bit --image model/demo-image.jpg \
   --labels model/imagenet-classes.txt --expected-class Samoyed'
 ```
 

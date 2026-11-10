@@ -96,9 +96,9 @@ jobs:
         run: |
           $tclargs = '${{ needs.plan.outputs.tclargs }}'.Split(' ', [StringSplitOptions]::RemoveEmptyEntries)
           if ($tclargs.Count -gt 0) {
-            vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl -tclargs @tclargs
+            vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_accelerator/build_overlay.tcl -tclargs @tclargs
           } else {
-            vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_matrix/build_overlay.tcl
+            vivado -mode batch -nojournal -nolog -source src/hw/vivado_tcl/npu_accelerator/build_overlay.tcl
           }
           $code = $LASTEXITCODE
           # Keep the reports either way: a timing failure is diagnosed from them.

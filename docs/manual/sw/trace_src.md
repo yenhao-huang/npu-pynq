@@ -201,7 +201,7 @@ manifest = compile.json + {format: pynqo-package/2, model, quantization, compile
 
 ```
 cli.cmd_run()                                        src/runtime/cli.py
-  ├─ backend pynq (default on the board): pynq.Overlay(npu_matrix.bit)
+  ├─ backend pynq (default on the board): pynq.Overlay(npu_accelerator.bit)
   └─ ExportedLLM(package, overlay)                   delegated.py:108
        └─ ExportedPackage(root, overlay)             delegated.py:60
             ├─ manifest['format'] must be pynqo-package/2

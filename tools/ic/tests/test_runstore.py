@@ -44,24 +44,24 @@ def test_gc_clears_tmp_and_work_but_keeps_the_record(store):
 
 
 def test_input_files_are_hashed_not_copied(store, tmp_path):
-    source = tmp_path / "npu_pe.sv"
-    source.write_text("module npu_pe; endmodule\n")
+    source = tmp_path / "pe.sv"
+    source.write_text("module pe; endmodule\n")
     with store.begin(category="lint", op="lint", backend="verilator",
-                     inputs={"top": "npu_pe"}, input_files=[str(source)]) as run:
+                     inputs={"top": "pe"}, input_files=[str(source)]) as run:
         run.finish(state="succeeded", out={"ok": True}, duration_s=0.1)
     recorded = store.meta(run.run_id)["inputs"]["files"][0]
     assert recorded["path"] == str(source)
     assert len(recorded["sha256"]) == 64
-    assert not (store.run_dir(run.run_id) / "npu_pe.sv").exists()
+    assert not (store.run_dir(run.run_id) / "pe.sv").exists()
 
 
 def test_index_is_rebuildable_from_the_tree(store):
     with store.begin(category="lint", op="lint", backend="verilator",
-                     inputs={"top": "npu_pe"}) as run:
-        run.finish(state="succeeded", out={"ok": True}, duration_s=0.5, top="npu_pe")
+                     inputs={"top": "pe"}) as run:
+        run.finish(state="succeeded", out={"ok": True}, duration_s=0.5, top="pe")
     store.db_path.unlink()
     assert store.rebuild_index() == 1
-    assert store.list_runs(top="npu_pe")[0]["run_id"] == run.run_id
+    assert store.list_runs(top="pe")[0]["run_id"] == run.run_id
 
 
 def test_handle_survives_an_index_that_is_gone(store):
@@ -74,7 +74,7 @@ def test_handle_survives_an_index_that_is_gone(store):
 
 def test_meta_records_what_ran(store):
     with store.begin(category="synth", op="synth", backend="yosys",
-                     backend_version="Yosys 0.23", inputs={"top": "npu_pe"}) as run:
+                     backend_version="Yosys 0.23", inputs={"top": "pe"}) as run:
         run.finish(state="succeeded", out={"ok": True}, exit_code=0, duration_s=2.0)
     meta = json.loads((store.run_dir(run.run_id) / "meta.json").read_text())
     assert meta["backend_version"] == "Yosys 0.23"

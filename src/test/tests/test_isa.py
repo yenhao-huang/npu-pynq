@@ -103,12 +103,12 @@ class HardwareContractTest(unittest.TestCase):
         import re
         from pathlib import Path
         from src.vendors.npu_pynq.spec.abi import Capability, IsaRegister
-        root = Path(__file__).resolve().parents[3] / "src/hw/rtl/npu_matrix/npu_accelerator"
-        decode = (root / "npu_isa_frontend/npu_isa_decode.sv").read_text()
+        root = Path(__file__).resolve().parents[3] / "src/hw/rtl/npu_accelerator"
+        decode = (root / "scalar_core/scalar_core_decode.sv").read_text()
         rtl_ops = {name.lower(): int(value, 16)
                    for name, value in re.findall(r"OP_(\w+) = 8'h([0-9a-fA-F]+)", decode)}
         self.assertEqual(rtl_ops, isa.OPCODES)
-        regs = (root / "csr/npu_csr.sv").read_text()
+        regs = (root / "csr/csr.sv").read_text()
         rtl_regs = {name: int(value, 16)
                     for name, value in re.findall(r"REG_(ISA_\w+|PROG_\w+|DATA_BASE) = 8'h([0-9a-fA-F]+)", regs)}
         expected = {("ISA_" + r.name if r.name in ("CONTROL", "STATUS", "ERROR", "PC", "JOBS", "CYCLES",

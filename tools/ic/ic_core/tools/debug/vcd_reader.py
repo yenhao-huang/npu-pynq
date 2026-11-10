@@ -24,7 +24,7 @@ _TIMESCALE_UNITS = {"s": 1e0, "ms": 1e-3, "us": 1e-6, "ns": 1e-9, "ps": 1e-12, "
 
 @dataclass(frozen=True)
 class Signal:
-    path: str  #: Dotted hierarchical path, e.g. tb_npu_pe.dut.accumulator
+    path: str  #: Dotted hierarchical path, e.g. tb_pe.dut.accumulator
     ident: str  #: The VCD identifier code the value changes are keyed by
     width: int
     kind: str
@@ -57,7 +57,7 @@ class Header:
 
         An agent that saw `accumulator` in a `signals` listing should be able
         to pass `accumulator` straight to `value_at` without reconstructing
-        `TOP.tb_npu_pe.dut.accumulator` by hand.
+        `TOP.tb_pe.dut.accumulator` by hand.
         """
         for signal in self.signals:
             if signal.path == name:

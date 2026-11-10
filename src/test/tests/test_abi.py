@@ -123,7 +123,7 @@ class DriverMatchesSpecTests(unittest.TestCase):
     """The board driver hard-codes the register map in C++; it must equal the spec."""
 
     def test_the_hardware_reports_what_the_runtime_requires(self):
-        regs = (ROOT / "src/hw/rtl/npu_matrix/npu_accelerator/csr/npu_csr.sv").read_text()
+        regs = (ROOT / "src/hw/rtl/npu_accelerator/csr/csr.sv").read_text()
         reported = int(re.search(r"ABI_CAPABILITIES = 32'h([0-9a-fA-F]+)", regs).group(1), 16)
         self.assertEqual(int(REQUIRED_CAPABILITIES) & ~reported, 0)
         version = negotiate_abi(ABI_MAGIC, AbiVersion().encode(), reported)

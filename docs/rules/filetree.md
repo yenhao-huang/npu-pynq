@@ -329,11 +329,16 @@ the board and nothing is authored there.
 One directory per design under `src/hw/rtl/`, `src/hw/tb/`, and
 `src/hw/vivado_tcl/`. The design directory name must match across all three.
 RTL may be divided into nested module directories that follow the instance
-hierarchy. In `npu_matrix`, `npu_accelerator/` contains the top module,
+hierarchy. In `npu_accelerator`, the design directory holds the top module
+`npu_accelerator.sv`,
 `csr/` (the control and status registers, reached over AXI-Lite),
-`npu_isa_frontend/`, and `npu_matrix_core/`; the core contains `controller/` and
-`npu_matrix_datapath/`, and the datapath contains `memory/` and
+`scalar_core/`, and `matrix_core/`; the core contains `controller/` and
+`matrix_datapath/`, and the datapath contains `memory/` and
 `systolic_array/`. Testbenches remain in `src/hw/tb/<design>/`.
+Only the top module carries the `npu_` prefix. A module that belongs to one
+core takes the core's name as its prefix (`scalar_core_fetch`), a generic
+building block says what it is (`sync_fifo`, `axis_skid`), and a testbench is
+`tb_<module>`.
 
 A testbench is named `tb_<module>.sv` and lives in `src/hw/tb/<design>/`.
 `make sim` discovers tests by that pattern, so a testbench outside it never

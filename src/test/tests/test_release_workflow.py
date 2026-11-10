@@ -162,7 +162,7 @@ class ScriptTests(unittest.TestCase):
             directory = Path(temporary) / 'demo'
             for path in ('package/manifest.json', 'package/compile.json', 'package/ir/model.mlir',
                          'package/arm-cortex-a9/model.so', 'package/x86_64-host/model.so',
-                         'overlay/npu_matrix.bit', 'model/weights.pth', 'model/demo.jpg'):
+                         'overlay/npu_accelerator.bit', 'model/weights.pth', 'model/demo.jpg'):
                 (directory / path).parent.mkdir(parents=True, exist_ok=True)
                 (directory / path).write_text('x')
             archive = Path(temporary) / 'out' / 'demo.tar.gz'
@@ -171,7 +171,7 @@ class ScriptTests(unittest.TestCase):
             with tarfile.open(archive) as tar:
                 names = set(tar.getnames())
         for kept in ('demo/package/manifest.json', 'demo/package/arm-cortex-a9/model.so',
-                     'demo/overlay/npu_matrix.bit', 'demo/model/demo.jpg', 'demo/src/runtime/cli.py'):
+                     'demo/overlay/npu_accelerator.bit', 'demo/model/demo.jpg', 'demo/src/runtime/cli.py'):
             self.assertIn(kept, names)
         for dropped in ('demo/package/compile.json', 'demo/package/ir/model.mlir',
                         'demo/package/x86_64-host/model.so', 'demo/model/weights.pth'):

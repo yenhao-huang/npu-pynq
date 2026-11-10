@@ -73,7 +73,7 @@ jobs:
           for asset in \
             "pynqo-resnet18-${TAG}.tar.gz" "board-resnet18.json" \
             "pynqo-smollm-${TAG}.tar.gz" "board-smollm.json" \
-            "npu_matrix.bit" "npu_matrix.hwh" "SHA256SUMS"
+            "npu_accelerator.bit" "npu_accelerator.hwh" "SHA256SUMS"
           do
             if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx "$asset"; then
               echo "draft is missing the validated asset: $asset" >&2

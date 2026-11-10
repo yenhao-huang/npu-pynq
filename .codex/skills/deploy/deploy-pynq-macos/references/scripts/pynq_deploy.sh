@@ -7,7 +7,7 @@
 # Commands
 #   preflight                   network route, SSH key login, board venv and sudo rule
 #   overlay  --run ID | --release TAG | --dir DIR
-#                               fetch npu_matrix.bit/.hwh into build/deploy/overlay
+#                               fetch npu_accelerator.bit/.hwh into build/deploy/overlay
 #   export                      build SmolLM2, Qwen3 and ResNet-18 packages on this Mac
 #   run      [--script PATH] [--timeout MIN]
 #                               copy overlay + packages + src/ + exp/ to the board,
@@ -90,18 +90,18 @@ cmd_overlay() {
     run mkdir -p "$out" "$tmp"
     case "$kind" in
         run) run gh run download "$src" -R yenhao-huang/npu-pynq -p 'exp-overlay-*' -D "$tmp" ;;
-        release) run gh release download "$src" -R yenhao-huang/npu-pynq -p 'npu_matrix.*' -D "$tmp" ;;
+        release) run gh release download "$src" -R yenhao-huang/npu-pynq -p 'npu_accelerator.*' -D "$tmp" ;;
         dir) run cp -R "$src"/. "$tmp"/ ;;
     esac
     [ "$DRY" = 1 ] && return 0
     local bit hwh
-    bit=$(find "$tmp" -name 'npu_matrix.bit' | head -1)
-    hwh=$(find "$tmp" -name 'npu_matrix.hwh' | head -1)
-    [ -n "$bit" ] && [ -n "$hwh" ] || die "no npu_matrix.bit/.hwh pair in the $kind source"
+    bit=$(find "$tmp" -name 'npu_accelerator.bit' | head -1)
+    hwh=$(find "$tmp" -name 'npu_accelerator.hwh' | head -1)
+    [ -n "$bit" ] && [ -n "$hwh" ] || die "no npu_accelerator.bit/.hwh pair in the $kind source"
     cp "$bit" "$hwh" "$out/"
-    find "$tmp" -name 'npu_matrix.manifest.json' -exec cp {} "$out/" \; 2>/dev/null || true
+    find "$tmp" -name 'npu_accelerator.manifest.json' -exec cp {} "$out/" \; 2>/dev/null || true
     rm -rf "$tmp"
-    say "overlay    $out ($(shasum -a 256 "$out/npu_matrix.bit" | cut -c1-16)...)"
+    say "overlay    $out ($(shasum -a 256 "$out/npu_accelerator.bit" | cut -c1-16)...)"
 }
 
 cmd_export() {
@@ -119,7 +119,7 @@ cmd_run() {
             *) die "run: unknown option $1" ;;
         esac
     done
-    [ "$DRY" = 1 ] || [ -f "$DEPLOY/overlay/artifacts/npu_matrix.bit" ] || die "no overlay; run the overlay command first"
+    [ "$DRY" = 1 ] || [ -f "$DEPLOY/overlay/artifacts/npu_accelerator.bit" ] || die "no overlay; run the overlay command first"
     [ "$DRY" = 1 ] || [ -d "$DEPLOY/export" ] || die "no packages; run the export command first"
     local id remote payload results
     id="mac-$(date +%Y%m%d-%H%M%S)"

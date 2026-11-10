@@ -137,7 +137,7 @@ check ─┬─ export (resnet18 | smollm)
   the result must match the host: the same top-1 class for ResNet-18, the same
   token IDs for SmolLM. ResNet-18 takes about half an hour on the board.
 - `draft-release`: the **draft Release** with the two archives, the board
-  results, `npu_matrix.bit/.hwh/.manifest.json`, `bitstream-report.txt` and one
+  results, `npu_accelerator.bit/.hwh/.manifest.json`, `bitstream-report.txt` and one
   `SHA256SUMS`. A draft has no tag and is not public.
 
 A run never redoes Vivado that already succeeded for this release: if an earlier
