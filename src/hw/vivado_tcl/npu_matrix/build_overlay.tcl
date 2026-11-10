@@ -71,7 +71,7 @@ set_property simulator_language Mixed [current_project]
 set rtl_files [list \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath systolic_array npu_pe.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath systolic_array npu_systolic_array.sv] \
-    [file join $repo_root src hw rtl npu_matrix npu_accelerator axi_lite npu_axi_lite_regs.sv] \
+    [file join $repo_root src hw rtl npu_matrix npu_accelerator csr npu_csr.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath memory npu_operand_buffer.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core controller npu_matrix_controller.sv] \
     [file join $repo_root src hw rtl npu_matrix npu_accelerator npu_matrix_core npu_matrix_datapath npu_matrix_datapath.sv] \

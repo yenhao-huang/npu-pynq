@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module npu_axi_lite_regs #(
+module npu_csr #(
     parameter integer C_S_AXI_DATA_WIDTH = 32,
     parameter integer C_S_AXI_ADDR_WIDTH = 8
 ) (
@@ -173,9 +173,9 @@ module npu_axi_lite_regs #(
 
     initial begin
         if (C_S_AXI_DATA_WIDTH != 32)
-            $fatal(1, "npu_axi_lite_regs ABI v1 requires 32-bit AXI data");
+            $fatal(1, "npu_csr ABI v1 requires 32-bit AXI data");
         if (C_S_AXI_ADDR_WIDTH < 8)
-            $fatal(1, "npu_axi_lite_regs ABI v1 requires at least 8 address bits");
+            $fatal(1, "npu_csr ABI v1 requires at least 8 address bits");
     end
 
     always_comb begin

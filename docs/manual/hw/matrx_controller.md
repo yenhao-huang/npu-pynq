@@ -4,7 +4,7 @@
 turns AXI-Lite job descriptions and packed AXI-Stream operand frames into
 AXI-Stream result frames. It sequences the operand banks and the systolic array
 in `npu_matrix_datapath`, but it stores no operands itself. Register decode
-lives in `npu_axi_lite_regs`.
+lives in `npu_csr`.
 
 This document was created by the change that added the A/B ping-pong buffer
 (issue #64). It describes the controller as it stands after that change. The

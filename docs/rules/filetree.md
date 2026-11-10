@@ -330,8 +330,8 @@ One directory per design under `src/hw/rtl/`, `src/hw/tb/`, and
 `src/hw/vivado_tcl/`. The design directory name must match across all three.
 RTL may be divided into nested module directories that follow the instance
 hierarchy. In `npu_matrix`, `npu_accelerator/` contains the top module,
-`axi_lite/` (the AXI-Lite register file), `npu_isa_frontend/`, and
-`npu_matrix_core/`; the core contains `controller/` and
+`csr/` (the control and status registers, reached over AXI-Lite),
+`npu_isa_frontend/`, and `npu_matrix_core/`; the core contains `controller/` and
 `npu_matrix_datapath/`, and the datapath contains `memory/` and
 `systolic_array/`. Testbenches remain in `src/hw/tb/<design>/`.
 
