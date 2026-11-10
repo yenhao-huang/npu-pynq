@@ -7,7 +7,7 @@ file delete -force $build_root
 file mkdir $build_root
 
 create_project pe_dsp_check $build_root -part $part_name -force
-read_verilog -sv [file join $repo_root src hw rtl npu_accelerator matrix_core matrix_datapath systolic_array pe.sv]
+read_verilog -sv [file join $repo_root src hw rtl npu_accelerator matrix_core systolic_array pe.sv]
 synth_design -top pe -mode out_of_context -part $part_name
 
 set dsp_cells [get_cells -hier -filter {REF_NAME =~ DSP48*}]

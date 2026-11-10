@@ -1,23 +1,19 @@
 `timescale 1ns/1ps
 
-// Cycle-count evidence for the A/B ping-pong buffer at the 8x8 target.
-// Runs stall-free 8x8x64 physical jobs -- the shape issue #63 benchmarked --
-// first serialized, then pipelined, so the two spans are directly comparable.
-// It also exercises back-to-back jobs, bank swapping,
+// Coverage for the A/B ping-pong buffer: back-to-back jobs, bank swapping,
 // input stall, output backpressure, SOFT_RESET mid-pipeline, and the error
 // paths whose meaning changed when the job queue grew to two entries.
 //
 // The throughput case runs the same job list twice -- once serialized the way
 // the pre-pipelined controller behaved, once with the queue kept full -- and
 // requires the overlapped run to finish in strictly fewer cycles.
-module tb_matrix_controller_pipeline_8x8;
-    parameter integer SIZE = 8;
-    localparam integer ROWS = SIZE;
-    localparam integer COLUMNS = SIZE;
+module tb_matrix_core_controller_pipeline;
+    localparam integer ROWS = 2;
+    localparam integer COLUMNS = 2;
     localparam integer MAX_K = 256;
     localparam integer IN_BYTES = 8;
-    localparam integer NUM_JOBS = 3;
-    localparam integer MAX_JOB_K = (SIZE == 16) ? 256 : 64;
+    localparam integer NUM_JOBS = 4;
+    localparam integer MAX_JOB_K = 64;
     localparam integer JOB_TIMEOUT = 20000;
 
     logic clk = 1'b0;
@@ -68,16 +64,16 @@ module tb_matrix_controller_pipeline_8x8;
     // or output phase, which is only reachable once the two banks are
     // independent. A job's own B frame overlapping its compute does not count.
     always @(posedge clk) begin
-        if (rst_n && (dut.controller.load_state !== 2'd0) &&
-            (dut.controller.load_ptr !== dut.controller.exec_ptr) &&
-            ((dut.controller.exec_state === 2'd2) ||
-             (dut.controller.exec_state === 2'd3)))
+        if (rst_n && (dut.u_controller.load_state !== 2'd0) &&
+            (dut.u_controller.load_ptr !== dut.u_controller.exec_ptr) &&
+            ((dut.u_controller.exec_state === 2'd2) ||
+             (dut.u_controller.exec_state === 2'd3)))
             overlap_seen <= 1'b1;
     end
 
     task automatic fail(input string message);
         begin
-            $display("FAIL tb_matrix_controller_pipeline_8x8: %s", message);
+            $display("FAIL tb_matrix_core_controller_pipeline: %s", message);
             $fatal(1);
         end
     endtask
@@ -259,13 +255,13 @@ module tb_matrix_controller_pipeline_8x8;
                     integer j;
                     for (j = 0; j < NUM_JOBS; j = j + 1) begin
                         while (accepted_count <= j) @(negedge clk);
-                        feed_job(j, 0);
+                        feed_job(j, (j == 1) ? 3 : 0);
                     end
                 end
                 begin : drainer
                     integer j;
                     for (j = 0; j < NUM_JOBS; j = j + 1) begin
-                        drain_job(j, 0);
+                        drain_job(j, (j == 2) ? 4 : 0);
                         if (j == 0) first_job_cycles = cycles;
                         reported_total = reported_total + cycles;
                     end
@@ -284,7 +280,7 @@ module tb_matrix_controller_pipeline_8x8;
 
         // Golden model: C = A * B in exact INT32, no requantization.
         for (job_index = 0; job_index < NUM_JOBS; job_index = job_index + 1) begin
-            job_k[job_index] = MAX_JOB_K;
+            job_k[job_index] = 8 + 16 * job_index;
             for (row_index = 0; row_index < ROWS; row_index = row_index + 1)
                 for (step_index = 0; step_index < job_k[job_index];
                      step_index = step_index + 1)
@@ -387,9 +383,8 @@ module tb_matrix_controller_pipeline_8x8;
         pulse_soft_reset();
         pass_count = pass_count + 1;
 
-        $display("PASS tb_matrix_controller_pipeline_8x8 cases=%0d serial=%0d pipelined=%0d saved=%0d single_job=%0d",
-                 pass_count, serial_span, pipelined_span,
-                 serial_span - pipelined_span, first_job_cycles);
+        $display("PASS tb_matrix_core_controller_pipeline cases=%0d serial=%0d pipelined=%0d saved=%0d",
+                 pass_count, serial_span, pipelined_span, serial_span - pipelined_span);
         $finish;
     end
 endmodule

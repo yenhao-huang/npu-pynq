@@ -23,11 +23,10 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     rtl_root = args.rtl_root.resolve() / "src/hw/rtl"
     modular_paths = (
-        "npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv",
-        "npu_accelerator/matrix_core/matrix_datapath/systolic_array/systolic_array.sv",
-        "npu_accelerator/matrix_core/matrix_datapath/memory/operand_buffer.sv",
-        "npu_accelerator/matrix_core/matrix_datapath/matrix_datapath.sv",
-        "npu_accelerator/matrix_core/controller/matrix_controller.sv",
+        "npu_accelerator/matrix_core/systolic_array/pe.sv",
+        "npu_accelerator/matrix_core/systolic_array/systolic_array.sv",
+        "npu_accelerator/matrix_core/memory/operand_buffer.sv",
+        "npu_accelerator/matrix_core/controller/matrix_core_controller.sv",
         "npu_accelerator/matrix_core/matrix_core.sv",
     )
     baseline_paths = (

@@ -10,11 +10,10 @@ cd $output_root
 set_param general.maxThreads 4
 create_project -in_memory -part xc7z020clg400-1
 set modular_paths {
-    npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv
-    npu_accelerator/matrix_core/matrix_datapath/systolic_array/systolic_array.sv
-    npu_accelerator/matrix_core/matrix_datapath/memory/operand_buffer.sv
-    npu_accelerator/matrix_core/matrix_datapath/matrix_datapath.sv
-    npu_accelerator/matrix_core/controller/matrix_controller.sv
+    npu_accelerator/matrix_core/systolic_array/pe.sv
+    npu_accelerator/matrix_core/systolic_array/systolic_array.sv
+    npu_accelerator/matrix_core/memory/operand_buffer.sv
+    npu_accelerator/matrix_core/controller/matrix_core_controller.sv
     npu_accelerator/matrix_core/matrix_core.sv
 }
 set baseline_paths {

@@ -47,7 +47,7 @@ Paste this prompt into pi:
 
 ```text
 Actually call the native lint tool on
-src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv, with top=pe.
+src/hw/rtl/npu_accelerator/matrix_core/systolic_array/pe.sv, with top=pe.
 Leave the source unchanged. Report ok, error_count, and warning_count from
 the returned result. Explain any warnings. Do not replace the tool with Bash.
 ```
@@ -65,7 +65,7 @@ Paste this prompt into pi:
 
 ```text
 Use all eight native IC tools and leave all source files unchanged.
-1. lint: files=["src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv"], top="pe".
+1. lint: files=["src/hw/rtl/npu_accelerator/matrix_core/systolic_array/pe.sv"], top="pe".
 2. sim: files=["tools/ic/tests/fixtures/counter.sv",
    "tools/ic/tests/fixtures/tb_counter.sv"], tb="tb_counter".
 3. Use the wave handle returned by this sim for every waveform tool below.

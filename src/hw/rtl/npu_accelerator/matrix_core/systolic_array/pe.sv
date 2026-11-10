@@ -1,5 +1,12 @@
 `timescale 1ns/1ps
 
+// Processing element (PE): one cell of the systolic array. It multiplies the
+// A and B bytes on its inputs, registers the product, and one cycle later adds
+// it to a saturating INT32 accumulator if both bytes were valid. A and B, with
+// their valid bits, are registered and forwarded one cycle later: A to the
+// next column of the same row, B to the next row of the same column
+// (systolic_array wires a_out and b_out that way). clear zeroes every
+// register; all of them hold while enable is low.
 module pe #(
     parameter integer DATA_WIDTH = 8,
     parameter integer ACC_WIDTH = 32,
@@ -34,10 +41,10 @@ module pe #(
             $fatal(1, "pe DSP_STYLE must be yes or no");
         end
         if (DATA_WIDTH != 8) begin
-            $fatal(1, "pe ABI v1 requires DATA_WIDTH=8");
+            $fatal(1, "pe requires DATA_WIDTH=8 (INT8 operands)");
         end
         if (ACC_WIDTH != 32) begin
-            $fatal(1, "pe ABI v1 requires ACC_WIDTH=32");
+            $fatal(1, "pe requires ACC_WIDTH=32 (INT32 accumulator)");
         end
         if (PRODUCT_EXTENSION < 1) begin
             $fatal(1, "pe accumulator must be wider than product");

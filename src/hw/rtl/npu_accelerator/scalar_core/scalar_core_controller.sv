@@ -1,9 +1,10 @@
 `timescale 1ns/1ps
 
 // Controller of the scalar core: program-level run control over the pipeline
-// stages. (matrix_controller, its counterpart in the matrix core, sequences
-// one job over the datapath cycle by cycle; this module never looks inside a
-// job.) The stages report events; the run state lives here.
+// stages. (matrix_core_controller, its counterpart in the matrix core,
+// sequences one job over the operand buffers and the systolic array cycle by
+// cycle; this module never looks inside a job.) The stages report events; the
+// run state lives here.
 //
 // It owns:
 //   - start admission: ISA START is taken only while the core is not busy;
