@@ -57,7 +57,7 @@ try {
   child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
   const catalogue = await request('tools/list', {});
   assert.deepEqual(catalogue.tools.map(t => t.name).sort(), ['lint', 'sim', 'signals', 'first_mismatch', 'value_at', 'value_range', 'show_wave', 'synth', 'ppa', 'equiv'].sort());
-  const files = ['src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/pe.sv', 'src/hw/rtl/npu_accelerator/matrix_core/matrix_datapath/systolic_array/systolic_array.sv'];
+  const files = ['src/hw/rtl/npu_accelerator/matrix_core/systolic_array/pe.sv', 'src/hw/rtl/npu_accelerator/matrix_core/systolic_array/systolic_array.sv'];
   const lint = await call('lint', { files, top: 'systolic_array' });
   assert.equal(lint.error_count, 0);
   const sim = await call('sim', { files: [...files, 'src/hw/tb/npu_accelerator/tb_systolic_array.sv'], tb: 'tb_systolic_array', top: 'systolic_array', trace: true, timeout_s: 120 });

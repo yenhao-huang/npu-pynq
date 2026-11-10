@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module tb_matrix_controller;
+module tb_matrix_core_controller;
     localparam integer IN_BYTES = 8;
 
     logic clk = 1'b0;
@@ -34,7 +34,7 @@ module tb_matrix_controller;
 
     task automatic fail(input string message);
         begin
-            $display("FAIL tb_matrix_controller: %s", message);
+            $display("FAIL tb_matrix_core_controller: %s", message);
             $fatal(1);
         end
     endtask
@@ -263,7 +263,7 @@ module tb_matrix_controller;
             error_code != 0 || cycles != 0)
             fail("SOFT_RESET did not restore lifecycle state");
 
-        $display("PASS tb_matrix_controller");
+        $display("PASS tb_matrix_core_controller");
         $finish;
     end
 endmodule

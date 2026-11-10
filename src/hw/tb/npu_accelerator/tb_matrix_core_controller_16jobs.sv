@@ -11,11 +11,11 @@
 // frame, exactly as matrix_core expects them.
 //
 // ROWS, COLUMNS, JOB_K, NUM_JOBS and IN_BYTES are parameters so the experiment
-// can be swept with `iverilog -P tb_matrix_controller_16jobs.<name>=<value>`.
+// can be swept with `iverilog -P tb_matrix_core_controller_16jobs.<name>=<value>`.
 // Defining NPU_SERIAL_BASELINE drops the status_accept port and the pipelined
 // pass, so the serialized pass can also be run against the core that predates
 // this change.
-module tb_matrix_controller_16jobs #(
+module tb_matrix_core_controller_16jobs #(
     parameter integer ROWS = 8,
     parameter integer COLUMNS = 8,
     parameter integer JOB_K = 64,
@@ -69,7 +69,7 @@ module tb_matrix_controller_16jobs #(
 
     task automatic fail(input string message);
         begin
-            $display("FAIL tb_matrix_controller_16jobs: %s", message);
+            $display("FAIL tb_matrix_core_controller_16jobs: %s", message);
             $fatal(1);
         end
     endtask
@@ -250,7 +250,7 @@ module tb_matrix_controller_16jobs #(
         pulse_soft_reset();
 
 `ifdef NPU_SERIAL_BASELINE
-        $display("PASS tb_matrix_controller_16jobs baseline %0dx%0dx%0d in_bytes=%0d jobs=%0d serial=%0d first=%0d steady=%0d",
+        $display("PASS tb_matrix_core_controller_16jobs baseline %0dx%0dx%0d in_bytes=%0d jobs=%0d serial=%0d first=%0d steady=%0d",
                  ROWS, COLUMNS, JOB_K, IN_BYTES, NUM_JOBS, serial_span, serial_first,
                  serial_steady);
 `else
@@ -258,7 +258,7 @@ module tb_matrix_controller_16jobs #(
         if (pipelined_span >= serial_span) fail("pipelined run did not save cycles");
         pulse_soft_reset();
 
-        $display("PASS tb_matrix_controller_16jobs %0dx%0dx%0d in_bytes=%0d jobs=%0d serial=%0d pipelined=%0d saved=%0d serial_steady=%0d pipelined_steady=%0d first=%0d",
+        $display("PASS tb_matrix_core_controller_16jobs %0dx%0dx%0d in_bytes=%0d jobs=%0d serial=%0d pipelined=%0d saved=%0d serial_steady=%0d pipelined_steady=%0d first=%0d",
                  ROWS, COLUMNS, JOB_K, IN_BYTES, NUM_JOBS, serial_span, pipelined_span,
                  serial_span - pipelined_span, serial_steady, pipelined_steady,
                  pipelined_first);

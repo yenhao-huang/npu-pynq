@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module tb_matrix_controller_8x8;
+module tb_matrix_core_controller_8x8;
     localparam integer ROWS = 8;
     localparam integer COLUMNS = 8;
     localparam integer MAX_K = 16;
@@ -39,7 +39,7 @@ module tb_matrix_controller_8x8;
 
     task automatic fail(input string message);
         begin
-            $display("FAIL tb_matrix_controller_8x8: %s", message);
+            $display("FAIL tb_matrix_core_controller_8x8: %s", message);
             $fatal(1);
         end
     endtask
@@ -166,7 +166,7 @@ module tb_matrix_controller_8x8;
                         fail("output stream ended early");
                     if ($signed(m_axis_tdata) !== expected[row][column]) begin
                         $display(
-                            "FAIL tb_matrix_controller_8x8: [%0d,%0d] expected %0d got %0d",
+                            "FAIL tb_matrix_core_controller_8x8: [%0d,%0d] expected %0d got %0d",
                             row, column, expected[row][column], $signed(m_axis_tdata)
                         );
                         $fatal(1);
@@ -188,7 +188,7 @@ module tb_matrix_controller_8x8;
             if (cycles != active_m * ((active_k + IN_BYTES - 1) / IN_BYTES) +
                           active_k * ((active_n + IN_BYTES - 1) / IN_BYTES) +
                           active_m * active_n + active_m + active_n + 3 + 1) begin
-                $display("FAIL tb_matrix_controller_8x8: cycles %0d for %0dx%0dx%0d",
+                $display("FAIL tb_matrix_core_controller_8x8: cycles %0d for %0dx%0dx%0d",
                          cycles, active_m, active_n, active_k);
                 $fatal(1);
             end
@@ -212,7 +212,7 @@ module tb_matrix_controller_8x8;
             );
         end
 
-        $display("PASS tb_matrix_controller_8x8 cases=34");
+        $display("PASS tb_matrix_core_controller_8x8 cases=34");
         $finish;
     end
 endmodule

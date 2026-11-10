@@ -1,5 +1,8 @@
 `timescale 1ns/1ps
 
+// Matrix core: runs INT8 GEMM jobs over AXI-Stream. It wires the controller
+// (u_controller), which sequences each job cycle by cycle, to the operand
+// buffers (one bank per array edge) and the systolic array.
 module matrix_core #(
     parameter integer ROWS = 2,
     parameter integer COLUMNS = 2,
@@ -42,11 +45,61 @@ module matrix_core #(
     wire [COLUMNS-1:0] array_b_valid;
     wire signed [ROWS*COLUMNS*32-1:0] array_accumulators;
 
-    matrix_controller #(
+    matrix_core_controller #(
         .ROWS(ROWS), .COLUMNS(COLUMNS), .MAX_K(MAX_K), .IN_BYTES(IN_BYTES)
-    ) controller (.*);
+    ) u_controller (.*);
 
-    matrix_datapath #(
-        .ROWS(ROWS), .COLUMNS(COLUMNS), .MAX_K(MAX_K), .IN_BYTES(IN_BYTES)
-    ) datapath (.*);
+    // Operand memory and the systolic array, driven by the controller.
+    localparam integer K_ADDR_WIDTH = (MAX_K > 1) ? $clog2(MAX_K) : 1;
+    localparam integer LANE_BITS = (IN_BYTES > 1) ? $clog2(IN_BYTES) : 1;
+    // Each bank holds two halves of 2**K_ADDR_WIDTH bytes; the address MSB is
+    // the ping-pong half, load_half for writes and exec_half for reads.
+    localparam integer BANK_DEPTH = 2 << K_ADDR_WIDTH;
+    localparam integer A_LANE_BITS = (IN_BYTES > 1) ? $clog2(IN_BYTES) : 0;
+    localparam integer A_HALF_WORD_BITS = K_ADDR_WIDTH - A_LANE_BITS;
+
+    wire signed [ROWS*8-1:0] array_a;
+    wire signed [COLUMNS*8-1:0] array_b;
+
+    for (genvar bank = 0; bank < ROWS; bank++) begin : gen_a_banks
+        wire [K_ADDR_WIDTH-1:0] read_index = K_ADDR_WIDTH'(compute_step - bank);
+        wire [A_HALF_WORD_BITS:0] write_word;
+        if (A_HALF_WORD_BITS > 0) begin : gen_word
+            assign write_word = {load_half, align_word[A_HALF_WORD_BITS-1:0]};
+        end else begin : gen_half
+            assign write_word = load_half;
+        end
+        operand_buffer #(.DEPTH(BANK_DEPTH), .WRITE_BYTES(IN_BYTES)) buffer (
+            .clk(clk),
+            .write_enable(align_emit && state_load_a && (align_row == 16'(bank))),
+            .write_word_address(write_word),
+            .write_data(write_data),
+            .read_enable(array_enable),
+            .read_address({exec_half, read_index}),
+            .read_data(array_a[bank*8 +: 8])
+        );
+    end
+
+    for (genvar bank = 0; bank < COLUMNS; bank++) begin : gen_b_banks
+        wire [K_ADDR_WIDTH-1:0] read_index = K_ADDR_WIDTH'(compute_step - bank);
+        operand_buffer #(.DEPTH(BANK_DEPTH), .WRITE_BYTES(1)) buffer (
+            .clk(clk),
+            .write_enable(align_emit && state_load_b &&
+                          (align_word == 16'(bank >> LANE_BITS))),
+            .write_word_address({load_half, align_row[K_ADDR_WIDTH-1:0]}),
+            .write_data(write_data[(bank % IN_BYTES)*8 +: 8]),
+            .read_enable(array_enable),
+            .read_address({exec_half, read_index}),
+            .read_data(array_b[bank*8 +: 8])
+        );
+    end
+
+    systolic_array #(
+        .ROWS(ROWS), .COLUMNS(COLUMNS), .DATA_WIDTH(8), .ACC_WIDTH(32)
+    ) array (
+        .clk(clk), .rst_n(rst_n), .clear(array_clear), .enable(array_enable),
+        .a_in(array_a), .a_valid_in(array_a_valid),
+        .b_in(array_b), .b_valid_in(array_b_valid),
+        .accumulators(array_accumulators)
+    );
 endmodule

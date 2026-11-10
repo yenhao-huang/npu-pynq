@@ -1,9 +1,9 @@
-# `matrix_controller`
+# `matrix_core_controller`
 
-`src/hw/rtl/npu_accelerator/matrix_core/controller/matrix_controller.sv`
+`src/hw/rtl/npu_accelerator/matrix_core/controller/matrix_core_controller.sv`
 turns job commands and packed AXI-Stream operand frames into
 AXI-Stream result frames. It sequences the operand banks and the systolic array
-in `matrix_datapath`, but it stores no operands itself.
+that `matrix_core` instantiates beside it, but it stores no operands itself.
 
 Since register ABI 2.0 the job commands come from the scalar core, not from
 AXI-Lite registers: in `npu_accelerator` the scalar core drives `start_pulse`
@@ -43,8 +43,8 @@ change is built on:
 | Port | Direction | Meaning |
 | --- | --- | --- |
 | `status_accept` | out | a queue entry is free; carried on `STATUS` bit 3 |
-| `load_half` | out, to the datapath | the bank half the load engine writes |
-| `exec_half` | out, to the datapath | the bank half the exec engine reads |
+| `load_half` | out, to the operand banks | the bank half the load engine writes |
+| `exec_half` | out, to the operand banks | the bank half the exec engine reads |
 
 ## 3. Job admission
 
@@ -70,7 +70,7 @@ waiting for the array. Software must size it accordingly.
 
 ## 4. Operand banks and halves
 
-`matrix_datapath` instantiates one `operand_buffer` per array edge:
+`matrix_core` instantiates one `operand_buffer` per array edge:
 `gen_a_banks[r]` holds row `r` of `A`, and `gen_b_banks[c]` holds column `c`
 of `B`. Each buffer has one write port, fed by the row aligner, and one
 synchronous read port, feeding the array's boundary register.
@@ -215,7 +215,7 @@ need one of:
 
 ## 10. Measured behaviour
 
-`src/hw/tb/npu_accelerator/tb_matrix_controller_16jobs.sv` runs 16 stall-free
+`src/hw/tb/npu_accelerator/tb_matrix_core_controller_16jobs.sv` runs 16 stall-free
 jobs twice, both through `matrix_core` with 64-bit packed beats:
 - serialized, where `START` waits for `!BUSY`;
 - pipelined, where `START` waits for `ACCEPT`.
@@ -234,7 +234,7 @@ serialized pass against the core before this change, with
 
 `docs/goal/ping-pong-buffer-prompt.md` has the full sweep, including 4x4.
 
-`tb_matrix_controller_pipeline.sv` (2x2) and `_pipeline_8x8.sv` cover the
+`tb_matrix_core_controller_pipeline.sv` (2x2) and `_pipeline_8x8.sv` cover the
 same mechanism with packed beats, and the 2x2 bench also injects input stalls
 and output backpressure. Both check:
 - half swapping;

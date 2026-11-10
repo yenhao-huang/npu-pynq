@@ -8,9 +8,9 @@ array configurations. The 8x8 target is the default. Explicit 2x2 builds remain 
 The RTL directory follows the instance hierarchy. Under the design directory
 `src/hw/rtl/npu_accelerator/`, `npu_accelerator/` contains its top-level
 module, `csr/`, `scalar_core/`, and `matrix_core/`. The core
-directory contains its module, `controller/`, and `matrix_datapath/`; the
-datapath directory contains its module, `memory/`, and `systolic_array/`. The
-block design has no Xilinx AXI DMA: the accelerator's own AXI4 master on HP0
+directory contains its module `matrix_core`, which wires the controller, the
+operand buffers and the array, and `controller/`, `memory/`, and
+`systolic_array/`. The block design has no Xilinx AXI DMA: the accelerator's own AXI4 master on HP0
 moves every program word and tile.
 
 - **AXI:** `csr/csr` (control and status registers) owns the accelerator's control/status
@@ -27,11 +27,11 @@ moves every program word and tile.
   cycle counter. The controller's stride and timeout inputs are tied in
   `npu_accelerator` to the dense row-major strides of the job shape and to the
   largest timeout (`0xFFFFFFFF` cycles, about 43 s at 100 MHz).
-- **Controller:** `matrix_controller` owns job validation, load/compute/output
-  sequencing, stream handshakes, buffer addresses and enables, timeout/error
-  handling, and the output selection. It does not store operands or instantiate
+- **Controller:** `matrix_core_controller` (instance `u_controller`) owns job
+  validation, load/compute/output sequencing, stream handshakes, buffer
+  addresses and enables, timeout/error handling, and the output selection. It does not store operands or instantiate
   processing elements.
-- **Memory:** `matrix_datapath` instantiates one `operand_buffer` bank
+- **Memory:** `matrix_core` instantiates one `operand_buffer` bank
   per array row for A and per column for B. A banks accept row-aligned words;
   B banks accept one byte per emitted row. Each bank has a synchronous read
   port, and disabled reads hold their prior output. This preserves the
@@ -172,14 +172,14 @@ the matrix core.
                                     | START, M/N/K          |
                                     | (registered in EX)    |
                                     v                       v
-                           matrix_controller + 16 x 16 systolic array
+                      matrix_core_controller + 16 x 16 systolic array
 
    scalar_core_controller: START admission, run state, stop (IF), drained (ID),
    fault latch (EX), RUNNING/DONE/ERROR/BUSY, ISA_ERROR, ISA_JOBS, ISA_CYCLES
 ```
 
 `scalar_core_controller` is the scalar core's program-level run control, as
-`matrix_controller` is the matrix core's per-job sequencer. The stages report
+`matrix_core_controller` is the matrix core's per-job sequencer. The stages report
 events to it (decode: an instruction it cannot execute, END retiring; execute:
 a job issued, a job written back; fetch, load/store and the matrix core: a
 fault) and it returns `running`, `stop`, `drained` and the fault latch. The

@@ -332,13 +332,13 @@ RTL may be divided into nested module directories that follow the instance
 hierarchy. In `npu_accelerator`, the design directory holds the top module
 `npu_accelerator.sv`,
 `csr/` (the control and status registers, reached over AXI-Lite),
-`scalar_core/`, and `matrix_core/`; the core contains `controller/` and
-`matrix_datapath/`, and the datapath contains `memory/` and
+`scalar_core/`, and `matrix_core/`; the matrix core holds its module
+`matrix_core.sv` and contains `controller/`, `memory/` and
 `systolic_array/`. Each core has a controller beside the modules it
 controls: `scalar_core_controller` is the program-level run control over the
 scalar core's pipeline stages (start admission, run state, busy, faults and
-the reported error), and `matrix_controller` sequences one job over the
-matrix datapath, cycle by cycle. Testbenches remain in `src/hw/tb/<design>/`.
+the reported error), and `matrix_core_controller` sequences one job over the
+operand buffers and the systolic array, cycle by cycle. Testbenches remain in `src/hw/tb/<design>/`.
 Only the top module carries the `npu_` prefix. A module that belongs to one
 core takes the core's name as its prefix (`scalar_core_fetch`), a generic
 building block says what it is (`sync_fifo`, `axis_skid`), and a testbench is

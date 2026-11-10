@@ -9,13 +9,13 @@
 //   exec engine : clears, walks the systolic wavefront over the half named by
 //                 exec_ptr, and drains m_axis
 //
-// The datapath's operand banks are two halves deep; load_half and exec_half
+// The core's operand banks are two halves deep; load_half and exec_half
 // select the half each engine touches, so the next job's operands stream in
 // while the current job computes and outputs. The exec engine starts as soon
 // as a job's A frame has landed and advances the wavefront while that job's B
 // rows still arrive. A job is accepted whenever a queue entry is free; START
 // with both entries occupied still raises ERR_BUSY_START.
-module matrix_controller #(
+module matrix_core_controller #(
     parameter integer ROWS = 2,
     parameter integer COLUMNS = 2,
     parameter integer MAX_K = 256,
@@ -175,9 +175,9 @@ module matrix_controller #(
 
     initial begin
         if (ROWS <= 0 || COLUMNS <= 0 || MAX_K <= 0 || IN_BYTES <= 0)
-            $fatal(1, "matrix_controller parameters must be positive");
+            $fatal(1, "matrix_core_controller parameters must be positive");
         if ((IN_BYTES & (IN_BYTES - 1)) != 0 || (MAX_K % IN_BYTES) != 0)
-            $fatal(1, "matrix_controller IN_BYTES must be a power of two dividing MAX_K");
+            $fatal(1, "matrix_core_controller IN_BYTES must be a power of two dividing MAX_K");
     end
 
     assign load_m = slot_m[load_ptr];

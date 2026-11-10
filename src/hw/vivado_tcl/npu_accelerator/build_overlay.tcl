@@ -69,12 +69,11 @@ set_property target_language Verilog [current_project]
 set_property simulator_language Mixed [current_project]
 
 set rtl_files [list \
-    [file join $repo_root src hw rtl npu_accelerator matrix_core matrix_datapath systolic_array pe.sv] \
-    [file join $repo_root src hw rtl npu_accelerator matrix_core matrix_datapath systolic_array systolic_array.sv] \
+    [file join $repo_root src hw rtl npu_accelerator matrix_core systolic_array pe.sv] \
+    [file join $repo_root src hw rtl npu_accelerator matrix_core systolic_array systolic_array.sv] \
     [file join $repo_root src hw rtl npu_accelerator csr csr.sv] \
-    [file join $repo_root src hw rtl npu_accelerator matrix_core matrix_datapath memory operand_buffer.sv] \
-    [file join $repo_root src hw rtl npu_accelerator matrix_core controller matrix_controller.sv] \
-    [file join $repo_root src hw rtl npu_accelerator matrix_core matrix_datapath matrix_datapath.sv] \
+    [file join $repo_root src hw rtl npu_accelerator matrix_core memory operand_buffer.sv] \
+    [file join $repo_root src hw rtl npu_accelerator matrix_core controller matrix_core_controller.sv] \
     [file join $repo_root src hw rtl npu_accelerator matrix_core matrix_core.sv] \
     [file join $repo_root src hw rtl npu_accelerator axis_skid.sv] \
     [file join $repo_root src hw rtl npu_accelerator scalar_core sync_fifo.sv] \
