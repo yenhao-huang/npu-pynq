@@ -12,6 +12,8 @@ import ctypes
 from pathlib import Path
 from typing import Any
 
+from src.vendors.npu_pynq.spec.abi import Capability, Register
+
 from . import DelegateError, build_library
 
 DRIVER = Path(__file__).resolve().parents[2] / 'vendors' / 'npu_pynq' / 'driver' / 'npu_rt'
@@ -26,15 +28,13 @@ class Platform(ctypes.Structure):
     _fields_ = [('mmio', ctypes.c_void_p), ('io', Buffer), ('stage', Buffer), ('code', Buffer)]
 
 
-REG_CAPABILITIES = 0x08
-CAP_ISA_FRONTEND = 1 << 6
 
 
 def check_overlay(overlay: Any, accelerator: str, package: Path) -> None:
     """The overlay runs ISA programs and has the array the package was compiled for."""
     import json
 
-    if not int(getattr(overlay, accelerator).read(REG_CAPABILITIES)) & CAP_ISA_FRONTEND:
+    if not int(getattr(overlay, accelerator).read(Register.CAPABILITIES)) & Capability.ISA_FRONTEND:
         raise DelegateError('the overlay does not implement the ISA front end (ABI 1.1)')
     params = overlay.ip_dict[accelerator].get('parameters', {})
     found = {'rows': int(params.get('ROWS', 16)), 'columns': int(params.get('COLUMNS', 16)),
