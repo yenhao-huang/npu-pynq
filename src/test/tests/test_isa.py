@@ -102,7 +102,7 @@ class HardwareContractTest(unittest.TestCase):
     def test_rtl_opcodes_and_registers_match_the_spec(self):
         import re
         from pathlib import Path
-        from src.test.model.abi import Capability, IsaRegister
+        from src.vendors.npu_pynq.spec.abi import Capability, IsaRegister
         root = Path(__file__).resolve().parents[3] / "src/hw/rtl/npu_matrix/npu_accelerator"
         decode = (root / "npu_isa_frontend/npu_isa_decode.sv").read_text()
         rtl_ops = {name.lower(): int(value, 16)

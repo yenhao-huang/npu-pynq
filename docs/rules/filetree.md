@@ -59,7 +59,7 @@ npu_repo_in_pynq/
 |   |   `-- waves/
 |   |-- vendors/                 one folder per accelerator; imported by export and runtime, imports neither
 |   |   `-- npu_pynq/
-|   |       |-- spec/            hardware facts: isa.py, layout.py, quant.py (schemes accepted), board.py
+|   |       |-- spec/            hardware facts: isa.py, abi.py (registers), layout.py, quant.py (schemes accepted), board.py
 |   |       |-- custom_dialect/  C++ (LLVM 22): the npu dialect, --npu-claim, Pack, Encode; a
 |   |       |                    library pynqo-backend links; never shipped to the board
 |   |       `-- driver/          board side; follows spec/
@@ -190,7 +190,10 @@ compiler. `python -m unittest src.test.tests.test_vendor_boundary` enforces
 these edges.
 
 `src/vendors/npu_pynq/spec/` is the single definition of the NPU: `isa.py`
-encodes and decodes the instruction set, `layout.py` fixes how a tiled GEMM
+encodes and decodes the instruction set, `abi.py` is everything around it that
+software uses to talk to the NPU (identity and version, capability bits, the
+AXI-Lite register map, status bits, error codes; `src/test/tests/test_abi.py`
+checks the RTL and `driver/npu_rt/` against it), `layout.py` fixes how a tiled GEMM
 maps onto DDR, `quant.py` names the quantization schemes the NPU accepts, and
 `board.py` the board's CPU. RTL opcodes must match `isa.py`;
 `src/test/tests/test_isa.py` enforces that against the golden model

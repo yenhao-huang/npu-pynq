@@ -1,22 +1,25 @@
 import unittest
 
-from src.test.model.abi import (
+from pathlib import Path
+import re
+
+from src.vendors.npu_pynq.spec.abi import (
     ABI_MAGIC,
     ABI_WINDOW_BYTES,
-    MATRIX_REQUIRED_CAPABILITIES,
+    REQUIRED_CAPABILITIES,
     AbiCompatibilityError,
     AbiVersion,
-    BufferRange,
     Capability,
     Control,
     ErrorCode,
-    JobValidationError,
-    MatrixBuffers,
-    MatrixJob,
+    IsaRegister,
+    IsaStatus,
     Register,
     Status,
     negotiate_abi,
 )
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class ConstantTests(unittest.TestCase):
@@ -74,15 +77,16 @@ class CompatibilityTests(unittest.TestCase):
         version = negotiate_abi(
             magic=ABI_MAGIC,
             version_word=AbiVersion(1, 9).encode(),
-            capabilities=int(MATRIX_REQUIRED_CAPABILITIES | Capability.REQUANT_INT8),
+            capabilities=int(REQUIRED_CAPABILITIES | Capability.REQUANT_INT8),
         )
         self.assertEqual(version, AbiVersion(1, 9))
 
     def test_bad_magic_major_or_capabilities_are_rejected(self):
         cases = (
-            (0, AbiVersion(1, 0).encode(), int(MATRIX_REQUIRED_CAPABILITIES)),
-            (ABI_MAGIC, AbiVersion(2, 0).encode(), int(MATRIX_REQUIRED_CAPABILITIES)),
+            (0, AbiVersion(1, 0).encode(), int(REQUIRED_CAPABILITIES)),
+            (ABI_MAGIC, AbiVersion(2, 0).encode(), int(REQUIRED_CAPABILITIES)),
             (ABI_MAGIC, AbiVersion(1, 0).encode(), int(Capability.MATRIX_INT8)),
+            (ABI_MAGIC, AbiVersion(1, 1).encode(), int(REQUIRED_CAPABILITIES & ~Capability.ISA_FRONTEND)),
         )
         for magic, version, capabilities in cases:
             with self.subTest(magic=magic, version=version, capabilities=capabilities):
@@ -90,102 +94,13 @@ class CompatibilityTests(unittest.TestCase):
                     negotiate_abi(magic, version, capabilities)
 
 
-class JobTests(unittest.TestCase):
-    def test_dense_job_and_payload_counts(self):
-        job = MatrixJob.dense(m=2, n=3, k=4, timeout_cycles=1000)
-        self.assertEqual((job.a_stride, job.b_stride, job.c_stride), (4, 3, 12))
-        self.assertEqual(job.input_elements, 20)
-        self.assertEqual(job.output_elements, 6)
-        self.assertEqual(job.payload_bytes, (8, 12, 24))
-
-    def test_job_is_immutable(self):
-        job = MatrixJob.dense(1, 1, 1, timeout_cycles=1)
-        with self.assertRaises((AttributeError, TypeError)):
-            job.m = 2
-
-    def test_invalid_dimensions_strides_and_timeout_are_rejected(self):
-        invalid_arguments = (
-            dict(m=0, n=1, k=1, a_stride=1, b_stride=1, c_stride=4, timeout_cycles=1),
-            dict(m=1, n=65536, k=1, a_stride=1, b_stride=65536, c_stride=262144, timeout_cycles=1),
-            dict(m=1, n=2, k=3, a_stride=2, b_stride=2, c_stride=8, timeout_cycles=1),
-            dict(m=1, n=2, k=3, a_stride=3, b_stride=1, c_stride=8, timeout_cycles=1),
-            dict(m=1, n=2, k=3, a_stride=3, b_stride=2, c_stride=6, timeout_cycles=1),
-            dict(m=1, n=1, k=1, a_stride=1, b_stride=1, c_stride=4, timeout_cycles=0),
-        )
-        for arguments in invalid_arguments:
-            with self.subTest(arguments=arguments):
-                with self.assertRaises(ValueError):
-                    MatrixJob(**arguments)
-
-    def test_preflight_errors_carry_abi_codes(self):
-        cases = (
-            (
-                dict(m=0, n=1, k=1, a_stride=1, b_stride=1, c_stride=4, timeout_cycles=1),
-                ErrorCode.INVALID_DIMENSION,
-            ),
-            (
-                dict(m=1, n=2, k=3, a_stride=2, b_stride=2, c_stride=8, timeout_cycles=1),
-                ErrorCode.INVALID_STRIDE,
-            ),
-            (
-                dict(m=1, n=1, k=1, a_stride=1, b_stride=1, c_stride=4, timeout_cycles=0),
-                ErrorCode.INVALID_TIMEOUT,
-            ),
-        )
-        for arguments, expected_code in cases:
-            with self.subTest(arguments=arguments):
-                with self.assertRaises(JobValidationError) as raised:
-                    MatrixJob(**arguments)
-                self.assertEqual(raised.exception.code, expected_code)
-
-
-class BufferTests(unittest.TestCase):
-    def setUp(self):
-        self.job = MatrixJob.dense(2, 3, 4, timeout_cycles=1000)
-
-    def test_valid_buffers_cover_dense_payloads(self):
-        buffers = MatrixBuffers(
-            a=BufferRange(0x1000, 8),
-            b=BufferRange(0x2000, 12),
-            c=BufferRange(0x3000, 24),
-        )
-        buffers.validate_for(self.job)
-
-    def test_last_aligned_32_bit_range_is_valid(self):
-        BufferRange(0xFFFFFFC0, 64)
-
-    def test_misaligned_wrapping_or_undersized_buffers_are_rejected(self):
-        with self.assertRaises(ValueError):
-            BufferRange(0x1001, 64)
-        with self.assertRaises(ValueError):
-            BufferRange(0xFFFFFFC0, 65)
-        with self.assertRaises(ValueError):
-            MatrixBuffers(
-                a=BufferRange(0x1000, 7),
-                b=BufferRange(0x2000, 12),
-                c=BufferRange(0x3000, 24),
-            ).validate_for(self.job)
-
-    def test_output_must_not_overlap_an_input(self):
-        with self.assertRaises(ValueError):
-            MatrixBuffers(
-                a=BufferRange(0x1000, 128),
-                b=BufferRange(0x2000, 64),
-                c=BufferRange(0x1040, 64),
-            ).validate_for(self.job)
-
-
-if __name__ == "__main__":
-    unittest.main()
-
-
 class PipelinedJobAbiTest(unittest.TestCase):
     def test_pipelined_jobs_is_advertised_not_required(self):
-        self.assertNotIn(Capability.PIPELINED_JOBS, MATRIX_REQUIRED_CAPABILITIES)
+        self.assertNotIn(Capability.PIPELINED_JOBS, REQUIRED_CAPABILITIES)
         version = negotiate_abi(
             magic=ABI_MAGIC,
             version_word=AbiVersion(1, 0).encode(),
-            capabilities=int(MATRIX_REQUIRED_CAPABILITIES),
+            capabilities=int(REQUIRED_CAPABILITIES),
         )
         self.assertEqual(version, AbiVersion(1, 0))
 
@@ -193,7 +108,7 @@ class PipelinedJobAbiTest(unittest.TestCase):
         version = negotiate_abi(
             magic=ABI_MAGIC,
             version_word=AbiVersion(1, 0).encode(),
-            capabilities=int(MATRIX_REQUIRED_CAPABILITIES | Capability.PIPELINED_JOBS),
+            capabilities=int(REQUIRED_CAPABILITIES | Capability.PIPELINED_JOBS),
         )
         self.assertEqual(version, AbiVersion(1, 0))
 
@@ -202,3 +117,35 @@ class PipelinedJobAbiTest(unittest.TestCase):
         self.assertEqual(
             int(Status.BUSY | Status.DONE | Status.ERROR | Status.ACCEPT), 0xF
         )
+
+
+class DriverMatchesSpecTests(unittest.TestCase):
+    """The board driver hard-codes the register map in C++; it must equal the spec."""
+
+    def test_the_hardware_reports_what_the_runtime_requires(self):
+        regs = (ROOT / "src/hw/rtl/npu_matrix/npu_accelerator/axi_lite/npu_axi_lite_regs.sv").read_text()
+        reported = int(re.search(r"ABI_CAPABILITIES = 32'h([0-9a-fA-F]+)", regs).group(1), 16)
+        self.assertEqual(int(REQUIRED_CAPABILITIES) & ~reported, 0)
+        version = negotiate_abi(ABI_MAGIC, AbiVersion().encode(), reported)
+        self.assertEqual(version, AbiVersion())
+
+    def test_npu_rt_registers_and_status_bits(self):
+        source = (ROOT / "src/vendors/npu_pynq/driver/npu_rt/pynq.cpp").read_text()
+        found = {name: int(value, 16) for name, value in re.findall(r"REG_(\w+) = (0x[0-9A-Fa-f]+)", source)}
+        self.assertTrue(found, "no REG_* constants found in pynq.cpp")
+        isa = {member.name: member.value for member in IsaRegister}
+        for name, value in found.items():
+            key = name[4:] if name.startswith("ISA_") else name
+            with self.subTest(register=name):
+                self.assertEqual(value, isa[key])
+        bits = {name: int(value) for name, value in re.findall(r"STATUS_(\w+) = (\d+)", source)}
+        self.assertEqual(bits, {member.name: member.value for member in IsaStatus})
+
+    def test_the_runtime_takes_the_register_map_from_the_spec(self):
+        source = (ROOT / "src/runtime/delegate/npu.py").read_text()
+        self.assertIn("from src.vendors.npu_pynq.spec.abi import", source)
+        self.assertNotRegex(source, r"REG_\w+ = 0x")
+
+
+if __name__ == "__main__":
+    unittest.main()
