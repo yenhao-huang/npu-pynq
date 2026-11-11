@@ -87,19 +87,10 @@
   <text class="label" x="467" y="692" text-anchor="middle">data</text>
 
   <!-- csr -->
-  <path class="flow both" d="M500 335V365H600"/>
+  <path class="flow" d="M500 335V365H600"/>
   <text class="label" x="520" y="356">start</text>
-  <text class="label" x="508" y="388">status</text>
-  <path class="flow" d="M1380 340V242H500V285"/>
-  <text class="label" x="940" y="234" text-anchor="middle">matrix status</text>
 
   <!-- inside scalar_core -->
-  <path class="flow" d="M665 405V465"/>
-  <text class="label" x="679" y="441">stop</text>
-  <path class="flow" d="M840 405V465"/>
-  <text class="label" x="854" y="441">drained</text>
-  <path class="flow" d="M1015 405V465"/>
-  <text class="label" x="1029" y="441">gate</text>
   <path class="flow" d="M730 530H775"/>
   <path class="flow" d="M905 530H950"/>
   <path class="flow" d="M665 665V595"/>
@@ -108,8 +99,6 @@
   <text class="label" x="1029" y="636">data</text>
 
   <!-- scalar_core to matrix_core -->
-  <path class="flow" d="M1245 372H1080"/>
-  <text class="label" x="1162" y="359" text-anchor="middle">status</text>
   <path class="flow" d="M1080 480H1245"/>
   <text class="label" x="1162" y="467" text-anchor="middle">jobs</text>
   <path class="flow both" d="M1080 575H1245"/>
@@ -121,5 +110,5 @@
   <path class="flow" d="M1515 635H1585"/>
   <text class="label" x="1550" y="617" text-anchor="middle">A / B</text>
 
-  <text class="label" x="1010" y="875" text-anchor="middle">PS → csr → scalar_core (IF → ID → EX) → matrix_core  ·  scalar_core alone issues jobs; csr reads both cores' status</text>
+  <text class="label" x="1010" y="875" text-anchor="middle">PS → csr → scalar_core (IF → ID → EX) → matrix_core  ·  scalar_core alone issues jobs</text>
 </svg>
