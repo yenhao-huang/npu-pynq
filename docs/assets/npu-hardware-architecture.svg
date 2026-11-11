@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 930" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2020 930" role="img" aria-labelledby="title desc">
   <title id="title">PYNQ-Z1 NPU hardware architecture</title>
-  <desc id="desc">High-level diagram showing the processing system, programmable logic, npu_accelerator, csr, scalar_core, matrix_core, controller, memory, and systolic_array functions.</desc>
+  <desc id="desc">High-level diagram showing the processing system, programmable logic, npu_accelerator, csr, scalar_core with its controller, IF, ID and EX stages and AXI4 master, and matrix_core with its controller, memory, and systolic_array functions.</desc>
   <defs>
     <radialGradient id="background"><stop offset="0" stop-color="#101c28"/><stop offset="1" stop-color="#071019"/></radialGradient>
     <linearGradient id="silver" x2="1" y2="1"><stop offset="0" stop-color="#dddddd"/><stop offset="1" stop-color="#adb3ba"/></linearGradient>
@@ -27,61 +27,82 @@
       .both { marker-start:url(#arrow) }
     </style>
   </defs>
-  <rect class="bg" width="1600" height="930"/>
-  <text class="title" x="800" y="66" text-anchor="middle">PYNQ-Z1 / Zynq-7020</text>
+  <rect class="bg" width="2020" height="930"/>
+  <text class="title" x="1010" y="66" text-anchor="middle">PYNQ-Z1 / Zynq-7020</text>
 
   <rect class="panel" x="28" y="115" width="350" height="715" stroke="#60e535"/>
   <text class="section" x="203" y="162" text-anchor="middle" fill="#60e535">Processing System (PS)</text>
   <rect class="card silver" x="70" y="240" width="265" height="140"/>
-  <text class="module" x="202" y="305" text-anchor="middle">ARM Cortex-A9</text>
-  <text class="detail" x="202" y="340" text-anchor="middle">software control</text>
-  <rect class="card steel" x="70" y="545" width="265" height="140"/>
-  <text class="module" x="202" y="611" text-anchor="middle">DDR Memory</text>
-  <text class="detail" x="202" y="645" text-anchor="middle">programs / tiles</text>
+  <text class="module" x="202" y="319" text-anchor="middle">ARM Cortex-A9</text>
+  <rect class="card steel" x="70" y="635" width="265" height="140"/>
+  <text class="module" x="202" y="714" text-anchor="middle">DDR Memory</text>
 
-  <rect class="panel" x="405" y="115" width="1167" height="715" stroke="#ef367c"/>
-  <text class="section" x="988" y="162" text-anchor="middle" fill="#ef367c">Programmable Logic (PL)</text>
-  <rect class="panel" x="430" y="190" width="1115" height="560" stroke="#ffffff"/>
-  <text class="section" x="592" y="229" text-anchor="middle" fill="#ffffff">npu_accelerator</text>
-  <rect class="card steel" x="455" y="260" width="275" height="175"/>
-  <text class="module" x="592" y="322" text-anchor="middle">csr</text>
-  <text class="detail" x="592" y="360" text-anchor="middle">AXI-Lite registers</text>
-  <text class="detail" x="592" y="395" text-anchor="middle">PROG_ADDR · START · IRQ</text>
-  <rect class="card steel" x="455" y="485" width="275" height="200"/>
-  <text class="module" x="592" y="545" text-anchor="middle">scalar_core</text>
-  <text class="detail" x="592" y="583" text-anchor="middle">controller · fetch</text>
-  <text class="detail" x="592" y="618" text-anchor="middle">decode · LSU</text>
-  <text class="detail" x="592" y="653" text-anchor="middle">AXI4 master</text>
+  <rect class="panel" x="405" y="115" width="1587" height="715" stroke="#ef367c"/>
+  <text class="section" x="1198" y="162" text-anchor="middle" fill="#ef367c">Programmable Logic (PL)</text>
+  <rect class="panel" x="430" y="190" width="1537" height="610" stroke="#ffffff"/>
+  <text class="section" x="455" y="229" fill="#ffffff">npu_accelerator</text>
+  <rect class="card steel" x="455" y="285" width="90" height="50"/>
+  <text class="module" x="500" y="319" text-anchor="middle">csr</text>
 
-  <rect class="panel" x="790" y="220" width="735" height="505" stroke="#70e3d4"/>
-  <text class="section" x="1157" y="263" text-anchor="middle" fill="#70e3d4">matrix_core</text>
-  <rect class="card turquoise" x="830" y="305" width="270" height="145"/>
-  <text class="module" x="965" y="367" text-anchor="middle">controller</text>
-  <text class="detail" x="965" y="405" text-anchor="middle">two-job queue</text>
-  <rect class="card yellow" x="830" y="505" width="270" height="175"/>
-  <text class="module" x="965" y="571" text-anchor="middle">memory</text>
-  <text class="detail" x="965" y="609" text-anchor="middle">A / B double buffering</text>
-  <rect class="card rose" x="1170" y="330" width="305" height="315"/>
-  <text class="module" x="1322" y="438" text-anchor="middle">systolic_array</text>
-  <text class="detail" x="1322" y="485" text-anchor="middle">16 × 16 default</text>
-  <text class="detail" x="1322" y="520" text-anchor="middle">8 × 8, 2 × 2 supported</text>
+  <rect class="panel" x="575" y="255" width="530" height="520" stroke="#9cc0e6"/>
+  <text class="section" x="840" y="296" text-anchor="middle" fill="#9cc0e6">scalar_core</text>
+  <rect class="card steel" x="600" y="315" width="480" height="90"/>
+  <text class="module" x="840" y="369" text-anchor="middle">controller</text>
+  <rect class="card steel" x="600" y="465" width="130" height="130"/>
+  <text class="module" x="665" y="505" text-anchor="middle">IF</text>
+  <text class="detail" x="665" y="537" text-anchor="middle">fetch</text>
+  <text class="detail" x="665" y="563" text-anchor="middle">PC · queue</text>
+  <rect class="card steel" x="775" y="465" width="130" height="130"/>
+  <text class="module" x="840" y="505" text-anchor="middle">ID</text>
+  <text class="detail" x="840" y="537" text-anchor="middle">decode</text>
+  <rect class="card steel" x="950" y="465" width="130" height="130"/>
+  <text class="module" x="1015" y="505" text-anchor="middle">EX</text>
+  <text class="detail" x="1015" y="537" text-anchor="middle">issue</text>
+  <text class="detail" x="1015" y="563" text-anchor="middle">Load-Store</text>
+  <text class="detail" x="1015" y="585" text-anchor="middle">Unit</text>
+  <rect class="card steel" x="600" y="665" width="480" height="80"/>
+  <text class="module" x="840" y="699" text-anchor="middle">AXI4 master</text>
+  <text class="detail" x="840" y="730" text-anchor="middle">IF / LSU read arbiter</text>
 
+  <rect class="panel" x="1205" y="255" width="735" height="520" stroke="#70e3d4"/>
+  <text class="section" x="1572" y="298" text-anchor="middle" fill="#70e3d4">matrix_core</text>
+  <rect class="card turquoise" x="1245" y="340" width="270" height="160"/>
+  <text class="module" x="1380" y="429" text-anchor="middle">controller</text>
+  <rect class="card yellow" x="1245" y="555" width="270" height="160"/>
+  <text class="module" x="1380" y="621" text-anchor="middle">memory</text>
+  <text class="detail" x="1380" y="659" text-anchor="middle">A / B double buffering</text>
+  <rect class="card rose" x="1585" y="365" width="305" height="315"/>
+  <text class="module" x="1737" y="505" text-anchor="middle">systolic_array</text>
+  <text class="detail" x="1737" y="548" text-anchor="middle">16 × 16</text>
+
+  <!-- PS to the accelerator -->
   <path class="flow both" d="M335 310H455"/>
   <text class="label" x="395" y="297" text-anchor="middle">control</text>
-  <path class="flow both" d="M335 615H455"/>
-  <text class="label" x="395" y="602" text-anchor="middle">data</text>
-  <path class="flow both" d="M730 365H830"/>
-  <text class="label" x="780" y="347" text-anchor="middle">status</text>
-  <path class="flow" d="M730 515H745V425H830"/>
-  <text class="label" x="752" y="476">jobs</text>
-  <path class="flow" d="M730 575H830"/>
-  <text class="label" x="780" y="555" text-anchor="middle">operands</text>
-  <path class="flow" d="M592 435V485"/>
-  <text class="label" x="612" y="466">start</text>
-  <path class="flow" d="M965 450V505"/>
-  <path class="flow both" d="M1100 385H1170"/>
-  <path class="flow" d="M1100 585H1170"/>
-  <text class="label" x="1135" y="567" text-anchor="middle">A / B</text>
+  <path class="flow both" d="M335 705H600"/>
+  <text class="label" x="467" y="692" text-anchor="middle">data</text>
 
-  <text class="label" x="800" y="875" text-anchor="middle">PS → csr → scalar_core → matrix_core  ·  scalar_core alone issues jobs; csr reads status</text>
+  <!-- csr -->
+  <path class="flow" d="M500 335V365H600"/>
+  <text class="label" x="520" y="356">start</text>
+
+  <!-- inside scalar_core -->
+  <path class="flow" d="M730 530H775"/>
+  <path class="flow" d="M905 530H950"/>
+  <path class="flow" d="M665 665V595"/>
+  <text class="label" x="679" y="636">instr</text>
+  <path class="flow both" d="M1015 595V665"/>
+  <text class="label" x="1029" y="636">data</text>
+
+  <!-- scalar_core to matrix_core -->
+  <path class="flow" d="M1080 480H1245"/>
+  <text class="label" x="1162" y="467" text-anchor="middle">jobs</text>
+  <path class="flow both" d="M1080 575H1245"/>
+  <text class="label" x="1162" y="562" text-anchor="middle">A / B · C</text>
+
+  <!-- inside matrix_core -->
+  <path class="flow" d="M1380 500V555"/>
+  <path class="flow both" d="M1515 420H1585"/>
+  <path class="flow" d="M1515 635H1585"/>
+  <text class="label" x="1550" y="617" text-anchor="middle">A / B</text>
+
 </svg>
