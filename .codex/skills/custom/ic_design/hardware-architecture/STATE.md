@@ -1,15 +1,15 @@
 # Hardware Architecture State
 
-Run ID: rename-npu-accelerator-20261004T135140Z
-Instance: .codex/skills/custom/ic_design/hardware-architecture
-Started: 2026-10-04T13:51:40Z
-Scope: Rename the RTL top to npu_accelerator and show PL → npu_accelerator → matrix_core in the active diagram.
-Last updated: 2026-10-04T13:55:35Z
+Run ID: issue165-a
+Instance: npu/issue165-a
+Started: 2026-11-11
+Scope: Redesign requested by the user: shrink csr, draw scalar_core as a matrix_core-style panel with its IF/ID/EX stages, controller and AXI4 master.
+Last updated: 2026-11-11
 
 | Step | Status | Evidence | Notes |
 | --- | --- | --- | --- |
-| 0. Define scope | completed | User specified both the RTL top rename and the diagram hierarchy. | Preserve the existing visual style. |
-| 1. Read source and rules | completed | Read repository AGENTS.md, filetree and simulation rules, active README SVG link, RTL tree, and Vivado references. | Existing runtime and test fixtures also use the top instance name. |
-| 2. Edit diagram | completed | Added npu_accelerator boundary under PL and renamed the inner boundary matrix_core. | SVG viewBox, cards, arrows, and palette remain as before. |
-| 3. Validate rendering | completed | SVG XML parsed; Sharp rendered at 1600×930 and the image was visually inspected. | Both nested labels fit the existing composition. |
-| 4. Handoff | completed | Report the updated SVG and RTL name, with RTL/Python/Vivado validation results. | No commit or push requested. |
+| 0. Define scope | completed | Issue #165; user approved the plan in chat | Visual redesign explicitly requested, so layout preservation is waived |
+| 1. Read source and rules | completed | README.md:117 links docs/assets/npu-hardware-architecture.svg; RTL dirs csr/, scalar_core/, matrix_core/{controller,matrix_datapath/{memory,systolic_array}} | Stage names from scalar_core.sv header |
+| 2. Edit diagram | completed | docs/assets/npu-hardware-architecture.svg: viewBox 1600x930 -> 2020x930; csr 90x50 label-only; scalar_core panel with controller, IF/ID/EX, AXI4 master; matrix_core internals moved, sizes kept except controller/memory height 160 | csr status paths follow npu_accelerator.sv (isa_* and status_*) |
+| 3. Validate rendering | completed | xml.etree parse OK; Chrome headless render at 2020x930 to build/arch/new.png, compared with build/arch/old.png; no label overlaps a border or arrowhead, all card text fits | The "control" label on the PS border is unchanged from the original |
+| 4. Handoff | completed | Branch npu/issue165-a, PR to dev | README link unchanged |
