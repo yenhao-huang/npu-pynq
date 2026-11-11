@@ -33,11 +33,9 @@
   <rect class="panel" x="28" y="115" width="350" height="715" stroke="#60e535"/>
   <text class="section" x="203" y="162" text-anchor="middle" fill="#60e535">Processing System (PS)</text>
   <rect class="card silver" x="70" y="240" width="265" height="140"/>
-  <text class="module" x="202" y="305" text-anchor="middle">ARM Cortex-A9</text>
-  <text class="detail" x="202" y="340" text-anchor="middle">software control</text>
+  <text class="module" x="202" y="319" text-anchor="middle">ARM Cortex-A9</text>
   <rect class="card steel" x="70" y="635" width="265" height="140"/>
-  <text class="module" x="202" y="701" text-anchor="middle">DDR Memory</text>
-  <text class="detail" x="202" y="735" text-anchor="middle">programs / tiles</text>
+  <text class="module" x="202" y="714" text-anchor="middle">DDR Memory</text>
 
   <rect class="panel" x="405" y="115" width="1587" height="715" stroke="#ef367c"/>
   <text class="section" x="1198" y="162" text-anchor="middle" fill="#ef367c">Programmable Logic (PL)</text>
@@ -49,20 +47,19 @@
   <rect class="panel" x="575" y="255" width="530" height="520" stroke="#9cc0e6"/>
   <text class="section" x="840" y="296" text-anchor="middle" fill="#9cc0e6">scalar_core</text>
   <rect class="card steel" x="600" y="315" width="480" height="90"/>
-  <text class="module" x="840" y="352" text-anchor="middle">controller</text>
-  <text class="detail" x="840" y="385" text-anchor="middle">run state · faults · drain</text>
+  <text class="module" x="840" y="369" text-anchor="middle">controller</text>
   <rect class="card steel" x="600" y="465" width="130" height="130"/>
-  <text class="module" x="665" y="517" text-anchor="middle">IF</text>
-  <text class="detail" x="665" y="552" text-anchor="middle">fetch</text>
-  <text class="detail" x="665" y="580" text-anchor="middle">PC · queue</text>
+  <text class="module" x="665" y="505" text-anchor="middle">IF</text>
+  <text class="detail" x="665" y="537" text-anchor="middle">fetch</text>
+  <text class="detail" x="665" y="563" text-anchor="middle">PC · queue</text>
   <rect class="card steel" x="775" y="465" width="130" height="130"/>
-  <text class="module" x="840" y="517" text-anchor="middle">ID</text>
-  <text class="detail" x="840" y="552" text-anchor="middle">decode</text>
-  <text class="detail" x="840" y="580" text-anchor="middle">REPEAT · job</text>
+  <text class="module" x="840" y="505" text-anchor="middle">ID</text>
+  <text class="detail" x="840" y="537" text-anchor="middle">decode</text>
   <rect class="card steel" x="950" y="465" width="130" height="130"/>
-  <text class="module" x="1015" y="517" text-anchor="middle">EX</text>
-  <text class="detail" x="1015" y="552" text-anchor="middle">issue</text>
-  <text class="detail" x="1015" y="580" text-anchor="middle">LSU</text>
+  <text class="module" x="1015" y="505" text-anchor="middle">EX</text>
+  <text class="detail" x="1015" y="537" text-anchor="middle">issue</text>
+  <text class="detail" x="1015" y="563" text-anchor="middle">Load-Store</text>
+  <text class="detail" x="1015" y="585" text-anchor="middle">Unit</text>
   <rect class="card steel" x="600" y="665" width="480" height="80"/>
   <text class="module" x="840" y="699" text-anchor="middle">AXI4 master</text>
   <text class="detail" x="840" y="730" text-anchor="middle">IF / LSU read arbiter</text>
@@ -70,15 +67,13 @@
   <rect class="panel" x="1205" y="255" width="735" height="520" stroke="#70e3d4"/>
   <text class="section" x="1572" y="298" text-anchor="middle" fill="#70e3d4">matrix_core</text>
   <rect class="card turquoise" x="1245" y="340" width="270" height="160"/>
-  <text class="module" x="1380" y="410" text-anchor="middle">controller</text>
-  <text class="detail" x="1380" y="448" text-anchor="middle">two-job queue</text>
+  <text class="module" x="1380" y="429" text-anchor="middle">controller</text>
   <rect class="card yellow" x="1245" y="555" width="270" height="160"/>
   <text class="module" x="1380" y="621" text-anchor="middle">memory</text>
   <text class="detail" x="1380" y="659" text-anchor="middle">A / B double buffering</text>
   <rect class="card rose" x="1585" y="365" width="305" height="315"/>
-  <text class="module" x="1737" y="473" text-anchor="middle">systolic_array</text>
-  <text class="detail" x="1737" y="520" text-anchor="middle">16 × 16 default</text>
-  <text class="detail" x="1737" y="555" text-anchor="middle">8 × 8, 2 × 2 supported</text>
+  <text class="module" x="1737" y="505" text-anchor="middle">systolic_array</text>
+  <text class="detail" x="1737" y="548" text-anchor="middle">16 × 16</text>
 
   <!-- PS to the accelerator -->
   <path class="flow both" d="M335 310H455"/>
@@ -110,5 +105,4 @@
   <path class="flow" d="M1515 635H1585"/>
   <text class="label" x="1550" y="617" text-anchor="middle">A / B</text>
 
-  <text class="label" x="1010" y="875" text-anchor="middle">PS → csr → scalar_core (IF → ID → EX) → matrix_core  ·  scalar_core alone issues jobs</text>
 </svg>
