@@ -15,6 +15,7 @@ MODULE_DIR = Path(__file__).resolve().parent
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
+from src.runtime.share import profile
 from src.runtime.tasks.classifier import ImageEngine, preprocess, top_predictions
 
 
@@ -27,6 +28,7 @@ def main(argv=None):
     parser.add_argument("--overlay", type=Path)
     parser.add_argument("--expected-class")
     parser.add_argument("--evidence", type=Path)
+    profile.add_arguments(parser)
     args = parser.parse_args(argv)
     started = time.perf_counter()
     times = {}
@@ -46,9 +48,12 @@ def main(argv=None):
     with Image.open(args.image) as image:
         tensor = preprocess(image, engine.contract)
     times["preprocess"] = time.perf_counter() - t
+    profiler = profile.from_arguments(args, engine.package, task='classifier', package=str(args.package),
+                                      backend=args.backend, image=str(args.image))
     t = time.perf_counter()
-    logits = engine.predict(tensor)
+    logits = engine.predict(tensor, profiler)
     times["inference"] = time.perf_counter() - t
+    profile.finish(profiler, args)
     t = time.perf_counter()
     labels = args.labels.read_text(encoding="utf-8").splitlines()
     predictions = top_predictions(logits, labels)

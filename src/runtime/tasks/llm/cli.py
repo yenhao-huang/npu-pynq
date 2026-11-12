@@ -11,24 +11,31 @@ import os
 from pathlib import Path
 import sys
 
+from src.runtime.share import profile
+
 
 def run(args) -> int:
     from src.runtime.share.loader import on_board
     from src.runtime.tasks.llm import ExportedLLM, SamplingParams
 
     overlay = None
-    if (args.backend or ('pynq' if on_board() else 'sim')) == 'pynq':
+    backend = args.backend or ('pynq' if on_board() else 'sim')
+    if backend == 'pynq':
         from pynq import Overlay
         overlay = Overlay(args.overlay)
     llm = ExportedLLM(Path(args.package), overlay)
     params = SamplingParams(args.temperature, args.top_k, args.top_p, args.min_p, args.repetition_penalty, args.seed)
+
+    profiler = profile.from_arguments(args, llm.package, task='llm', package=str(args.package), backend=backend,
+                                      prompt=args.prompt, max_new=args.max_new)
 
     def show(_tid, piece):
         sys.stdout.write(piece)
         sys.stdout.flush()
 
     ids, text, stats = llm.generate(args.prompt, args.max_new, params, chat=args.chat,
-                                    on_token=show if args.stream else None)
+                                    on_token=show if args.stream else None, profiler=profiler)
+    profile.finish(profiler, args)
     if not args.stream:
         print(text)
     print()
@@ -57,6 +64,7 @@ def main(argv=None) -> int:
     r.add_argument("--seed", type=int, default=0)
     r.add_argument("--stream", action="store_true")
     r.add_argument("--json")
+    profile.add_arguments(r)
     args = r.parse_args(argv)
     if not args.package:
         r.error("Set package or NPU_COMPILED_PACKAGE")

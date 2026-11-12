@@ -93,7 +93,7 @@ npu_repo_in_pynq/
 |   |       `-- delivery/        frozen JIT delivery helpers
 |   `-- runtime/                 board-side execution; never imports src/export
 |       |-- cli.py               one entry point: python -m src.runtime.cli {llm,classifier} ...
-|       |-- share/               knows no task: loader.py (load and call an pynqo-package/2)
+|       |-- share/               knows no task: loader.py (load and call an pynqo-package/2), profile.py
 |       |-- delegate/            the __delegate__ dispatcher (dispatch.c) and device backends
 |       `-- tasks/               one package per manifest graph kind, each with its own cli.py
 |           |-- llm/             engine, tokenizer, sampling
@@ -246,6 +246,9 @@ named after the manifest's graph kind, builds its engine on that: `llm/`
 (prefill, decode, two KV cache sets swapped per call) and `classifier/`.
 `cli.py` only picks the task; each task's `cli.py` owns its arguments. Tasks
 never import each other, and `share/` and `delegate/` import no task.
+`share/profile.py` times the stages an engine marks and collects the delegate
+backends' phase counters (libnpu_rt's `profile.cpp`) behind each task's
+`--profile DIR`.
 
 `examples/` demonstrates existing source functionality. Its tracked file list,
 platform deployment manuals, notebook requirements and generated-data locations

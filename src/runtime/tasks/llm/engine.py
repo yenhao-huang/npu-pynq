@@ -13,6 +13,7 @@ from typing import Any, Callable
 import numpy as np
 
 from src.runtime.share.loader import ExportedPackage
+from src.runtime.share.profile import NULL_PROFILER
 from src.runtime.tasks.llm.sampling import Sampler, SamplingParams
 from src.runtime.tasks.llm.tokenizer import Tokenizer
 
@@ -52,7 +53,7 @@ class ExportedLLM:
             raise RuntimeError('the compiled model returned non-finite logits')
         return self.logits[0, -1]
 
-    def prefill(self, ids: list[int]) -> np.ndarray:
+    def prefill(self, ids: list[int], profiler: Any = NULL_PROFILER) -> np.ndarray:
         if self.pos + len(ids) > self.max_seq:
             raise ValueError(f'prompt exceeds the {self.max_seq}-token KV cache')
         logits = None
@@ -60,49 +61,59 @@ class ExportedLLM:
             part = ids[start:start + self.chunk]
             tokens = np.zeros((1, self.chunk), np.int64)
             tokens[0, :len(part)] = part
-            logits = self._step('prefill', [tokens, np.array([self.pos], np.int64),
-                                            np.array([len(part) - 1], np.int64)])
+            with profiler.stage('prefill', model=True, pos=self.pos, tokens=len(part)):
+                logits = self._step('prefill', [tokens, np.array([self.pos], np.int64),
+                                                np.array([len(part) - 1], np.int64)])
             self.pos += len(part)
         return logits
 
-    def decode(self, token: int) -> np.ndarray:
+    def decode(self, token: int, profiler: Any = NULL_PROFILER) -> np.ndarray:
         if self.pos >= self.max_seq:
             raise ValueError('KV cache is full')
-        logits = self._step('decode', [np.array([[token]], np.int64), np.array([self.pos], np.int64)])
+        with profiler.stage('decode', model=True, pos=self.pos):
+            logits = self._step('decode', [np.array([[token]], np.int64), np.array([self.pos], np.int64)])
         self.pos += 1
         return logits
 
     def generate(self, prompt: str | list[int], max_new_tokens: int = 32, params: SamplingParams | None = None,
-                 chat: bool = False, on_token: Callable[[int, str], None] | None = None):
+                 chat: bool = False, on_token: Callable[[int, str], None] | None = None,
+                 profiler: Any = None):
+        """Generate up to ``max_new_tokens``; a ``profiler`` (share/profile.py) times each stage."""
+        prof = profiler or NULL_PROFILER
         sampler = Sampler(params or SamplingParams())
         if isinstance(prompt, str):
-            text = self.tokenizer.chat([{'role': 'user', 'content': prompt}]) if chat else prompt
-            ids = self.tokenizer.encode(text)
+            with prof.stage('tokenize'):
+                text = self.tokenizer.chat([{'role': 'user', 'content': prompt}]) if chat else prompt
+                ids = self.tokenizer.encode(text)
         else:
             ids = list(prompt)
         self.reset()
         before = self.package.stats()
         t = time.perf_counter()
-        logits = self.prefill(ids)
+        logits = self.prefill(ids, prof)
         prefill_s = time.perf_counter() - t
         history, out = list(ids), []
         t = time.perf_counter()
         for step in range(max_new_tokens):
-            nxt = sampler(logits, history)
+            with prof.stage('sample'):
+                nxt = sampler(logits, history)
             if nxt in self.eos:
                 break
             out.append(nxt)
             history.append(nxt)
             if on_token:
-                on_token(nxt, self.tokenizer.decode([nxt]) if self.tokenizer else '')
+                with prof.stage('detokenize'):
+                    piece = self.tokenizer.decode([nxt]) if self.tokenizer else ''
+                on_token(nxt, piece)
             if step + 1 == max_new_tokens or self.pos >= self.max_seq:
                 break
-            logits = self.decode(nxt)
+            logits = self.decode(nxt, prof)
         decode_s = time.perf_counter() - t
         after = self.package.stats()
         stats = {'prompt_tokens': len(ids), 'generated_tokens': len(out),
                  'prefill_seconds': round(prefill_s, 3), 'decode_seconds': round(decode_s, 3),
                  'decode_tok_per_s': round(len(out) / decode_s, 3) if decode_s else 0.0,
                  'npu': {k: after[k] - before.get(k, 0) for k in after if k not in ('error', 'error_program')}}
-        text = self.tokenizer.decode(out) if self.tokenizer else ''
+        with prof.stage('detokenize_output'):
+            text = self.tokenizer.decode(out) if self.tokenizer else ''
         return out, text, stats

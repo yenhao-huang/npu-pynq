@@ -13,11 +13,16 @@ from pathlib import Path
 from typing import Any
 
 from src.vendors.npu_pynq.spec.abi import Capability, Register
+from src.vendors.npu_pynq.spec.board import PL_CLOCK_HZ
 
 from . import DelegateError, build_library
 
 DRIVER = Path(__file__).resolve().parents[2] / 'vendors' / 'npu_pynq' / 'driver' / 'npu_rt'
-SOURCES = ('load.cpp', 'execute.cpp', 'pynq.cpp', 'sim.cpp')
+SOURCES = ('load.cpp', 'execute.cpp', 'pynq.cpp', 'sim.cpp', 'profile.cpp')
+PHASE_FIELDS = ('m', 'n', 'k', 'segments', 'calls', 'call_ns_min', 'call_ns_max',
+                'pack_a_ns', 'stage_b_ns', 'pl_ns', 'unpack_c_ns', 'pl_cycles', 'polls', 'jobs',
+                'pack_a_bytes', 'stage_b_bytes', 'unpack_c_bytes')   # npu_rt.h, NPU_RT_PHASE_FIELDS
+PHASES = ('pack_a', 'stage_b', 'pl', 'unpack_c')                     # npu_rt_events' phase ids
 
 
 class Buffer(ctypes.Structure):
@@ -45,6 +50,8 @@ def check_overlay(overlay: Any, accelerator: str, package: Path) -> None:
 
 
 class NpuBackend:
+    clock_hz = PL_CLOCK_HZ   # what ISA_CYCLES counts
+
     def __init__(self, package: Path, overlay: Any = None, accelerator: str = 'npu_accelerator_0') -> None:
         sources = [DRIVER / name for name in SOURCES] + [DRIVER / 'npu_rt.h', DRIVER / 'CMakeLists.txt']
         self.lib = ctypes.CDLL(str(build_library('npu_rt', sources, cxx=True)))
@@ -53,6 +60,12 @@ class NpuBackend:
         lib.npu_rt_load.argtypes = [ctypes.c_char_p, ctypes.POINTER(Platform)]
         lib.npu_rt_error.restype = ctypes.c_char_p
         lib.npu_rt_stats.argtypes = [ctypes.POINTER(ctypes.c_int64)]
+        lib.npu_rt_profile.argtypes = [ctypes.c_int, ctypes.c_int64]
+        lib.npu_rt_program_count.restype = ctypes.c_int64
+        lib.npu_rt_phase_stats.argtypes = [ctypes.c_int64, ctypes.POINTER(ctypes.c_int64)]
+        lib.npu_rt_events.argtypes = [ctypes.POINTER(ctypes.c_int64), ctypes.c_int64,
+                                      ctypes.POINTER(ctypes.c_int64)]
+        lib.npu_rt_events.restype = ctypes.c_int64
         root = str(Path(package).resolve()).encode()
         self.buffers = []   # pynq buffers must outlive the library's use of them
         platform = None
@@ -79,6 +92,28 @@ class NpuBackend:
         out = (ctypes.c_int64 * 7)()
         self.lib.npu_rt_stats(out)
         return dict(zip(('calls', 'jobs', 'cycles', 'macs', 'polls', 'error', 'error_program'), out))
+
+    def profile(self, enable: bool, events: int = 0) -> None:
+        """Start (and clear) or stop phase profiling; ``events`` > 0 also keeps a timeline."""
+        self.lib.npu_rt_profile(int(enable), int(events))
+
+    def phase_stats(self) -> list[dict[str, int]]:
+        """Per program index, its shape and the phase sums since profiling started."""
+        out = (ctypes.c_int64 * len(PHASE_FIELDS))()
+        rows = []
+        for index in range(self.lib.npu_rt_program_count()):
+            if self.lib.npu_rt_phase_stats(index, out) == 0:
+                rows.append({'index': index, **dict(zip(PHASE_FIELDS, out))})
+        return rows
+
+    def events(self) -> tuple[list[tuple[int, str, int, int]], int]:
+        """Recorded (index, phase, begin_ns, end_ns) events and how many were dropped."""
+        dropped = ctypes.c_int64(0)
+        count = self.lib.npu_rt_events(None, 0, ctypes.byref(dropped))
+        out = (ctypes.c_int64 * (4 * max(count, 1)))()
+        self.lib.npu_rt_events(out, count, None)
+        return [(out[4 * i], PHASES[out[4 * i + 1]], out[4 * i + 2], out[4 * i + 3])
+                for i in range(count)], int(dropped.value)
 
     def close(self) -> None:
         self.lib.npu_rt_close()
