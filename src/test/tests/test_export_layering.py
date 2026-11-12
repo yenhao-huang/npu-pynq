@@ -61,6 +61,9 @@ class ExportLayeringTest(unittest.TestCase):
         for scheme in (None, 'Int8WeightOnlyConfig'):
             with self.assertRaises(ValueError):
                 check_scheme({'devices': ['cpu', 'npu'], 'quantization': scheme})
+        check_scheme({'devices': ['cpu', 'risc_v_npu'], 'quantization': 'w8a8'})
+        with self.assertRaises(ValueError):
+            check_scheme({'devices': ['cpu', 'risc_v_npu'], 'quantization': None})
 
     def test_rules_cover_every_stage(self):
         stages = {p.name for p in FRONTEND.iterdir() if (p / '__init__.py').is_file()}

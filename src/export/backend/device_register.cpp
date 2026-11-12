@@ -29,7 +29,7 @@ mlir::FailureOr<CpuTarget> cpuTarget(const std::string &name, std::string &error
 
 mlir::FailureOr<std::vector<std::unique_ptr<Delegate>>>
 registerDevices(const std::vector<std::string> &devices, const NpuOptions &npu,
-                std::string &error) {
+                const RiscvNpuOptions &riscvNpu, std::string &error) {
   std::vector<std::unique_ptr<Delegate>> delegates;
   if (devices == std::vector<std::string>{"cpu"})
     return delegates;
@@ -37,7 +37,11 @@ registerDevices(const std::vector<std::string> &devices, const NpuOptions &npu,
     delegates.push_back(createNpuDelegate(npu));
     return delegates;
   }
-  error = "devices must be [cpu] or [cpu, npu]";
+  if (devices == std::vector<std::string>{"cpu", "risc_v_npu"}) {
+    delegates.push_back(createRiscvNpuDelegate(riscvNpu));
+    return delegates;
+  }
+  error = "devices must be [cpu], [cpu, npu] or [cpu, risc_v_npu]";
   return mlir::failure();
 }
 

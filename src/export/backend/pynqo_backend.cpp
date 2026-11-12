@@ -1,6 +1,6 @@
 //===- pynqo_backend.cpp - the back end: model.mlir -> a package ------------===//
 //
-//   pynqo-backend model.mlir --out <dir> --devices cpu,npu
+//   pynqo-backend model.mlir --out <dir> --devices cpu,npu   (or cpu,risc_v_npu)
 //               --cpus arm-cortex-a9,native --llvm-bin /usr/lib/llvm-22/bin
 //
 //   model.mlir (linalg on tensors, weights as constants)
@@ -22,6 +22,7 @@
 
 #include "Npu/NpuDialect.h"
 #include "Npu/NpuPasses.h"
+#include "RvNpu/RvNpuDialect.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -46,7 +47,7 @@ namespace cl = llvm::cl;
 
 static cl::opt<std::string> input(cl::Positional, cl::desc("<model.mlir>"), cl::Required);
 static cl::opt<std::string> out("out", cl::desc("Package directory"), cl::Required);
-static cl::opt<std::string> devices("devices", cl::desc("cpu or cpu,npu"), cl::init("cpu,npu"));
+static cl::opt<std::string> devices("devices", cl::desc("cpu, cpu,npu or cpu,risc_v_npu"), cl::init("cpu,npu"));
 static cl::opt<std::string> cpus("cpus", cl::desc("CPU models: arm-cortex-a9, native"),
                                  cl::init("arm-cortex-a9"));
 static cl::opt<std::string> llvmBin("llvm-bin", cl::desc("LLVM 22 tools"),
@@ -111,7 +112,7 @@ int main(int argc, char **argv) {
   DialectRegistry registry;
   registerAllDialects(registry);
   registerAllExtensions(registry);
-  registry.insert<npu::NpuDialect>();
+  registry.insert<npu::NpuDialect, rvnpu::RvNpuDialect>();
   registerBuiltinDialectTranslation(registry);
   registerLLVMDialectTranslation(registry);
   registerAllPasses();
@@ -137,7 +138,8 @@ int main(int argc, char **argv) {
   // interface (delegates/delegate.h).
   std::string error;
   backend::NpuOptions npu{rows, columns, maxK, segmentBytes};
-  auto delegates = backend::registerDevices(split(devices), npu, error);
+  backend::RiscvNpuOptions riscvNpu{rows, columns, maxK, segmentBytes, llvmBin, keepIr};
+  auto delegates = backend::registerDevices(split(devices), npu, riscvNpu, error);
   if (failed(delegates))
     return fail(error);
   // The order matters. Delegates first take the constants they read, in their own layouts.
