@@ -17,11 +17,13 @@ repo=$(cd "$(dirname "$0")/../.." && pwd)
 board=${BOARD:-xilinx@192.168.2.99}
 
 rm -rf "$dir/src"
-mkdir -p "$dir/src/vendors/npu_pynq"
+mkdir -p "$dir/src/vendors/npu_pynq" "$dir/src/vendors/risc_v_npu"
 cp -r "$repo/src/runtime" "$dir/src/"
 cp "$repo/src/vendors/__init__.py" "$dir/src/vendors/"
-cp -r "$repo/src/vendors/npu_pynq/__init__.py" "$repo/src/vendors/npu_pynq/driver" \
-      "$repo/src/vendors/npu_pynq/spec" "$dir/src/vendors/npu_pynq/"
+for vendor in npu_pynq risc_v_npu; do
+  cp -r "$repo/src/vendors/$vendor/__init__.py" "$repo/src/vendors/$vendor/driver" \
+        "$repo/src/vendors/$vendor/spec" "$dir/src/vendors/$vendor/"
+done
 find "$dir/src" -name __pycache__ -prune -exec rm -rf {} +
 if [ $# -gt 0 ]; then cp "$@" "$dir/"; fi
 

@@ -3,13 +3,16 @@
 model.so calls ``__delegate__(id, in, out)`` for every region a delegate runs.
 ``Dispatcher`` loads the small C library that defines it (dispatch.c, built
 here on first use with the machine's own compiler) and routes each id to the
-backend the package's delegate table names; ``npu`` is libnpu_rt.
+backend the package's delegate table names. ``BACKENDS`` maps each device to
+its backend class: ``npu`` is libnpu_rt (npu.py, the CUSTOM scalar core) and
+``risc_v_npu`` is librv_npu_rt (risc_v_npu.py, the CVA6 scalar core).
 """
 
 from __future__ import annotations
 
 import ctypes
 import hashlib
+import importlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -19,8 +22,25 @@ HERE = Path(__file__).resolve().parent
 DELEGATE_FN = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int64, ctypes.POINTER(ctypes.c_void_p), ctypes.c_int)
 
 
+#: Device name in the package's delegate table -> (module, class) of its
+#: backend, imported only when a package uses that device.
+BACKENDS = {
+    'npu': ('src.runtime.delegate.npu', 'NpuBackend'),
+    'risc_v_npu': ('src.runtime.delegate.risc_v_npu', 'RiscvNpuBackend'),
+}
+
+
 class DelegateError(RuntimeError):
     pass
+
+
+def backend_class(device: str) -> type | None:
+    """The backend class for ``device``, or None for a device with no backend."""
+    entry = BACKENDS.get(device)
+    if entry is None:
+        return None
+    module, name = entry
+    return getattr(importlib.import_module(module), name)
 
 
 def build_dir() -> Path:
