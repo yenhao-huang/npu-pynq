@@ -104,7 +104,7 @@ class HardwareContractTest(unittest.TestCase):
         from pathlib import Path
         from src.vendors.npu_pynq.spec.abi import Capability, IsaRegister
         root = Path(__file__).resolve().parents[3] / "src/hw/rtl/npu_accelerator"
-        decode = (root / "scalar_core/scalar_core_decode.sv").read_text()
+        decode = (root / "scalar_core/custom/custom_decode.sv").read_text()
         rtl_ops = {name.lower(): int(value, 16)
                    for name, value in re.findall(r"OP_(\w+) = 8'h([0-9a-fA-F]+)", decode)}
         self.assertEqual(rtl_ops, isa.OPCODES)

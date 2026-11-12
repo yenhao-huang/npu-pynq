@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
 
-// Run-control state transitions of scalar_core_controller, with the pipeline
+// Run-control state transitions of custom_controller, with the pipeline
 // stages replaced by the events they report. Inputs change on the falling
 // edge and are sampled by the controller on the next rising edge, so every
 // check states the cycle a transition takes.
-module tb_scalar_core_controller;
+module tb_custom_controller;
     logic        clk = 1'b0;
     logic        rst_n = 1'b0;
     logic        isa_start = 1'b0;
@@ -36,13 +36,13 @@ module tb_scalar_core_controller;
 
     always #5 clk = ~clk;
 
-    scalar_core_controller dut (.*);
+    custom_controller dut (.*);
 
     task automatic check(input logic condition, input string message);
         begin
             checks = checks + 1;
             if (condition !== 1'b1) begin
-                $display("FAIL tb_scalar_core_controller: %s (t=%0t)", message, $time);
+                $display("FAIL tb_custom_controller: %s (t=%0t)", message, $time);
                 $display("  running=%b busy=%b done=%b reported=%b code=0x%02x drained=%b stop=%b fault=%b latched=%b jobs=%0d cycles=%0d",
                     running, busy, done, error, error_code, drained, stop, fault,
                     fault_latched, jobs, cycles);
@@ -286,7 +286,7 @@ module tb_scalar_core_controller;
         expect_idle("after a second reset");
         check(!done && !error && jobs == 32'd0 && cycles == 32'd0, "reset clears status");
 
-        $display("PASS tb_scalar_core_controller: %0d checks", checks);
+        $display("PASS tb_custom_controller: %0d checks", checks);
         $finish;
     end
 endmodule

@@ -6,7 +6,13 @@ module npu_accelerator #(
     parameter integer MAX_K = 256,
     parameter integer IN_BYTES = 8,
     parameter integer C_S_AXI_DATA_WIDTH = 32,
-    parameter integer C_S_AXI_ADDR_WIDTH = 8
+    parameter integer C_S_AXI_ADDR_WIDTH = 8,
+    // Scalar core implementation: "CUSTOM" (64-bit ISA sequencer, default) or
+    // "CVA6" (RISC-V core; needs scalar_core/cva6/cva6.f, which defines
+    // NPU_SCALAR_CVA6). Also selects the CVA6 bit of ABI_CAPABILITIES.
+    // Untyped on purpose: iverilog 13 cannot use a `parameter string` in a
+    // parameter override or another parameter's value ("Unable to bind").
+    parameter         SCALAR_IMPL = "CUSTOM"
 ) (
     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 s_axi_aclk CLK" *)
     (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_axi_aclk, ASSOCIATED_BUSIF s_axi:m_axi, ASSOCIATED_RESET s_axi_aresetn, FREQ_HZ 100000000" *)
@@ -129,7 +135,8 @@ module npu_accelerator #(
     scalar_core #(
         .ROWS(ROWS),
         .COLUMNS(COLUMNS),
-        .MAX_K(MAX_K)
+        .MAX_K(MAX_K),
+        .SCALAR_IMPL(SCALAR_IMPL)
     ) u_scalar_core (
         .clk(s_axi_aclk),
         .rst_n(s_axi_aresetn),
@@ -167,7 +174,8 @@ module npu_accelerator #(
 
     csr #(
         .C_S_AXI_DATA_WIDTH(C_S_AXI_DATA_WIDTH),
-        .C_S_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH)
+        .C_S_AXI_ADDR_WIDTH(C_S_AXI_ADDR_WIDTH),
+        .SCALAR_IMPL(SCALAR_IMPL)
     ) u_csr (
         .*,
         .status_busy(status_busy),

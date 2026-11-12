@@ -1,6 +1,9 @@
 `timescale 1ns/1ps
 
-// Load/store unit of the scalar core's execute stage.
+// Tensor DMA of the CVA6 scalar core: a copy of custom/custom_dma.sv with only
+// the module names changed (cva6_dma, cva6_sync_fifo), so the CVA6
+// implementation stays self-contained beside the CUSTOM one. Keep the two in
+// step when either changes. Issued by cva6_npu_mmio, one job per DOORBELL.
 //
 // Load: for each job, in issue order, reads the A tile then the B tile from
 // DDR and presents them as the dense AXI-Stream frames the matrix controller
@@ -12,9 +15,12 @@
 // two per 64-bit beat, the final odd word with WSTRB 0x0F. Write addresses are
 // issued ahead of the data; a beat is only sent once its burst's address has
 // been issued. Bursts never exceed 16 beats or cross a 128-byte line.
-module scalar_core_lsu #(
+// Not instantiated by the default (CUSTOM) flow, where it is linted on its own.
+/* verilator lint_off MULTITOP */
+module cva6_dma #(
     parameter integer META_DEPTH = 8
 ) (
+/* verilator lint_on MULTITOP */
     input  logic        clk,
     input  logic        rst_n,
     // Clears the sticky error flags only; in-flight bursts always complete.
@@ -106,7 +112,7 @@ module scalar_core_lsu #(
         ld_ready = !seg_active;
     end
 
-    sync_fifo #(.WIDTH(10), .DEPTH(META_DEPTH)) rd_meta (
+    cva6_sync_fifo #(.WIDTH(10), .DEPTH(META_DEPTH)) rd_meta (
         .clk(clk), .rst_n(rst_n), .clear(1'b0),
         .push(ar_valid && ar_ready),
         .push_data({({5'd0, rd_burst} == seg_beats), seg_last_bytes, rd_burst}),
@@ -205,7 +211,7 @@ module scalar_core_lsu #(
     assign wmeta_pop = send_beat && w_last;
     assign b_ready = !bmeta_empty;
 
-    sync_fifo #(.WIDTH(5), .DEPTH(META_DEPTH)) wmeta (
+    cva6_sync_fifo #(.WIDTH(5), .DEPTH(META_DEPTH)) wmeta (
         .clk(clk), .rst_n(rst_n), .clear(1'b0),
         .push(aw_valid && aw_ready),
         .push_data(wr_burst),
@@ -213,7 +219,7 @@ module scalar_core_lsu #(
         .pop(wmeta_pop), .head(wmeta_head), .empty(wmeta_empty)
     );
 
-    sync_fifo #(.WIDTH(1), .DEPTH(META_DEPTH)) bmeta (
+    cva6_sync_fifo #(.WIDTH(1), .DEPTH(META_DEPTH)) bmeta (
         .clk(clk), .rst_n(rst_n), .clear(1'b0),
         .push(aw_valid && aw_ready),
         .push_data(({4'd0, wr_burst} == wseg_beats)),
@@ -255,6 +261,58 @@ module scalar_core_lsu #(
             end
             if (b_valid && b_ready && b_resp[1])
                 write_error <= 1'b1;
+        end
+    end
+endmodule
+
+// Small synchronous FIFO with a combinational head, used for job and burst
+// bookkeeping in the CVA6 tensor DMA. DEPTH must be a power of two. A copy of
+// custom/custom_sync_fifo.sv with only the module name changed.
+module cva6_sync_fifo #(
+    parameter integer WIDTH = 8,
+    parameter integer DEPTH = 4
+) (
+    input  logic             clk,
+    input  logic             rst_n,
+    input  logic             clear,
+    input  logic             push,
+    input  logic [WIDTH-1:0] push_data,
+    output logic             full,
+    input  logic             pop,
+    output logic [WIDTH-1:0] head,
+    output logic             empty
+);
+    localparam integer PTR_BITS = (DEPTH > 1) ? $clog2(DEPTH) : 1;
+
+    logic [WIDTH-1:0] slots [0:DEPTH-1];
+    logic [PTR_BITS-1:0] rd_ptr, wr_ptr;
+    logic [PTR_BITS:0] count;
+
+    assign full = (count == (PTR_BITS+1)'(DEPTH));
+    assign empty = (count == '0);
+    assign head = slots[rd_ptr];
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            rd_ptr <= '0;
+            wr_ptr <= '0;
+            count <= '0;
+        end else if (clear) begin
+            rd_ptr <= '0;
+            wr_ptr <= '0;
+            count <= '0;
+        end else begin
+            if (push && !full) begin
+                slots[wr_ptr] <= push_data;
+                wr_ptr <= wr_ptr + 1'b1;
+            end
+            if (pop && !empty)
+                rd_ptr <= rd_ptr + 1'b1;
+            case ({push && !full, pop && !empty})
+                2'b10: count <= count + 1'b1;
+                2'b01: count <= count - 1'b1;
+                default: ;
+            endcase
         end
     end
 endmodule

@@ -1,0 +1,16 @@
+`verilator_config
+
+// Third-party CVA6 sources (and the pulp axi / common_cells, cvfpu and
+// hpdcache copies inside them) are not ours to fix and are never modified:
+// lint only our own files. Pass this file before -F cva6.f.
+//
+// A lint_off without -rule only covers the -Wall style warnings, so the
+// warnings Verilator enables by default that upstream v5.3.0 raises for this
+// configuration are listed by rule as well. "*upstream*" rather than
+// "*/upstream/*" because Verilator records Windows paths with backslashes.
+lint_off -file "*/scalar_core/cva6*upstream*"
+lint_off -rule SELRANGE -file "*/scalar_core/cva6*upstream*"
+lint_off -rule WIDTHCONCAT -file "*/scalar_core/cva6*upstream*"
+lint_off -rule SYMRSVDWORD -file "*/scalar_core/cva6*upstream*"
+lint_off -rule UNOPTFLAT -file "*/scalar_core/cva6*upstream*"
+lint_off -rule TIMESCALEMOD -file "*/scalar_core/cva6*upstream*"

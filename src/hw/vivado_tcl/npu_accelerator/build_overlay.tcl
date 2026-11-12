@@ -1,6 +1,13 @@
 # Recreate and optionally implement the PYNQ-Z1 NPU matrix overlay.
 # Usage: vivado -mode batch -source build_overlay.tcl -tclargs
-#        ?--array-size 2|8|16? ?--elaborate-only? ?--allow-dirty? ?--out <dir>?
+#        ?--array-size 2|8|16? ?--scalar-impl CUSTOM|CVA6? ?--elaborate-only?
+#        ?--allow-dirty? ?--out <dir>?
+#
+# --scalar-impl CVA6 (default CUSTOM) builds the CVA6 RISC-V scalar core: it
+# reads src/hw/rtl/npu_accelerator/scalar_core/cva6/cva6.f (needs the CVA6
+# submodule), defines NPU_SCALAR_CVA6 and sets SCALAR_IMPL. That path has not
+# been run in Vivado yet, and the npu_pynq overlay verifier does not describe a
+# CVA6 overlay, so it requires --elaborate-only or --allow-dirty.
 #
 # --out also copies the verified BIT, HWH and manifest to <dir>,
 # for example dist/smollm/overlay.
@@ -11,6 +18,7 @@ set array_size 16
 set elaborate_only 0
 set allow_dirty 0
 set out_dir ""
+set scalar_impl CUSTOM
 for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_index} {
     set argument [lindex $argv $argument_index]
     switch -- $argument {
@@ -22,6 +30,16 @@ for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_in
             set array_size [lindex $argv $argument_index]
             if {$array_size ni {2 8 16}} {
                 error "unsupported array size '$array_size': expected 2, 8, or 16"
+            }
+        }
+        --scalar-impl {
+            incr argument_index
+            if {$argument_index >= [llength $argv]} {
+                error "--scalar-impl requires CUSTOM or CVA6"
+            }
+            set scalar_impl [lindex $argv $argument_index]
+            if {$scalar_impl ni {CUSTOM CVA6}} {
+                error "unsupported scalar core '$scalar_impl': expected CUSTOM or CVA6"
             }
         }
         --elaborate-only { set elaborate_only 1 }
@@ -37,9 +55,16 @@ for {set argument_index 0} {$argument_index < [llength $argv]} {incr argument_in
     }
 }
 
+if {$scalar_impl eq "CVA6" && !$elaborate_only && !$allow_dirty} {
+    error "--scalar-impl CVA6 is exploratory: pass --elaborate-only or --allow-dirty"
+}
+
 set build_name npu_accelerator
 if {$array_size != 2} {
     set build_name "npu_accelerator_${array_size}x${array_size}"
+}
+if {$scalar_impl eq "CVA6"} {
+    append build_name _cva6
 }
 set build_root [file normalize [file join $repo_root build vivado $build_name]]
 set project_dir [file join $build_root project]
@@ -76,11 +101,12 @@ set rtl_files [list \
     [file join $repo_root src hw rtl npu_accelerator matrix_core controller matrix_core_controller.sv] \
     [file join $repo_root src hw rtl npu_accelerator matrix_core matrix_core.sv] \
     [file join $repo_root src hw rtl npu_accelerator axis_skid.sv] \
-    [file join $repo_root src hw rtl npu_accelerator scalar_core sync_fifo.sv] \
-    [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core_fetch.sv] \
-    [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core_decode.sv] \
-    [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core_lsu.sv] \
-    [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core_controller.sv] \
+    [file join $repo_root src hw rtl npu_accelerator scalar_core custom custom_sync_fifo.sv] \
+    [file join $repo_root src hw rtl npu_accelerator scalar_core custom custom_fetch.sv] \
+    [file join $repo_root src hw rtl npu_accelerator scalar_core custom custom_decode.sv] \
+    [file join $repo_root src hw rtl npu_accelerator scalar_core custom custom_dma.sv] \
+    [file join $repo_root src hw rtl npu_accelerator scalar_core custom custom_controller.sv] \
+    [file join $repo_root src hw rtl npu_accelerator scalar_core custom custom_scalar_core.sv] \
     [file join $repo_root src hw rtl npu_accelerator scalar_core scalar_core.sv] \
     [file join $repo_root src hw rtl npu_accelerator npu_accelerator.sv]]
 foreach rtl_file $rtl_files {
@@ -90,6 +116,38 @@ foreach rtl_file $rtl_files {
 }
 add_files -norecurse $rtl_files
 set_property file_type {SystemVerilog} [get_files $rtl_files]
+
+# CVA6 scalar core: the file list, include directories and define of cva6.f
+# (paths relative to it, "//" comments), plus our two plain cva6_* files that
+# cva6.f leaves to the default list.
+if {$scalar_impl eq "CVA6"} {
+    set cva6_dir [file join $repo_root src hw rtl npu_accelerator scalar_core cva6]
+    set cva6_files [list [file join $cva6_dir cva6_dma.sv] [file join $cva6_dir cva6_npu_mmio.sv]]
+    set cva6_incdirs {}
+    set cva6_defines {}
+    set flist [open [file join $cva6_dir cva6.f] r]
+    foreach line [split [read $flist] "\n"] {
+        set line [string trim [regsub {//.*$} $line ""]]
+        if {$line eq ""} { continue }
+        if {[string match "+define+*" $line]} {
+            lappend cva6_defines [string range $line 8 end]
+        } elseif {[string match "+incdir+*" $line]} {
+            lappend cva6_incdirs [file normalize [file join $cva6_dir [string range $line 8 end]]]
+        } else {
+            lappend cva6_files [file normalize [file join $cva6_dir $line]]
+        }
+    }
+    close $flist
+    foreach cva6_file $cva6_files {
+        if {![file isfile $cva6_file]} {
+            error "missing CVA6 source (is the submodule initialized?): $cva6_file"
+        }
+    }
+    add_files -norecurse $cva6_files
+    set_property file_type {SystemVerilog} [get_files $cva6_files]
+    set_property include_dirs $cva6_incdirs [current_fileset]
+    set_property verilog_define $cva6_defines [current_fileset]
+}
 update_compile_order -fileset sources_1
 
 create_bd_design npu_accelerator_bd
@@ -117,6 +175,9 @@ set_property -dict [list \
     CONFIG.COLUMNS $array_size \
     CONFIG.MAX_K {256} \
     CONFIG.IN_BYTES {8}] $accelerator
+if {$scalar_impl eq "CVA6"} {
+    set_property CONFIG.SCALAR_IMPL {"CVA6"} $accelerator
+}
 
 connect_bd_intf_net [get_bd_intf_pins ps7/M_AXI_GP0] [get_bd_intf_pins control_ic/S00_AXI]
 connect_bd_intf_net [get_bd_intf_pins control_ic/M00_AXI] [get_bd_intf_pins npu_accelerator_0/s_axi]
