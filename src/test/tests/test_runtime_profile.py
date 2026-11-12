@@ -31,7 +31,7 @@ class FakeClock:
 PROGRAM = {'index': 0, 'm': 4, 'n': 4, 'k': 8, 'segments': 1, 'calls': 2, 'call_ns_min': 400,
            'call_ns_max': 600, 'pack_a_ns': 100, 'stage_b_ns': 300, 'pl_ns': 500, 'unpack_c_ns': 100,
            'pl_cycles': 30, 'polls': 7, 'jobs': 2, 'pack_a_bytes': 64, 'stage_b_bytes': 64,
-           'unpack_c_bytes': 128}
+           'unpack_c_bytes': 128, 'runs': 2, 'instructions': 12}
 
 
 class FakeBackend:
@@ -100,12 +100,17 @@ class ProfilerTests(unittest.TestCase):
         self.assertIsNone(row['pl_gbps'])
         self.assertEqual(row['macs'], 4 * 4 * 8 * 2)
         self.assertEqual(npu['totals']['calls'], 2)
+        self.assertEqual((npu['totals']['runs'], npu['totals']['instructions']), (2, 12))
+        self.assertEqual((row['jobs_per_run'], row['instructions_per_run'], row['polls_per_run']), (1, 6, 3.5))
+        self.assertEqual(row['overhead_ns_per_run'], 100)   # (500 ns pl - 300 ns busy) / 2 runs
         self.assertEqual(npu['events_dropped'], 3)
         summary = report['summary']
         self.assertEqual((summary['model_ns'], summary['delegate_ns'], summary['other_ns']), (2000, 1000, 1000))
         self.assertEqual(summary['delegate_share'], 0.5)
         table = prof.table()
-        for text in ('decode', 'stage_b', 'pl busy from cycles', '3 timeline events dropped', '50.0%'):
+        for text in ('decode', 'stage_b', 'pl busy from cycles', '3 timeline events dropped', '50.0%',
+                     'npu: 2 calls, 2 runs, 2 jobs, 12 instructions, 7 polls',
+                     'per run: 1.0 jobs, 6.0 instructions, 3.5 polls, 0.1 µs start and poll overhead'):
             self.assertIn(text, table)
 
     def test_trace_is_chrome_trace_events(self) -> None:
@@ -193,7 +198,7 @@ def write_package(root: Path) -> tuple[np.ndarray, np.ndarray]:
              0x12 << 56 | 0,                         # ADDR_B, relocated to the stage window
              0x13 << 56 | 32,                        # ADDR_C = c_base
              0x20 << 56,                             # RUN
-             0x01 << 56]                             # END
+             0x01 << 56]                             # END; ISA_INSTRUCTIONS counts all 6 words
     (root / 'programs.bin').write_bytes(struct.pack(f'<{len(words)}Q', *words))
     (root / 'programs.txt').write_text('npu-programs 1 16 16 256 6 1\n'
                                        'task 0 4 4 8 16 16 256 32 32 256 1\n'
@@ -224,8 +229,10 @@ class NpuPhaseTests(unittest.TestCase):
                     self.assertEqual(lib.npu_rt_execute(0, buffers, 2), 0)
                     np.testing.assert_array_equal(c[0], a.astype(np.int32) @ b.astype(np.int32))
                 [row] = backend.phase_stats()
-                self.assertEqual({k: row[k] for k in ('m', 'n', 'k', 'segments', 'calls', 'jobs')},
-                                 {'m': 4, 'n': 4, 'k': 8, 'segments': 1, 'calls': 3, 'jobs': 3})
+                self.assertEqual({k: row[k] for k in ('m', 'n', 'k', 'segments', 'calls', 'runs', 'jobs',
+                                                      'instructions')},
+                                 {'m': 4, 'n': 4, 'k': 8, 'segments': 1, 'calls': 3, 'runs': 3, 'jobs': 3,
+                                  'instructions': 3 * 6})
                 self.assertEqual((row['pack_a_bytes'], row['stage_b_bytes'], row['unpack_c_bytes']),
                                  (3 * 32, 3 * 32, 3 * 64))
                 phases = row['pack_a_ns'] + row['stage_b_ns'] + row['pl_ns'] + row['unpack_c_ns']

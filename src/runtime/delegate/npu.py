@@ -21,7 +21,8 @@ DRIVER = Path(__file__).resolve().parents[2] / 'vendors' / 'npu_pynq' / 'driver'
 SOURCES = ('load.cpp', 'execute.cpp', 'pynq.cpp', 'sim.cpp', 'profile.cpp')
 PHASE_FIELDS = ('m', 'n', 'k', 'segments', 'calls', 'call_ns_min', 'call_ns_max',
                 'pack_a_ns', 'stage_b_ns', 'pl_ns', 'unpack_c_ns', 'pl_cycles', 'polls', 'jobs',
-                'pack_a_bytes', 'stage_b_bytes', 'unpack_c_bytes')   # npu_rt.h, NPU_RT_PHASE_FIELDS
+                'pack_a_bytes', 'stage_b_bytes', 'unpack_c_bytes',
+                'runs', 'instructions')                              # npu_rt.h, NPU_RT_PHASE_FIELDS
 PHASES = ('pack_a', 'stage_b', 'pl', 'unpack_c')                     # npu_rt_events' phase ids
 
 

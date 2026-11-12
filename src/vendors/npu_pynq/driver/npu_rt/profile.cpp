@@ -47,7 +47,7 @@ extern "C" int npu_rt_phase_stats(int64_t index, int64_t out[NPU_RT_PHASE_FIELDS
   const int64_t values[NPU_RT_PHASE_FIELDS] = {
       p.m, p.n, p.k, static_cast<int64_t>(p.segments.size()), s.calls, s.callMin, s.callMax,
       s.packA, s.stageB, s.pl, s.unpackC, s.plCycles, s.polls, s.jobs,
-      s.packABytes, s.stageBBytes, s.unpackCBytes};
+      s.packABytes, s.stageBBytes, s.unpackCBytes, s.runs, s.instructions};
   std::copy(values, values + NPU_RT_PHASE_FIELDS, out);
   return 0;
 }

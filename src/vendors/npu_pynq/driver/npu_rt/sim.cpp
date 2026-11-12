@@ -19,8 +19,10 @@ uint8_t *host(uint32_t phys, uint32_t bytes) {
 
 int32_t npu_rt::simRun(const uint64_t *words, int32_t length, uint32_t dataBase) {
   uint32_t m = 0, n = 0, k = 0, a = 0, b = 0, c = 0, ai = 0, bi = 0, ci = 0;
+  /* Like ISA_INSTRUCTIONS: every decoded word counts, REPEAT and END included. */
   for (int32_t pc = 0; pc < length; ++pc) {
     uint64_t w = words[pc];
+    rt.instructions += 1;
     uint32_t op = static_cast<uint32_t>(w >> 56), lo = static_cast<uint32_t>(w),
              hi = static_cast<uint32_t>(w >> 32);
     uint32_t count = 1;
@@ -29,6 +31,7 @@ int32_t npu_rt::simRun(const uint64_t *words, int32_t length, uint32_t dataBase)
       if (++pc >= length)
         return 0x15;
       w = words[pc];
+      rt.instructions += 1;
       op = static_cast<uint32_t>(w >> 56);
       lo = static_cast<uint32_t>(w);
       hi = static_cast<uint32_t>(w >> 32);

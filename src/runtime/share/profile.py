@@ -52,6 +52,15 @@ class Aggregate:
                 'min_ns': self.min_ns, 'max_ns': self.max_ns}
 
 
+def per_run(row: dict[str, Any]) -> None:
+    """Per segment run averages: polls and start overhead are paid once per run."""
+    runs = row.get('runs', 0)
+    for key in ('jobs', 'instructions', 'polls'):
+        row[f'{key}_per_run'] = round(row.get(key, 0) / runs, 2) if runs else None
+    busy = row.get('pl_busy_ns')
+    row['overhead_ns_per_run'] = round((row['pl_ns'] - busy) / runs, 1) if runs and busy is not None else None
+
+
 class Profiler:
     """Stage and phase aggregates for one run; see the module docstring."""
 
@@ -103,7 +112,8 @@ class Profiler:
     def delegate_report(self, device: str) -> dict[str, Any]:
         data = self.delegates[device]
         clock_hz = data['clock_hz']
-        programs, totals = [], {'calls': 0, 'call_ns': 0, 'pl_cycles': 0, 'polls': 0, 'jobs': 0}
+        counters = ('calls', 'call_ns', 'runs', 'jobs', 'instructions', 'pl_cycles', 'polls')
+        programs, totals = [], dict.fromkeys(counters, 0)
         for p in data['programs']:
             if not p['calls']:
                 continue
@@ -114,13 +124,15 @@ class Profiler:
                 row[f'{phase}_gbps'] = round(nbytes / ns, 4) if nbytes is not None and ns else None
             row['macs'] = p['m'] * p['n'] * p['k'] * p['calls']
             row['pl_busy_ns'] = round(p['pl_cycles'] * 1e9 / clock_hz) if clock_hz and p['pl_cycles'] else None
+            per_run(row)
             programs.append(row)
-            for key in ('calls', 'call_ns', 'pl_cycles', 'polls', 'jobs'):
-                totals[key] += row[key]
+            for key in counters:
+                totals[key] += row.get(key, 0)
             for phase in PHASES:
                 totals[f'{phase}_ns'] = totals.get(f'{phase}_ns', 0) + p[f'{phase}_ns']
                 totals[f'{phase}_bytes'] = totals.get(f'{phase}_bytes', 0) + p.get(f'{phase}_bytes', 0)
         totals['pl_busy_ns'] = round(totals['pl_cycles'] * 1e9 / clock_hz) if clock_hz and totals['pl_cycles'] else None
+        per_run(totals)
         programs.sort(key=lambda r: r['call_ns'], reverse=True)
         return {'clock_hz': clock_hz, 'totals': totals, 'programs': programs,
                 'events_recorded': len(data['events']), 'events_dropped': data['events_dropped']}
@@ -152,8 +164,14 @@ class Profiler:
                           f'{ms(summary["other_ns"]).strip()} ms']
         for device, d in report['delegates'].items():
             t = d['totals']
-            lines += ['', f'{device}: {t["calls"]} calls, {t["jobs"]} jobs, {t["polls"]} polls',
-                      f'{"phase":<10}{"total ms":>11}{"share":>8}{"MB":>10}{"GB/s":>8}']
+            lines += ['', f'{device}: {t["calls"]} calls, {t["runs"]} runs, {t["jobs"]} jobs, '
+                          f'{t["instructions"]} instructions, {t["polls"]} polls']
+            if t['runs']:
+                overhead = (f', {t["overhead_ns_per_run"] / 1e3:.1f} µs start and poll overhead'
+                            if t['overhead_ns_per_run'] is not None else '')
+                lines.append(f'per run: {t["jobs_per_run"]:.1f} jobs, {t["instructions_per_run"]:.1f} '
+                             f'instructions, {t["polls_per_run"]:.1f} polls{overhead}')
+            lines.append(f'{"phase":<10}{"total ms":>11}{"share":>8}{"MB":>10}{"GB/s":>8}')
             for phase in PHASES:
                 ns, nbytes = t[f'{phase}_ns'], t[f'{phase}_bytes']
                 gbps = f'{nbytes / ns:8.3f}' if ns and nbytes else f'{"-":>8}'

@@ -208,6 +208,8 @@ keeps, per program index:
 | `pl` | `pynqRun`, start to `DONE` | from L3; else the program's static A + B + C bytes |
 | `pl_cycles` | `ISA_CYCLES` per segment | |
 | `polls` | `ISA_STATUS` reads | |
+| `runs` | segment runs (one `START` each) | |
+| `instructions` | `ISA_INSTRUCTIONS` per segment: words decoded, `REPEAT` and `END` included, a `REPEAT` once | |
 | `unpack_c` | `unpackC` | C planes read, `Kt × m × n × 4` written |
 
 New C API: `npu_rt_profile(enable, event_capacity)`, `npu_rt_phase_stats(index, out)`
@@ -217,7 +219,8 @@ backend records the same phases, so host runs exercise the same code path,
 but their times are not meaningful for the board.
 
 `pl` wall time against `pl_cycles / f_clk` measures the start and poll
-overhead.
+overhead; divided by `runs` (as are `jobs`, `instructions` and `polls`) it is
+the per-run cost the report prints as `overhead_ns_per_run`.
 
 ### L3: PL performance counters (RTL, ABI 2.1)
 

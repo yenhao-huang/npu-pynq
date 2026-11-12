@@ -12,7 +12,8 @@ namespace {
 
 constexpr uint32_t REG_ISA_CONTROL = 0x40, REG_ISA_STATUS = 0x44, REG_PROG_ADDR = 0x48,
                    REG_PROG_LEN = 0x4C, REG_DATA_BASE = 0x50, REG_ISA_ERROR = 0x54,
-                   REG_ISA_JOBS = 0x5C, REG_ISA_CYCLES = 0x60;
+                   REG_ISA_JOBS = 0x5C, REG_ISA_CYCLES = 0x60,
+                   REG_ISA_INSTRUCTIONS = 0x64;
 constexpr uint32_t STATUS_RUNNING = 1, STATUS_DONE = 2, STATUS_ERROR = 4, STATUS_BUSY = 8;
 
 inline void barrier() {
@@ -41,6 +42,7 @@ int32_t npu_rt::pynqRun(const Segment &g) {
   barrier();
   rt.cycles += r[REG_ISA_CYCLES / 4];
   rt.jobs += r[REG_ISA_JOBS / 4];
+  rt.instructions += r[REG_ISA_INSTRUCTIONS / 4];
   if ((status & STATUS_ERROR) || !(status & STATUS_DONE)) {
     uint32_t code = r[REG_ISA_ERROR / 4];
     return static_cast<int32_t>(code ? code : 0xff);

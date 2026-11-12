@@ -25,7 +25,7 @@ in <https://ui.perfetto.dev>.
    ```bash
    cd ~/jupyter_notebooks/<name>
    sudo XILINX_XRT=/usr /usr/local/share/pynq-venv/bin/python3 -m src.runtime.cli \
-       llm package --overlay overlay/<overlay>.bit \
+       llm package --overlay overlay/npu_matrix.bit \
        --prompt "Hello" --chat --max-new 8 --profile out/
    ```
 
@@ -43,6 +43,8 @@ decode                  7 14466.144   2066.592   2007.852   2316.192
 
 package calls 44124.801 ms = delegates 9850.080 ms (22.3%) + model.so and dispatch 34274.721 ms
 
+npu: 1899 calls, 1953 runs, 374544 jobs, 48636 instructions, 13552316 polls
+per run: 191.8 jobs, 24.9 instructions, 6939.2 polls, 678.0 µs start and poll overhead
 phase        total ms   share        MB    GB/s
 pack_a        20.239     0.2%      5.85   0.289
 stage_b     5499.403    55.8%   1210.32   0.220
@@ -54,6 +56,11 @@ pl busy from cycles 2188.609 ms; start and poll overhead 1324.477 ms
 - **stage**: engine steps. `prefill` and `decode` call the package.
 - **package calls**: package-call time, split into the NPU delegate and
   everything else (`model.so` CPU code and dispatch).
+- **npu**: delegate calls; `runs`, NPU segment runs (one start each);
+  `jobs`, matrix jobs; `instructions`, ISA words the NPU decoded (a `REPEAT`
+  counts once); `polls`, status reads.
+- **per run**: those counters and the `pl` time the PL was not computing,
+  divided by `runs`.
 - **phase**: where NPU delegate time goes.
   - `pack_a`: input tiling.
   - `stage_b`: the weight copy into the NPU buffer.

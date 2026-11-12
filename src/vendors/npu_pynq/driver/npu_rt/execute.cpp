@@ -80,8 +80,9 @@ void finish(const Program &p) {
 int executeProfiled(int64_t index, const Program &p, void **buffers) {
   enum { PACK_A, STAGE_B, PL, UNPACK_C };
   PhaseStats &s = rt.phases[index];
-  const int64_t cycles = rt.cycles, polls = rt.polls, jobs = rt.jobs;
-  int64_t stageB = 0, pl = 0, stageBBytes = 0;
+  const int64_t cycles = rt.cycles, polls = rt.polls, jobs = rt.jobs,
+                instructions = rt.instructions;
+  int64_t stageB = 0, pl = 0, stageBBytes = 0, runs = 0;
   uint8_t *io = static_cast<uint8_t *>(rt.io.virt);
 
   const int64_t begin = nowNs();
@@ -101,6 +102,7 @@ int executeProfiled(int64_t index, const Program &p, void **buffers) {
     stageB += t1 - t0;
     pl += t - t1;
     stageBBytes += g.bBytes;
+    runs += 1;
     if (status)
       return fail(index, status);
   }
@@ -121,6 +123,8 @@ int executeProfiled(int64_t index, const Program &p, void **buffers) {
   s.plCycles += rt.cycles - cycles;
   s.polls += rt.polls - polls;
   s.jobs += rt.jobs - jobs;
+  s.runs += runs;
+  s.instructions += rt.instructions - instructions;
   s.packABytes += static_cast<int64_t>(p.m) * p.k;
   s.stageBBytes += stageBBytes;
   s.unpackCBytes += static_cast<int64_t>(cdiv(p.k, p.tk)) * p.m * p.n * 4;

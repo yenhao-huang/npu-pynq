@@ -61,9 +61,12 @@ int64_t npu_rt_program_count(void);
 /* Per program `index`, NPU_RT_PHASE_FIELDS values, in order:
  *   m, n, k, segments, calls, call_ns_min, call_ns_max,
  *   pack_a_ns, stage_b_ns, pl_ns, unpack_c_ns, pl_cycles, polls, jobs,
- *   pack_a_bytes, stage_b_bytes, unpack_c_bytes
+ *   pack_a_bytes, stage_b_bytes, unpack_c_bytes, runs, instructions
+ * runs counts segment runs (one START each; polls and start overhead are per
+ * run); instructions sums ISA_INSTRUCTIONS, the instruction words the scalar
+ * core decoded (REPEAT and END included, a REPEAT counted once).
  * Sums cover the successful calls since profiling was enabled. 0 on success. */
-#define NPU_RT_PHASE_FIELDS 17
+#define NPU_RT_PHASE_FIELDS 19
 int npu_rt_phase_stats(int64_t index, int64_t out[NPU_RT_PHASE_FIELDS]);
 
 /* Timeline events, NPU_RT_EVENT_FIELDS values each: program index, phase
@@ -98,6 +101,7 @@ struct PhaseStats {
   int64_t packA = 0, stageB = 0, pl = 0, unpackC = 0;  /* nanoseconds */
   int64_t plCycles = 0, polls = 0, jobs = 0;
   int64_t packABytes = 0, stageBBytes = 0, unpackCBytes = 0;
+  int64_t runs = 0, instructions = 0;
 };
 
 struct Event {
@@ -112,7 +116,7 @@ struct State {
   const uint8_t *weights = nullptr;                  /* weights.bin, mapped */
   size_t weightBytes = 0;
   std::vector<Program> programs;
-  int64_t calls = 0, jobs = 0, cycles = 0, macs = 0, polls = 0;
+  int64_t calls = 0, jobs = 0, cycles = 0, macs = 0, polls = 0, instructions = 0;
   int32_t error = 0, errorProgram = -1;
   std::string message;
   bool profile = false;
