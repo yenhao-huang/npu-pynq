@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from src.runtime.share.loader import ExportedPackage
+from src.runtime.share.profile import NULL_PROFILER
 
 
 class ImageEngine:
@@ -25,7 +26,9 @@ class ImageEngine:
         self.last_seconds = 0.0
         self.last_stats = {}
 
-    def predict(self, image) -> np.ndarray:
+    def predict(self, image, profiler: Any = None) -> np.ndarray:
+        """Logits for one image; a ``profiler`` (share/profile.py) times the forward call."""
+        profiler = profiler or NULL_PROFILER
         image = np.ascontiguousarray(image)
         if image.dtype != np.float32 or list(image.shape) != self.contract['shape']:
             raise ValueError('Expected a normalized float32 image matching the package input')
@@ -34,7 +37,8 @@ class ImageEngine:
         logits = np.zeros((1, self.classes), np.float32)
         before = self.package.stats()
         start = time.perf_counter()
-        self.package.call('forward', [image], [logits])
+        with profiler.stage('forward', model=True):
+            self.package.call('forward', [image], [logits])
         self.last_seconds = time.perf_counter() - start
         after = self.package.stats()
         self.last_stats = {k: after[k] - before.get(k, 0) for k in ('calls', 'jobs', 'cycles', 'macs', 'polls')

@@ -49,6 +49,29 @@ int npu_rt_execute(int64_t index, void **buffers, int count);
 
 /* calls, jobs, cycles, macs, polls, error, error_program */
 void npu_rt_stats(int64_t out[7]);
+
+/* Phase profiling, off by default. enable != 0 clears the per-program phase
+ * counters and starts recording; event_capacity > 0 also keeps up to that many
+ * timeline events (later ones are counted as dropped). Times are
+ * CLOCK_MONOTONIC nanoseconds, the clock Python's time.perf_counter_ns reads,
+ * so phases and engine stages share one timeline. */
+void npu_rt_profile(int enable, int64_t event_capacity);
+int64_t npu_rt_program_count(void);
+
+/* Per program `index`, NPU_RT_PHASE_FIELDS values, in order:
+ *   m, n, k, segments, calls, call_ns_min, call_ns_max,
+ *   pack_a_ns, stage_b_ns, pl_ns, unpack_c_ns, pl_cycles, polls, jobs,
+ *   pack_a_bytes, stage_b_bytes, unpack_c_bytes
+ * Sums cover the successful calls since profiling was enabled. 0 on success. */
+#define NPU_RT_PHASE_FIELDS 17
+int npu_rt_phase_stats(int64_t index, int64_t out[NPU_RT_PHASE_FIELDS]);
+
+/* Timeline events, NPU_RT_EVENT_FIELDS values each: program index, phase
+ * (0 pack_a, 1 stage_b, 2 pl, 3 unpack_c), begin_ns, end_ns. stage_b and pl
+ * repeat per segment. Copies up to `max` events into out and returns how many
+ * were recorded; *dropped gets the number that did not fit the capacity. */
+#define NPU_RT_EVENT_FIELDS 4
+int64_t npu_rt_events(int64_t *out, int64_t max, int64_t *dropped);
 const char *npu_rt_error(void);
 void npu_rt_close(void);
 
@@ -70,6 +93,17 @@ struct Program {
   std::vector<Segment> segments;
 };
 
+struct PhaseStats {
+  int64_t calls = 0, callMin = 0, callMax = 0;
+  int64_t packA = 0, stageB = 0, pl = 0, unpackC = 0;  /* nanoseconds */
+  int64_t plCycles = 0, polls = 0, jobs = 0;
+  int64_t packABytes = 0, stageBBytes = 0, unpackCBytes = 0;
+};
+
+struct Event {
+  int64_t index, phase, begin, end;
+};
+
 struct State {
   bool pynq = false;
   volatile uint32_t *mmio = nullptr;
@@ -81,6 +115,11 @@ struct State {
   int64_t calls = 0, jobs = 0, cycles = 0, macs = 0, polls = 0;
   int32_t error = 0, errorProgram = -1;
   std::string message;
+  bool profile = false;
+  std::vector<PhaseStats> phases;  /* per program, while profiling */
+  std::vector<Event> events;       /* reserved to the capacity */
+  size_t eventCapacity = 0;
+  int64_t eventsDropped = 0;
 };
 
 extern State rt;
@@ -92,6 +131,9 @@ bool readTable(const std::string &dir, std::vector<Program> &programs,
 int32_t pynqRun(const Segment &segment);
 /* sim.cpp */
 int32_t simRun(const uint64_t *words, int32_t length, uint32_t dataBase);
+/* profile.cpp */
+int64_t nowNs();
+void recordEvent(int64_t index, int64_t phase, int64_t begin, int64_t end);
 
 } // namespace npu_rt
 #endif

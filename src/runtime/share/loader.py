@@ -95,6 +95,18 @@ class ExportedPackage:
         stats['delegate_calls'] = self.dispatcher.calls
         return stats
 
+    def profile(self, enable: bool, events: int = 0) -> None:
+        """Start or stop phase profiling in every backend that supports it."""
+        for backend in self.backends.values():
+            if hasattr(backend, 'profile'):
+                backend.profile(enable, events)
+
+    def phase_stats(self) -> dict[str, list[dict[str, int]]]:
+        return {name: b.phase_stats() for name, b in self.backends.items() if hasattr(b, 'phase_stats')}
+
+    def events(self) -> dict[str, tuple[list[tuple[int, str, int, int]], int]]:
+        return {name: b.events() for name, b in self.backends.items() if hasattr(b, 'events')}
+
     def close(self) -> None:
         """Release the backends' board buffers; the package cannot be called afterwards."""
         for backend in self.backends.values():

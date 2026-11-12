@@ -13,5 +13,5 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-add_library(npu_rt SHARED load.cpp execute.cpp pynq.cpp sim.cpp)
+add_library(npu_rt SHARED load.cpp execute.cpp pynq.cpp sim.cpp profile.cpp)
 target_include_directories(npu_rt PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
