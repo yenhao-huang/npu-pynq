@@ -1,7 +1,8 @@
 //===- lower.cpp - the npu delegate: the adapter to src/vendors/npu_pynq --===//
 //
-//   claims()   --npu-claim (custom_dialect/lib/Claim.cpp): INT8 contractions
-//              on constant weights become npu.matmul
+//   lower()    npu::claim (custom_dialect/lib/Claim.cpp) on the device
+//              function's matmul: npu.matmul {tk} + linalg.reduce of its
+//              K planes, which stays CPU code
 //   compile()  per npu.matmul, in delegate-id order:
 //                Pack   its weight as B tiles, into the arena
 //                Encode its ISA program, relocated against that block
@@ -17,10 +18,11 @@
 #include "../../package.h"
 
 #include "Npu/NpuDialect.h"
+#include "Npu/NpuMatch.h"
 #include "Npu/NpuPasses.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Pass/PassManager.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 
 using namespace mlir;
 
@@ -38,14 +40,14 @@ public:
 
   std::string name() const override { return "npu"; }
 
-  FailureOr<std::vector<Operation *>> claims(ModuleOp module) override {
-    PassManager pm(module.getContext());
-    pm.addPass(npu::createClaimPass(options.maxK));
-    if (failed(pm.run(module)))
+  FailureOr<Operation *> lower(func::FuncOp fn) override {
+    SmallVector<linalg::MatmulOp> matmuls;
+    fn.walk([&](linalg::MatmulOp op) { matmuls.push_back(op); });
+    if (matmuls.size() != 1 || !npu::isClaimable(matmuls.front())) {
+      fn.emitError("an npu device function must hold one claimable linalg.matmul");
       return failure();
-    std::vector<Operation *> ops;
-    module.walk([&](npu::MatmulOp op) { ops.push_back(op); });
-    return ops;
+    }
+    return npu::claim(matmuls.front(), options.maxK).getOperation();
   }
 
   LogicalResult compile(const std::vector<std::pair<int64_t, Operation *>> &ops,

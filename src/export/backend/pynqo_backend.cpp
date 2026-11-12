@@ -3,10 +3,12 @@
 //   pynqo-backend model.mlir --out <dir> --devices cpu,npu
 //               --cpus arm-cortex-a9,native --llvm-bin /usr/lib/llvm-22/bin
 //
-//   model.mlir (fused linalg on tensors, weights as constants; pynqo-middle-end
-//   already ran the graph-level cleanups and elementwise fusion)
-//     -> partition: delegates claim and compile their operations; each
-//        becomes func.call @__delegate__(id, in, out)
+//   model.mlir (fused linalg on tensors, weights as constants, one device function
+//              per delegated operation, assigned for pynqo.devices; pynqo-middle-end
+//              already ran the graph-level cleanups and elementwise fusion)
+//     -> check pynqo.devices against --devices
+//     -> partition: delegates lower and compile their device functions; each
+//        call becomes the lowered body around func.call @__delegate__(id, in, out)
 //     -> externalize the remaining weights into weights.bin (`ws` argument)
 //     -> CPU codegen, once per CPU model: <dir>/<model>/model.so
 //     -> <dir>/compile.json: entry points, delegate table, weights, libraries
@@ -145,12 +147,26 @@ int main(int argc, char **argv) {
   // externalizeWeights then stores only what the CPU code still reads.
   // Both write into one arena, which becomes weights.bin.
   backend::WeightArena arena;
-  // 3. Partition (partition.cpp). Each delegate claims its operations (the
-  // NPU: --npu-claim turns INT8 contractions on constant weights into
-  // npu.matmul), compiles them (packs the weights into the arena, encodes
-  // programs.*), and each claimed operation is replaced by
-  // func.call @__delegate__(id, in, out). The table maps every id to its
-  // device and that device's own index.
+  // The middle end assigned the operations for one device list
+  // (pynqo-middle-end --devices); a model.mlir assigned for another must not
+  // be compiled for these delegates. The attribute is consumed here.
+  std::vector<std::string> assigned;
+  if (auto list = (*module)->getAttrOfType<ArrayAttr>("pynqo.devices"))
+    for (Attribute a : list)
+      if (auto s = dyn_cast<StringAttr>(a))
+        assigned.push_back(s.getValue().str());
+  if (assigned != split(devices))
+    return fail("model.mlir was assigned for devices [" + llvm::join(assigned, ",") +
+                "] but --devices is [" + llvm::join(split(devices), ",") +
+                "]; run pynqo-middle-end with --devices " + devices.getValue());
+  (*module)->removeAttr("pynqo.devices");
+  // 3. Partition (partition.cpp). The middle end outlined each delegated
+  // operation into a device function with its delegate id. Each delegate
+  // lowers its functions (the NPU: npu::claim makes npu.matmul {tk} + a
+  // linalg.reduce of the K planes) and compiles them (packs the weights into
+  // the arena, encodes programs.*); each body is inlined at its call and the
+  // device operation becomes func.call @__delegate__(id, in, out). The table
+  // maps every id to its device and that device's own index.
   auto table = backend::partition(*module, *delegates, arena, out);
   if (failed(table))
     return fail("partition failed");

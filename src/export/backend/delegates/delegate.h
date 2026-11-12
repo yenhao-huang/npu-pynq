@@ -1,7 +1,9 @@
 //===- delegate.h - a device the back end can hand regions to ---*- C++ -*-===//
 //
-// A delegate claims the operations its device runs, then compiles each one
-// it was given an id for. Partition outlines every claimed operation as
+// The middle end decides which operations a device runs and outlines each
+// into a device function (@<device>_<id>, pynqo.device, pynqo.delegate_id).
+// A delegate lowers each of its device functions to the operation its device
+// runs, then compiles those operations. Partition outlines every one as
 //
 //   func.call @__delegate__(id, in, out)      (bytes in, bytes out)
 //
@@ -13,6 +15,7 @@
 #ifndef BACKEND_DELEGATES_DELEGATE_H
 #define BACKEND_DELEGATES_DELEGATE_H
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Operation.h"
 
@@ -29,12 +32,12 @@ class Delegate {
 public:
   virtual ~Delegate() = default;
   virtual std::string name() const = 0;
-  // Rewrite the module so the operations this device runs are recognisable,
-  // and return them in module order.
-  virtual mlir::FailureOr<std::vector<mlir::Operation *>>
-  claims(mlir::ModuleOp module) = 0;
-  // Compile the claimed operations, each with this device's own index for it
-  // (0..n-1 in module order; the manifest maps global ids to it). Constants the
+  // Rewrite one device function's body into the form compile() reads and
+  // return the operation the device runs. Everything else in the body stays
+  // CPU code: partition inlines it at the call site.
+  virtual mlir::FailureOr<mlir::Operation *> lower(mlir::func::FuncOp fn) = 0;
+  // Compile the lowered operations, each with this device's own index for it
+  // (0..n-1 in delegate-id order; the manifest maps global ids to it). Constants the
   // operations read (weights) belong to the delegate: it stores them in the
   // arena in its own layout. Device artefacts go under `out`.
   virtual mlir::LogicalResult

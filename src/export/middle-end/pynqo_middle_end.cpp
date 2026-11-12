@@ -1,16 +1,20 @@
 //===- pynqo_middle_end.cpp - the middle end: torch.mlir -> model.mlir ------===//
 //
-//   pynqo-middle-end torch.mlir -o model.mlir
+//   pynqo-middle-end torch.mlir -o model.mlir --devices cpu,npu
 //
 //   torch/transforms/   our rewrites on the torch dialect, while layers are recognisable
 //   torch-mlir          its two pipelines, to linalg on tensors
+//   linalg/transforms/  device assignment, then one device function per
+//                       assigned operation (@npu_<id>), called in its place
 //   graph cleanups      canonicalize, cse, linalg-fuse-elementwise-ops: target-agnostic,
 //                       so they run once here, not once per CPU target in the back end
 //
-// The result holds only upstream dialects, which pynqo-backend parses.
+// The result holds only upstream dialects, which pynqo-backend parses, plus
+// the pynqo.* attributes of the device functions (linalg/transforms/Passes.h).
 // --emit=torch stops after our rewrites, to inspect or test them.
 //
 //===----------------------------------------------------------------------===//
+#include "linalg/transforms/Passes.h"
 #include "torch/transforms/Passes.h"
 
 #include "mlir/Dialect/Linalg/Passes.h"
@@ -37,6 +41,8 @@ static cl::opt<std::string> input(cl::Positional, cl::desc("<torch.mlir>"), cl::
 static cl::opt<std::string> output("o", cl::desc("Output file"), cl::Required);
 static cl::opt<std::string> emit("emit", cl::desc("linalg, or torch to stop before lowering"),
                                  cl::init("linalg"));
+static cl::opt<std::string> devices("devices", cl::desc("cpu or cpu,npu: the devices to assign to"),
+                                    cl::init("cpu"));
 
 static constexpr const char *kLowering =
     "torch-function-to-torch-backend-pipeline,"
@@ -82,6 +88,15 @@ int main(int argc, char **argv) {
   if (emit == "linalg") {
     if (failed(parsePassPipeline(kLowering, pm)))
       return fail("bad lowering pipeline");
+    // Which device runs each operation, and its device functions. Before any
+    // fusion: a call is opaque to it, so device work is never fused.
+    SmallVector<StringRef> names;
+    StringRef(devices).split(names, ',', -1, false);
+    std::vector<std::string> list;
+    for (StringRef name : names)
+      list.push_back(name.trim().str());
+    pm.addPass(middle_end::createAssignDevicesPass(list));
+    pm.addPass(middle_end::createPartitionDevicesPass());
     // The graph the back end compiles: cleaned up and with elementwise chains
     // fused into their producers. Neither depends on the device or the CPU target.
     pm.addPass(createCanonicalizerPass());

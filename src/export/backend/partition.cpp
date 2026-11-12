@@ -1,19 +1,28 @@
-//===- partition.cpp - hand claimed regions to delegates ------------------===//
+//===- partition.cpp - compile device functions, apply the ABI ------------===//
 //
-// Every delegate claims the operations its device runs. Each claimed
-// operation gets a global delegate id; its device compiles it (with its own
-// index for it), and the operation is replaced by a call the runtime
-// dispatches by id:
+// The middle end outlined every operation a device runs into a device
+// function and fixed its global delegate id:
 //
-//   %r = <claimed op>(%x, %w = arith.constant)
+//   %r = func.call @npu_<id>(%x)
+//   func.func private @npu_<id>(%x) attributes {pynqo.device = "npu",
+//                                               pynqo.delegate_id = <id>}
+//
+// Partition checks the ids are 0..n-1, lets each function's delegate lower its
+// body (the NPU: npu.matmul {tk} + a linalg.reduce of the K planes) and
+// compile the operation the device runs (with its own index for it), inlines
+// the lowered body at the call site, and replaces that operation with a call
+// the runtime dispatches by id:
+//
+//   %r = <device op>(%x, %w = arith.constant)
 //     ->  %in  = memref.alloc() : memref<Bxi8>    viewed as %x's type, %x stored into it
 //         %out = memref.alloc() : memref<Cxi8>    viewed as %r's type
 //         func.call @__delegate__(%id, %in, %out) : (i64, memref<?xi8>, memref<?xi8>) -> ()
 //         %r = bufferization.to_tensor %out-view
 //
-// Operands defined by constants (weights) belong to the delegate, which
-// stores them itself; a claimed operation has one other operand and one
-// result. The C interface of __delegate__ is
+// What else the body held (the NPU's reduce and accumulator fill) stays CPU
+// code next to the call. Operands defined by constants (weights) belong to the
+// delegate, which stores them itself; a device operation has one other
+// operand and one result. The C interface of __delegate__ is
 //
 //   void _mlir_ciface___delegate__(int64_t id, memref_1d_i8 *in, memref_1d_i8 *out)
 //
@@ -26,7 +35,9 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 
-#include "llvm/ADT/DenseSet.h"
+#include "mlir/IR/SymbolTable.h"
+
+#include "llvm/ADT/STLExtras.h"
 
 using namespace mlir;
 
@@ -34,6 +45,70 @@ namespace backend {
 namespace {
 
 constexpr llvm::StringLiteral kDelegateFn = "__delegate__";
+// Written by the middle end (middle-end/linalg/transforms/Passes.h); the
+// spellings must agree (src/test/tests/test_export_layering.py).
+constexpr llvm::StringLiteral kDeviceAttr = "pynqo.device";
+constexpr llvm::StringLiteral kDelegateIdAttr = "pynqo.delegate_id";
+
+// One device function and the call that uses it.
+struct DeviceFunction {
+  func::FuncOp fn;
+  func::CallOp call;
+  std::string device;
+  int64_t id;
+};
+
+// Every device function, in delegate-id order, after checking the contract:
+// ids 0..n-1 without gaps or repeats, tensor arguments and one tensor result
+// of static shape, and exactly one call.
+FailureOr<std::vector<DeviceFunction>> deviceFunctions(ModuleOp module) {
+  std::vector<DeviceFunction> found;
+  for (auto fn : module.getOps<func::FuncOp>()) {
+    if (!fn->hasAttr(kDeviceAttr))
+      continue;
+    auto device = fn->getAttrOfType<StringAttr>(kDeviceAttr);
+    auto id = fn->getAttrOfType<IntegerAttr>(kDelegateIdAttr);
+    if (!device || !id)
+      return fn.emitError() << "a device function needs a string " << kDeviceAttr
+                            << " and an integer " << kDelegateIdAttr;
+    FunctionType type = fn.getFunctionType();
+    auto isStatic = [](Type t) {
+      auto tensor = dyn_cast<RankedTensorType>(t);
+      return tensor && tensor.hasStaticShape();
+    };
+    if (fn.isExternal() || type.getNumResults() != 1 || !llvm::all_of(type.getInputs(), isStatic) ||
+        !isStatic(type.getResult(0)))
+      return fn.emitError("a device function takes static tensors and returns one static tensor");
+    auto uses = SymbolTable::getSymbolUses(fn, module);
+    func::CallOp call;
+    if (uses && llvm::hasSingleElement(*uses))
+      call = dyn_cast<func::CallOp>(uses->begin()->getUser());
+    if (!call)
+      return fn.emitError("a device function needs exactly one func.call");
+    found.push_back({fn, call, device.getValue().str(), id.getInt()});
+  }
+  llvm::sort(found, [](const DeviceFunction &a, const DeviceFunction &b) { return a.id < b.id; });
+  for (size_t i = 0; i < found.size(); ++i)
+    if (found[i].id != static_cast<int64_t>(i))
+      return found[i].fn.emitError() << "delegate ids must be 0.." << found.size() - 1
+                                     << " without gaps or repeats; found " << found[i].id
+                                     << " at position " << i;
+  return found;
+}
+
+// Move the body of `f.fn` to its call site, then erase the call and the
+// function. Operations keep their identity, so pointers into the body stay valid.
+void inlineAtCall(DeviceFunction &f) {
+  Block &body = f.fn.front();
+  for (auto [argument, operand] : llvm::zip(body.getArguments(), f.call.getOperands()))
+    argument.replaceAllUsesWith(operand);
+  Operation *ret = body.getTerminator();
+  f.call->replaceAllUsesWith(ret->getOperands());
+  f.call->getBlock()->getOperations().splice(Block::iterator(f.call), body.getOperations(),
+                                             body.begin(), Block::iterator(ret));
+  f.call.erase();
+  f.fn.erase();
+}
 
 int64_t byteSize(RankedTensorType type) {
   return type.getNumElements() * ((type.getElementTypeBitWidth() + 7) / 8);
@@ -113,33 +188,42 @@ LogicalResult outline(Operation *op, int64_t id, func::FuncOp callee,
 FailureOr<std::vector<DelegateEntry>>
 partition(ModuleOp module, const std::vector<std::unique_ptr<Delegate>> &delegates,
           WeightArena &arena, const std::string &out) {
+  auto functions = deviceFunctions(module);
+  if (failed(functions))
+    return failure();
   std::vector<DelegateEntry> table;
-  llvm::DenseSet<Operation *> taken;
-  std::vector<std::pair<int64_t, Operation *>> toOutline;
+  // The operation each id's device runs, once lowered.
+  std::vector<Operation *> lowered(functions->size(), nullptr);
+  for (DeviceFunction &f : *functions) {
+    if (!llvm::any_of(delegates, [&](const auto &d) { return d->name() == f.device; }))
+      return f.fn.emitError() << "device '" << f.device << "' has no delegate in --devices";
+    table.push_back({f.id, f.device, 0, 0, 0});
+  }
   for (const auto &delegate : delegates) {
-    auto claimed = delegate->claims(module);
-    if (failed(claimed))
-      return failure();
     std::vector<std::pair<int64_t, Operation *>> mine;
-    for (Operation *op : *claimed) {
-      if (!taken.insert(op).second)
+    for (DeviceFunction &f : *functions) {
+      if (f.device != delegate->name())
         continue;
-      int64_t id = static_cast<int64_t>(table.size());
+      auto op = delegate->lower(f.fn);
+      if (failed(op))
+        return failure();
       int64_t index = static_cast<int64_t>(mine.size());
-      table.push_back({id, delegate->name(), index, 0, 0});
-      mine.push_back({index, op});
-      toOutline.push_back({id, op});
+      table[f.id].index = index;
+      lowered[f.id] = *op;
+      mine.push_back({index, *op});
     }
     // Compile before anything is outlined.
     // compile reads the operations and their weights, and outline erases them.
     if (!mine.empty() && failed(delegate->compile(mine, arena, out)))
       return failure();
   }
-  if (toOutline.empty())
+  if (functions->empty())
     return table;
+  for (DeviceFunction &f : *functions)
+    inlineAtCall(f);
   func::FuncOp callee = declareDelegate(module);
-  for (auto [id, op] : toOutline)
-    if (failed(outline(op, id, callee, table[id])))
+  for (size_t id = 0; id < lowered.size(); ++id)
+    if (failed(outline(lowered[id], static_cast<int64_t>(id), callee, table[id])))
       return failure();
   return table;
 }

@@ -1,8 +1,10 @@
-"""pynqo-middle-end: the rewrites on the torch dialect, lowering to linalg, and fusion.
-Skipped where torch or torch-mlir is missing, or the tool is not built
-(src/export/pipeline.py's build_middle_end builds it)."""
+"""pynqo-middle-end: the rewrites on the torch dialect, lowering to linalg,
+device assignment and partitioning, and fusion; and pynqo-backend's side of
+that contract. Skipped where torch or torch-mlir is missing, or a tool is not
+built (src/export/pipeline.py's build_middle_end and build_backend build them)."""
 
 import importlib.util
+import json
 from pathlib import Path
 import re
 import tempfile
@@ -15,9 +17,9 @@ from src.export import pipeline
 HAVE_TOOLS = all(importlib.util.find_spec(m) for m in ('torch', 'torch_mlir', 'torchao'))
 
 
-def tool_is_built():
+def tool_is_built(tool=None):
     try:
-        pipeline._linux(f'test -x {pipeline.middle_end_tool()}')
+        pipeline._linux(f'test -x {tool or pipeline.middle_end_tool()}')
     except (OSError, RuntimeError):
         return False
     return True
@@ -49,16 +51,41 @@ def w8a8(net):
     return quantize(net, 'w8a8')
 
 
-def run(net, emit):
-    """``net`` through to_mlir and pynqo-middle-end; the text of what they wrote, in order."""
+def mlp():
+    """Two INT8 linear layers on a [4, 16] input: two NPU contractions, in module order."""
+    import torch
+    from torch import nn
+
+    torch.manual_seed(5)
+    return w8a8(nn.Sequential(nn.Linear(16, 32), nn.ReLU(), nn.Linear(32, 8)).eval())
+
+
+def lower(net, d, emit='linalg', devices=('cpu',), shape=(1, 3, 8, 8)):
+    """``net`` through to_mlir and pynqo-middle-end into directory ``d``; both files' paths."""
     import torch
     from src.export.frontend.to_mlir import to_mlir
 
-    ep = torch.export.export(net, (torch.zeros(1, 3, 8, 8),), strict=False).run_decompositions()
+    d = Path(d)
+    d.mkdir(parents=True, exist_ok=True)
+    ep = torch.export.export(net, (torch.zeros(*shape),), strict=False).run_decompositions()
+    imported = to_mlir({'forward': ep}, d)
+    return imported, pipeline.middle_end(imported, d / 'out.mlir', emit=emit, devices=devices)
+
+
+def run(net, emit, devices=('cpu',), shape=(1, 3, 8, 8)):
+    """``net`` through to_mlir and pynqo-middle-end; the text of what they wrote, in order."""
     with tempfile.TemporaryDirectory() as d:
-        imported = to_mlir({'forward': ep}, Path(d))
-        out = pipeline.middle_end(imported, Path(d) / 'out.mlir', emit=emit)
+        imported, out = lower(net, d, emit, devices, shape)
         return imported.read_text(encoding='utf-8'), out.read_text(encoding='utf-8')
+
+
+def functions(text):
+    """name -> (signature line, body) for every func.func in ``text``, in order."""
+    text = code(text)
+    found = {}
+    for m in re.finditer(r'^  func\.func (?:private )?@(\w+)\(.*$', text, re.M):
+        found[m.group(1)] = (m.group(0), text[m.end():text.index('\n  }\n', m.end())])
+    return found
 
 
 def code(text):
@@ -162,6 +189,96 @@ class LoweringTest(unittest.TestCase):
 
         _, text = run(Chain().eval(), 'linalg')
         self.assertEqual(code(text).count('linalg.generic'), 1)
+
+
+MLP_INPUT = (4, 16)
+# A device function's signature: what the middle end promises pynqo-backend.
+DEVICE_FUNCTION = (r'func\.func private @npu_(\d+)\(%arg0: tensor<(\w+)xi8>\) -> tensor<(\w+)xi32> '
+                   r'attributes \{pynqo\.delegate_id = (\d+) : i64, pynqo\.device = "npu"\}')
+
+
+@unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and pynqo-middle-end are required')
+class DevicePartitionTest(unittest.TestCase):
+    def test_cpu_alone_assigns_nothing(self):
+        _, text = run(mlp(), 'linalg', shape=MLP_INPUT)
+        self.assertIn('module attributes {pynqo.devices = ["cpu"]', text)
+        self.assertNotIn('pynqo.device ', text)
+        self.assertNotIn('@npu_', text)
+        self.assertEqual(code(text).count('linalg.matmul'), 2)
+
+    def test_each_npu_contraction_becomes_one_device_function(self):
+        _, text = run(mlp(), 'linalg', ('cpu', 'npu'), MLP_INPUT)
+        self.assertIn('module attributes {pynqo.devices = ["cpu", "npu"]', text)
+        fns = functions(text)
+        # Ids follow module order; each function is named after its id.
+        headers = [re.search(DEVICE_FUNCTION, h) for name, (h, _) in fns.items() if name.startswith('npu_')]
+        self.assertTrue(headers and all(headers), list(fns))
+        self.assertEqual([(h.group(1), h.group(4)) for h in headers], [('0', '0'), ('1', '1')])
+        self.assertEqual([(h.group(2), h.group(3)) for h in headers], [('4x16', '4x32'), ('4x32', '4x8')])
+        # The caller keeps the CPU work and calls the device functions in order.
+        _, forward = fns['forward']
+        self.assertNotIn('linalg.matmul', forward)
+        self.assertEqual(re.findall(r'call @(npu_\d+)\(', forward), ['npu_0', 'npu_1'])
+        # Each body holds its weight and accumulator initialization: activation in, result out.
+        for name in ('npu_0', 'npu_1'):
+            _, body = fns[name]
+            self.assertRegex(body, r'arith\.constant dense_resource<torch_tensor_\w+_torch\.int8> : tensor<\w+xi8>')
+            self.assertRegex(body, r'linalg\.fill ins\(%c0_i32 : i32\)')
+            self.assertRegex(body, r'linalg\.matmul ins\(%arg0, %cst : tensor<\w+xi8>, tensor<\w+xi8>\) '
+                                   r'outs\(%1 : tensor<\w+xi32>\)')
+            self.assertNotIn('pynqo.device', body)
+            self.assertNotIn('call ', body)
+
+    def test_a_w8a8_convolution_contraction_moves_whole(self):
+        _, text = run(w8a8(conv_bn(False)), 'linalg', ('cpu', 'npu'))
+        fns = functions(text)
+        self.assertEqual([n for n in fns if n.startswith('npu_')], ['npu_0'])
+        self.assertRegex(fns['npu_0'][1], r'linalg\.matmul ins\(.*xi8>, tensor<\S*xi8>\) outs\(.*xi32>\)')
+        self.assertNotIn('linalg.matmul', fns['forward'][1])
+
+    def test_float_work_stays_on_the_cpu(self):
+        _, text = run(conv_bn(), 'linalg', ('cpu', 'npu'))
+        self.assertIn('module attributes {pynqo.devices = ["cpu", "npu"]', text)
+        self.assertNotIn('@npu_', text)
+        self.assertNotIn('pynqo.device ', text)
+
+    def test_unknown_device_lists_fail(self):
+        for devices in (('cpu', 'gpu'), ('npu',), ('cpu', 'npu', 'npu')):
+            with self.subTest(devices=devices), self.assertRaises(RuntimeError):
+                run(mlp(), 'linalg', devices, MLP_INPUT)
+
+
+@unittest.skipUnless(HAVE_TOOLS and tool_is_built() and tool_is_built(pipeline.backend_tool()),
+                     'torch, torch-mlir, pynqo-middle-end and pynqo-backend are required')
+class BackendContractTest(unittest.TestCase):
+    """pynqo-backend keeps the middle end's delegate ids and refuses another device list."""
+
+    def backend(self, model, out, devices):
+        pipeline._linux(f"{pipeline.backend_tool()} '{pipeline._linux_path(model)}' "
+                        f"--out '{pipeline._linux_path(out)}' --devices {devices} --cpus native --keep-ir")
+
+    def test_ids_are_kept_and_device_functions_are_compiled(self):
+        with tempfile.TemporaryDirectory() as d:
+            _, model = lower(mlp(), d, devices=('cpu', 'npu'), shape=MLP_INPUT)
+            self.backend(model, Path(d) / 'pkg', 'cpu,npu')
+            table = json.loads((Path(d) / 'pkg' / 'compile.json').read_text())['delegates']
+            self.assertEqual([(e['id'], e['device'], e['index']) for e in table], [(0, 'npu', 0), (1, 'npu', 1)])
+            self.assertEqual([(e['input_bytes'], e['output_bytes']) for e in table], [(64, 512), (128, 128)])
+            partitioned = code((Path(d) / 'pkg' / 'partitioned.mlir').read_text())
+            self.assertNotIn('@npu_', partitioned)
+            self.assertNotIn('pynqo.', partitioned)
+            self.assertEqual(len(re.findall(r'call @__delegate__\(', partitioned)), 2)
+            # The K-plane sum stays CPU code next to each call.
+            self.assertEqual(partitioned.count('linalg.reduce'), 2)
+
+    def test_a_model_assigned_for_other_devices_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            _, npu = lower(mlp(), Path(d) / 'npu', devices=('cpu', 'npu'), shape=MLP_INPUT)
+            with self.assertRaisesRegex(RuntimeError, r'assigned for devices \[cpu,npu\] but --devices is \[cpu\]'):
+                self.backend(npu, Path(d) / 'pkg', 'cpu')
+            _, cpu = lower(mlp(), Path(d) / 'cpu', shape=MLP_INPUT)
+            with self.assertRaisesRegex(RuntimeError, r'assigned for devices \[cpu\] but --devices is \[cpu,npu\]'):
+                self.backend(cpu, Path(d) / 'pkg', 'cpu,npu')
 
 
 if __name__ == '__main__':

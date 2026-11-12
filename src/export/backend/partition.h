@@ -1,4 +1,4 @@
-//===- partition.h - hand claimed regions to delegates ----------*- C++ -*-===//
+//===- partition.h - compile device functions, apply the ABI ----*- C++ -*-===//
 #ifndef BACKEND_PARTITION_H
 #define BACKEND_PARTITION_H
 
@@ -19,9 +19,11 @@ struct DelegateEntry {
   int64_t inputBytes, outputBytes;
 };
 
-// Let every delegate claim its operations, compile them, and replace each
-// with `func.call @__delegate__(id, in, out)`. Delegates run in the order
-// given; an operation belongs to the first that claims it.
+// Compile the device functions the middle end outlined: check their
+// pynqo.delegate_id values are 0..n-1, let each function's delegate lower and
+// compile it, inline the lowered body at its call site, and replace the
+// device's operation with `func.call @__delegate__(id, in, out)`. The ids are
+// kept as given; a function for a device with no delegate is an error.
 mlir::FailureOr<std::vector<DelegateEntry>>
 partition(mlir::ModuleOp module, const std::vector<std::unique_ptr<Delegate>> &delegates,
           WeightArena &arena, const std::string &out);

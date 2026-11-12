@@ -4,9 +4,11 @@
     quantize       our torchao config quantizes it (frontend/quantization)
     export_graph   torch.export: one ExportedProgram per entry point
     to_mlir        torch-mlir's importer: torch.mlir, the torch dialect
-    pynqo-middle-end the C++ middle end (middle-end/): our rewrites, then torch-mlir's
-                   pipelines to model.mlir, linalg on tensors
-    pynqo-backend    the C++ back end (backend/): delegates, weights.bin, CPU code
+    pynqo-middle-end the C++ middle end (middle-end/): our rewrites, torch-mlir's
+                   pipelines to linalg on tensors, then device assignment and one
+                   device function per delegated operation: model.mlir
+    pynqo-backend    the C++ back end (backend/): delegates compile their device
+                   functions, weights.bin, CPU code
 
 The front end runs wherever torch does; both C++ tools need Linux with LLVM 22.
 On Windows they run in WSL (paths are translated). See
@@ -56,14 +58,20 @@ def _linux(command: str) -> None:
         raise RuntimeError(f'{command.split()[0]} failed:\n{proc.stdout[-3000:]}{proc.stderr[-3000:]}')
 
 
+def backend_tool() -> str:
+    """The Linux path of pynqo-backend, built or not."""
+    import os
+    build = os.environ.get('PYNQO_BACKEND_BUILD') or _linux_path(REPO / 'build' / 'pynqo-backend')
+    return f'{build}/pynqo-backend'
+
+
 def build_backend(build_dir: str | None = None, llvm: str = '/usr/lib/llvm-22') -> str:
     """Build pynqo-backend with CMake (incrementally); return its Linux path.
 
     Every export calls this, so a package is never compiled by a stale pynqo-backend.
     The call is cheap: Ninja does nothing when the sources are unchanged.
     """
-    import os
-    build = build_dir or os.environ.get('PYNQO_BACKEND_BUILD') or _linux_path(REPO / 'build' / 'pynqo-backend')
+    build = build_dir or backend_tool().rsplit('/', 1)[0]
     _linux(f"cmake -S '{_linux_path(BACKEND)}' -B {build} -G Ninja -DCMAKE_BUILD_TYPE=Release "
            f"-DMLIR_DIR={llvm}/lib/cmake/mlir >/dev/null && cmake --build {build}")
     return f'{build}/pynqo-backend'
@@ -93,9 +101,15 @@ def build_middle_end(llvm: str = '/usr/lib/llvm-22') -> str:
     return tool
 
 
-def middle_end(torch_mlir: Path, out: Path, tool: str | None = None, emit: str = 'linalg') -> Path:
-    """Run pynqo-middle-end on ``torch_mlir``; write ``out`` and return it."""
-    _linux(f"{tool or middle_end_tool()} '{_linux_path(torch_mlir)}' -o '{_linux_path(out)}' --emit={emit}")
+def middle_end(torch_mlir: Path, out: Path, tool: str | None = None, emit: str = 'linalg',
+               devices: tuple[str, ...] | list[str] = ('cpu',)) -> Path:
+    """Run pynqo-middle-end on ``torch_mlir``; write ``out`` and return it.
+
+    ``devices`` is the config's device list. The middle end assigns operations
+    to them, and pynqo-backend refuses a model.mlir assigned for another list.
+    """
+    _linux(f"{tool or middle_end_tool()} '{_linux_path(torch_mlir)}' -o '{_linux_path(out)}' --emit={emit} "
+           f"--devices {','.join(devices)}")
     return out
 
 
@@ -164,15 +178,17 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     torch_mlir = to_mlir(programs, out / 'ir')
     times['to_mlir'] = time.monotonic() - start
 
-    # pynqo-middle-end: our rewrites, then torch-mlir's pipelines to model.mlir (linalg on tensors).
+    # pynqo-middle-end: our rewrites, torch-mlir's pipelines, then device assignment and
+    # partitioning for the config's devices: model.mlir (linalg on tensors, @npu_* functions).
     start = time.monotonic()
     tool = build_middle_end()
     times['build_middle_end'] = time.monotonic() - start
     start = time.monotonic()
-    model_mlir = middle_end(torch_mlir, out / 'ir' / 'model.mlir', tool)
+    model_mlir = middle_end(torch_mlir, out / 'ir' / 'model.mlir', tool, devices=config['devices'])
     times['middle_end'] = time.monotonic() - start
 
-    # pynqo-backend: the C++ back end turns model.mlir into delegates, weights.bin and CPU code.
+    # pynqo-backend: the C++ back end compiles the device functions, then weights.bin and CPU code.
+    # It gets the same device list as the middle end and checks model.mlir was assigned for it.
     start = time.monotonic()
     tool = build_backend()
     times['build_backend'] = time.monotonic() - start
