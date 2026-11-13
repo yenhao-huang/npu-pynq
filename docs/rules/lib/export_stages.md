@@ -21,8 +21,8 @@ IREE's VM bytecode (plan 2026-1112-004).
 | Stage | Path | In → out | Owns | Never |
 | --- | --- | --- | --- | --- |
 | Front end | `frontend/` (Python) | model → `ir/torch.mlir` | loading, quantization, `torch.export`, import to the torch dialect | MLIR rewrites; anything device- or target-specific |
-| Middle end | `middle-end/` (`pynqo-middle-end`) | torch dialect → linalg on tensors (`ir/model.mlir`) | graph-level work: torch rewrites, lowering to linalg, fusion, device assignment and partitioning into `@<device>_<id>` functions | memrefs, loops, LLVM; device code generation; anything that depends on the CPU target |
-| Back end | `backend/` (`pynqo-backend`) | linalg on tensors → package | code generation: each device lowers and compiles its functions and the call becomes `__delegate__`; per `--cpus` target, bufferization, loops, LLVM, `llc`, link | deciding which device runs an op; graph rewrites that would give every target the same result |
+| Middle end | `middle-end/` (`pynqo-middle-end`) | torch dialect → linalg on tensors: the CPU graph (`ir/model.mlir`) and one module per device (`ir/delegates/<device>.mlir`) | graph-level work: torch rewrites, lowering to linalg, device assignment, partitioning (each device subgraph cut out into its device's module, a bodiless `@__delegate_<id>` called in its place), fusion of the CPU graph | memrefs, loops, LLVM; device code generation; anything that depends on the CPU target |
+| Back end | `backend/` (`pynqo-backend`) | the CPU graph and the device modules → package | code generation: each delegate compiles its own device module; per `--cpus` target, delegate calls to `__delegate__(id, in, out)`, bufferization, loops, LLVM, `llc`, link | deciding which device runs an op; graph rewrites that would give every target the same result; CPU code that depends on how a device computes |
 
 ## Rules
 
@@ -42,16 +42,24 @@ IREE's VM bytecode (plan 2026-1112-004).
   links only a device's match predicate (`src/vendors/<vendor>/`), not its
   dialect lowering or encoder. Rewrites under `middle-end/torch/transforms/`
   stay device-neutral ([register_pass.md](register_pass.md)).
-- **The back end decides nothing about placement.** It reads the device
-  functions and attributes the middle end wrote and keeps their delegate ids.
+- **The back end decides nothing about placement.** It reads the delegate
+  declarations, device modules and attributes the middle end wrote and keeps
+  their delegate ids.
+- **Devices are delegates.** As in ExecuTorch and LiteRT, a device is a black
+  box to the rest of the compiler: the CPU graph sees only a call with the
+  subgraph's argument and result, a device's back end compiles only its own
+  module and contributes no CPU code, and whatever the device needs on the
+  host (packing, summing partial results) lives in its runtime library. This
+  deviates from IREE, which keeps device executables in the shared IR until
+  `hal`; plan 2026-1113-001 gives the reason.
 - **Stages talk through files only.** The front end writes `torch.mlir`, the
-  middle end `model.mlir`; each is printed with locations kept. Only
+  middle end `model.mlir` and `delegates/<device>.mlir`; each is printed with
+  locations kept. Only
   `pipeline.py` runs the stages and passes those files on.
 - **A new step goes where its input is.** If it needs memrefs or a target, it
   is back end; otherwise it is middle end, even if it is about a device.
 
-Plan `docs/plans/2026-1112-005-middle-end-backend-split.md` moved fusion
-(#176), device assignment and partitioning (#177) from the back end to the
-middle end. Plan `docs/plans/2026-1113-001-delegate-framework.md` moves the
-delegate call too: until it lands, the back end still lowers each device
-function, inlines it and inserts `__delegate__`.
+Plans `docs/plans/2026-1112-005-middle-end-backend-split.md` (#176, #177)
+and `docs/plans/2026-1113-001-delegate-framework.md` (#177) moved fusion,
+device assignment, partitioning and the delegate call from the back end to
+the middle end.
