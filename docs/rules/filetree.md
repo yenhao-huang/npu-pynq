@@ -76,8 +76,9 @@ npu_repo_in_pynq/
 |   |   |   |-- quantization/    schemes.py; torchao/: our configs and the modules they swap in
 |   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point
 |   |   |   `-- to_mlir/         torch-mlir's importer (llvm/torch-mlir wheels): torch.mlir
-|   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir; builds torch-mlir;
-|   |   |                        torch/transforms/: one file per rewrite on the torch dialect
+|   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir (fused linalg);
+|   |   |                        builds torch-mlir; torch/transforms/: one file per rewrite on
+|   |   |                        the torch dialect
 |   |   `-- backend/             C++ pynqo-backend: partition, delegates/, package (weights.bin),
 |   |                            cpu/toolchain (LLVM IR, llc, link), device_register
 |   |-- deploy/                  deploy.sh (send to the board, or ARCHIVE= a release archive),
@@ -211,12 +212,14 @@ framework; `frontend/quantization/` quantizes it with our torchao configs;
 `frontend/export_graph/` captures it with
 `torch.export`; `frontend/to_mlir/` imports it into the torch dialect with
 torch-mlir; `middle-end/` (`pynqo-middle-end`, C++ against LLVM 22 and a pinned
-torch-mlir it builds from source) rewrites layers while they are recognisable and
-lowers them to linalg with torch-mlir's pipelines; and
+torch-mlir it builds from source) rewrites layers while they are recognisable,
+lowers them to linalg with torch-mlir's pipelines, and runs the target-agnostic
+cleanups and elementwise fusion once, so `ir/model.mlir` is fused linalg; and
 `backend/` (`pynqo-backend`, C++ against LLVM 22, built by `pipeline.py` when
 stale) lets each device delegate claim its operations, replaces them with
 `__delegate__(id, in, out)` calls, moves the remaining weights into
-`weights.bin`, and compiles the rest for the Cortex-A9 and the host. A new
+`weights.bin`, and compiles the rest for the Cortex-A9 and the host, one
+per-target pipeline from bufferization down. A new
 model is a new config; a new device is a delegate under `backend/delegates/`
 and its vendor folder. Front-end stages do not import each other; only
 `pipeline.py` passes a model from one to the next. `python -m

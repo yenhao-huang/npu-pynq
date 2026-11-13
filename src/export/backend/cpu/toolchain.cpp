@@ -86,8 +86,10 @@ std::string pipeline(unsigned indexBits) {
   //   identity-layout-map           public memrefs stay plain, as the runtime's descriptors assume
   //   buffer-results-to-out-params  results become caller-owned arguments, written directly
   //   index-bitwidth                matches the target's pointer size, used by descriptor fields
-  return "canonicalize,cse,linalg-fuse-elementwise-ops,"
-         "one-shot-bufferize{bufferize-function-boundaries "
+  //
+  // Graph-level cleanup and elementwise fusion already ran in pynqo-middle-end.
+  // The canonicalize below cleans up bufferization, which is per target.
+  return "one-shot-bufferize{bufferize-function-boundaries "
          "function-boundary-type-conversion=identity-layout-map},"
          "buffer-results-to-out-params{hoist-static-allocs=true modify-public-functions=true},"
          "canonicalize,buffer-deallocation-pipeline,convert-bufferization-to-memref,"

@@ -1,4 +1,4 @@
-"""pynqo-middle-end: the rewrites on the torch dialect, and lowering to linalg.
+"""pynqo-middle-end: the rewrites on the torch dialect, lowering to linalg, and fusion.
 Skipped where torch or torch-mlir is missing, or the tool is not built
 (src/export/pipeline.py's build_middle_end builds it)."""
 
@@ -150,6 +150,18 @@ class LoweringTest(unittest.TestCase):
 
         _, text = run(Any().eval(), 'linalg')
         self.assertNotIn('torch.', re.sub(r'torch_tensor\S*', '', text))
+
+    def test_elementwise_chain_is_fused(self):
+        # canonicalize, cse and linalg-fuse-elementwise-ops run in the middle end,
+        # once, so model.mlir is the fused graph every CPU target compiles.
+        import torch
+
+        class Chain(torch.nn.Module):
+            def forward(self, x):
+                return torch.relu(x * 2.0 + 1.0).neg()
+
+        _, text = run(Chain().eval(), 'linalg')
+        self.assertEqual(code(text).count('linalg.generic'), 1)
 
 
 if __name__ == '__main__':

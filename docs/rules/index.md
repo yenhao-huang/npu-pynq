@@ -21,6 +21,8 @@ Read the rules that apply before making a change:
   device-neutral; how to add a scheme.
 - [lib/register_pass.md](lib/register_pass.md): middle-end passes stay
   device-neutral; how to add an `OpRewritePattern` pass.
+- [lib/export_stages.md](lib/export_stages.md): what belongs in the export
+  front end, middle end and back end.
 - [git/branch.md](git/branch.md): `main`, `dev`, task branches, and releases.
 - [git/changelog.md](git/changelog.md): release commit boundaries, roadmap
   progress, and ordered Issue/PR tables.

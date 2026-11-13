@@ -1,4 +1,4 @@
-# pynqo-middle-end: torch dialect -> linalg on tensors, against an installed LLVM 22
+# pynqo-middle-end: torch dialect -> fused linalg on tensors, against an installed LLVM 22
 # with MLIR. It builds torch-mlir from source in this tree, without building
 # LLVM, because torch-mlir's wheels bind a different LLVM and hold no C++ API;
 # src/export/pipeline.py builds it when stale.
@@ -56,6 +56,7 @@ target_include_directories(pynqo-middle-end PRIVATE
   ${torch_mlir_SOURCE_DIR}/include
   ${torch_mlir_BINARY_DIR}/include)
 target_link_libraries(pynqo-middle-end PRIVATE
+  MLIRLinalgTransforms
   MLIRParser
   MLIRPass
   MLIRTransforms
