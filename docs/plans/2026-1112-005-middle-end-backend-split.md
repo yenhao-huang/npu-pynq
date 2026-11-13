@@ -5,10 +5,10 @@
 | Plan ID | 2026-1112-005 |
 | Topic | Every graph-level step, device assignment and partitioning included, in `pynqo-middle-end`; `pynqo-backend` only generates code per device and per CPU target and applies the runtime ABI |
 | Date | 2026-11-12 |
-| Status | Phase 1 done (#176); phase 2 open |
+| Status | Phase 1 done (#176); phase 2 done (#177) |
 | Based on | `origin/dev` at `95c35f7` |
 | Related | 2026-1112-004 (kernel outlining; runs after this plan's fusion), 2026-1112-002 (kernel profiler) |
-| Issues | #176 (phase 1) |
+| Issues | #176 (phase 1), #177 (phase 2) |
 
 ## Goal
 
@@ -480,6 +480,33 @@ bufferization, the LLVM lowering and `llc`, which stay per target. The new
 middle end took 6.4 s (SmolLM2) and 0.6 s (ResNet-18) on the same
 `torch.mlir`. Phase 1 removes the repetition and puts the passes where they
 belong; it is not a speed-up.
+
+## Phase 2 results (#177)
+
+Measured on `origin/dev` at `f74ef0e` (before) and phase 2 rebased on phase 1
+(after), same configs and tools as phase 1.
+
+**Delegate table and programs.** Against the `dev` packages, `compile.json`
+(422 delegates for SmolLM2, 21 for ResNet-18, same ids and order),
+`programs.bin`, `programs.txt`, `programs.json` and `weights.bin` are
+byte-identical. `ir/model.mlir` has 422 and 21 `@npu_*` functions, one per
+delegate, with matching `pynqo.delegate_id`s.
+
+**Outputs.** Same host runs as phase 1: SmolLM2 token ids and the SHA-256 of
+the logits after all 26 package calls, and ResNet-18 logits for the six
+images, are bit-identical. Not run on the board.
+
+**`model.so` bytes differ** (both targets, both models), as section 2 and the
+risk list allow. Each device function carries its own accumulator init
+(`tensor.empty` + `linalg.fill`). On `dev`, matmuls of one shape shared an
+init (8 inits for SmolLM2's 422 matmuls, 6 for ResNet-18's 21) because the
+back end's leading `cse` merged them; phase 1 removed that `cse`, so after
+inlining each delegate keeps its own zeroed buffer. The shared buffer had to
+be copied before every K-plane `linalg.reduce` wrote into it, so the CPU code
+loses those copies: `memcpy` calls 1489 → 1075 (SmolLM2, −414 = 422 − 8) and
+51 → 36 (ResNet-18, −15 = 21 − 6); `malloc` counts are unchanged. Restoring a
+`cse` in the back end was tried and rejected: it restores ResNet-18's bytes
+but not SmolLM2's, because after fusion it merges 58 further allocations.
 
 ## Phases
 
