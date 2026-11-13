@@ -4,6 +4,8 @@
 //
 //   torch/transforms/   our rewrites on the torch dialect, while layers are recognisable
 //   torch-mlir          its two pipelines, to linalg on tensors
+//   graph cleanups      canonicalize, cse, linalg-fuse-elementwise-ops: target-agnostic,
+//                       so they run once here, not once per CPU target in the back end
 //
 // The result holds only upstream dialects, which pynqo-backend parses.
 // --emit=torch stops after our rewrites, to inspect or test them.
@@ -11,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 #include "torch/transforms/Passes.h"
 
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/DialectRegistry.h"
@@ -46,7 +49,7 @@ static int fail(const std::string &message) {
 
 int main(int argc, char **argv) {
   llvm::InitLLVM init(argc, argv);
-  cl::ParseCommandLineOptions(argc, argv, "Middle end: torch dialect -> linalg\n");
+  cl::ParseCommandLineOptions(argc, argv, "Middle end: torch dialect -> fused linalg\n");
   if (emit != "linalg" && emit != "torch")
     return fail("--emit must be linalg or torch");
 
@@ -76,8 +79,15 @@ int main(int argc, char **argv) {
   pm.addPass(middle_end::createFuseConvBatchNormPass());
   pm.addPass(middle_end::createDecomposeIntMmPass());
   pm.addPass(middle_end::createAnyDimToAnyDimsPass());
-  if (emit == "linalg" && failed(parsePassPipeline(kLowering, pm)))
-    return fail("bad lowering pipeline");
+  if (emit == "linalg") {
+    if (failed(parsePassPipeline(kLowering, pm)))
+      return fail("bad lowering pipeline");
+    // The graph the back end compiles: cleaned up and with elementwise chains
+    // fused into their producers. Neither depends on the device or the CPU target.
+    pm.addPass(createCanonicalizerPass());
+    pm.addPass(createCSEPass());
+    pm.addPass(createLinalgElementwiseOpFusionPass());
+  }
   if (failed(pm.run(*module)))
     return fail("lowering failed");
 

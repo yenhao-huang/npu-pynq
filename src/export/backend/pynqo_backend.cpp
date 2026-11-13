@@ -3,7 +3,8 @@
 //   pynqo-backend model.mlir --out <dir> --devices cpu,npu
 //               --cpus arm-cortex-a9,native --llvm-bin /usr/lib/llvm-22/bin
 //
-//   model.mlir (linalg on tensors, weights as constants)
+//   model.mlir (fused linalg on tensors, weights as constants; pynqo-middle-end
+//   already ran the graph-level cleanups and elementwise fusion)
 //     -> partition: delegates claim and compile their operations; each
 //        becomes func.call @__delegate__(id, in, out)
 //     -> externalize the remaining weights into weights.bin (`ws` argument)
@@ -169,7 +170,10 @@ int main(int argc, char **argv) {
 
   // 6. CPU code, once per --cpus entry (cpu/toolchain.cpp): bufferize, lower
   // to the LLVM dialect, llc for the target, link model.so. __delegate__
-  // stays undefined; the runtime's dispatcher provides it.
+  // stays undefined; the runtime's dispatcher provides it. Only per-target
+  // work belongs here: graph-level passes run once, in pynqo-middle-end, and
+  // what steps 3-4 insert needs no extra cleanup before the clones (plan
+  // 2026-1112-005: identical alloc and copy counts without one).
   std::vector<std::pair<std::string, std::string>> libraries;
   for (const std::string &name : split(cpus)) {
     auto target = backend::cpuTarget(name, error);
