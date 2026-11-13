@@ -26,6 +26,15 @@ IREE's VM bytecode (plan 2026-1112-004).
 
 ## Rules
 
+- **Whole-graph decisions are middle end; per-device compilation is back
+  end.** Partitioning and replacing a subgraph with a delegate call need the
+  whole graph: where the cuts go, which neighbours share a device, one global
+  delegate id per subgraph, and every later graph pass (fusion) must respect
+  the cuts. Only the middle end sees the whole graph and every device. A back
+  end compiles one device's subgraphs and never needs the whole graph. This is
+  the reason IREE (`stream` affinity before `hal`), TVM BYOC (`PartitionGraph`
+  before codegen) and ExecuTorch (`to_backend` before `preprocess`) partition
+  ahead of code generation.
 - **Tensor level is the boundary.** A step on tensors that gives the same
   result for every target belongs to the middle end. Bufferization (it fixes
   the runtime ABI) and everything below it belongs to the back end.
@@ -41,7 +50,8 @@ IREE's VM bytecode (plan 2026-1112-004).
 - **A new step goes where its input is.** If it needs memrefs or a target, it
   is back end; otherwise it is middle end, even if it is about a device.
 
-Plan `docs/plans/2026-1112-005-middle-end-backend-split.md` (#176) moves
-fusion, device assignment and partitioning from the back end to the middle
-end. Its phase 1 moved the graph cleanups and elementwise fusion; until
-phase 2 lands, device assignment and partitioning still run in `backend/`.
+Plan `docs/plans/2026-1112-005-middle-end-backend-split.md` moved fusion
+(#176), device assignment and partitioning (#177) from the back end to the
+middle end. Plan `docs/plans/2026-1113-001-delegate-framework.md` moves the
+delegate call too: until it lands, the back end still lowers each device
+function, inlines it and inserts `__delegate__`.
