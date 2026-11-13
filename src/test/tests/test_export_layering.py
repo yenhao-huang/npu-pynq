@@ -111,7 +111,7 @@ class ExportToolLinkTest(unittest.TestCase):
         middle = set(spelled.findall((EXPORT / 'middle-end' / 'linalg' / 'transforms' / 'Passes.h')
                                      .read_text(encoding='utf-8')))
         backend = set()
-        for name in ('partition.cpp', 'pynqo_backend.cpp'):
+        for name in ('pynqo_backend.cpp', 'cpu/delegate_calls.cpp', 'delegates/npu/lower.cpp'):
             backend |= set(spelled.findall((EXPORT / 'backend' / name).read_text(encoding='utf-8')))
         self.assertEqual(middle, {'pynqo.devices', 'pynqo.device', 'pynqo.delegate_id'})
         self.assertEqual(backend, middle)

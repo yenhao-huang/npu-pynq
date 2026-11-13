@@ -1,6 +1,6 @@
 """pynqo-middle-end: the rewrites on the torch dialect, lowering to linalg,
-device assignment and partitioning, and fusion; and pynqo-backend's side of
-that contract. Skipped where torch or torch-mlir is missing, or a tool is not
+device assignment, partitioning into delegate calls and device modules, and
+fusion; and pynqo-backend's side of that contract. Skipped where torch or torch-mlir is missing, or a tool is not
 built (src/export/pipeline.py's build_middle_end and build_backend build them)."""
 
 import importlib.util
@@ -74,17 +74,27 @@ def lower(net, d, emit='linalg', devices=('cpu',), shape=(1, 3, 8, 8)):
 
 def run(net, emit, devices=('cpu',), shape=(1, 3, 8, 8)):
     """``net`` through to_mlir and pynqo-middle-end; the text of what they wrote, in order."""
+    imported, out, _ = run_with_delegates(net, emit, devices, shape)
+    return imported, out
+
+
+def run_with_delegates(net, emit, devices=('cpu',), shape=(1, 3, 8, 8)):
+    """Like run, plus device -> the text of its module (ir/delegates/<device>.mlir)."""
     with tempfile.TemporaryDirectory() as d:
         imported, out = lower(net, d, emit, devices, shape)
-        return imported.read_text(encoding='utf-8'), out.read_text(encoding='utf-8')
+        modules = {p.stem: p.read_text(encoding='utf-8')
+                   for p in sorted(pipeline.delegates_dir(out).glob('*.mlir'))}
+        return imported.read_text(encoding='utf-8'), out.read_text(encoding='utf-8'), modules
 
 
 def functions(text):
-    """name -> (signature line, body) for every func.func in ``text``, in order."""
+    """name -> (signature line, body) for every func.func in ``text``, in order.
+    A declaration (no body) maps to its line and an empty body."""
     text = code(text)
     found = {}
     for m in re.finditer(r'^  func\.func (?:private )?@(\w+)\(.*$', text, re.M):
-        found[m.group(1)] = (m.group(0), text[m.end():text.index('\n  }\n', m.end())])
+        body = '' if not m.group(0).endswith('{') else text[m.end():text.index('\n  }\n', m.end())]
+        found[m.group(1)] = (m.group(0), body)
     return found
 
 
@@ -192,36 +202,52 @@ class LoweringTest(unittest.TestCase):
 
 
 MLP_INPUT = (4, 16)
-# A device function's signature: what the middle end promises pynqo-backend.
-DEVICE_FUNCTION = (r'func\.func private @npu_(\d+)\(%arg0: tensor<(\w+)xi8>\) -> tensor<(\w+)xi32> '
-                   r'attributes \{pynqo\.delegate_id = (\d+) : i64, pynqo\.device = "npu"\}')
+# What the middle end promises pynqo-backend: a bodiless declaration in the CPU
+# graph, and the subgraph with the same id and type in the device's module.
+DECLARATION = (r'func\.func private @__delegate_(\d+)\(tensor<(\w+)xi8>\) -> tensor<(\w+)xi32> '
+               r'attributes \{pynqo\.delegate_id = (\d+) : i64, pynqo\.device = "npu"\}$')
+SUBGRAPH = (r'func\.func @npu_(\d+)\(%arg0: tensor<(\w+)xi8>\) -> tensor<(\w+)xi32> '
+            r'attributes \{pynqo\.delegate_id = (\d+) : i64\} \{$')
 
 
 @unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and pynqo-middle-end are required')
 class DevicePartitionTest(unittest.TestCase):
     def test_cpu_alone_assigns_nothing(self):
-        _, text = run(mlp(), 'linalg', shape=MLP_INPUT)
+        _, text, modules = run_with_delegates(mlp(), 'linalg', shape=MLP_INPUT)
         self.assertIn('module attributes {pynqo.devices = ["cpu"]', text)
         self.assertNotIn('pynqo.device ', text)
-        self.assertNotIn('@npu_', text)
+        self.assertNotIn('@__delegate_', text)
+        self.assertEqual(modules, {})
         self.assertEqual(code(text).count('linalg.matmul'), 2)
 
-    def test_each_npu_contraction_becomes_one_device_function(self):
-        _, text = run(mlp(), 'linalg', ('cpu', 'npu'), MLP_INPUT)
+    def test_each_npu_contraction_becomes_one_delegate_call(self):
+        _, text, modules = run_with_delegates(mlp(), 'linalg', ('cpu', 'npu'), MLP_INPUT)
         self.assertIn('module attributes {pynqo.devices = ["cpu", "npu"]', text)
         fns = functions(text)
-        # Ids follow module order; each function is named after its id.
-        headers = [re.search(DEVICE_FUNCTION, h) for name, (h, _) in fns.items() if name.startswith('npu_')]
-        self.assertTrue(headers and all(headers), list(fns))
+        # The CPU graph keeps one bodiless declaration per delegate; ids follow module order.
+        declared = [re.search(DECLARATION, h) for name, (h, _) in fns.items() if name.startswith('__delegate_')]
+        self.assertTrue(declared and all(declared), list(fns))
+        self.assertEqual([(h.group(1), h.group(4)) for h in declared], [('0', '0'), ('1', '1')])
+        self.assertEqual([(h.group(2), h.group(3)) for h in declared], [('4x16', '4x32'), ('4x32', '4x8')])
+        self.assertTrue(all(body == '' for name, (_, body) in fns.items() if name.startswith('__delegate_')))
+        # The caller keeps the CPU work and calls the delegates in order; nothing
+        # about how the device computes the result is left in the CPU graph.
+        _, forward = fns['forward']
+        self.assertNotIn('linalg.matmul', code(text))
+        self.assertNotIn('@npu_', text)
+        self.assertEqual(re.findall(r'call @(__delegate_\d+)\(', forward), ['__delegate_0', '__delegate_1'])
+        # The subgraphs live in the device's module, with the same ids and types.
+        self.assertEqual(list(modules), ['npu'])
+        npu = modules['npu']
+        self.assertIn('module @npu attributes {pynqo.device = "npu"}', npu)
+        subgraphs = functions(npu)
+        headers = [re.search(SUBGRAPH, h) for h, _ in subgraphs.values()]
+        self.assertTrue(headers and all(headers), list(subgraphs))
         self.assertEqual([(h.group(1), h.group(4)) for h in headers], [('0', '0'), ('1', '1')])
         self.assertEqual([(h.group(2), h.group(3)) for h in headers], [('4x16', '4x32'), ('4x32', '4x8')])
-        # The caller keeps the CPU work and calls the device functions in order.
-        _, forward = fns['forward']
-        self.assertNotIn('linalg.matmul', forward)
-        self.assertEqual(re.findall(r'call @(npu_\d+)\(', forward), ['npu_0', 'npu_1'])
         # Each body holds its weight and accumulator initialization: activation in, result out.
         for name in ('npu_0', 'npu_1'):
-            _, body = fns[name]
+            _, body = subgraphs[name]
             self.assertRegex(body, r'arith\.constant dense_resource<torch_tensor_\w+_torch\.int8> : tensor<\w+xi8>')
             self.assertRegex(body, r'linalg\.fill ins\(%c0_i32 : i32\)')
             self.assertRegex(body, r'linalg\.matmul ins\(%arg0, %cst : tensor<\w+xi8>, tensor<\w+xi8>\) '
@@ -230,17 +256,20 @@ class DevicePartitionTest(unittest.TestCase):
             self.assertNotIn('call ', body)
 
     def test_a_w8a8_convolution_contraction_moves_whole(self):
-        _, text = run(w8a8(conv_bn(False)), 'linalg', ('cpu', 'npu'))
+        _, text, modules = run_with_delegates(w8a8(conv_bn(False)), 'linalg', ('cpu', 'npu'))
         fns = functions(text)
-        self.assertEqual([n for n in fns if n.startswith('npu_')], ['npu_0'])
-        self.assertRegex(fns['npu_0'][1], r'linalg\.matmul ins\(.*xi8>, tensor<\S*xi8>\) outs\(.*xi32>\)')
+        self.assertEqual([n for n in fns if n.startswith('__delegate_')], ['__delegate_0'])
+        self.assertEqual(list(functions(modules['npu'])), ['npu_0'])
+        self.assertRegex(functions(modules['npu'])['npu_0'][1],
+                         r'linalg\.matmul ins\(.*xi8>, tensor<\S*xi8>\) outs\(.*xi32>\)')
         self.assertNotIn('linalg.matmul', fns['forward'][1])
 
     def test_float_work_stays_on_the_cpu(self):
-        _, text = run(conv_bn(), 'linalg', ('cpu', 'npu'))
+        _, text, modules = run_with_delegates(conv_bn(), 'linalg', ('cpu', 'npu'))
         self.assertIn('module attributes {pynqo.devices = ["cpu", "npu"]', text)
-        self.assertNotIn('@npu_', text)
+        self.assertNotIn('@__delegate_', text)
         self.assertNotIn('pynqo.device ', text)
+        self.assertEqual(modules, {})
 
     def test_unknown_device_lists_fail(self):
         for devices in (('cpu', 'gpu'), ('npu',), ('cpu', 'npu', 'npu')):
@@ -253,23 +282,50 @@ class DevicePartitionTest(unittest.TestCase):
 class BackendContractTest(unittest.TestCase):
     """pynqo-backend keeps the middle end's delegate ids and refuses another device list."""
 
-    def backend(self, model, out, devices):
+    def backend(self, model, out, devices, extra=''):
         pipeline._linux(f"{pipeline.backend_tool()} '{pipeline._linux_path(model)}' "
-                        f"--out '{pipeline._linux_path(out)}' --devices {devices} --cpus native --keep-ir")
+                        f"--out '{pipeline._linux_path(out)}' --devices {devices} --cpus native --keep-ir {extra}")
 
-    def test_ids_are_kept_and_device_functions_are_compiled(self):
+    def test_ids_are_kept_and_device_modules_are_compiled(self):
         with tempfile.TemporaryDirectory() as d:
             _, model = lower(mlp(), d, devices=('cpu', 'npu'), shape=MLP_INPUT)
             self.backend(model, Path(d) / 'pkg', 'cpu,npu')
-            table = json.loads((Path(d) / 'pkg' / 'compile.json').read_text())['delegates']
+            compiled = json.loads((Path(d) / 'pkg' / 'compile.json').read_text())
+            self.assertEqual(compiled['format'], 'pynqo-backend/2')
+            table = compiled['delegates']
             self.assertEqual([(e['id'], e['device'], e['index']) for e in table], [(0, 'npu', 0), (1, 'npu', 1)])
+            # Bytes in and out are the subgraph's argument and result: M x K INT8, M x N INT32.
             self.assertEqual([(e['input_bytes'], e['output_bytes']) for e in table], [(64, 512), (128, 128)])
-            partitioned = code((Path(d) / 'pkg' / 'partitioned.mlir').read_text())
-            self.assertNotIn('@npu_', partitioned)
-            self.assertNotIn('pynqo.', partitioned)
-            self.assertEqual(len(re.findall(r'call @__delegate__\(', partitioned)), 2)
-            # The K-plane sum stays CPU code next to each call.
-            self.assertEqual(partitioned.count('linalg.reduce'), 2)
+            cpu = code((Path(d) / 'pkg' / 'cpu.mlir').read_text())
+            self.assertNotIn('@npu_', cpu)
+            self.assertNotRegex(cpu, r'@__delegate_\d')
+            self.assertNotIn('pynqo.', cpu)
+            self.assertEqual(len(re.findall(r'call @__delegate__\(', cpu)), 2)
+            # How the NPU computes the result (K chunks) is not CPU code.
+            self.assertNotIn('linalg.reduce', cpu)
+            self.assertNotIn('linalg.matmul', cpu)
+
+    def test_k_chunks_change_no_cpu_code_and_no_output_size(self):
+        # MAX_K 8 splits K = 16 and K = 32 into 2 and 4 chunks; the delegate
+        # table and the CPU graph stay those of one chunk.
+        with tempfile.TemporaryDirectory() as d:
+            _, model = lower(mlp(), d, devices=('cpu', 'npu'), shape=MLP_INPUT)
+            self.backend(model, Path(d) / 'pkg', 'cpu,npu', '--max-k 8')
+            table = json.loads((Path(d) / 'pkg' / 'compile.json').read_text())['delegates']
+            self.assertEqual([(e['input_bytes'], e['output_bytes']) for e in table], [(64, 512), (128, 128)])
+            tasks = json.loads((Path(d) / 'pkg' / 'programs.json').read_text())['tasks']
+            self.assertEqual([(t['k'], t['tk']) for t in tasks], [(16, 8), (32, 8)])
+            self.assertNotIn('linalg.reduce', code((Path(d) / 'pkg' / 'cpu.mlir').read_text()))
+
+    def test_a_missing_subgraph_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            _, model = lower(mlp(), d, devices=('cpu', 'npu'), shape=MLP_INPUT)
+            npu = pipeline.delegates_dir(model) / 'npu.mlir'
+            text = npu.read_text(encoding='utf-8')
+            start = text.index('  func.func @npu_1(')
+            npu.write_text(text[:start] + text[text.index('\n  }\n', start) + 5:], encoding='utf-8')
+            with self.assertRaisesRegex(RuntimeError, r'has no subgraph for delegate 1'):
+                self.backend(model, Path(d) / 'pkg', 'cpu,npu')
 
     def test_a_model_assigned_for_other_devices_is_refused(self):
         with tempfile.TemporaryDirectory() as d:

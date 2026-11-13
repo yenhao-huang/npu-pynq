@@ -1,4 +1,4 @@
-# pynqo-middle-end: torch dialect -> fused linalg on tensors with device functions,
+# pynqo-middle-end: torch dialect -> fused linalg on tensors with delegate calls, and the device modules,
 # against an installed LLVM 22
 # with MLIR. It builds torch-mlir from source in this tree, without building
 # LLVM, because torch-mlir's wheels bind a different LLVM and hold no C++ API;

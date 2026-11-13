@@ -5,10 +5,11 @@
     export_graph   torch.export: one ExportedProgram per entry point
     to_mlir        torch-mlir's importer: torch.mlir, the torch dialect
     pynqo-middle-end the C++ middle end (middle-end/): our rewrites, torch-mlir's
-                   pipelines to linalg on tensors, then device assignment and one
-                   device function per delegated operation: model.mlir
-    pynqo-backend    the C++ back end (backend/): delegates compile their device
-                   functions, weights.bin, CPU code
+                   pipelines to linalg on tensors, then device assignment and
+                   partitioning: model.mlir (the CPU graph, with delegate calls)
+                   and ir/delegates/<device>.mlir (each device's subgraphs)
+    pynqo-backend    the C++ back end (backend/): each delegate compiles its device
+                   module, weights.bin, CPU code
 
 The front end runs wherever torch does; both C++ tools need Linux with LLVM 22.
 On Windows they run in WSL (paths are translated). See
@@ -23,7 +24,7 @@ import time
 
 # The runtime refuses a package with any other format.
 # Keep this equal to FORMAT in src/runtime/share/loader.py.
-PACKAGE_FORMAT = 'pynqo-package/2'
+PACKAGE_FORMAT = 'pynqo-package/3'
 REPO = Path(__file__).resolve().parents[2]
 BACKEND = REPO / 'src' / 'export' / 'backend'
 BACKEND_SOURCES = (BACKEND, REPO / 'src' / 'vendors' / 'npu_pynq' / 'custom_dialect')
@@ -106,11 +107,18 @@ def middle_end(torch_mlir: Path, out: Path, tool: str | None = None, emit: str =
     """Run pynqo-middle-end on ``torch_mlir``; write ``out`` and return it.
 
     ``devices`` is the config's device list. The middle end assigns operations
-    to them, and pynqo-backend refuses a model.mlir assigned for another list.
+    to them, cuts each device's subgraphs out into ``delegates_dir(out)/<device>.mlir``
+    and leaves delegate calls in ``out``; pynqo-backend refuses a model.mlir
+    assigned for another list.
     """
     _linux(f"{tool or middle_end_tool()} '{_linux_path(torch_mlir)}' -o '{_linux_path(out)}' --emit={emit} "
-           f"--devices {','.join(devices)}")
+           f"--devices {','.join(devices)} --delegates-dir '{_linux_path(delegates_dir(out))}'")
     return out
+
+
+def delegates_dir(model_mlir: Path) -> Path:
+    """Where the middle end writes, and the back end reads, the device modules of ``model_mlir``."""
+    return Path(model_mlir).parent / 'delegates'
 
 
 def check_scheme(config: dict) -> None:
@@ -179,7 +187,8 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     times['to_mlir'] = time.monotonic() - start
 
     # pynqo-middle-end: our rewrites, torch-mlir's pipelines, then device assignment and
-    # partitioning for the config's devices: model.mlir (linalg on tensors, @npu_* functions).
+    # partitioning for the config's devices: model.mlir (the CPU graph, linalg on tensors,
+    # with a delegate call per device subgraph) and ir/delegates/<device>.mlir (the subgraphs).
     start = time.monotonic()
     tool = build_middle_end()
     times['build_middle_end'] = time.monotonic() - start
@@ -187,7 +196,7 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     model_mlir = middle_end(torch_mlir, out / 'ir' / 'model.mlir', tool, devices=config['devices'])
     times['middle_end'] = time.monotonic() - start
 
-    # pynqo-backend: the C++ back end compiles the device functions, then weights.bin and CPU code.
+    # pynqo-backend: each delegate compiles its device's module, then weights.bin and CPU code.
     # It gets the same device list as the middle end and checks model.mlir was assigned for it.
     start = time.monotonic()
     tool = build_backend()
@@ -198,6 +207,7 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     limits = isa.Limits()
     start = time.monotonic()
     _linux(f"{tool} '{_linux_path(model_mlir)}' --out '{_linux_path(out)}' "
+           f"--delegates-dir '{_linux_path(delegates_dir(model_mlir))}' "
            f"--devices {','.join(config['devices'])} --cpus {','.join(config['cpus'])} "
            f"--llvm-bin {llvm_bin} --rows {limits.rows} --columns {limits.columns} --max-k {limits.max_k}")
     times['backend'] = time.monotonic() - start

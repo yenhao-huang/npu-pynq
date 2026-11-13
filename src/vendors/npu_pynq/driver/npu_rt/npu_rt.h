@@ -3,7 +3,8 @@
  * The runtime's __delegate__ dispatcher calls npu_rt_execute(index, buffers)
  * for every delegate id that belongs to the NPU. The library packs the INT8
  * input into A tiles, runs that program's ISA segments, and unpacks the INT32
- * partial planes into the output. Two backends run programs:
+ * partial planes (one per K chunk) into the output, summing them: the output
+ * is the M x N product. Two backends run programs:
  *
  *   PYNQ  the FPGA: PROG_ADDR / PROG_LEN / DATA_BASE, START, poll STATUS
  *   SIM   a C++ port of the ISA golden model (src/test/model/isa_sim.py) over
@@ -43,8 +44,9 @@ int npu_rt_requirements(const char *package_dir, uint32_t sizes[3]);
  * platform == NULL runs the simulator. 0 on success; see npu_rt_error(). */
 int npu_rt_load(const char *package_dir, const npu_rt_platform *platform);
 
-/* Run program `index`: buffers[0] the INT8 input, buffers[1] the INT32
- * partial planes. 0 on success, else the ISA error code. */
+/* Run program `index`: buffers[0] the INT8 M x K input, buffers[1] the INT32
+ * M x N output (the K planes summed, wrapping). 0 on success, else the ISA
+ * error code. */
 int npu_rt_execute(int64_t index, void **buffers, int count);
 
 /* calls, jobs, cycles, macs, polls, error, error_program */

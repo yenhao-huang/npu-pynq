@@ -17,12 +17,13 @@
 namespace mlir::npu {
 
 // Rewrite one claimable matmul (npu::isClaimable, Npu/NpuMatch.h) into
-// npu.matmul {tk = min(K, maxK)} + a linalg.reduce of its K planes into the
-// matmul's accumulator; return the npu.matmul. The matmul is erased.
+// npu.matmul {tk = min(K, maxK)} with the same M x N result; return it. The
+// matmul and its zero accumulator, if nothing else reads it, are erased.
 MatmulOp claim(linalg::MatmulOp op, int64_t maxK);
 
 // --npu-claim: every INT8 x INT8 -> INT32 linalg.matmul whose right operand
-// is a constant becomes npu.matmul + a sum of its K planes (isClaimable + claim).
+// is a constant and whose accumulator is zero becomes npu.matmul
+// (isClaimable + claim).
 std::unique_ptr<Pass> createClaimPass(int64_t maxK = 256);
 void registerClaimPass();
 

@@ -1,10 +1,10 @@
 //===- NpuOps.td - NPU dialect ---------------------------------*- tablegen -*-===//
 //
-// npu.matmul is a contraction the NPU runs. --npu-claim rewrites every INT8
-// contraction on a constant weight into one; the back end's partition then
-// gives each a delegate id and leaves a __delegate__ call in its place, and
-// the npu delegate packs its weight (Pack) and encodes its ISA program
-// (Encode). Everything else stays in upstream dialects and becomes CPU code.
+// npu.matmul is a contraction the NPU runs. The npu delegate rewrites the
+// matmul of each device function the middle end cut out (npu::claim) into
+// one, packs its weight (Pack) and encodes its ISA program (Encode).
+// --npu-claim applies the same rewrite to every claimable matmul of a module.
+// The op never reaches CPU code: the CPU graph only calls the delegate.
 //
 //===----------------------------------------------------------------------===//
 
@@ -26,17 +26,17 @@ class Npu_Op<string mnemonic, list<Trait> traits = []>
 def Npu_MatmulOp : Npu_Op<"matmul", [Pure]> {
   let summary = "INT8 x INT8 -> INT32 matrix product run on the NPU";
   let description = [{
-    Computes the K-chunked partial products of `lhs[M, K] @ rhs[K, N]`:
-    result plane `c` holds the product over K rows `[c*tk, (c+1)*tk)`.
-    `rhs` is a constant weight; the delegate stores it as B tiles. Summing
-    the planes gives the full product; keeping them apart lets the CPU apply
-    a scale per K group (group-wise INT4 weights).
+    Computes `lhs[M, K] @ rhs[K, N]` as INT32 (wrapping sum). The NPU runs
+    K in chunks of `tk` rows and writes one partial plane per chunk; the
+    delegate's runtime (libnpu_rt) sums the planes, so the result is the
+    full M x N product. `rhs` is a constant weight; the delegate stores it as
+    B tiles.
   }];
   let arguments = (ins RankedTensorOf<[I8]>:$lhs, RankedTensorOf<[I8]>:$rhs,
                        I64Attr:$tk);
-  let results = (outs RankedTensorOf<[I32]>:$partials);
+  let results = (outs RankedTensorOf<[I32]>:$result);
   let assemblyFormat = [{
-    $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($partials)
+    $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)
   }];
   let hasVerifier = 1;
 }

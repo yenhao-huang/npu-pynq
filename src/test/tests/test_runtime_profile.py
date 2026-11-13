@@ -213,7 +213,7 @@ class NpuPhaseTests(unittest.TestCase):
             backend = NpuBackend(Path(tmp))
             lib = backend.lib
             lib.npu_rt_execute.argtypes = [ctypes.c_int64, ctypes.POINTER(ctypes.c_void_p), ctypes.c_int]
-            c = np.zeros((1, 4, 4), np.int32)
+            c = np.zeros((4, 4), np.int32)
             buffers = (ctypes.c_void_p * 2)(a.ctypes.data, c.ctypes.data)
             try:
                 self.assertEqual(lib.npu_rt_execute(0, buffers, 2), 0)
@@ -222,7 +222,7 @@ class NpuPhaseTests(unittest.TestCase):
                 for _ in range(3):
                     c.fill(0)
                     self.assertEqual(lib.npu_rt_execute(0, buffers, 2), 0)
-                    np.testing.assert_array_equal(c[0], a.astype(np.int32) @ b.astype(np.int32))
+                    np.testing.assert_array_equal(c, a.astype(np.int32) @ b.astype(np.int32))
                 [row] = backend.phase_stats()
                 self.assertEqual({k: row[k] for k in ('m', 'n', 'k', 'segments', 'calls', 'jobs')},
                                  {'m': 4, 'n': 4, 'k': 8, 'segments': 1, 'calls': 3, 'jobs': 3})

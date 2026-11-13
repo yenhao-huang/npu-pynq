@@ -1,15 +1,20 @@
-//===- PartitionDevices.cpp - one device function per assigned operation --===//
+//===- PartitionDevices.cpp - cut out device subgraphs, call the delegate -===//
 //
-// pynqo-partition-devices: every operation pynqo-assign-devices annotated
-// moves into a private device function, and a call takes its place:
+// pynqo-partition-devices: every operation pynqo-assign-devices annotated is
+// cut out of the graph into its device's module, and a delegate call takes
+// its place. The CPU graph keeps only a declaration, so it cannot see how the
+// device computes the result:
 //
 //   %acc = linalg.fill ins(%c0) outs(tensor.empty())
 //   %y = linalg.matmul {pynqo.device = "npu"} ins(%x, %w = arith.constant) outs(%acc)
-//     ->  %y = func.call @npu_<id>(%x)
+//     ->  %y = func.call @__delegate_<id>(%x)
+//         func.func private @__delegate_<id>(tensor<...>) -> tensor<...>
+//             attributes {pynqo.device = "npu", pynqo.delegate_id = <id> : i64}
 //
-//   func.func private @npu_<id>(%x) -> tensor<...>
-//       attributes {pynqo.device = "npu", pynqo.delegate_id = <id> : i64} {
-//     %w, %c0, tensor.empty, linalg.fill, linalg.matmul cloned here; return %y
+//   module @npu attributes {pynqo.device = "npu"} {      (the device module)
+//     func.func @npu_<id>(%x) -> tensor<...> attributes {pynqo.delegate_id = <id> : i64} {
+//       %w, %c0, tensor.empty, linalg.fill, linalg.matmul cloned here; return %y
+//     }
 //   }
 //
 // The function's arguments are the operation's other operands (for the NPU,
@@ -17,11 +22,11 @@
 // those (the weight and the accumulator initialization) are cloned into the
 // body; the originals stay only where something else still reads them.
 //
-// Ids are global, by device in pynqo.devices order, then in module order: the
-// order the back end used to claim in. The back end keeps them.
-//
-// A func.call is opaque to the passes that run later (canonicalize, cse,
-// elementwise fusion), so nothing fuses into a device function.
+// Ids are global, by device in pynqo.devices order, then in module order. The
+// back end keeps them. The device modules are nested in the module this pass
+// runs on; pynqo-middle-end writes each to its own file (ir/delegates/) and
+// removes it before the graph passes, which therefore only see the CPU graph
+// and the opaque declarations.
 //
 //===----------------------------------------------------------------------===//
 
@@ -67,6 +72,17 @@ void capturedProducers(Value v, llvm::SetVector<Operation *> &ops) {
   ops.insert(def);
 }
 
+// The module holding `device`'s subgraphs, nested at the end of `module`.
+ModuleOp deviceModule(ModuleOp module, StringRef device) {
+  for (auto nested : module.getOps<ModuleOp>())
+    if (auto d = nested->getAttrOfType<StringAttr>(middle_end::kDeviceAttr); d && d.getValue() == device)
+      return nested;
+  OpBuilder b = OpBuilder::atBlockEnd(module.getBody());
+  auto nested = ModuleOp::create(b, module.getLoc(), std::optional<StringRef>(device));
+  nested->setAttr(middle_end::kDeviceAttr, b.getStringAttr(device));
+  return nested;
+}
+
 LogicalResult outline(Operation *op, StringRef device, int64_t id, ModuleOp module) {
   llvm::SetVector<Value> arguments;
   llvm::SetVector<Operation *> producers;
@@ -77,21 +93,31 @@ LogicalResult outline(Operation *op, StringRef device, int64_t id, ModuleOp modu
       arguments.insert(v);
   }
 
+  std::string declared = (llvm::Twine(middle_end::kDelegatePrefix) + llvm::Twine(id)).str();
   std::string name = (device + "_" + llvm::Twine(id)).str();
-  if (module.lookupSymbol(name))
-    return op->emitError() << "cannot outline into @" << name << ": the symbol exists";
+  if (module.lookupSymbol(declared))
+    return op->emitError() << "cannot declare @" << declared << ": the symbol exists";
 
   MLIRContext *ctx = op->getContext();
   SmallVector<Type> inputs;
   for (Value v : arguments)
     inputs.push_back(v.getType());
   auto type = FunctionType::get(ctx, inputs, op->getResultTypes());
-  OpBuilder b = OpBuilder::atBlockEnd(module.getBody());
-  auto fn = func::FuncOp::create(b, op->getLoc(), name, type);
-  fn.setPrivate();
-  fn->setAttr(middle_end::kDeviceAttr, b.getStringAttr(device));
-  fn->setAttr(middle_end::kDelegateIdAttr, b.getI64IntegerAttr(id));
 
+  // The declaration in the CPU graph: no body, so later passes see a call
+  // with unknown effects and nothing to fuse with.
+  OpBuilder b(ctx);
+  ModuleOp nested = deviceModule(module, device);
+  b.setInsertionPoint(nested);
+  auto decl = func::FuncOp::create(b, op->getLoc(), declared, type);
+  decl.setPrivate();
+  decl->setAttr(middle_end::kDeviceAttr, b.getStringAttr(device));
+  decl->setAttr(middle_end::kDelegateIdAttr, b.getI64IntegerAttr(id));
+
+  // The subgraph, in the device's module.
+  b.setInsertionPointToEnd(nested.getBody());
+  auto fn = func::FuncOp::create(b, op->getLoc(), name, type);
+  fn->setAttr(middle_end::kDelegateIdAttr, b.getI64IntegerAttr(id));
   Block *body = fn.addEntryBlock();
   b.setInsertionPointToStart(body);
   IRMapping map;
@@ -104,7 +130,7 @@ LogicalResult outline(Operation *op, StringRef device, int64_t id, ModuleOp modu
   func::ReturnOp::create(b, op->getLoc(), inner->getResults());
 
   b.setInsertionPoint(op);
-  auto call = func::CallOp::create(b, op->getLoc(), fn, arguments.getArrayRef());
+  auto call = func::CallOp::create(b, op->getLoc(), decl, arguments.getArrayRef());
   op->replaceAllUsesWith(call.getResults());
   op->erase();
   // Consumers before producers; another operation may still read a producer.

@@ -1,8 +1,10 @@
 /* One delegate call: pack A, run the program's segments, unpack C.
  *
  * A and C tile layouts are those of src/vendors/npu_pynq/spec/layout.py:
- * A tiles per (row tile, K chunk), 8-byte aligned; C as K planes of INT32
- * tiles. The caller's output is [Kt, M, N] INT32 partial planes.
+ * A tiles per (row tile, K chunk), 8-byte aligned; C as one plane of INT32
+ * tiles per K chunk. Unpacking sums the planes, so the caller's output
+ * is the M x N INT32 product, the delegated subgraph's result. The sum wraps
+ * modulo 2^32, as arith.addi did when the CPU summed the planes.
  */
 #include "npu_rt.h"
 
@@ -51,9 +53,19 @@ void unpackC(const Program &p, const uint8_t *src, int32_t *c) {
         int32_t cols = colsOf(p, ni);
         const int32_t *tile = reinterpret_cast<const int32_t *>(
             src + kc * plane + rowBase + ni * cTileStride(p, mi));
-        int32_t *dst = c + (static_cast<int64_t>(kc) * p.m + mi * p.tm) * p.n + ni * p.tn;
-        for (int32_t r = 0; r < rows; ++r)
-          std::memcpy(dst + static_cast<int64_t>(r) * p.n, tile + r * cols, cols * 4);
+        int32_t *dst = c + static_cast<int64_t>(mi) * p.tm * p.n + ni * p.tn;
+        for (int32_t r = 0; r < rows; ++r) {
+          int32_t *row = dst + static_cast<int64_t>(r) * p.n;
+          const int32_t *from = tile + r * cols;
+          if (kc == 0) {
+            std::memcpy(row, from, cols * 4);
+            continue;
+          }
+          // Unsigned, so the sum wraps instead of overflowing.
+          for (int32_t j = 0; j < cols; ++j)
+            row[j] = static_cast<int32_t>(static_cast<uint32_t>(row[j]) +
+                                          static_cast<uint32_t>(from[j]));
+        }
       }
       rowBase += nt * cTileStride(p, mi);
     }
