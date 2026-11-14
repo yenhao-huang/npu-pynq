@@ -2,7 +2,7 @@
 
 | Plan ID | Topic | Revision | Status |
 |---|---|---|---|
-| 2026-1112-003 | cva6-scalar-core | rev.5 (2026-11-12) | Implemented on branch `npu/issue174-a` (#174, uncommitted): hardware simulated (7/7 programs match `isa_sim.py`), `risc_v_npu` vendor, driver and back-end delegate built and unit-tested; A/B in `exp/scalar_core_compare/`; no synthesis, no board run |
+| 2026-1112-003 | cva6-scalar-core | rev.6 (2026-11-14) | Implemented on branch `npu/issue174-a` (#174, uncommitted): hardware simulated (7/7 programs match `isa_sim.py`), `risc_v_npu` vendor, driver and back-end delegate built and unit-tested; A/B in `exp/scalar_core_compare/`; no synthesis, no board run |
 
 Tracking issue: #166 (scalar-core track). This plan replaces the direction of
 #168 ("make the scalar core VLIW", plan
@@ -268,9 +268,10 @@ selection, loops); it does not know the NPU.
 
 ### 6.2 A separate device: vendor `risc_v_npu`, delegate `risc_v_npu`
 
-B is a new device, not an option inside `npu_pynq`. `docs/rules/filetree.md`
-already defines that pattern: "a new device is a delegate under
-`backend/delegates/` and its vendor folder". So:
+B is a new device, not an option inside `npu_pynq`. Under the delegate
+framework that `dev` adopted in #178 (plan 2026-1113-001,
+`docs/rules/lib/export_stages.md`), a new device is a match predicate the
+middle end links plus a delegate in the back end. So:
 
 - A's path, `src/vendors/npu_pynq/` and `src/export/backend/delegates/npu/`,
   is not changed at all.
@@ -289,13 +290,28 @@ Both dialects are linked into the same `pynqo-backend`, so B's names must
 not collide with A's: dialect `rvnpu` (A: `npu`), its own C++ namespace and op
 names, driver library `librv_npu_rt` (A: `libnpu_rt`).
 
-Shared matrix-core knowledge is copied, not imported (default; to confirm).
+Shared matrix-core knowledge is copied, not imported (confirmed 2026-11-14, also for the claim predicate).
 The matrix core is the same, so `layout.py`, `quant.py`, `board.py`,
 `Claim.cpp` and `Pack.cpp` start as copies of the `npu_pynq` files. This keeps
 the two devices independent, as the hardware implementations are
 (section 1), at the cost of updating both when the matrix core's contract
 changes. Alternative, not chosen: `risc_v_npu` imports `npu_pynq/spec/` and
 reuses its passes.
+
+How `risc_v_npu` plugs into the delegate framework (aligned after #178):
+
+| Stage | `npu` (A) | `risc_v_npu` (B) |
+|---|---|---|
+| Middle end: assignment | `npu::isClaimable` (NpuMatch) in `AssignDevices`' `kMatchers` | `rvnpu::isClaimable` (RvNpuMatch, a copy) in the same table |
+| Middle end: partitioning | `ir/delegates/npu.mlir`, one `@npu_<id>` each | `ir/delegates/risc_v_npu.mlir`, one `@risc_v_npu_<id>` each |
+| CPU graph | bodiless `@__delegate_<id>` declaration, lowered to `__delegate__(id, in, out)` | same; the CPU graph cannot tell the two apart |
+| Back end | `compile(npu.mlir)`: claim, Pack, Encode → `programs.*` | `compile(risc_v_npu.mlir)`: claim, Pack, LowerToRiscv, rv_codegen → `rv_programs.*` |
+| Delegate output | `M×N` INT32; `libnpu_rt` sums the K-chunk planes | `M×N` INT32; `librv_npu_rt` sums the K-chunk planes on ARM (wrapping, as `libnpu_rt`) |
+
+The K-plane sum stays on ARM in both devices, so the two produce
+bit-identical outputs and the CVA6 program only issues jobs. Summing on CVA6
+(a RISC-V loop over the C planes) or accumulating across K chunks in the
+matrix core are later options, each its own A/B.
 
 Lowering in the `risc_v_npu` dialect:
 
@@ -353,6 +369,7 @@ src/vendors/risc_v_npu/                   +
 │   ├── include/RvNpu/
 │   │   ├── RvNpuOps.td                   +  rvnpu.matmul
 │   │   ├── RvNpuPasses.h                 +
+│   │   ├── RvNpuMatch.h                  +  the claim predicate the middle end links (copy of NpuMatch)
 │   │   └── RvNpuMmio.h                   +  MMIO offsets, generated from spec/abi.py
 │   ├── lib/
 │   │   ├── Claim.cpp                     +  copied from npu_pynq, produces rvnpu.matmul
@@ -380,12 +397,20 @@ src/export/backend/
 ├── delegates/
 │   ├── npu/                              =  A, unchanged
 │   └── risc_v_npu/                       +
-│       ├── lower.cpp / lower.h           +  the delegate: claims() and compile()
+│       ├── lower.cpp / lower.h           +  the delegate: compile(ir/delegates/risc_v_npu.mlir)
 │       └── rv_codegen.cpp / .h           +  LLVM IR → RV32IMC object → link → ELF → binary
 ├── device_register.cpp                   M  devices [cpu, risc_v_npu]
 ├── package.cpp / .h                      M  only if the package cannot already carry a
 │                                            delegate-specific artifact (to check)
 └── CMakeLists.txt                        M  the new delegate and dialect; LLVM RISCV target and lld
+```
+
+Middle end
+
+```
+src/export/middle-end/
+├── linalg/transforms/AssignDevices.cpp   M  kMatchers += {"risc_v_npu", rvnpu::isClaimable}
+└── CMakeLists.txt                        M  link RvNpuMatch
 ```
 
 Run time
@@ -501,10 +526,9 @@ There is no Yosys, so area, Fmax and power are not measured.
    target (WSL `/usr/lib/llvm-22`).
 7. Where CI gets Verilator: the apt package (if recent enough) or a pinned
    build.
-8. Name of the new device: `risc_v_npu` (default; `risc-v` is not a valid
+8. Resolved: the device is named `risc_v_npu` (`risc-v` is not a valid
    Python package name).
-9. Matrix-core knowledge in `risc_v_npu`: copied from `npu_pynq` (default,
-   fully separate) or imported from `npu_pynq/spec/` (shared, one place to
-   change).
+9. Resolved (2026-11-14): matrix-core knowledge and the claim predicate are
+   copied from `npu_pynq`; the K-plane sum is done on ARM by `librv_npu_rt`.
 10. How `src/runtime/` binds `__delegate__` to a driver today, and so what
     the dispatch to `librv_npu_rt` needs.

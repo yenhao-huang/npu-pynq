@@ -1,10 +1,13 @@
 """pynqo-backend's risc_v_npu delegate: the RISC-V programs issue the npu jobs.
 
 One INT8 GEMM goes through pynqo-backend twice, as ``[cpu, npu]`` and as
-``[cpu, risc_v_npu]``. The npu ISA program runs on the golden model
-(``src/test/model/isa_sim.py``); every risc_v_npu segment binary runs on the
-small RV32IMC interpreter below, which records the jobs its MMIO stores
-issue. Both must issue the same jobs, in the same order, at the same offsets.
+``[cpu, risc_v_npu]``, each fed what pynqo-middle-end writes for that device
+list (``write_model``: a CPU graph calling a bodiless ``@__delegate_0``, and
+``delegates/<device>.mlir`` holding the subgraph). The npu ISA program runs on
+the golden model (``src/test/model/isa_sim.py``); every risc_v_npu segment
+binary runs on the small RV32IMC interpreter below, which records the jobs its
+MMIO stores issue. Both must issue the same jobs, in the same order, at the
+same offsets, and both delegate tables must give the subgraph's result size.
 
 Skipped where pynqo-backend is not built (``src/export/pipeline.py``'s
 ``build_backend`` builds it; ``PYNQO_BACKEND_BUILD`` points at another build).
@@ -300,21 +303,39 @@ class Rv32:
 
 # ------------------------------------------------------------------ tests
 
-def gemm_mlir(m: int, k: int, n: int, seed: int = 0) -> str:
+def write_model(d: Path, device: str, m: int, k: int, n: int, seed: int = 0) -> Path:
+    """What pynqo-middle-end writes for one INT8 GEMM assigned to ``device``.
+
+    ``d/model.mlir`` is the CPU graph: a call to the bodiless declaration
+    ``@__delegate_0``. ``d/delegates/<device>.mlir`` is the device module: the
+    subgraph ``@<device>_0`` (the weight, a zero accumulator and the matmul).
+    The weight is the same for every device, so the packages can be compared.
+    """
     w = np.random.default_rng(seed).integers(-128, 128, size=(k, n), dtype=np.int8)
     rows = ', '.join('[' + ', '.join(str(int(v)) for v in row) + ']' for row in w)
-    return f'''module {{
-  func.func @forward(%x: tensor<{m}x{k}xi8>) -> tensor<{m}x{n}xi32> {{
+    x, y = f'tensor<{m}x{k}xi8>', f'tensor<{m}x{n}xi32>'
+    d.mkdir(parents=True, exist_ok=True)
+    (d / 'model.mlir').write_text(f'''module attributes {{pynqo.devices = ["cpu", "{device}"]}} {{
+  func.func @forward(%x: {x}) -> {y} {{
+    %r = call @__delegate_0(%x) : ({x}) -> {y}
+    return %r : {y}
+  }}
+  func.func private @__delegate_0({x}) -> {y} attributes {{pynqo.delegate_id = 0 : i64, pynqo.device = "{device}"}}
+}}
+''', encoding='utf-8')
+    (d / 'delegates').mkdir(exist_ok=True)
+    (d / 'delegates' / f'{device}.mlir').write_text(f'''module @{device} attributes {{pynqo.device = "{device}"}} {{
+  func.func @{device}_0(%arg0: {x}) -> {y} attributes {{pynqo.delegate_id = 0 : i64}} {{
     %w = arith.constant dense<[{rows}]> : tensor<{k}x{n}xi8>
     %c0 = arith.constant 0 : i32
-    %e = tensor.empty() : tensor<{m}x{n}xi32>
-    %z = linalg.fill ins(%c0 : i32) outs(%e : tensor<{m}x{n}xi32>) -> tensor<{m}x{n}xi32>
-    %r = linalg.matmul ins(%x, %w : tensor<{m}x{k}xi8>, tensor<{k}x{n}xi8>)
-                       outs(%z : tensor<{m}x{n}xi32>) -> tensor<{m}x{n}xi32>
-    return %r : tensor<{m}x{n}xi32>
+    %e = tensor.empty() : {y}
+    %z = linalg.fill ins(%c0 : i32) outs(%e : {y}) -> {y}
+    %r = linalg.matmul ins(%arg0, %w : {x}, tensor<{k}x{n}xi8>) outs(%z : {y}) -> {y}
+    return %r : {y}
   }}
 }}
-'''
+''', encoding='utf-8')
+    return d / 'model.mlir'
 
 
 def run_backend(model: Path, out: Path, devices: str, segment_bytes: int) -> None:
@@ -358,16 +379,21 @@ class RiscvNpuBackendTests(unittest.TestCase):
     def check(self, m: int, k: int, n: int, segment_bytes: int, segments: int) -> None:
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
-            (d / 'gemm.mlir').write_text(gemm_mlir(m, k, n))
-            run_backend(d / 'gemm.mlir', d / 'npu', 'cpu,npu', segment_bytes)
-            run_backend(d / 'gemm.mlir', d / 'rv', 'cpu,risc_v_npu', segment_bytes)
+            run_backend(write_model(d / 'in-npu', 'npu', m, k, n), d / 'npu', 'cpu,npu', segment_bytes)
+            run_backend(write_model(d / 'in-rv', 'risc_v_npu', m, k, n), d / 'rv', 'cpu,risc_v_npu',
+                        segment_bytes)
             expected = npu_jobs(d / 'npu')
             got = rv_jobs(d / 'rv')
             self.assertEqual(len(got), segments)
             self.assertTrue(all(got), 'a segment issued no job')
             self.assertEqual(got, expected)
-            compiled = json.loads((d / 'rv' / 'compile.json').read_text())
-            self.assertEqual([e['device'] for e in compiled['delegates']], ['risc_v_npu'])
+            # The delegate table: the subgraph's argument and result, M x K
+            # INT8 in and M x N INT32 out, however many K chunks the device runs.
+            for package, device in ((d / 'npu', 'npu'), (d / 'rv', 'risc_v_npu')):
+                compiled = json.loads((package / 'compile.json').read_text())
+                self.assertEqual(compiled['format'], 'pynqo-backend/2')
+                self.assertEqual([(e['id'], e['device'], e['index'], e['input_bytes'], e['output_bytes'])
+                                  for e in compiled['delegates']], [(0, device, 0, m * k, m * n * 4)])
             # The B tiles are the npu's: the same matrix-core layout.
             self.assertEqual((d / 'rv' / 'weights.bin').read_bytes(),
                              (d / 'npu' / 'weights.bin').read_bytes())
@@ -376,6 +402,9 @@ class RiscvNpuBackendTests(unittest.TestCase):
             blob = (d / 'rv' / 'rv_programs.bin').read_bytes()
             self.assertEqual(len(blob) % 8, 0)
             self.assertEqual(int(table[0].split()[5]), len(blob))
+            # The driver gets M, N, K and tk; it sums ceil(K / tk) planes.
+            self.assertEqual(table[1].split()[:8], ['task', '0', str(m), str(n), str(k), str(min(m, 16)),
+                                                    str(min(n, 16)), str(min(k, 256))])
 
     def test_one_segment_with_partial_tiles(self):
         self.check(33, 320, 20, 4 << 20, 1)
@@ -386,6 +415,16 @@ class RiscvNpuBackendTests(unittest.TestCase):
 
     def test_single_tile(self):
         self.check(4, 8, 8, 4 << 20, 1)
+
+    def test_a_subgraph_that_is_not_one_matmul_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            model = write_model(d / 'in', 'risc_v_npu', 4, 8, 8)
+            module = d / 'in' / 'delegates' / 'risc_v_npu.mlir'
+            # A non-zero accumulator: the delegate has only the activation as input.
+            module.write_text(module.read_text().replace('arith.constant 0 : i32', 'arith.constant 1 : i32'))
+            with self.assertRaisesRegex(RuntimeError, 'one claimable linalg.matmul'):
+                run_backend(model, d / 'rv', 'cpu,risc_v_npu', 4 << 20)
 
 
 if __name__ == '__main__':

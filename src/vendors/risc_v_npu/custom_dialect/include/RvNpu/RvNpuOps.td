@@ -1,11 +1,11 @@
 //===- RvNpuOps.td - risc_v_npu dialect ------------------------*- tablegen -*-===//
 //
-// rvnpu.matmul is a contraction the CVA6 build of the NPU runs. --rvnpu-claim
-// rewrites every INT8 contraction on a constant weight into one; the back
-// end's partition then gives each a delegate id and leaves a __delegate__ call
-// in its place, and the risc_v_npu delegate packs its weight (Pack) and lowers
-// it to an RV32IMC program for CVA6 (LowerToRiscv). Everything else stays in
-// upstream dialects and becomes CPU code.
+// rvnpu.matmul is a contraction the CVA6 build of the NPU runs. The
+// risc_v_npu delegate rewrites the matmul of each device function the middle
+// end cut out (rvnpu::claim) into one, packs its weight (Pack) and lowers it
+// to an RV32IMC program for CVA6 (LowerToRiscv). --rvnpu-claim applies the
+// same rewrite to every claimable matmul of a module. The op never reaches
+// CPU code: the CPU graph only calls the delegate.
 //
 // Same semantics as npu.matmul (src/vendors/npu_pynq/custom_dialect/include/
 // Npu/NpuOps.td); a separate dialect so both devices link into one
@@ -31,17 +31,17 @@ class RvNpu_Op<string mnemonic, list<Trait> traits = []>
 def RvNpu_MatmulOp : RvNpu_Op<"matmul", [Pure]> {
   let summary = "INT8 x INT8 -> INT32 matrix product run on the NPU (CVA6 build)";
   let description = [{
-    Computes the K-chunked partial products of `lhs[M, K] @ rhs[K, N]`:
-    result plane `c` holds the product over K rows `[c*tk, (c+1)*tk)`.
-    `rhs` is a constant weight; the delegate stores it as B tiles. Summing
-    the planes gives the full product; keeping them apart lets the CPU apply
-    a scale per K group (group-wise INT4 weights).
+    Computes `lhs[M, K] @ rhs[K, N]` as INT32 (wrapping sum). The NPU runs
+    K in chunks of `tk` rows and writes one partial plane per chunk; the
+    delegate's runtime (librv_npu_rt) sums the planes, so the result is the
+    full M x N product. `rhs` is a constant weight; the delegate stores it as
+    B tiles.
   }];
   let arguments = (ins RankedTensorOf<[I8]>:$lhs, RankedTensorOf<[I8]>:$rhs,
                        I64Attr:$tk);
-  let results = (outs RankedTensorOf<[I32]>:$partials);
+  let results = (outs RankedTensorOf<[I32]>:$result);
   let assemblyFormat = [{
-    $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($partials)
+    $lhs `,` $rhs attr-dict `:` type($lhs) `,` type($rhs) `->` type($result)
   }];
   let hasVerifier = 1;
 }

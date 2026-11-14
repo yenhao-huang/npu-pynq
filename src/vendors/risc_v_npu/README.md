@@ -10,7 +10,36 @@ sections 5 and 6.
 A package exported for `devices: [cpu, risc_v_npu]` uses this vendor; one for
 `[cpu, npu]` uses `npu_pynq`. The two never import each other: the matrix-core
 knowledge (`spec/layout.py`, `quant.py`, `board.py`, and on the compiler side
-`Claim.cpp` / `Pack.cpp`) is copied, with a note naming the source file.
+`Match.cpp` / `Claim.cpp` / `Pack.cpp`) is copied, with a note naming the
+source file.
+
+## The device as a delegate
+
+The device follows the delegate framework of plan
+[2026-1113-001](../../../docs/plans/2026-1113-001-delegate-framework.md),
+exactly as `npu` does:
+
+1. **Middle end: the matcher.** `custom_dialect/include/RvNpu/RvNpuMatch.h`
+   and `lib/Match.cpp` (the `RvNpuMatch` library, upstream dialects only, no
+   link libraries) define `rvnpu::isClaimable`, a copy of `npu::isClaimable`:
+   an INT8 x INT8 -> INT32 `linalg.matmul` with static 2-D operands, a
+   constant right operand (the weight) and an accumulator that is
+   `linalg.fill` of 0 on `tensor.empty`. `pynqo-middle-end --devices
+   cpu,risc_v_npu` links it (`AssignDevices.cpp`), cuts each claimed matmul out
+   into `delegates/risc_v_npu.mlir` as `@risc_v_npu_<id>` and leaves a bodiless
+   `@__delegate_<id>` declaration and its call in the CPU graph.
+2. **Back end: the delegate.** `src/export/backend/delegates/risc_v_npu/`
+   compiles `delegates/risc_v_npu.mlir` only: per `@risc_v_npu_<id>` in id
+   order it checks the subgraph (one activation argument, one claimable
+   matmul on it, its result returned), rewrites it with `rvnpu::claim` into
+   `rvnpu.matmul {tk}` (M x N INT32 result), packs B, plans the program and
+   lowers each segment to an RV32IMC binary. It contributes no CPU code; the
+   CPU graph only calls `__delegate__(id, in, out)`.
+3. **Runtime: the output contract.** `in` is the subgraph's M x K INT8
+   argument and `out` its M x N INT32 result, so the delegate table has
+   `output_bytes = M*N*4`. The NPU still writes one partial plane per K chunk
+   (`tk = min(K, MAX_K)`; the RISC-V program is unchanged); librv_npu_rt sums
+   the planes while unpacking C, wrapping modulo 2^32 exactly as libnpu_rt.
 
 | | `npu_pynq` (A) | `risc_v_npu` (B) |
 |---|---|---|
@@ -33,8 +62,8 @@ run RISC-V. A risc_v_npu package runs only on the board with the CVA6 overlay.
 | `spec/layout.py` | tiled A / B / C layout (copied), and `DataLayout`: where A, C and the staged B block sit from `data_base` |
 | `spec/quant.py`, `spec/board.py` | copied from npu_pynq |
 | `spec/gen_mmio_header.py` | writes `custom_dialect/include/RvNpu/RvNpuMmio.h` from `spec/abi.py` (`--check` compares) |
-| `custom_dialect/` | compile time: the `rvnpu` dialect, `LowerToRiscv`, `crt0.S` / `link.ld` (agent C, #174) |
-| `driver/rv_npu_rt/` | `librv_npu_rt`, the ARM-side delegate backend |
+| `custom_dialect/` | compile time: `RvNpuMatch` (the claim rule the middle end links), the `rvnpu` dialect, `claim`, `LowerToRiscv`, `crt0.S` / `link.ld` (agent C, #174) |
+| `driver/rv_npu_rt/` | `librv_npu_rt`, the ARM-side delegate backend (packs A, runs the segments, sums the K planes of C into the M x N output) |
 | `driver/overlay/` | manifest (`build.py`) and verification (`verify.py`) of the CVA6 overlay |
 
 The runtime binds the device in `src/runtime/delegate/__init__.py`
@@ -112,9 +141,11 @@ seg <bin_offset> <bin_bytes> <mem_bytes> <weight_offset> <b_bytes>
 - `m n k tm tn tk` as `spec/layout.py` `plan_gemm` (and npu's `programs.txt`).
 - `a_bytes`, `c_base`, `c_bytes`, `b_base`: the data block, as
   `spec/layout.py` `data_layout(plan, segment_bytes)`: A tiles at offset 0
-  (`a_bytes`), C planes at `c_base = align(a_bytes, 64)` (`c_bytes`), the staged
-  B block at `b_base = align(c_base + c_bytes, 64)`. The driver checks
-  `c_base >= a_bytes` and `b_base >= c_base + c_bytes`.
+  (`a_bytes`), C planes at `c_base = align(a_bytes, 64)` (`c_bytes`, all
+  `ceil(k / tk)` planes, which the driver sums into the M x N output), the
+  staged B block at `b_base = align(c_base + c_bytes, 64)`. The driver checks
+  `c_base >= a_bytes` and `b_base >= c_base + c_bytes`. The delegate's output
+  size (`M*N*4`) is in the package's delegate table, not here.
 - A segment is one binary and one run, as an npu segment is one ISA program:
   it covers a range of column tiles whose B panels form one contiguous block
   of at most `segment_bytes` (`GemmPlan.segments`). With a large enough
@@ -177,7 +208,11 @@ python -m unittest src.test.tests.test_risc_v_npu_abi
 `cva6_config.sv` and `csr.sv`, the header against its generator, the driver's
 constants against the spec, the layout copy against npu_pynq, and the overlay
 manifest. On Linux with g++ it also builds librv_npu_rt and runs it against a
-fake CSR window (placement, CSR writes, B staging, C unpacking, error codes).
+fake CSR window (placement, CSR writes, B staging, C unpacking with the K
+planes summed, including wrap-around, error codes).
+`test_risc_v_npu_backend` feeds pynqo-backend what the middle end writes for
+one GEMM and checks that the RISC-V binaries issue the npu ISA program's jobs
+and that the delegate table gives `output_bytes = M*N*4`.
 
 ## Not verified
 

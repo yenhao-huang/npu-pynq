@@ -13,6 +13,7 @@
 #include "linalg/transforms/Passes.h"
 
 #include "Npu/NpuMatch.h"
+#include "RvNpu/RvNpuMatch.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -35,6 +36,7 @@ struct DeviceMatcher {
 // here and a delegate in the back end (backend/device_register.cpp).
 const DeviceMatcher kMatchers[] = {
     {"npu", npu::isClaimable},
+    {"risc_v_npu", rvnpu::isClaimable},
 };
 
 const DeviceMatcher *matcher(StringRef device) {
@@ -64,7 +66,7 @@ struct AssignDevicesPass : PassWrapper<AssignDevicesPass, OperationPass<ModuleOp
         return signalPassFailure();
       }
       if (device != "cpu" && !matcher(device)) {
-        module.emitError() << "unknown device '" << device << "'; known: cpu, npu";
+        module.emitError() << "unknown device '" << device << "'; known: cpu, npu, risc_v_npu";
         return signalPassFailure();
       }
     }

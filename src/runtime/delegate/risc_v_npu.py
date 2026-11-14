@@ -7,6 +7,12 @@ are allocated with ``pynq.allocate``; they are handed to ``rv_npu_rt_load``
 through its C interface. There is no simulator: npu_pynq's SIM is a model of
 the 64-bit ISA and cannot run RISC-V, so a package for risc_v_npu runs only on
 the board with the CVA6 overlay.
+
+The delegate contract is npu's (``pynqo-package/3``): ``__delegate__(id, in,
+out)`` reaches ``rv_npu_rt_execute(index, ...)`` with the package's own index
+for the id, ``in`` the subgraph's M x K INT8 argument and ``out`` its M x N
+INT32 result (``output_bytes = M*N*4`` in the delegate table). The NPU writes
+one partial plane per K chunk; librv_npu_rt sums them while unpacking C.
 """
 
 from __future__ import annotations

@@ -77,11 +77,14 @@ npu_repo_in_pynq/
 |   |       |                    fully separate from npu_pynq: matrix-core facts are copied, not imported
 |   |       |-- spec/            abi.py (CSR map + capability bit 7, MMIO job registers, address map),
 |   |       |                    layout.py, quant.py, board.py, gen_mmio_header.py
-|   |       |-- custom_dialect/  C++ (LLVM 22): the rvnpu dialect, --rvnpu-claim, Pack, LowerToRiscv,
-|   |       |   |                Programs (rv_programs.*); include/RvNpu/RvNpuMmio.h is generated
+|   |       |-- custom_dialect/  C++ (LLVM 22): RvNpuMatch (the claim rule, rvnpu::isClaimable, a copy of
+|   |       |   |                NpuMatch), linked by both export tools; RvNpuDialect (the rvnpu dialect,
+|   |       |   |                rvnpu::claim, --rvnpu-claim, Pack, LowerToRiscv, Programs (rv_programs.*)),
+|   |       |   |                by pynqo-backend only; include/RvNpu/RvNpuMmio.h is generated
 |   |       |   `-- runtime/     crt0.S and link.ld, linked into every generated RISC-V program
 |   |       `-- driver/          board side; follows spec/
-|   |           |-- rv_npu_rt/   librv_npu_rt (C++): loads RISC-V binaries, PYNQ backend only
+|   |           |-- rv_npu_rt/   librv_npu_rt (C++): loads RISC-V binaries, sums the K chunks into the
+|   |           |                delegate's M x N result, PYNQ backend only
 |   |           `-- overlay/     manifest and verification of the CVA6 overlay
 |   |-- export/                  host-side model -> package; never runs on the board
 |   |   |-- cli.py               build <config>
@@ -256,7 +259,8 @@ the middle end links without the device's dialect or encoder. Front-end stages
 do not import each other; only `pipeline.py` passes a model from one to the
 next. `python -m unittest src.test.tests.test_export_layering` enforces that,
 that `src/runtime` and `src/vendors` never import `src/export`, that
-`pynqo-middle-end` links `NpuMatch` and not `NpuDialect`, and that both tools
+`pynqo-middle-end` links `NpuMatch` and `RvNpuMatch` and neither `NpuDialect`
+nor `RvNpuDialect`, and that both tools
 spell the delegate attributes alike.
 
 `src/deploy/deploy.sh` sends an export directory to the board: the package with

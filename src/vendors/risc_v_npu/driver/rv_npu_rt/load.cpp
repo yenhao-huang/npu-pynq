@@ -14,7 +14,8 @@
  *
  * The data block at DATA_BASE (the io buffer) is laid out as
  * src/vendors/risc_v_npu/spec/layout.py DataLayout says: A tiles at 0, C
- * planes at <c_base>, the staged B block of the running segment at <b_base>.
+ * planes at <c_base> (<c_bytes>: every K plane, which unpackC sums into the
+ * M x N output), the staged B block of the running segment at <b_base>.
  * Nothing is relocated: the program adds these offsets to DATA_BASE itself.
  */
 #include "rv_npu_rt.h"

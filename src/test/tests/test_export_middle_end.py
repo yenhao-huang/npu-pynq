@@ -271,6 +271,18 @@ class DevicePartitionTest(unittest.TestCase):
         self.assertNotIn('pynqo.device ', text)
         self.assertEqual(modules, {})
 
+    def test_risc_v_npu_takes_the_same_contractions(self):
+        # Its claim rule (RvNpuMatch) is a copy of the NPU's: the same cuts,
+        # under its own device name.
+        _, text, modules = run_with_delegates(mlp(), 'linalg', ('cpu', 'risc_v_npu'), MLP_INPUT)
+        self.assertIn('module attributes {pynqo.devices = ["cpu", "risc_v_npu"]', text)
+        declared = [h for name, (h, _) in functions(text).items() if name.startswith('__delegate_')]
+        self.assertEqual(len(declared), 2)
+        self.assertTrue(all('pynqo.device = "risc_v_npu"' in h for h in declared), declared)
+        self.assertEqual(list(modules), ['risc_v_npu'])
+        self.assertIn('module @risc_v_npu attributes {pynqo.device = "risc_v_npu"}', modules['risc_v_npu'])
+        self.assertEqual(list(functions(modules['risc_v_npu'])), ['risc_v_npu_0', 'risc_v_npu_1'])
+
     def test_unknown_device_lists_fail(self):
         for devices in (('cpu', 'gpu'), ('npu',), ('cpu', 'npu', 'npu')):
             with self.subTest(devices=devices), self.assertRaises(RuntimeError):
@@ -304,6 +316,21 @@ class BackendContractTest(unittest.TestCase):
             # How the NPU computes the result (K chunks) is not CPU code.
             self.assertNotIn('linalg.reduce', cpu)
             self.assertNotIn('linalg.matmul', cpu)
+
+    def test_risc_v_npu_compiles_its_device_module(self):
+        with tempfile.TemporaryDirectory() as d:
+            _, model = lower(mlp(), d, devices=('cpu', 'risc_v_npu'), shape=MLP_INPUT)
+            self.backend(model, Path(d) / 'pkg', 'cpu,risc_v_npu', '--max-k 8')
+            table = json.loads((Path(d) / 'pkg' / 'compile.json').read_text())['delegates']
+            self.assertEqual([(e['id'], e['device'], e['index'], e['input_bytes'], e['output_bytes'])
+                              for e in table], [(0, 'risc_v_npu', 0, 64, 512), (1, 'risc_v_npu', 1, 128, 128)])
+            tasks = json.loads((Path(d) / 'pkg' / 'rv_programs.json').read_text())['tasks']
+            # K = 16 and 32 in 2 and 4 chunks, summed in librv_npu_rt: same output bytes.
+            self.assertEqual([(t['id'], t['k'], t['tk']) for t in tasks], [(0, 16, 8), (1, 32, 8)])
+            cpu = code((Path(d) / 'pkg' / 'cpu.mlir').read_text())
+            self.assertEqual(len(re.findall(r'call @__delegate__\(', cpu)), 2)
+            self.assertNotIn('linalg.reduce', cpu)
+            self.assertNotIn('rvnpu.', cpu)
 
     def test_k_chunks_change_no_cpu_code_and_no_output_size(self):
         # MAX_K 8 splits K = 16 and K = 32 into 2 and 4 chunks; the delegate

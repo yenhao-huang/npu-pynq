@@ -328,11 +328,31 @@ def write_package(root: Path, plan: layout.GemmPlan, b: np.ndarray, segment_limi
     return data
 
 
+def c_image(plan: layout.GemmPlan, planes: np.ndarray) -> np.ndarray:
+    """``planes`` ([Kt, M, N] INT32) as the NPU writes them: one plane of C tiles per K chunk."""
+    image = np.zeros(plan.c_bytes, np.uint8)
+    for kc in range(plan.kt):
+        for mi in range(plan.mt):
+            for ni in range(plan.nt):
+                rows, cols = plan.m_i(mi), plan.n_i(ni)
+                tile = planes[kc, mi * plan.tm:mi * plan.tm + rows, ni * plan.tn:ni * plan.tn + cols]
+                off = plan.c_offset(kc, mi, ni)
+                image[off:off + 4 * rows * cols] = np.ascontiguousarray(tile).view(np.uint8).ravel()
+    return image
+
+
+def wrapping_sum(planes: np.ndarray) -> np.ndarray:
+    """The K planes summed modulo 2^32, as libnpu_rt and librv_npu_rt sum them."""
+    total = planes.astype(np.int64).sum(axis=0) & 0xFFFFFFFF
+    return total.astype(np.uint32).view(np.int32)
+
+
 @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('g++'), 'needs Linux and g++')
 class DriverOnHostTests(unittest.TestCase):
     """librv_npu_rt against a fake CSR window that reports DONE at once: checks
     the overlay check, the SIM refusal, the code and data placement, the CSR
-    writes and the C unpacking (nothing computes the GEMM)."""
+    writes and the C unpacking, which sums the K planes into the M x N output
+    (nothing computes the GEMM)."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -398,24 +418,20 @@ class DriverOnHostTests(unittest.TestCase):
                              self.lib.rv_npu_rt_error())
             self.assertEqual(code[:10].tobytes(), binaries[0])        # slot 0
             self.assertEqual(code[256:276].tobytes(), binaries[1])    # slot 1 (mem_bytes 256)
-            expected = rng.integers(-2**31, 2**31, (plan.kt, plan.m, plan.n), dtype=np.int64).astype(np.int32)
-            c_image = np.zeros(plan.c_bytes, np.uint8)
-            for kc in range(plan.kt):
-                for mi in range(plan.mt):
-                    for ni in range(plan.nt):
-                        rows, cols = plan.m_i(mi), plan.n_i(ni)
-                        tile = expected[kc, mi * plan.tm:mi * plan.tm + rows, ni * plan.tn:ni * plan.tn + cols]
-                        off = plan.c_offset(kc, mi, ni)
-                        c_image[off:off + 4 * rows * cols] = np.ascontiguousarray(tile).view(np.uint8).ravel()
-            io[data.c_base:data.c_base + plan.c_bytes] = c_image      # what the NPU would write
-            out = np.zeros((plan.kt, plan.m, plan.n), np.int32)
+            # K = 300 > MAX_K: two planes, summed into the M x N output.
+            self.assertEqual(plan.kt, 2)
+            planes = rng.integers(-2**31, 2**31, (plan.kt, plan.m, plan.n), dtype=np.int64).astype(np.int32)
+            io[data.c_base:data.c_base + plan.c_bytes] = c_image(plan, planes)   # what the NPU would write
+            # One guard row past M x N: the output is M x N, not Kt planes.
+            out = np.full((plan.m + 1, plan.n), 0x5A5A5A5A, np.int32)
             buffers = (ctypes.c_void_p * 2)(a.ctypes.data, out.ctypes.data)
             self.assertEqual(self.lib.rv_npu_rt_execute(0, buffers, 2), 0)
             np.testing.assert_array_equal(io[:plan.a_bytes], layout.pack_a(plan, a).view(np.uint8))
             last = plan.segments(limit)[-1]
             staged = layout.pack_b(plan, b)[last[0] * plan.b_panel:last[1] * plan.b_panel].view(np.uint8)
             np.testing.assert_array_equal(io[data.b_base:data.b_base + staged.size], staged)
-            np.testing.assert_array_equal(out, expected)
+            np.testing.assert_array_equal(out[:plan.m], wrapping_sum(planes))
+            self.assertTrue((out[plan.m] == 0x5A5A5A5A).all())
             self.assertEqual(regs[abi.IsaRegister.PROG_ADDR // 4], 0x1800_0000 + 256)   # the last segment
             self.assertEqual(regs[abi.IsaRegister.PROG_LEN // 4], abi.prog_len_words(20))
             self.assertEqual(regs[abi.IsaRegister.DATA_BASE // 4], 0x1000_0000)
@@ -423,6 +439,34 @@ class DriverOnHostTests(unittest.TestCase):
             stats = (ctypes.c_int64 * 7)()
             self.lib.rv_npu_rt_stats(stats)
             self.assertEqual(list(stats)[:3], [1, 6, 200])   # calls, jobs, cycles over two segments
+
+    def test_the_k_planes_are_summed_with_wraparound(self) -> None:
+        plan = layout.plan_gemm(5, 7, 600)     # one row and column tile, three K chunks
+        self.assertEqual((plan.mt, plan.nt, plan.kt), (1, 1, 3))
+        planes = np.random.default_rng(2).integers(-1000, 1000, (plan.kt, plan.m, plan.n)).astype(np.int32)
+        int_max, int_min = np.iinfo(np.int32).max, np.iinfo(np.int32).min
+        planes[:, 0, 0] = (int_max, 1, 0)            # wraps to INT32_MIN
+        planes[:, 0, 1] = (int_min, -1, 0)           # wraps to INT32_MAX
+        planes[:, 0, 2] = (int_max, int_max, 2)      # wraps to 0
+        planes[:, 1, 0] = (int_max, 1, -1)           # wraps there and back
+        expected = wrapping_sum(planes)
+        self.assertEqual(expected[0, :3].tolist(), [int_min, int_max, 0])
+        self.assertEqual(expected[1, 0], int_max)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data = write_package(root, plan, np.zeros((plan.k, plan.n), np.int8), 1 << 20,
+                                 [b'\x13\x00\x00\x00'], 64)
+            platform, regs, io, code = self._platform(root, 0xFB)
+            self.assertEqual(self.lib.rv_npu_rt_load(str(root).encode(), ctypes.byref(platform)), 0,
+                             self.lib.rv_npu_rt_error())
+            io[data.c_base:data.c_base + plan.c_bytes] = c_image(plan, planes)
+            a = np.zeros((plan.m, plan.k), np.int8)
+            out = np.full((plan.m + 1, plan.n), 0x5A5A5A5A, np.int32)
+            buffers = (ctypes.c_void_p * 2)(a.ctypes.data, out.ctypes.data)
+            for _ in range(2):   # a second call overwrites the output, it does not accumulate
+                self.assertEqual(self.lib.rv_npu_rt_execute(0, buffers, 2), 0, self.lib.rv_npu_rt_error())
+                np.testing.assert_array_equal(out[:plan.m], expected)
+            self.assertTrue((out[plan.m] == 0x5A5A5A5A).all())
 
     def test_an_error_code_is_returned(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -432,7 +476,7 @@ class DriverOnHostTests(unittest.TestCase):
             self.assertEqual(self.lib.rv_npu_rt_load(str(tmp).encode(), ctypes.byref(platform)), 0)
             regs[abi.IsaRegister.STATUS // 4] = abi.IsaStatus.DONE | abi.IsaStatus.ERROR
             regs[abi.IsaRegister.ERROR // 4] = abi.MmioError.MISALIGNED
-            a, out = np.zeros((4, 4), np.int8), np.zeros((1, 4, 4), np.int32)
+            a, out = np.zeros((4, 4), np.int8), np.zeros((4, 4), np.int32)
             buffers = (ctypes.c_void_p * 2)(a.ctypes.data, out.ctypes.data)
             self.assertEqual(self.lib.rv_npu_rt_execute(0, buffers, 2), 0x12)
 

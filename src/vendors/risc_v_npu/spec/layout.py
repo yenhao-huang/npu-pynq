@@ -13,8 +13,9 @@ Every block starts 8-byte aligned. B is stored column-tile-major: column tile
 output columns is one contiguous block of the weight (a *segment* that can be
 streamed into a small DMA window), and a REPEATed GEMM with post-increment
 walks the tiles of one K chunk by stepping one panel. C keeps one partial
-plane per K chunk and the CPU reduces the planes (and applies per-chunk
-scales, which is how group-wise INT4 weights stay exact on an INT8 array).
+plane per K chunk; librv_npu_rt sums the planes while unpacking C, so the
+delegate's output is the ``M x N`` product (``unpack_c`` below returns the
+planes apart, for tests).
 
 Copied from src/vendors/npu_pynq/spec/layout.py (risc_v_npu keeps its own
 copy; plan 2026-1112-003 section 6.2). Changes from the source: ``align``,

@@ -4,7 +4,9 @@
  * for every delegate id that belongs to risc_v_npu. The library packs the INT8
  * input into A tiles, and for each of that program's segments stages the
  * segment's B block, starts its RISC-V binary on CVA6 and waits for it; then
- * it unpacks the INT32 partial planes into the output.
+ * it unpacks the INT32 partial planes (one per K chunk) into the output,
+ * summing them: the output is the M x N product, the delegated subgraph's
+ * result, as libnpu_rt's.
  *
  * Modelled on src/vendors/npu_pynq/driver/npu_rt (libnpu_rt); the C interface
  * keeps its shape with the prefix rv_npu_rt_. Differences:
@@ -51,8 +53,8 @@ int rv_npu_rt_requirements(const char *package_dir, uint32_t sizes[2]);
  * 0 on success; see rv_npu_rt_error(). */
 int rv_npu_rt_load(const char *package_dir, const rv_npu_rt_platform *platform);
 
-/* Run program `index`: buffers[0] the INT8 input, buffers[1] the INT32
- * partial planes. 0 on success, else the ISA_ERROR code (a DONE code, an MMIO
+/* Run program `index`: buffers[0] the INT8 M x K input, buffers[1] the INT32
+ * M x N output (the K planes summed, wrapping modulo 2^32). 0 on success, else the ISA_ERROR code (a DONE code, an MMIO
  * fault or a matrix-core fault), 0xfd on a timeout, 0xfe on a bad call, 0xff
  * when the run ended without DONE or ERROR. */
 int rv_npu_rt_execute(int64_t index, void **buffers, int count);
