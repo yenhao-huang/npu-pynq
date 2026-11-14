@@ -41,6 +41,11 @@ npu_repo_in_pynq/
 |   |   |           |-- *.sv
 |   |   |           `-- <child-module>/
 |   |   |               `-- *.sv
+|   |   |                    npu_accelerator/scalar_core/:
+|   |   |                      scalar_core.sv   wrapper, SCALAR_IMPL selects
+|   |   |                      custom/          custom_* modules, the NPU ISA sequencer
+|   |   |                      cva6/            CVA6 integration: *.sv, cva6.f, waiver.vlt, README.md
+|   |   |                        upstream/      openhwgroup/cva6 submodule, pinned tag, never modified
 |   |   |-- tb/
 |   |   |   `-- <design>/
 |   |   |       `-- tb_*.sv
@@ -56,6 +61,7 @@ npu_repo_in_pynq/
 |   |   |-- cocotb/
 |   |   |   `-- test_*.py
 |   |   |-- vectors/
+|   |   |   `-- risc_v_npu/      rv32asm.py, isa_to_rv.py: ISA test programs as RISC-V for the CVA6 bench
 |   |   `-- waves/
 |   |-- vendors/                 one folder per accelerator; imported by export and runtime, imports neither
 |   |   `-- npu_pynq/
@@ -67,6 +73,19 @@ npu_repo_in_pynq/
 |   |           |-- npu_rt/      libnpu_rt (C++): the NPU delegate backend, PYNQ and SIM backends,
 |   |           |                built on the target with its own g++ and CMake
 |   |           `-- overlay/     build.py writes the BIT/HWH manifest; verify.py checks it before loading
+|   |   `-- risc_v_npu/          the same NPU with the CVA6 RISC-V scalar core (SCALAR_IMPL="CVA6");
+|   |       |                    fully separate from npu_pynq: matrix-core facts are copied, not imported
+|   |       |-- spec/            abi.py (CSR map + capability bit 7, MMIO job registers, address map),
+|   |       |                    layout.py, quant.py, board.py, gen_mmio_header.py
+|   |       |-- custom_dialect/  C++ (LLVM 22): RvNpuMatch (the claim rule, rvnpu::isClaimable, a copy of
+|   |       |   |                NpuMatch), linked by both export tools; RvNpuDialect (the rvnpu dialect,
+|   |       |   |                rvnpu::claim, --rvnpu-claim, Pack, LowerToRiscv, Programs (rv_programs.*)),
+|   |       |   |                by pynqo-backend only; include/RvNpu/RvNpuMmio.h is generated
+|   |       |   `-- runtime/     crt0.S and link.ld, linked into every generated RISC-V program
+|   |       `-- driver/          board side; follows spec/
+|   |           |-- rv_npu_rt/   librv_npu_rt (C++): loads RISC-V binaries, sums the K chunks into the
+|   |           |                delegate's M x N result, PYNQ backend only
+|   |           `-- overlay/     manifest and verification of the CVA6 overlay
 |   |-- export/                  host-side model -> package; never runs on the board
 |   |   |-- cli.py               build <config>
 |   |   |-- pipeline.py          load -> quantize -> export_graph -> to_mlir -> pynqo-backend
@@ -81,9 +100,9 @@ npu_repo_in_pynq/
 |   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:
 |   |   |                        one file per rewrite on the torch dialect; linalg/transforms/: device
 |   |   |                        assignment, and partitioning into delegate calls and device modules
-|   |   `-- backend/             C++ pynqo-backend: delegates/ (each compiles its device's module),
-|   |                            package (weights.bin), cpu/delegate_calls (the __delegate__ ABI),
-|   |                            cpu/toolchain (LLVM IR, llc, link), device_register
+|   |   `-- backend/             C++ pynqo-backend: delegates/ (npu/, risc_v_npu/; each compiles its
+|   |                            device's module), package (weights.bin), cpu/delegate_calls (the
+|   |                            __delegate__ ABI), cpu/toolchain (LLVM IR, llc, link), device_register
 |   |-- deploy/                  deploy.sh (send to the board, or ARCHIVE= a release archive),
 |   |                            resnet18_assets.py and its pins
 |   |-- deprecate/               retired code, kept for reference; nothing active imports it
@@ -168,7 +187,8 @@ npu_repo_in_pynq/
 |   |-- 0911_performance_optimization/  compact hardware and board results
 |   |-- 1007_sw_stack/          software-stack goal (#119): exp-board request, export
 |   |                           and board scripts, host evaluation scripts and results
-|   `-- ab_test/                IC-tool A/B report and experiment source
+|   |-- ab_test/                IC-tool A/B report and experiment source
+|   `-- scalar_core_compare/    CUSTOM vs CVA6 scalar core A/B report (README.md) and run.py
 |-- openspec/
 |   |-- changes/
 |   `-- specs/
@@ -239,7 +259,8 @@ the middle end links without the device's dialect or encoder. Front-end stages
 do not import each other; only `pipeline.py` passes a model from one to the
 next. `python -m unittest src.test.tests.test_export_layering` enforces that,
 that `src/runtime` and `src/vendors` never import `src/export`, that
-`pynqo-middle-end` links `NpuMatch` and not `NpuDialect`, and that both tools
+`pynqo-middle-end` links `NpuMatch` and `RvNpuMatch` and neither `NpuDialect`
+nor `RvNpuDialect`, and that both tools
 spell the delegate attributes alike.
 
 `src/deploy/deploy.sh` sends an export directory to the board: the package with
@@ -357,14 +378,38 @@ hierarchy. In `npu_accelerator`, the design directory holds the top module
 `scalar_core/`, and `matrix_core/`; the matrix core holds its module
 `matrix_core.sv` and contains `controller/`, `memory/` and
 `systolic_array/`. Each core has a controller beside the modules it
-controls: `scalar_core_controller` is the program-level run control over the
-scalar core's pipeline stages (start admission, run state, busy, faults and
-the reported error), and `matrix_core_controller` sequences one job over the
+controls: `custom_controller` is the program-level run control over the
+CUSTOM scalar core's pipeline stages (start admission, run state, busy, faults
+and the reported error), and `matrix_core_controller` sequences one job over the
 operand buffers and the systolic array, cycle by cycle. Testbenches remain in `src/hw/tb/<design>/`.
 Only the top module carries the `npu_` prefix. A module that belongs to one
-core takes the core's name as its prefix (`scalar_core_fetch`), a generic
-building block says what it is (`sync_fifo`, `axis_skid`), and a testbench is
+core takes the core's name as its prefix (`matrix_core_controller`), a generic
+building block says what it is (`axis_skid`), and a testbench is
 `tb_<module>`.
+
+`scalar_core/` holds the wrapper `scalar_core.sv`, whose `SCALAR_IMPL`
+parameter selects an implementation, and one self-contained folder per
+implementation; there is no shared folder between them:
+
+- `custom/`: the 64-bit NPU instruction sequencer. Every module is prefixed
+  `custom_` (`custom_scalar_core`, `custom_fetch`, `custom_dma`,
+  `custom_sync_fifo`, ...).
+- `cva6/`: a CVA6 RISC-V core that drives the matrix core through MMIO
+  registers. Our modules and packages are prefixed `cva6_` or end in `_cva6`
+  (`scalar_core_cva6`, `cva6_npu_mmio`, `cva6_dma`, `cva6_npu_config_pkg`).
+  `cva6/upstream/` is the third-party `openhwgroup/cva6` git submodule, pinned
+  to a release tag and never modified: customization goes through CVA6's own
+  configuration package, and an unavoidable source change would live in
+  `cva6/patches/`, applied at build time and documented in `cva6/README.md`.
+  `cva6/cva6.f` is the only way to compile the CVA6 sources; the default
+  `src/test/Makefile` flow excludes `upstream/` and the files that need CVA6
+  packages.
+
+SystemVerilog module and package names are global and every implementation
+compiles together, so each name must be unique across implementations; that is
+why each implementation carries its own prefix. A building block an
+implementation needs (a FIFO, the tensor DMA) is a copy inside that
+implementation's folder under its prefix, not a shared module.
 
 A testbench is named `tb_<module>.sv` and lives in `src/hw/tb/<design>/`.
 `make sim` discovers tests by that pattern, so a testbench outside it never

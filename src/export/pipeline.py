@@ -27,7 +27,8 @@ import time
 PACKAGE_FORMAT = 'pynqo-package/3'
 REPO = Path(__file__).resolve().parents[2]
 BACKEND = REPO / 'src' / 'export' / 'backend'
-BACKEND_SOURCES = (BACKEND, REPO / 'src' / 'vendors' / 'npu_pynq' / 'custom_dialect')
+BACKEND_SOURCES = (BACKEND, REPO / 'src' / 'vendors' / 'npu_pynq' / 'custom_dialect',
+                   REPO / 'src' / 'vendors' / 'risc_v_npu' / 'custom_dialect')
 MIDDLE_END = REPO / 'src' / 'export' / 'middle-end'
 
 
@@ -123,11 +124,13 @@ def delegates_dir(model_mlir: Path) -> Path:
 
 def check_scheme(config: dict) -> None:
     """Refuse a package for the NPU in a scheme it cannot run, before any work is done."""
-    from src.vendors.npu_pynq.spec.quant import ACCEPTED_SCHEMES
+    from src.vendors.npu_pynq.spec import quant as npu_quant
+    from src.vendors.risc_v_npu.spec import quant as risc_v_npu_quant
 
     scheme = config.get('quantization')
-    if 'npu' in config['devices'] and scheme not in ACCEPTED_SCHEMES:
-        raise ValueError(f'the NPU accepts {ACCEPTED_SCHEMES}, not {scheme!r}')
+    for device, quant in (('npu', npu_quant), ('risc_v_npu', risc_v_npu_quant)):
+        if device in config['devices'] and scheme not in quant.ACCEPTED_SCHEMES:
+            raise ValueError(f'{device} accepts {quant.ACCEPTED_SCHEMES}, not {scheme!r}')
 
 
 def export_package(config: dict, out: str | Path, source: str | None = None,

@@ -1,8 +1,8 @@
 """Load and call a package exported through PyTorch (format pynqo-package/3).
 
 The package holds model.so per CPU model, weights.bin and, for each delegate
-device, its own artefacts (programs.* for the NPU). Entry points take
-memref descriptors through MLIR's C interface:
+device, its own artefacts (programs.* for npu, rv_programs.* for risc_v_npu).
+Entry points take memref descriptors through MLIR's C interface:
 
     _mlir_ciface_<entry>(ws, *inputs, *outputs)
 
@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from src.runtime.delegate import Dispatcher
+from src.runtime.delegate import Dispatcher, backend_class
 
 # 3: a delegate's output is its subgraph's result (libnpu_rt sums the NPU's
 # K chunks); /2 packages hand the CPU partial planes and are refused.
@@ -67,9 +67,13 @@ class ExportedPackage:
         self.dispatcher = Dispatcher()
         self.backends = {}
         devices = {d['device'] for d in self.manifest['delegates']}
-        if 'npu' in devices:
-            from src.runtime.delegate.npu import NpuBackend
-            self.backends['npu'] = NpuBackend(self.root, overlay)
+        if {'npu', 'risc_v_npu'} <= devices:
+            raise ValueError(f'{self.root}: npu and risc_v_npu need different overlays; '
+                             'a package targets one of them')
+        for device in sorted(devices):
+            cls = backend_class(device)
+            if cls is not None:   # a device without one fails in install() below
+                self.backends[device] = cls(self.root, overlay)
         self.dispatcher.install(self.manifest['delegates'],
                                 {name: b.execute for name, b in self.backends.items()})
         libraries = self.manifest['libraries']
@@ -92,7 +96,7 @@ class ExportedPackage:
         self.dispatcher.check()
 
     def stats(self) -> dict[str, int]:
-        npu = self.backends.get('npu')
+        npu = self.backends.get('npu') or self.backends.get('risc_v_npu')
         stats = npu.stats() if npu else {}
         stats['delegate_calls'] = self.dispatcher.calls
         return stats

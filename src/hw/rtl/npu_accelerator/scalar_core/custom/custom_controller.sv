@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-// Controller of the scalar core: program-level run control over the pipeline
+// Controller of the CUSTOM scalar core: program-level run control over the pipeline
 // stages. (matrix_core_controller, its counterpart in the matrix core,
 // sequences one job over the operand buffers and the systolic array cycle by
 // cycle; this module never looks inside a job.) The stages report events; the
@@ -26,12 +26,12 @@
 //
 // It does not own the EX issue handshake: job_ready, the issue strobe, the
 // cooldown and the registered START and shape that drive the matrix core stay
-// in scalar_core, beside the load/store unit they hand each job to. The
+// in custom_scalar_core, beside the tensor DMA they hand each job to. The
 // controller only gates that handshake through fault_latched and counts its
 // result.
 //
 // Error codes match src/vendors/npu_pynq/spec/abi.py.
-module scalar_core_controller (
+module custom_controller (
     input  logic        clk,
     input  logic        rst_n,
 
@@ -50,7 +50,7 @@ module scalar_core_controller (
     input  logic        issue,
     input  logic        job_written,
 
-    // Fault sources: IF, the load/store unit, the matrix core.
+    // Fault sources: IF, the tensor DMA, the matrix core.
     input  logic        fetch_error,
     input  logic        read_error,
     input  logic        write_error,

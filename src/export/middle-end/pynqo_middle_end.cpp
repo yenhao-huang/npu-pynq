@@ -47,7 +47,7 @@ static cl::opt<std::string> input(cl::Positional, cl::desc("<torch.mlir>"), cl::
 static cl::opt<std::string> output("o", cl::desc("Output file"), cl::Required);
 static cl::opt<std::string> emit("emit", cl::desc("linalg, or torch to stop before lowering"),
                                  cl::init("linalg"));
-static cl::opt<std::string> devices("devices", cl::desc("cpu or cpu,npu: the devices to assign to"),
+static cl::opt<std::string> devices("devices", cl::desc("cpu, cpu,npu or cpu,risc_v_npu: the devices to assign to"),
                                     cl::init("cpu"));
 static cl::opt<std::string> delegatesDir("delegates-dir",
                                          cl::desc("Where the device modules go (<device>.mlir); "

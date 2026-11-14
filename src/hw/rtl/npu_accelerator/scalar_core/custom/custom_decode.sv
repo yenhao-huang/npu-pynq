@@ -7,20 +7,20 @@
 //
 // The stage holds the instruction being executed, the architectural state,
 // REPEAT, the pending job, and the PC and instruction counters. It does not
-// hold the run state: scalar_core_controller does. Decode executes only while
+// hold the run state: custom_controller does. Decode executes only while
 // `running`, holds FENCE and END until the controller reports `drained`
 // (every job written back), and reports what the controller must act on:
 // `decode_error` with its code for an instruction it cannot execute, and
 // `program_end` when END retires. `fault` drops the pending job.
 // Opcodes and error codes match src/vendors/npu_pynq/isa/isa.py.
-module scalar_core_decode #(
+module custom_decode #(
     parameter integer ROWS = 16,
     parameter integer COLUMNS = 16,
     parameter integer MAX_K = 256
 ) (
     input  logic        clk,
     input  logic        rst_n,
-    // Run control, from scalar_core_controller.
+    // Run control, from custom_controller.
     input  logic        start,
     input  logic        running,
     input  logic        drained,
@@ -44,7 +44,7 @@ module scalar_core_decode #(
     output logic [12:0] job_b_bytes,
     output logic [8:0]  job_c_words,
 
-    // Events to scalar_core_controller, valid in the cycle they happen.
+    // Events to custom_controller, valid in the cycle they happen.
     output logic        decode_error,
     output logic [7:0]  decode_error_code,
     output logic        program_end,

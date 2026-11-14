@@ -1,6 +1,6 @@
 //===- pynqo_backend.cpp - the back end: model.mlir -> a package ------------===//
 //
-//   pynqo-backend model.mlir --out <dir> --devices cpu,npu
+//   pynqo-backend model.mlir --out <dir> --devices cpu,npu   (or cpu,risc_v_npu)
 //               --cpus arm-cortex-a9,native --llvm-bin /usr/lib/llvm-22/bin
 //               [--delegates-dir <dir>, default <model.mlir's dir>/delegates]
 //
@@ -12,7 +12,8 @@
 //
 //     -> check pynqo.devices against --devices, and that the declarations and
 //        the device modules match (ids 0..n-1, one subgraph each, same types)
-//     -> each delegate compiles its own module (the NPU: programs.*, B tiles)
+//     -> each delegate compiles its own module (the NPU: programs.*, B tiles;
+//        risc_v_npu: rv_programs.*, B tiles)
 //     -> CPU: delegate calls become func.call @__delegate__(id, in, out)
 //     -> externalize the remaining weights into weights.bin (`ws` argument)
 //     -> CPU codegen, once per CPU model: <dir>/<model>/model.so
@@ -30,6 +31,7 @@
 
 #include "Npu/NpuDialect.h"
 #include "Npu/NpuPasses.h"
+#include "RvNpu/RvNpuDialect.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -55,7 +57,7 @@ namespace cl = llvm::cl;
 
 static cl::opt<std::string> input(cl::Positional, cl::desc("<model.mlir>"), cl::Required);
 static cl::opt<std::string> out("out", cl::desc("Package directory"), cl::Required);
-static cl::opt<std::string> devices("devices", cl::desc("cpu or cpu,npu"), cl::init("cpu,npu"));
+static cl::opt<std::string> devices("devices", cl::desc("cpu, cpu,npu or cpu,risc_v_npu"), cl::init("cpu,npu"));
 static cl::opt<std::string> cpus("cpus", cl::desc("CPU models: arm-cortex-a9, native"),
                                  cl::init("arm-cortex-a9"));
 static cl::opt<std::string> llvmBin("llvm-bin", cl::desc("LLVM 22 tools"),
@@ -206,13 +208,13 @@ int main(int argc, char **argv) {
 
   // 0. Context and input.
   // model.mlir holds only upstream dialects, so torch-mlir is not needed here.
-  // The npu dialect is registered for the delegate's npu.matmul; the LLVM IR
-  // translations for CPU codegen; all passes because codegen builds its
-  // pipeline from a string.
+  // The npu and rvnpu dialects are registered for the delegates' npu.matmul
+  // and rvnpu.matmul; the LLVM IR translations for CPU codegen; all passes
+  // because codegen builds its pipeline from a string.
   DialectRegistry registry;
   registerAllDialects(registry);
   registerAllExtensions(registry);
-  registry.insert<npu::NpuDialect>();
+  registry.insert<npu::NpuDialect, rvnpu::RvNpuDialect>();
   registerBuiltinDialectTranslation(registry);
   registerLLVMDialectTranslation(registry);
   registerAllPasses();
@@ -233,12 +235,14 @@ int main(int argc, char **argv) {
     if (!fn.isPrivate())
       entries.push_back({fn.getName().str(), fn.getFunctionType()});
 
-  // 2. The delegates for --devices: none for [cpu], the NPU for [cpu, npu]
+  // 2. The delegates for --devices: none for [cpu], the NPU for [cpu, npu],
+  // the CVA6 build of the NPU for [cpu, risc_v_npu]
   // (device_register.cpp). The rest of the back end sees only the Delegate
   // interface (delegates/delegate.h).
   std::string error;
   backend::NpuOptions npu{rows, columns, maxK, segmentBytes};
-  auto delegates = backend::registerDevices(split(devices), npu, error);
+  backend::RiscvNpuOptions riscvNpu{rows, columns, maxK, segmentBytes, llvmBin, keepIr};
+  auto delegates = backend::registerDevices(split(devices), npu, riscvNpu, error);
   if (failed(delegates))
     return fail(error);
   // The middle end assigned the operations for one device list

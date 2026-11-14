@@ -10,7 +10,11 @@
 // TIMEOUT_CYCLES) are reserved, read as zero, and ignore writes.
 module csr #(
     parameter integer C_S_AXI_DATA_WIDTH = 32,
-    parameter integer C_S_AXI_ADDR_WIDTH = 8
+    parameter integer C_S_AXI_ADDR_WIDTH = 8,
+    // Scalar core implementation of this build; "CVA6" sets capability bit 7.
+    // Untyped on purpose: iverilog 13 cannot use a `parameter string` in a
+    // parameter override or another parameter's value ("Unable to bind").
+    parameter         SCALAR_IMPL = "CUSTOM"
 ) (
     input  logic                              s_axi_aclk,
     input  logic                              s_axi_aresetn,
@@ -63,7 +67,12 @@ module csr #(
 );
     localparam logic [31:0] ABI_MAGIC = 32'h3155504e;
     localparam logic [31:0] ABI_VERSION = 32'h00020000;
-    localparam logic [31:0] ABI_CAPABILITIES = 32'h0000007b;
+    // Bit 7 (SCALAR_CVA6): the scalar core is the CVA6 RISC-V core, which runs
+    // RISC-V programs driving MMIO job registers instead of the 64-bit ISA.
+    // The CUSTOM build keeps 0x7b.
+    localparam logic [31:0] CAP_SCALAR_CVA6 = 32'h00000080;
+    localparam logic [31:0] ABI_CAPABILITIES = 32'h0000007b |
+        ((SCALAR_IMPL == "CVA6") ? CAP_SCALAR_CVA6 : 32'h0);
     localparam logic [31:0] ISA_VERSION = 32'h00000001;
 
     localparam logic [7:0] REG_MAGIC = 8'h00;

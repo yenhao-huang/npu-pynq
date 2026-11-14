@@ -1,8 +1,8 @@
 `timescale 1ns/1ps
 
 // Small synchronous FIFO with a combinational head, used for job and burst
-// bookkeeping in the scalar core. DEPTH must be a power of two.
-module sync_fifo #(
+// bookkeeping in the CUSTOM scalar core. DEPTH must be a power of two.
+module custom_sync_fifo #(
     parameter integer WIDTH = 8,
     parameter integer DEPTH = 4
 ) (

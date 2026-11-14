@@ -14,6 +14,10 @@ import unittest
 FRONTEND = Path(__file__).resolve().parents[2] / 'export' / 'frontend'
 EXPORT = FRONTEND.parent
 CUSTOM_DIALECT = EXPORT.parent / 'vendors' / 'npu_pynq' / 'custom_dialect'
+RV_CUSTOM_DIALECT = EXPORT.parent / 'vendors' / 'risc_v_npu' / 'custom_dialect'
+# Each device's claim library, its dialect library, and the folder they live in.
+DEVICE_LIBRARIES = (('NpuMatch', 'NpuDialect', CUSTOM_DIALECT, 'Npu'),
+                    ('RvNpuMatch', 'RvNpuDialect', RV_CUSTOM_DIALECT, 'RvNpu'))
 ABOVE = ('src.export.pipeline', 'src.export.cli')
 STAGES = ('load', 'quantization', 'export_graph', 'to_mlir')
 
@@ -64,6 +68,9 @@ class ExportLayeringTest(unittest.TestCase):
         for scheme in (None, 'Int8WeightOnlyConfig'):
             with self.assertRaises(ValueError):
                 check_scheme({'devices': ['cpu', 'npu'], 'quantization': scheme})
+        check_scheme({'devices': ['cpu', 'risc_v_npu'], 'quantization': 'w8a8'})
+        with self.assertRaises(ValueError):
+            check_scheme({'devices': ['cpu', 'risc_v_npu'], 'quantization': None})
 
     def test_rules_cover_every_stage(self):
         stages = {p.name for p in FRONTEND.iterdir() if (p / '__init__.py').is_file()}
@@ -90,28 +97,36 @@ def link_libraries(cmake: Path, target: str) -> list[str]:
 
 class ExportToolLinkTest(unittest.TestCase):
     """docs/rules/lib/export_stages.md: the middle end links a device's claim rule
-    (NpuMatch), never its dialect, lowering or encoder (NpuDialect)."""
+    (NpuMatch, RvNpuMatch), never its dialect, lowering or encoder (NpuDialect,
+    RvNpuDialect)."""
 
     def test_middle_end_links_the_claim_rule_only(self):
         libraries = link_libraries(EXPORT / 'middle-end' / 'CMakeLists.txt', 'pynqo-middle-end')
-        self.assertIn('NpuMatch', libraries)
-        self.assertNotIn('NpuDialect', libraries)
+        for match, dialect, _, _ in DEVICE_LIBRARIES:
+            with self.subTest(library=match):
+                self.assertIn(match, libraries)
+                self.assertNotIn(dialect, libraries)
         self.assertNotIn('MLIR', libraries)
 
     def test_claim_rule_brings_no_mlir_of_its_own(self):
-        # Each consumer supplies MLIR in its own link style; NpuMatch links nothing.
-        self.assertEqual(link_libraries(CUSTOM_DIALECT / 'CMakeLists.txt', 'NpuMatch'), [])
-        self.assertIn('NpuMatch', link_libraries(CUSTOM_DIALECT / 'CMakeLists.txt', 'NpuDialect'))
-        for path in (CUSTOM_DIALECT / 'lib' / 'Match.cpp', CUSTOM_DIALECT / 'include' / 'Npu' / 'NpuMatch.h'):
-            with self.subTest(path=path.name):
-                self.assertNotRegex(path.read_text(encoding='utf-8'), r'NpuDialect|NpuEncoder|\.inc"')
+        # Each consumer supplies MLIR in its own link style; a match library links nothing.
+        for match, dialect, folder, include in DEVICE_LIBRARIES:
+            cmake = folder / 'CMakeLists.txt'
+            with self.subTest(library=match):
+                self.assertEqual(link_libraries(cmake, match), [])
+                self.assertIn(match, link_libraries(cmake, dialect))
+            for path in (folder / 'lib' / 'Match.cpp', folder / 'include' / include / f'{match}.h'):
+                with self.subTest(path=str(path.relative_to(folder.parent))):
+                    self.assertNotRegex(path.read_text(encoding='utf-8'),
+                                        rf'{dialect}|NpuEncoder|RvNpuPasses|RvNpuLayout|\.inc"')
 
     def test_device_attributes_are_spelled_alike_in_both_tools(self):
         spelled = re.compile(r'"(pynqo\.\w+)"')
         middle = set(spelled.findall((EXPORT / 'middle-end' / 'linalg' / 'transforms' / 'Passes.h')
                                      .read_text(encoding='utf-8')))
         backend = set()
-        for name in ('pynqo_backend.cpp', 'cpu/delegate_calls.cpp', 'delegates/npu/lower.cpp'):
+        for name in ('pynqo_backend.cpp', 'cpu/delegate_calls.cpp', 'delegates/npu/lower.cpp',
+                     'delegates/risc_v_npu/lower.cpp'):
             backend |= set(spelled.findall((EXPORT / 'backend' / name).read_text(encoding='utf-8')))
         self.assertEqual(middle, {'pynqo.devices', 'pynqo.device', 'pynqo.delegate_id'})
         self.assertEqual(backend, middle)

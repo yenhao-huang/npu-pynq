@@ -3,6 +3,7 @@
 #define BACKEND_DEVICE_REGISTER_H
 
 #include "delegates/npu/lower.h"
+#include "delegates/risc_v_npu/lower.h"
 
 #include "mlir/Support/LLVM.h"
 
@@ -27,14 +28,17 @@ struct CpuTarget {
 // or "native" (this machine, compiled generic).
 mlir::FailureOr<CpuTarget> cpuTarget(const std::string &name, std::string &error);
 
-// Accepted device lists: [cpu] or [cpu, npu]. Returns the delegates in
-// --devices order (the CPU is never a delegate: it runs what nobody claims).
+// Accepted device lists: [cpu], [cpu, npu] (the CUSTOM scalar core) or
+// [cpu, risc_v_npu] (the CVA6 scalar core). The two NPU devices drive the
+// same matrix core through different scalar cores, one per overlay, so a
+// package targets one of them. Returns the delegates in --devices order (the
+// CPU is never a delegate: it runs what nobody claims).
 // Delegates do not choose their operations: the middle end assigned them
 // (pynqo-middle-end --devices, linalg/transforms/AssignDevices.cpp), so a new
 // device is a matcher there and a delegate here.
 mlir::FailureOr<std::vector<std::unique_ptr<Delegate>>>
 registerDevices(const std::vector<std::string> &devices, const NpuOptions &npu,
-                std::string &error);
+                const RiscvNpuOptions &riscvNpu, std::string &error);
 
 } // namespace backend
 

@@ -4,7 +4,7 @@
 // into a prefetch queue. One read burst of up to 16 beats is outstanding at a
 // time, aligned so it never crosses a 128-byte (and so never a 4 KiB) line,
 // and only when the queue has room for the whole burst, so R never stalls.
-module scalar_core_fetch #(
+module custom_fetch #(
     parameter integer DEPTH = 32
 ) (
     input  logic        clk,

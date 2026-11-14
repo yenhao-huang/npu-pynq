@@ -15,7 +15,9 @@ moves every program word and tile.
 
 - **AXI:** `csr/csr` (control and status registers) owns the accelerator's control/status
   register interface on GP0. It starts programs and reports status; it issues
-  no matrix job. `scalar_core/` fetches programs and moves
+  no matrix job. `scalar_core/` (a wrapper whose `SCALAR_IMPL` parameter
+  selects `custom/`, the default described here, or `cva6/`, see
+  `scalar_core/cva6/README.md`) fetches programs and moves
   A/B/C tiles over the AXI4 master, and feeds the controller's operand stream
   and drains its result stream through two `axis_skid` register slices.
 - **Command path:** `CPU -> csr -> scalar_core -> matrix_core`. The scalar
@@ -165,7 +167,7 @@ the matrix core.
    PROG_ADDR/LEN, DATA_BASE, START                        |   |   |
                  v                                        |   |   v
    +-------------------+   +------------------+   +-------+---+-------+
-   | IF  scalar_core_fetch | ->| ID scalar_core_decode| ->| EX  scalar_core_lsu   |
+   | IF  custom_fetch  | ->| ID custom_decode | ->| EX  custom_dma     |
    | PC, 32-word queue |   | shape, A/B/C     |   | A,B tiles -> s_axis
    | 16-beat bursts    |   | offsets, REPEAT  |   | m_axis -> C tile   |
    +-------------------+   +------------------+   +---------+---------+
@@ -174,17 +176,17 @@ the matrix core.
                                     v                       v
                       matrix_core_controller + 16 x 16 systolic array
 
-   scalar_core_controller: START admission, run state, stop (IF), drained (ID),
+   custom_controller: START admission, run state, stop (IF), drained (ID),
    fault latch (EX), RUNNING/DONE/ERROR/BUSY, ISA_ERROR, ISA_JOBS, ISA_CYCLES
 ```
 
-`scalar_core_controller` is the scalar core's program-level run control, as
+`custom_controller` is the scalar core's program-level run control, as
 `matrix_core_controller` is the matrix core's per-job sequencer. The stages report
 events to it (decode: an instruction it cannot execute, END retiring; execute:
-a job issued, a job written back; fetch, load/store and the matrix core: a
+a job issued, a job written back; fetch, the tensor DMA and the matrix core: a
 fault) and it returns `running`, `stop`, `drained` and the fault latch. The
 issue handshake itself, with the registered START and M/N/K, stays in
-`scalar_core`'s execute stage.
+`custom_scalar_core`'s execute stage.
 
 The instruction set is defined once, in `src/vendors/npu_pynq/isa/isa.py`; `src/vendors/npu_pynq/isa/sim.py` is
 its bit-accurate simulator and `src/vendors/npu_pynq/isa/layout.py` the tiled-GEMM layout that
