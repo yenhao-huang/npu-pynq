@@ -89,7 +89,6 @@ npu_repo_in_pynq/
 |   |-- export/                  host-side model -> package; never runs on the board
 |   |   |-- cli.py               build <config>
 |   |   |-- pipeline.py          load -> quantize -> export_graph -> to_mlir -> pynqo-backend
-|   |   |-- configs/             one YAML file per model: source, quantization, graph, devices
 |   |   |-- requirements.txt     the pinned front-end frameworks
 |   |   |-- frontend/            Python
 |   |   |   |-- load/            frameworks/ (transformers, torchvision): the float model
@@ -124,6 +123,7 @@ npu_repo_in_pynq/
 |-- examples/
 |   `-- <example>/              see docs/rules/create-example.md
 |       |-- README.md            Linux deployment manual (WSL on Windows)
+|       |-- export.yml           the export config: source, quantization, graph, devices
 |       `-- <name>.ipynb
 |-- docs/
 |   |-- assets/
@@ -235,7 +235,7 @@ port of `isa_sim.py`.
 before the board loads the bitstream.
 
 `src/export/` turns a model into a package on the host, entirely from a
-config (`configs/*.yml`): `frontend/load/` builds the float model with its
+config (`examples/<demo>/export.yml`): `frontend/load/` builds the float model with its
 framework; `frontend/quantization/` quantizes it with our torchao configs;
 `frontend/export_graph/` captures it with
 `torch.export`; `frontend/to_mlir/` imports it into the torch dialect with

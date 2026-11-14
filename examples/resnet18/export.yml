@@ -1,6 +1,6 @@
 # TorchVision ResNet-18 (IMAGENET1K_V1), W8A8 on the PYNQ-Z1 NPU.
 #   python -m src.deploy.resnet18_assets model
-#   python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
+#   python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 model: resnet18
 load:
   framework: torchvision

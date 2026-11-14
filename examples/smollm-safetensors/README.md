@@ -32,7 +32,7 @@ python -m pip install -r src/export/requirements.txt \
 curl --fail --location --retry 3 --create-dirs \
   --output "examples/smollm-safetensors/model/checkpoint/#1" \
   "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f77366fa6b3b4b768ec3050bf629380bac/{config.json,tokenizer.json,tokenizer_config.json,model.safetensors}"
-python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/package
+python -m src.export.cli build examples/smollm-safetensors/export.yml --out dist/smollm/package
 ```
 
 The first time, this builds the compiler tools: go get a coffee, it takes

@@ -2,6 +2,10 @@
 
 - `README.md`: Linux deployment manual. On Windows it runs in WSL, which the
   manual says how to open. There is no separate Windows or macOS manual.
+- `export.yml`: the export config (`python -m src.export.cli build
+  examples/<example>/export.yml --out ...`), when the demo exports a model.
+  Per-demo recipes live here, not under `src/`, because `src/` must not depend
+  on `examples/`. A variant adds `export_<variant>.yml` next to it.
 - `<name>.ipynb` provides a runnable demo.
 
 # Notes

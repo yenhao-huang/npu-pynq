@@ -1,7 +1,7 @@
 """Export a model into a package from its config.
 
-    python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/package
-    python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
+    python -m src.export.cli build examples/smollm-safetensors/export.yml --out dist/smollm/package
+    python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def cmd_build(args) -> int:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog='src.export.cli')
     sub = parser.add_subparsers(dest='cmd', required=True)
-    b = sub.add_parser('build', help='Export a model from a configs/*.yml file')
+    b = sub.add_parser('build', help='Export a model from its config (examples/<demo>/export.yml)')
     b.add_argument('config')
     b.add_argument('--out', required=True)
     b.add_argument('--source', help="Override the config's model source")

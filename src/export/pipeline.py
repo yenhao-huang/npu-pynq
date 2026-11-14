@@ -135,7 +135,7 @@ def check_scheme(config: dict) -> None:
 
 def export_package(config: dict, out: str | Path, source: str | None = None,
                    llvm_bin: str = '/usr/lib/llvm-22/bin', timings: dict | None = None) -> Path:
-    """Run the whole export for ``config`` (a configs/*.yml); write the package to ``out``.
+    """Run the whole export for ``config`` (examples/<demo>/export.yml); write the package to ``out``.
 
     load -> quantize -> export_graph -> to_mlir -> pynqo-backend -> manifest
     """

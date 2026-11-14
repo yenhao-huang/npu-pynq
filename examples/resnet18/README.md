@@ -37,7 +37,7 @@ python -m src.deploy.resnet18_assets gallery
 ## Export
 
 ```bash
-python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
+python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 ```
 
 Want to check it before touching the board? Run it on the host simulator:
