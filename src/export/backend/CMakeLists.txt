@@ -31,10 +31,10 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../vendors/risc_v_npu/custom_dia
 
 add_executable(pynqo-backend
   pynqo_backend.cpp
-  partition.cpp
   device_register.cpp
   package.cpp
   cpu/toolchain.cpp
+  cpu/delegate_calls.cpp
   delegates/npu/lower.cpp
   delegates/risc_v_npu/lower.cpp
   delegates/risc_v_npu/rv_codegen.cpp)

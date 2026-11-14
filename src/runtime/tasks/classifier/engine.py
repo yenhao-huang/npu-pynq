@@ -13,7 +13,7 @@ from src.runtime.share.profile import NULL_PROFILER
 
 
 class ImageEngine:
-    """Image classification through an pynqo-package/2 package."""
+    """Image classification through a pynqo-package/3 package."""
 
     def __init__(self, package: str | Path, backend: str | None = None, *, overlay: Any = None,
                  stream_weights: Any = None) -> None:

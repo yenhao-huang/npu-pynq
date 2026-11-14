@@ -1,4 +1,4 @@
-"""Load and call a package exported through PyTorch (format pynqo-package/2).
+"""Load and call a package exported through PyTorch (format pynqo-package/3).
 
 The package holds model.so per CPU model, weights.bin and, for each delegate
 device, its own artefacts (programs.* for npu, rv_programs.* for risc_v_npu).
@@ -22,7 +22,9 @@ import numpy as np
 
 from src.runtime.delegate import Dispatcher, backend_class
 
-FORMAT = 'pynqo-package/2'
+# 3: a delegate's output is its subgraph's result (libnpu_rt sums the NPU's
+# K chunks); /2 packages hand the CPU partial planes and are refused.
+FORMAT = 'pynqo-package/3'
 DTYPES = {'f32': np.float32, 'i64': np.int64, 'i32': np.int32, 'i8': np.int8}
 
 

@@ -1,4 +1,5 @@
-# pynqo-middle-end: torch dialect -> linalg on tensors, against an installed LLVM 22
+# pynqo-middle-end: torch dialect -> fused linalg on tensors with delegate calls, and the device modules,
+# against an installed LLVM 22
 # with MLIR. It builds torch-mlir from source in this tree, without building
 # LLVM, because torch-mlir's wheels bind a different LLVM and hold no C++ API;
 # src/export/pipeline.py builds it when stale.
@@ -42,8 +43,17 @@ FetchContent_Declare(torch_mlir
   PATCH_COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/patch_torch_mlir.cmake)
 FetchContent_MakeAvailable(torch_mlir)
 
+# The vendor's claim rule (NpuMatch) for device assignment. Only NpuMatch is
+# linked: the npu dialect, its lowering and encoder (NpuDialect) belong to
+# pynqo-backend, and NpuDialect links the monolithic MLIR library, which must
+# not meet the static MLIR libraries linked here.
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../vendors/npu_pynq/custom_dialect
+                 ${CMAKE_CURRENT_BINARY_DIR}/custom_dialect EXCLUDE_FROM_ALL)
+
 add_llvm_executable(pynqo-middle-end
   pynqo_middle_end.cpp
+  linalg/transforms/AssignDevices.cpp
+  linalg/transforms/PartitionDevices.cpp
   torch/transforms/Constants.cpp
   torch/transforms/AnyDimToAnyDims.cpp
   torch/transforms/DecomposeIntMm.cpp
@@ -56,6 +66,8 @@ target_include_directories(pynqo-middle-end PRIVATE
   ${torch_mlir_SOURCE_DIR}/include
   ${torch_mlir_BINARY_DIR}/include)
 target_link_libraries(pynqo-middle-end PRIVATE
+  MLIRLinalgTransforms
+  NpuMatch
   MLIRParser
   MLIRPass
   MLIRTransforms
