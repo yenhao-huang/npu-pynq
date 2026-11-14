@@ -20,7 +20,7 @@ From Windows Explorer, `pynqo` is at `\\wsl$\Ubuntu\home\howard\.venvs\pynqo`.
 ```bash
 source ~/.venvs/pynqo/bin/activate
 cd /mnt/c/Users/User/Desktop/agent_workspace/npu/worktrees/npu-issue119-a
-python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
+python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 python -m src.runtime.cli classifier --backend sim --package dist/resnet18/package \
   --image dist/resnet18/model/demo-image.jpg --labels dist/resnet18/model/imagenet-classes.txt
 ```
@@ -31,7 +31,7 @@ The worktree `.venv`, in PowerShell from the worktree root:
 
 ```powershell
 .venv\Scripts\Activate.ps1
-python -m src.export.cli build src/export/configs/resnet18.yml --out dist/resnet18/package
+python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 ```
 
 `src/export/pipeline.py` translates paths and runs the C++ tools in WSL, so

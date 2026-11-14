@@ -6,7 +6,7 @@ rename; recheck them after a large edit.
 
 ```
 # Export SmolLM2: one package with a model.so for the board and one for this host
-python -m src.export.cli build src/export/configs/smollm.yml --out dist/smollm/package
+python -m src.export.cli build examples/smollm-safetensors/export.yml --out dist/smollm/package
 
 # Run it. On the board the NPU runs the delegates; elsewhere libnpu_rt simulates the ISA.
 python -m src.runtime.cli run dist/smollm/package \
@@ -16,7 +16,7 @@ python -m src.runtime.cli run dist/smollm/package \
 The config decides everything the export does:
 
 ```yaml
-# src/export/configs/smollm.yml
+# examples/smollm-safetensors/export.yml
 model: smollm2-135m-instruct
 load: {framework: huggingface, source: examples/smollm-safetensors/model/checkpoint}
 quantization: w8a8
