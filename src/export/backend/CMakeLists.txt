@@ -26,10 +26,10 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../vendors/npu_pynq/custom_diale
 
 add_executable(pynqo-backend
   pynqo_backend.cpp
-  partition.cpp
   device_register.cpp
   package.cpp
   cpu/toolchain.cpp
+  cpu/delegate_calls.cpp
   delegates/npu/lower.cpp)
 llvm_update_compile_flags(pynqo-backend)
 target_include_directories(pynqo-backend PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

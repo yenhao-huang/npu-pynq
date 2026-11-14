@@ -2,7 +2,10 @@
 #ifndef NPU_NPUPASSES_H
 #define NPU_NPUPASSES_H
 
+#include "Npu/NpuDialect.h"
 #include "Npu/NpuEncoder.h"
+
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
@@ -13,8 +16,14 @@
 
 namespace mlir::npu {
 
+// Rewrite one claimable matmul (npu::isClaimable, Npu/NpuMatch.h) into
+// npu.matmul {tk = min(K, maxK)} with the same M x N result; return it. The
+// matmul and its zero accumulator, if nothing else reads it, are erased.
+MatmulOp claim(linalg::MatmulOp op, int64_t maxK);
+
 // --npu-claim: every INT8 x INT8 -> INT32 linalg.matmul whose right operand
-// is a constant becomes npu.matmul + a sum of its K planes.
+// is a constant and whose accumulator is zero becomes npu.matmul
+// (isClaimable + claim).
 std::unique_ptr<Pass> createClaimPass(int64_t maxK = 256);
 void registerClaimPass();
 

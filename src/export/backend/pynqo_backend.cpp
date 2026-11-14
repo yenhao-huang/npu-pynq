@@ -2,11 +2,18 @@
 //
 //   pynqo-backend model.mlir --out <dir> --devices cpu,npu
 //               --cpus arm-cortex-a9,native --llvm-bin /usr/lib/llvm-22/bin
+//               [--delegates-dir <dir>, default <model.mlir's dir>/delegates]
 //
-//   model.mlir (fused linalg on tensors, weights as constants; pynqo-middle-end
-//   already ran the graph-level cleanups and elementwise fusion)
-//     -> partition: delegates claim and compile their operations; each
-//        becomes func.call @__delegate__(id, in, out)
+//   model.mlir               the CPU graph: fused linalg on tensors, weights as
+//                            constants, a call to a bodiless @__delegate_<id>
+//                            where pynqo-middle-end cut a device subgraph out;
+//                            assigned for pynqo.devices
+//   delegates/<device>.mlir  that device's subgraphs, one @<device>_<id> each
+//
+//     -> check pynqo.devices against --devices, and that the declarations and
+//        the device modules match (ids 0..n-1, one subgraph each, same types)
+//     -> each delegate compiles its own module (the NPU: programs.*, B tiles)
+//     -> CPU: delegate calls become func.call @__delegate__(id, in, out)
 //     -> externalize the remaining weights into weights.bin (`ws` argument)
 //     -> CPU codegen, once per CPU model: <dir>/<model>/model.so
 //     -> <dir>/compile.json: entry points, delegate table, weights, libraries
@@ -16,10 +23,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "cpu/delegate_calls.h"
 #include "cpu/toolchain.h"
 #include "device_register.h"
 #include "package.h"
-#include "partition.h"
 
 #include "Npu/NpuDialect.h"
 #include "Npu/NpuPasses.h"
@@ -38,6 +45,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
@@ -59,6 +67,10 @@ static cl::opt<int64_t> columns("columns", cl::init(16));
 static cl::opt<int64_t> maxK("max-k", cl::init(256));
 static cl::opt<int64_t> segmentBytes("segment-bytes", cl::init(4 << 20));
 static cl::opt<bool> keepIr("keep-ir", cl::desc("Keep intermediate IR"), cl::init(false));
+static cl::opt<std::string> delegatesDir("delegates-dir",
+                                         cl::desc("The device modules (<device>.mlir); "
+                                                  "default: <model.mlir's directory>/delegates"),
+                                         cl::init(""));
 
 namespace {
 
@@ -96,6 +108,94 @@ void tensorJson(llvm::json::OStream &j, Type type) {
 int fail(const std::string &message) {
   llvm::errs() << "pynqo-backend: " << message << "\n";
   return 1;
+}
+
+// Written by the middle end (middle-end/linalg/transforms/Passes.h); the
+// spellings must agree (src/test/tests/test_export_layering.py).
+constexpr const char *kDevicesAttr = "pynqo.devices";
+constexpr const char *kDeviceAttr = "pynqo.device";
+constexpr const char *kDelegateIdAttr = "pynqo.delegate_id";
+
+// One __delegate__ id: the device it belongs to, that device's own index for
+// it (its program number), and the bytes the runtime passes in and out.
+struct DelegateEntry {
+  int64_t id;
+  std::string device;
+  int64_t index;
+  int64_t inputBytes, outputBytes;
+  FunctionType type;
+};
+
+int64_t byteSize(Type type) {
+  auto t = cast<RankedTensorType>(type);
+  return t.getNumElements() * ((t.getElementTypeBitWidth() + 7) / 8);
+}
+
+bool isStatic(Type t) {
+  auto tensor = dyn_cast<RankedTensorType>(t);
+  return tensor && tensor.hasStaticShape();
+}
+
+// The delegate declarations of the CPU graph, in id order: bodiless private
+// functions with a device and an id, one static tensor in and one out, ids
+// 0..n-1 without gaps or repeats.
+FailureOr<std::vector<DelegateEntry>> declarations(ModuleOp module, std::string &error) {
+  std::vector<DelegateEntry> table;
+  for (auto fn : module.getOps<func::FuncOp>()) {
+    auto id = fn->getAttrOfType<IntegerAttr>(kDelegateIdAttr);
+    if (!id)
+      continue;
+    auto device = fn->getAttrOfType<StringAttr>(kDeviceAttr);
+    FunctionType type = fn.getFunctionType();
+    if (!device || !fn.isExternal() || !fn.isPrivate() || type.getNumInputs() != 1 ||
+        type.getNumResults() != 1 || !isStatic(type.getInput(0)) || !isStatic(type.getResult(0))) {
+      error = "@" + fn.getName().str() + ": a delegate declaration is a private function without "
+              "a body, with a pynqo.device, one static tensor argument and one static tensor result";
+      return failure();
+    }
+    table.push_back({id.getInt(), device.getValue().str(), -1, byteSize(type.getInput(0)),
+                     byteSize(type.getResult(0)), type});
+  }
+  llvm::sort(table, [](const DelegateEntry &a, const DelegateEntry &b) { return a.id < b.id; });
+  for (size_t i = 0; i < table.size(); ++i)
+    if (table[i].id != static_cast<int64_t>(i)) {
+      error = "delegate ids must be 0.." + std::to_string(table.size() - 1) +
+              " without gaps or repeats; found " + std::to_string(table[i].id) + " at position " +
+              std::to_string(i);
+      return failure();
+    }
+  return table;
+}
+
+// `device`'s module holds exactly one function per declaration of that
+// device, with the declaration's id and type, and nothing else with an id.
+LogicalResult matches(ModuleOp deviceModule, const std::string &device,
+                      const std::vector<DelegateEntry> &table, const std::string &path,
+                      std::string &error) {
+  auto attr = deviceModule->getAttrOfType<StringAttr>(kDeviceAttr);
+  if (!attr || attr.getValue() != device) {
+    error = path + " is not the module of device '" + device + "'";
+    return failure();
+  }
+  std::vector<int> seen(table.size(), 0);
+  for (auto fn : deviceModule.getOps<func::FuncOp>()) {
+    auto id = fn->getAttrOfType<IntegerAttr>(kDelegateIdAttr);
+    if (!id)
+      continue;
+    int64_t i = id.getInt();
+    if (i < 0 || i >= static_cast<int64_t>(table.size()) || table[i].device != device ||
+        table[i].type != fn.getFunctionType() || fn.isExternal() || seen[i]++) {
+      error = path + ": @" + fn.getName().str() + " (delegate " + std::to_string(i) +
+              ") matches no declaration of device '" + device + "' in model.mlir, or repeats one";
+      return failure();
+    }
+  }
+  for (const DelegateEntry &e : table)
+    if (e.device == device && !seen[e.id]) {
+      error = path + " has no subgraph for delegate " + std::to_string(e.id);
+      return failure();
+    }
+  return success();
 }
 
 } // namespace
@@ -141,39 +241,93 @@ int main(int argc, char **argv) {
   auto delegates = backend::registerDevices(split(devices), npu, error);
   if (failed(delegates))
     return fail(error);
-  // The order matters. Delegates first take the constants they read, in their own layouts.
-  // externalizeWeights then stores only what the CPU code still reads.
-  // Both write into one arena, which becomes weights.bin.
-  backend::WeightArena arena;
-  // 3. Partition (partition.cpp). Each delegate claims its operations (the
-  // NPU: --npu-claim turns INT8 contractions on constant weights into
-  // npu.matmul), compiles them (packs the weights into the arena, encodes
-  // programs.*), and each claimed operation is replaced by
-  // func.call @__delegate__(id, in, out). The table maps every id to its
-  // device and that device's own index.
-  auto table = backend::partition(*module, *delegates, arena, out);
+  // The middle end assigned the operations for one device list
+  // (pynqo-middle-end --devices); a model.mlir assigned for another must not
+  // be compiled for these delegates. The attribute is consumed here.
+  std::vector<std::string> assigned;
+  if (auto list = (*module)->getAttrOfType<ArrayAttr>(kDevicesAttr))
+    for (Attribute a : list)
+      if (auto s = dyn_cast<StringAttr>(a))
+        assigned.push_back(s.getValue().str());
+  if (assigned != split(devices))
+    return fail("model.mlir was assigned for devices [" + llvm::join(assigned, ",") +
+                "] but --devices is [" + llvm::join(split(devices), ",") +
+                "]; run pynqo-middle-end with --devices " + devices.getValue());
+  (*module)->removeAttr(kDevicesAttr);
+
+  // 3. The delegate table, from the declarations the middle end left in the
+  // CPU graph: id -> device, and the bytes in and out (the subgraph's own
+  // argument and result types).
+  auto table = declarations(*module, error);
   if (failed(table))
-    return fail("partition failed");
-  // 4. Every remaining large constant moves into the arena and is read back
+    return fail(error);
+  for (const DelegateEntry &e : *table)
+    if (!llvm::any_of(*delegates, [&](const auto &d) { return d->name() == e.device; }))
+      return fail("delegate " + std::to_string(e.id) + " is for device '" + e.device +
+                  "', which has no delegate in --devices");
+
+  // 4. Each delegate compiles its device's module, in --devices order. The
+  // order matters: delegates first take the constants they read, in their
+  // own layouts; externalizeWeights then stores only what the CPU code still
+  // reads. Both write into one arena, which becomes weights.bin.
+  backend::WeightArena arena;
+  std::string dir = delegatesDir;
+  if (dir.empty()) {
+    SmallString<256> parent(input.getValue());
+    llvm::sys::path::remove_filename(parent);
+    llvm::sys::path::append(parent, "delegates");
+    dir = std::string(parent);
+  }
+  std::vector<OwningOpRef<ModuleOp>> deviceModules;
+  for (const auto &delegate : *delegates) {
+    if (!llvm::any_of(*table, [&](const DelegateEntry &e) { return e.device == delegate->name(); }))
+      continue;
+    std::string path = dir + "/" + delegate->name() + ".mlir";
+    // A SourceMgr parses only its main buffer, so each module gets its own.
+    llvm::SourceMgr deviceSources;
+    OwningOpRef<ModuleOp> deviceModule = parseSourceFile<ModuleOp>(path, deviceSources, &context);
+    if (!deviceModule)
+      return fail("cannot parse " + path);
+    if (failed(matches(*deviceModule, delegate->name(), *table, path, error)))
+      return fail(error);
+    auto ids = delegate->compile(*deviceModule, arena, out);
+    if (failed(ids))
+      return fail("delegate '" + delegate->name() + "' failed to compile " + path);
+    for (size_t index = 0; index < ids->size(); ++index) {
+      int64_t id = (*ids)[index];
+      if (id < 0 || id >= static_cast<int64_t>(table->size()) ||
+          (*table)[id].device != delegate->name() || (*table)[id].index != -1)
+        return fail("delegate '" + delegate->name() + "' returned an unknown or repeated id");
+      (*table)[id].index = static_cast<int64_t>(index);
+    }
+    deviceModules.push_back(std::move(deviceModule));
+  }
+  for (const DelegateEntry &e : *table)
+    if (e.index < 0)
+      return fail("delegate '" + e.device + "' did not compile delegate " + std::to_string(e.id));
+
+  // 5. CPU: every delegate call becomes func.call @__delegate__(id, in, out)
+  // on byte buffers (cpu/delegate_calls.cpp); the declarations go.
+  if (failed(backend::lowerDelegateCalls(*module)))
+    return fail("lowering the delegate calls failed");
+  // Every remaining large constant moves into the arena and is read back
   // through a new first argument `ws` (package.cpp).
   if (failed(backend::externalizeWeights(*module, arena)))
     return fail("weight externalization failed");
-  // 5. The arena, delegate layouts and dense CPU weights together.
+  // The arena: delegate layouts and dense CPU weights together.
   if (!arena.write(out + "/weights.bin", error))
     return fail(error);
-  // The module after steps 3-4, large constants elided.
+  // The CPU module after step 5, large constants elided.
   if (keepIr) {
     std::error_code ec;
-    llvm::raw_fd_ostream os(out + "/partitioned.mlir", ec, llvm::sys::fs::OF_Text);
+    llvm::raw_fd_ostream os(out + "/cpu.mlir", ec, llvm::sys::fs::OF_Text);
     module->print(os, OpPrintingFlags().elideLargeElementsAttrs(16).elideLargeResourceString(64));
   }
 
   // 6. CPU code, once per --cpus entry (cpu/toolchain.cpp): bufferize, lower
   // to the LLVM dialect, llc for the target, link model.so. __delegate__
   // stays undefined; the runtime's dispatcher provides it. Only per-target
-  // work belongs here: graph-level passes run once, in pynqo-middle-end, and
-  // what steps 3-4 insert needs no extra cleanup before the clones (plan
-  // 2026-1112-005: identical alloc and copy counts without one).
+  // work belongs here: graph-level passes run once, in pynqo-middle-end.
   std::vector<std::pair<std::string, std::string>> libraries;
   for (const std::string &name : split(cpus)) {
     auto target = backend::cpuTarget(name, error);
@@ -201,7 +355,9 @@ int main(int argc, char **argv) {
     return fail("cannot write compile.json");
   llvm::json::OStream j(os, 2);
   j.object([&] {
-    j.attribute("format", "pynqo-backend/1");
+    // 2: a delegate's output is its subgraph's result (the NPU's K chunks are
+    // summed in libnpu_rt), not the NPU's partial planes.
+    j.attribute("format", "pynqo-backend/2");
     j.attributeArray("devices", [&] {
       for (const std::string &d : split(devices))
         j.value(d);
@@ -221,7 +377,7 @@ int main(int argc, char **argv) {
     });
     j.attribute("abi", "ws, inputs..., outputs... as memref descriptors (C interface)");
     j.attributeArray("delegates", [&] {
-      for (const backend::DelegateEntry &e : *table)
+      for (const DelegateEntry &e : *table)
         j.object([&] {
           j.attribute("id", e.id);
           j.attribute("device", e.device);

@@ -28,7 +28,10 @@ struct CpuTarget {
 mlir::FailureOr<CpuTarget> cpuTarget(const std::string &name, std::string &error);
 
 // Accepted device lists: [cpu] or [cpu, npu]. Returns the delegates in
-// claim order (the CPU is never a delegate: it runs what nobody claims).
+// --devices order (the CPU is never a delegate: it runs what nobody claims).
+// Delegates do not choose their operations: the middle end assigned them
+// (pynqo-middle-end --devices, linalg/transforms/AssignDevices.cpp), so a new
+// device is a matcher there and a delegate here.
 mlir::FailureOr<std::vector<std::unique_ptr<Delegate>>>
 registerDevices(const std::vector<std::string> &devices, const NpuOptions &npu,
                 std::string &error);

@@ -29,7 +29,7 @@ cpus: [arm-cortex-a9, native]                 # one model.so each
 
 ```
 dist/smollm/package/
-├─ manifest.json        format pynqo-package/2: entry points, argument names, delegate
+├─ manifest.json        format pynqo-package/3: entry points, argument names, delegate
 │                       table, libraries, NPU limits, LLM metadata
 ├─ compile.json         what pynqo-backend wrote; manifest.json is built on top of it
 ├─ weights.bin          every weight, 64-byte aligned; NPU weights in B-tile layout
@@ -139,40 +139,50 @@ to_mlir(programs, out/'ir')                          frontend/to_mlir/__init__.p
 
 ```
 build_middle_end()      cmake + ninja in build/pynqo-middle-end; a no-op when unchanged
-middle_end(torch.mlir, ir/model.mlir)
-  └─ pynqo-middle-end torch.mlir -o model.mlir --emit=linalg    middle-end/pynqo_middle_end.cpp
+middle_end(torch.mlir, ir/model.mlir, devices)
+  └─ pynqo-middle-end torch.mlir -o model.mlir --emit=linalg --devices cpu,npu
+                      --delegates-dir ir/delegates            middle-end/pynqo_middle_end.cpp
        ├─ our rewrites on the torch dialect           middle-end/torch/transforms/
        │    ├─ FuseConvBatchNorm   fold inference BatchNorm into the conv before it
        │    │                      (float: weight and bias; W8A8: w_scale and bias)
        │    ├─ DecomposeIntMm      _int_mm -> aten.mm on i8 (torch-mlir cannot lower _int_mm)
        │    └─ AnyDimToAnyDims     aten.any.dim -> aten.any.dims (same gap)
-       └─ torch-mlir's pipelines
-            ├─ torch-function-to-torch-backend-pipeline
-            └─ torch-backend-to-linalg-on-tensors-backend-pipeline
+       ├─ torch-mlir's pipelines
+       │    ├─ torch-function-to-torch-backend-pipeline
+       │    └─ torch-backend-to-linalg-on-tensors-backend-pipeline
+       ├─ pynqo-assign-devices    pynqo.device on each op a device claims   middle-end/linalg/transforms/
+       │                          (the NPU: npu::isClaimable, vendors/npu_pynq/custom_dialect/lib/Match.cpp)
+       ├─ pynqo-partition-devices each claimed op -> @npu_<id> in the device module,
+       │                          a call to a bodiless @__delegate_<id> in its place
+       ├─ device modules          -> ir/delegates/npu.mlir, removed from the graph
+       └─ canonicalize, cse, linalg-fuse-elementwise-ops on the CPU graph
 ```
 
-`model.mlir` holds only upstream dialects (linalg, tensor, arith, func) with
-the weights still inline as constants. `--emit=torch` stops after our rewrites.
+`model.mlir` (the CPU graph) and `delegates/npu.mlir` hold only upstream
+dialects (linalg, tensor, arith, func) with the weights still inline as
+constants. `--emit=torch` stops after our rewrites.
 
 ### pynqo-backend (pipeline.py:175)
 
 ```
 build_backend()         cmake + ninja in build/pynqo-backend; a no-op when unchanged
 pynqo-backend model.mlir --out <dir> --devices cpu,npu --cpus arm-cortex-a9,native
-            --rows 16 --columns 16 --max-k 256                backend/pynqo_backend.cpp
+            --delegates-dir ir/delegates --rows 16 --columns 16 --max-k 256
+                                                     backend/pynqo_backend.cpp
   ├─ read the entry-point signatures before any pass rewrites them
   ├─ registerDevices(devices)                        backend/device_register.cpp
   │    [cpu]: no delegates;  [cpu, npu]: createNpuDelegate()
-  ├─ partition(module, delegates, arena)             backend/partition.cpp
-  │    ├─ npu delegate claims()                      backend/delegates/npu/lower.cpp
-  │    │    └─ --npu-claim (vendors/npu_pynq/custom_dialect): INT8 contractions on
-  │    │       constant weights become npu.matmul
-  │    ├─ each claimed op gets a global delegate id and is replaced by
-  │    │    func.call @__delegate__(%id, %in, %out)   (byte buffers in and out)
-  │    └─ npu delegate compile(), per npu.matmul in id order
-  │         ├─ Pack:   its weight as B tiles, into the arena (weights.bin)
-  │         └─ Encode: its ISA program, relocated against that weight block
-  │         -> programs.bin, programs.txt, programs.json
+  ├─ the delegate table from the @__delegate_<id> declarations: ids 0..n-1,
+  │    device, input and output bytes (the subgraph's argument and result)
+  ├─ npu delegate compile(ir/delegates/npu.mlir)     backend/delegates/npu/lower.cpp
+  │    per @npu_<id> in id order:
+  │    ├─ npu::claim: linalg.matmul -> npu.matmul {tk}, same M x N result
+  │    ├─ Pack:   its weight as B tiles, into the arena (weights.bin)
+  │    └─ Encode: its ISA program, relocated against that weight block
+  │    -> programs.bin, programs.txt, programs.json
+  ├─ lowerDelegateCalls(module)                      backend/cpu/delegate_calls.cpp
+  │    each call to @__delegate_<id> -> func.call @__delegate__(%id, %in, %out)
+  │    (byte buffers in and out)
   ├─ externalizeWeights(module, arena)               backend/package.cpp
   │    every remaining large constant moves into the arena and is read back as
   │    memref.view %ws[offset]; ws becomes each entry point's first argument
@@ -186,7 +196,7 @@ pynqo-backend model.mlir --out <dir> --devices cpu,npu --cpus arm-cortex-a9,nati
 ### manifest (pipeline.py:189)
 
 ```
-manifest = compile.json + {format: pynqo-package/2, model, quantization, compile_seconds}
+manifest = compile.json + {format: pynqo-package/3, model, quantization, compile_seconds}
   ├─ copy framework(...).files(src), e.g. tokenizer.json
   ├─ llm:        entry_points.*.names = tokens, pos, (last,) k0, v0, ...
   │              manifest['llm'] = vocab, max_seq, chunk, cache shape, eos
@@ -204,7 +214,7 @@ cli.cmd_run()                                        src/runtime/cli.py
   ├─ backend pynq (default on the board): pynq.Overlay(npu_accelerator.bit)
   └─ ExportedLLM(package, overlay)                   delegated.py:108
        └─ ExportedPackage(root, overlay)             delegated.py:60
-            ├─ manifest['format'] must be pynqo-package/2
+            ├─ manifest['format'] must be pynqo-package/3
             ├─ Dispatcher()                          runtime/delegate/__init__.py
             │    builds libnpu_delegate.so from dispatch.c on first use and loads it
             │    with RTLD_GLOBAL, so model.so resolves __delegate__ against it
@@ -247,6 +257,7 @@ _step(entry, inputs)                                 delegated.py:136
   │              └─ dispatch.c -> npu_rt_execute(index, ...)
   │                   board: run program `index` on the NPU over MMIO
   │                   host:  the ISA simulator
+  │                   then sum the K chunks into the M x N result
   ├─ dispatcher.check()   raise if a delegate failed
   └─ swap cache and spare: this call's output cache is the next call's input
 ```

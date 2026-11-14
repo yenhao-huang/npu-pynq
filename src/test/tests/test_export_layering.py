@@ -8,9 +8,12 @@ consumes ExportedPrograms. Only pipeline.py passes a model from one to the next.
 
 import ast
 from pathlib import Path
+import re
 import unittest
 
 FRONTEND = Path(__file__).resolve().parents[2] / 'export' / 'frontend'
+EXPORT = FRONTEND.parent
+CUSTOM_DIALECT = EXPORT.parent / 'vendors' / 'npu_pynq' / 'custom_dialect'
 ABOVE = ('src.export.pipeline', 'src.export.cli')
 STAGES = ('load', 'quantization', 'export_graph', 'to_mlir')
 
@@ -74,6 +77,44 @@ class ExportLayeringTest(unittest.TestCase):
                 for module in imports(path):
                     with self.subTest(path=path.relative_to(src).as_posix(), module=module):
                         self.assertFalse(module.startswith('src.export'), f'{path.name} imports {module}')
+
+
+def link_libraries(cmake: Path, target: str) -> list[str]:
+    """The libraries every target_link_libraries(``target`` ...) in ``cmake`` names."""
+    text = re.sub(r'#.*', '', cmake.read_text(encoding='utf-8'))
+    found = []
+    for body in re.findall(rf'target_link_libraries\(\s*{re.escape(target)}\s+([^)]*)\)', text):
+        found += [w for w in body.split() if w not in ('PRIVATE', 'PUBLIC', 'INTERFACE')]
+    return found
+
+
+class ExportToolLinkTest(unittest.TestCase):
+    """docs/rules/lib/export_stages.md: the middle end links a device's claim rule
+    (NpuMatch), never its dialect, lowering or encoder (NpuDialect)."""
+
+    def test_middle_end_links_the_claim_rule_only(self):
+        libraries = link_libraries(EXPORT / 'middle-end' / 'CMakeLists.txt', 'pynqo-middle-end')
+        self.assertIn('NpuMatch', libraries)
+        self.assertNotIn('NpuDialect', libraries)
+        self.assertNotIn('MLIR', libraries)
+
+    def test_claim_rule_brings_no_mlir_of_its_own(self):
+        # Each consumer supplies MLIR in its own link style; NpuMatch links nothing.
+        self.assertEqual(link_libraries(CUSTOM_DIALECT / 'CMakeLists.txt', 'NpuMatch'), [])
+        self.assertIn('NpuMatch', link_libraries(CUSTOM_DIALECT / 'CMakeLists.txt', 'NpuDialect'))
+        for path in (CUSTOM_DIALECT / 'lib' / 'Match.cpp', CUSTOM_DIALECT / 'include' / 'Npu' / 'NpuMatch.h'):
+            with self.subTest(path=path.name):
+                self.assertNotRegex(path.read_text(encoding='utf-8'), r'NpuDialect|NpuEncoder|\.inc"')
+
+    def test_device_attributes_are_spelled_alike_in_both_tools(self):
+        spelled = re.compile(r'"(pynqo\.\w+)"')
+        middle = set(spelled.findall((EXPORT / 'middle-end' / 'linalg' / 'transforms' / 'Passes.h')
+                                     .read_text(encoding='utf-8')))
+        backend = set()
+        for name in ('pynqo_backend.cpp', 'cpu/delegate_calls.cpp', 'delegates/npu/lower.cpp'):
+            backend |= set(spelled.findall((EXPORT / 'backend' / name).read_text(encoding='utf-8')))
+        self.assertEqual(middle, {'pynqo.devices', 'pynqo.device', 'pynqo.delegate_id'})
+        self.assertEqual(backend, middle)
 
 
 if __name__ == '__main__':

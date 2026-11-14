@@ -60,8 +60,9 @@ npu_repo_in_pynq/
 |   |-- vendors/                 one folder per accelerator; imported by export and runtime, imports neither
 |   |   `-- npu_pynq/
 |   |       |-- spec/            hardware facts: isa.py, abi.py (registers), layout.py, quant.py (schemes accepted), board.py
-|   |       |-- custom_dialect/  C++ (LLVM 22): the npu dialect, --npu-claim, Pack, Encode; a
-|   |       |                    library pynqo-backend links; never shipped to the board
+|   |       |-- custom_dialect/  C++ (LLVM 22), never shipped to the board: NpuMatch (the claim rule,
+|   |       |                    npu::isClaimable), linked by both export tools; NpuDialect (the npu
+|   |       |                    dialect, npu::claim, --npu-claim, Pack, Encode), by pynqo-backend only
 |   |       `-- driver/          board side; follows spec/
 |   |           |-- npu_rt/      libnpu_rt (C++): the NPU delegate backend, PYNQ and SIM backends,
 |   |           |                built on the target with its own g++ and CMake
@@ -76,10 +77,12 @@ npu_repo_in_pynq/
 |   |   |   |-- quantization/    schemes.py; torchao/: our configs and the modules they swap in
 |   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point
 |   |   |   `-- to_mlir/         torch-mlir's importer (llvm/torch-mlir wheels): torch.mlir
-|   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir (fused linalg);
-|   |   |                        builds torch-mlir; torch/transforms/: one file per rewrite on
-|   |   |                        the torch dialect
-|   |   `-- backend/             C++ pynqo-backend: partition, delegates/, package (weights.bin),
+|   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir (fused linalg, CPU
+|   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:
+|   |   |                        one file per rewrite on the torch dialect; linalg/transforms/: device
+|   |   |                        assignment, and partitioning into delegate calls and device modules
+|   |   `-- backend/             C++ pynqo-backend: delegates/ (each compiles its device's module),
+|   |                            package (weights.bin), cpu/delegate_calls (the __delegate__ ABI),
 |   |                            cpu/toolchain (LLVM IR, llc, link), device_register
 |   |-- deploy/                  deploy.sh (send to the board, or ARCHIVE= a release archive),
 |   |                            resnet18_assets.py and its pins
@@ -94,7 +97,7 @@ npu_repo_in_pynq/
 |   |       `-- delivery/        frozen JIT delivery helpers
 |   `-- runtime/                 board-side execution; never imports src/export
 |       |-- cli.py               one entry point: python -m src.runtime.cli {llm,classifier} ...
-|       |-- share/               knows no task: loader.py (load and call an pynqo-package/2), profile.py
+|       |-- share/               knows no task: loader.py (load and call a pynqo-package/3), profile.py
 |       |-- delegate/            the __delegate__ dispatcher (dispatch.c) and device backends
 |       `-- tasks/               one package per manifest graph kind, each with its own cli.py
 |           |-- llm/             engine, tokenizer, sampling
@@ -198,11 +201,16 @@ checks the RTL and `driver/npu_rt/` against it), `layout.py` fixes how a tiled G
 maps onto DDR, `quant.py` names the quantization schemes the NPU accepts, and
 `board.py` the board's CPU. RTL opcodes must match `isa.py`;
 `src/test/tests/test_isa.py` enforces that against the golden model
-`src/test/model/isa_sim.py`. `custom_dialect/` claims INT8 contractions on
-constant weights as `npu.matmul`, packs their weights as B tiles and encodes
-ISA programs; its C++ encoder is a port of `isa.py` and `layout.py`.
+`src/test/model/isa_sim.py`. `custom_dialect/` holds two libraries. `NpuMatch`
+is the claim rule (`npu::isClaimable`: INT8 contractions on constant weights),
+built from upstream MLIR headers only and linked by both export tools.
+`NpuDialect`, linked by `pynqo-backend` only, rewrites a claimed contraction
+as `npu.matmul`, packs its weights as B tiles and encodes ISA programs; its C++
+encoder is a port of `isa.py` and `layout.py`.
 `driver/npu_rt/` is libnpu_rt, which the runtime's `__delegate__` dispatcher
-calls for every NPU region; its SIM backend is a C++ port of `isa_sim.py`.
+calls for every NPU delegate; it packs A, runs the program, and sums the
+NPU's K chunks into the delegate's M x N result. Its SIM backend is a C++
+port of `isa_sim.py`.
 `driver/overlay/` writes the overlay manifest after Vivado and verifies it
 before the board loads the bitstream.
 
@@ -213,18 +221,26 @@ framework; `frontend/quantization/` quantizes it with our torchao configs;
 `torch.export`; `frontend/to_mlir/` imports it into the torch dialect with
 torch-mlir; `middle-end/` (`pynqo-middle-end`, C++ against LLVM 22 and a pinned
 torch-mlir it builds from source) rewrites layers while they are recognisable,
-lowers them to linalg with torch-mlir's pipelines, and runs the target-agnostic
-cleanups and elementwise fusion once, so `ir/model.mlir` is fused linalg; and
-`backend/` (`pynqo-backend`, C++ against LLVM 22, built by `pipeline.py` when
-stale) lets each device delegate claim its operations, replaces them with
-`__delegate__(id, in, out)` calls, moves the remaining weights into
-`weights.bin`, and compiles the rest for the Cortex-A9 and the host, one
-per-target pipeline from bufferization down. A new
-model is a new config; a new device is a delegate under `backend/delegates/`
-and its vendor folder. Front-end stages do not import each other; only
-`pipeline.py` passes a model from one to the next. `python -m
-unittest src.test.tests.test_export_layering` enforces that, and that
-`src/runtime` and `src/vendors` never import `src/export`.
+lowers them to linalg with torch-mlir's pipelines, assigns operations to the
+config's devices with each device's claim rule, cuts every assigned operation
+out into its device's module (`ir/delegates/npu.mlir`, one `@npu_<id>` per
+delegate id) and leaves a call to a bodiless `@__delegate_<id>` in its place,
+then runs the target-agnostic cleanups and elementwise fusion once on the CPU
+graph, so `ir/model.mlir` is fused linalg that cannot see inside a delegate;
+and `backend/` (`pynqo-backend`, C++ against LLVM 22, built by `pipeline.py`
+when stale) lets each device delegate compile its own module, turns every
+delegate call into `__delegate__(id, in, out)` on byte buffers, moves the
+remaining weights into `weights.bin`, and compiles the CPU graph for the
+Cortex-A9 and the host, one per-target pipeline from bufferization down. A
+delegate contributes no CPU code. A new model is a new config; a new
+device is a matcher in `middle-end/linalg/transforms/AssignDevices.cpp`, a
+delegate under `backend/delegates/`, and its vendor folder, whose claim rule
+the middle end links without the device's dialect or encoder. Front-end stages
+do not import each other; only `pipeline.py` passes a model from one to the
+next. `python -m unittest src.test.tests.test_export_layering` enforces that,
+that `src/runtime` and `src/vendors` never import `src/export`, that
+`pynqo-middle-end` links `NpuMatch` and not `NpuDialect`, and that both tools
+spell the delegate attributes alike.
 
 `src/deploy/deploy.sh` sends an export directory to the board: the package with
 the board's library, the runtime and driver sources, the overlay and the
