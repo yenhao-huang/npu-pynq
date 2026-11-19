@@ -144,6 +144,7 @@ npu_repo_in_pynq/
 |   |       |-- branch.md
 |   |       |-- changelog.md
 |   |       |-- commit.md
+|   |       |-- git-project.md
 |   |       |-- issues.md
 |   |       `-- pull-request.md
 |   |-- human/

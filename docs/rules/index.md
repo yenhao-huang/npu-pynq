@@ -30,6 +30,8 @@ Read the rules that apply before making a change:
 - [git/issues.md](git/issues.md): issue creation, triage, and evidence.
 - [git/pull-request.md](git/pull-request.md): review, validation, and merge
   boundaries.
+- [git/git-project.md](git/git-project.md): GitHub Project board statuses and
+  when an item moves between them.
 
 When these rules conflict with a skill reference, this directory is the
 authority for work in `npu_repo_in_pynq`.
