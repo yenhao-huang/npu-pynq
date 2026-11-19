@@ -83,21 +83,7 @@ load_model(spec['framework'], src, **extra)          frontend/load/__init__.py
 A relative `source` that exists is resolved against the repository root. Any
 other key under `load:` (such as `model: resnet18`) goes to the adapter.
 
-### quantize (pipeline.py:144)
-
-```
-quantize(model, 'w8a8')                              frontend/quantization/torchao/config.py:52
-  └─ torchao quantize_(model, config_for(scheme), filter_fn=quantizable_layers)
-       └─ each nn.Linear / nn.Conv2d / nn.Embedding is replaced in place by
-          W8A8Linear / W8A8Conv2d / W8A8Embedding (custom_quant/w8a8.py):
-          INT8 weights with a per-channel scale; Linear and Conv2d quantize
-          activations at run time and compute (int8(x) @ W_q) with torch._int_mm,
-          then * x_scale * w_scale + bias
-```
-
-The model is still an `nn.Module` and still runs in eager PyTorch.
-
-### export_graph (pipeline.py:151)
+### export_graph (pipeline.py:169)
 
 `torch.export` traces the model once per entry point with example inputs.
 Only their shapes and dtypes matter, and they become static in the graph.
@@ -111,8 +97,8 @@ export_llm(model, max_seq=256, chunk=16)             frontend/export_graph/expor
        │    │                       over the whole cache), so the graph stays functional
        │    ├─ an additive causal mask over all max_seq slots
        │    └─ model(input_ids, position_ids, past_key_values=cache, logits_to_keep=...)
-       ├─ torch.export.export(step, example_inputs(...), strict=False)
-       └─ ep.run_decompositions()   default ATen decompositions; _int_mm survives
+       └─ torch.export.export(step, example_inputs(...), strict=False)
+            undecomposed: each nn.Linear is still one aten.linear, and so on
 
     decode (tokens [1,1], pos [1], k0, v0, ..., )        -> (logits [1,1,V], k0', v0', ...)
     prefill(tokens [1,T], pos [1], last [1], k0, v0, ...) -> (logits [1,1,V], k0', v0', ...)
@@ -122,12 +108,30 @@ export_classifier(model, (224, 224, 3))              export.py:154
        -> {'forward': ep}
 ```
 
-### to_mlir (pipeline.py:162)
+### quantize (pipeline.py:180)
+
+```
+quantize(programs, 'w8a8')                           frontend/quantization/graph.py:120
+  └─ per program: ep.module(), the unlifted GraphModule, weights as get_attr
+       ├─ aten.linear / aten.conv2d / aten.embedding with a constant weight
+       │    → a call to w8a8.linear / w8a8.conv2d / w8a8.embedding (quantization/w8a8.py):
+       │      INT8 weights with a per-channel scale, quantized once (prepare_*) and
+       │      shared by every program; linear and conv2d quantize activations at run
+       │      time and compute (int8(x) @ W_q) with torch._int_mm, then
+       │      * x_scale * w_scale + bias
+       ├─ the float weights no node reads any more are dropped
+       └─ torch.export.export(gm, ep.example_inputs)   traces those calls into ATen
+```
+
+The programs are still undecomposed ExportedPrograms; `ep.module()` runs one in eager PyTorch.
+
+### to_mlir (pipeline.py:187)
 
 ```
 to_mlir(programs, out/'ir')                          frontend/to_mlir/__init__.py:12
-  └─ to_torch_dialect(programs)                      to_mlir/torch_mlir/to_torch_dialect.py:13
+  └─ to_torch_dialect(programs)                      to_mlir/torch_mlir/to_torch_dialect.py:16
        ├─ FxImporter(context)
+       ├─ ep.run_decompositions()   default ATen decompositions; _int_mm survives
        ├─ copy non-persistent buffers (RoPE inv_freq) from ep.constants into ep._state_dict
        └─ importer.import_frozen_program(ep, func_name=name)   once per program
             parameters and buffers become torch.vtensor.literal constants,
@@ -135,7 +139,7 @@ to_mlir(programs, out/'ir')                          frontend/to_mlir/__init__.p
   └─ write ir/torch.mlir   UTF-8, LF, because Linux LLVM parses it
 ```
 
-### pynqo-middle-end (pipeline.py:167)
+### pynqo-middle-end (pipeline.py:193)
 
 ```
 build_middle_end()      cmake + ninja in build/pynqo-middle-end; a no-op when unchanged
@@ -162,7 +166,7 @@ middle_end(torch.mlir, ir/model.mlir, devices)
 dialects (linalg, tensor, arith, func) with the weights still inline as
 constants. `--emit=torch` stops after our rewrites.
 
-### pynqo-backend (pipeline.py:175)
+### pynqo-backend (pipeline.py:203)
 
 ```
 build_backend()         cmake + ninja in build/pynqo-backend; a no-op when unchanged
@@ -193,7 +197,7 @@ pynqo-backend model.mlir --out <dir> --devices cpu,npu --cpus arm-cortex-a9,nati
   └─ compile.json: entry points, abi, delegate table, weights, libraries, npu_limits
 ```
 
-### manifest (pipeline.py:189)
+### manifest (pipeline.py:219)
 
 ```
 manifest = compile.json + {format: pynqo-package/3, model, quantization, compile_seconds}

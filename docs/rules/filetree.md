@@ -88,12 +88,12 @@ npu_repo_in_pynq/
 |   |           `-- overlay/     manifest and verification of the CVA6 overlay
 |   |-- export/                  host-side model -> package; never runs on the board
 |   |   |-- cli.py               build <config>
-|   |   |-- pipeline.py          load -> quantize -> export_graph -> to_mlir -> pynqo-backend
+|   |   |-- pipeline.py          load -> export_graph -> quantize -> to_mlir -> pynqo-backend
 |   |   |-- requirements.txt     the pinned front-end frameworks
 |   |   |-- frontend/            Python
 |   |   |   |-- load/            frameworks/ (transformers, torchvision): the float model
-|   |   |   |-- quantization/    schemes.py; torchao/: our configs and the modules they swap in
-|   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point
+|   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point, undecomposed
+|   |   |   |-- quantization/    schemes.py; graph.py: the FX pass; <scheme>.py: its ATen computation
 |   |   |   `-- to_mlir/         torch-mlir's importer (llvm/torch-mlir wheels): torch.mlir
 |   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir (fused linalg, CPU
 |   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:
@@ -236,10 +236,11 @@ before the board loads the bitstream.
 
 `src/export/` turns a model into a package on the host, entirely from a
 config (`examples/<demo>/export.yml`): `frontend/load/` builds the float model with its
-framework; `frontend/quantization/` quantizes it with our torchao configs;
-`frontend/export_graph/` captures it with
-`torch.export`; `frontend/to_mlir/` imports it into the torch dialect with
-torch-mlir; `middle-end/` (`pynqo-middle-end`, C++ against LLVM 22 and a pinned
+framework; `frontend/export_graph/` captures it with `torch.export`, one
+undecomposed ExportedProgram per entry point; `frontend/quantization/`
+quantizes the captured graphs with an FX pass that rewrites each
+`aten.linear`, `aten.conv2d` and `aten.embedding`; `frontend/to_mlir/`
+decomposes them and imports them into the torch dialect with torch-mlir; `middle-end/` (`pynqo-middle-end`, C++ against LLVM 22 and a pinned
 torch-mlir it builds from source) rewrites layers while they are recognisable,
 lowers them to linalg with torch-mlir's pipelines, assigns operations to the
 config's devices with each device's claim rule, cuts every assigned operation

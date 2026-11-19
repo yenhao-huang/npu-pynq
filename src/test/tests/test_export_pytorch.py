@@ -1,13 +1,13 @@
-"""The PyTorch front end: W8A8 numerics, the quantization stage, and the
+"""The PyTorch front end: W8A8 numerics, the quantization pass, and the
 functional-cache export against transformers' own forward. Skipped where
-torch, torchao or transformers are not installed."""
+torch or transformers is not installed."""
 
 import importlib.util
 import unittest
 
 import numpy as np
 
-HAVE_TORCH = all(importlib.util.find_spec(m) for m in ('torch', 'torchao', 'transformers'))
+HAVE_TORCH = all(importlib.util.find_spec(m) for m in ('torch', 'transformers'))
 
 
 EPS = 1e-8   # src/export/frontend/quantization/schemes.py
@@ -26,11 +26,11 @@ def reference_rows(x):
     return np.clip(np.round(x * (1.0 / scale)[..., None]), -127, 127).astype(np.int8), scale
 
 
-@unittest.skipUnless(HAVE_TORCH, 'torch, torchao and transformers are required')
+@unittest.skipUnless(HAVE_TORCH, 'torch and transformers are required')
 class W8A8NumericsTest(unittest.TestCase):
     def test_weights_match_the_numeric_contract_bit_for_bit(self):
         import torch
-        from src.export.frontend.quantization.torchao.custom_quant.w8a8 import quantize_weight
+        from src.export.frontend.quantization.w8a8 import quantize_weight
 
         w = np.random.default_rng(0).normal(size=(48, 64)).astype(np.float32)
         q, s = quantize_weight(torch.from_numpy(w))
@@ -40,7 +40,7 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_activations_match_the_numeric_contract_bit_for_bit(self):
         import torch
-        from src.export.frontend.quantization.torchao.custom_quant.w8a8 import quantize_tokens
+        from src.export.frontend.quantization.w8a8 import quantize_tokens
 
         x = (np.random.default_rng(1).normal(size=(5, 64)) * 3).astype(np.float32)
         q, s = quantize_tokens(torch.from_numpy(x))
@@ -50,30 +50,30 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_linear_is_the_int8_contraction_rescaled(self):
         import torch
-        from src.export.frontend.quantization.torchao.custom_quant.w8a8 import W8A8Linear
+        from src.export.frontend.quantization.w8a8 import linear, prepare_linear
 
         rng = np.random.default_rng(2)
-        layer = torch.nn.Linear(64, 32, bias=False)
-        layer.weight.data = torch.from_numpy(rng.normal(size=(32, 64)).astype(np.float32))
+        w = rng.normal(size=(32, 64)).astype(np.float32)
         x = rng.normal(size=(3, 64)).astype(np.float32)
-        y = W8A8Linear.from_float(layer)(torch.from_numpy(x)).detach().numpy()
-        wq, ws = reference_weight(layer.weight.detach().numpy())
+        y = linear(torch.from_numpy(x), *prepare_linear(torch.from_numpy(w)), None).numpy()
+        wq, ws = reference_weight(w)
         xq, xs = reference_rows(x)
         acc = xq.astype(np.int32) @ wq.astype(np.int32)
         np.testing.assert_allclose(y, acc.astype(np.float32) * xs[:, None] * ws[None, :], rtol=1e-6, atol=1e-6)
 
     def test_convolution_is_the_contraction_of_its_patches(self):
         import torch
-        from src.export.frontend.quantization.torchao.custom_quant.w8a8 import W8A8Conv2d
+        from src.export.frontend.quantization.w8a8 import conv2d, prepare_conv2d
 
         torch.manual_seed(4)
         conv = torch.nn.Conv2d(5, 7, 3, stride=2, padding=1)
         x = torch.randn(1, 5, 9, 11)
-        q = W8A8Conv2d.from_float(conv)
-        y = q(x)
-        self.assertEqual(tuple(y.shape), tuple(conv(x).shape))
+        with torch.no_grad():
+            y = conv2d(x, *prepare_conv2d(conv.weight), conv.bias, (3, 3), (2, 2), (1, 1))
+            expected = conv(x)
+        self.assertEqual(tuple(y.shape), tuple(expected.shape))
         # The W8A8 result stays within quantization error of the float convolution.
-        torch.testing.assert_close(y, conv(x), rtol=0.05, atol=0.05)
+        torch.testing.assert_close(y, expected, rtol=0.05, atol=0.05)
 
     def test_batchnorm_stays_after_quantization(self):
         import torch
@@ -85,10 +85,19 @@ class W8A8NumericsTest(unittest.TestCase):
         net[1].running_mean.uniform_(-1, 1)
         net[1].running_var.uniform_(0.5, 2)
         x = torch.randn(1, 3, 6, 6)
-        expected = net(x)
-        q = quantize(net, 'w8a8')
-        self.assertTrue(any(isinstance(m, torch.nn.BatchNorm2d) for m in q.modules()))
-        torch.testing.assert_close(q(x), expected, rtol=0.1, atol=0.1)
+        with torch.no_grad():
+            expected = net(x)
+            ep = quantize({'forward': torch.export.export(net, (x,), strict=False)}, 'w8a8')['forward']
+            got = ep.module()(x)
+        self.assertEqual(targets(ep)['aten.batch_norm.default'], 1)
+        torch.testing.assert_close(got, expected, rtol=0.1, atol=0.1)
+
+def targets(ep):
+    """op name -> how many call_function nodes of ``ep`` call it."""
+    import collections
+
+    return collections.Counter(str(n.target) for n in ep.graph.nodes if n.op == 'call_function')
+
 
 def tiny_llama():
     import torch
@@ -101,24 +110,62 @@ def tiny_llama():
     return LlamaForCausalLM(cfg).eval().requires_grad_(False)
 
 
-@unittest.skipUnless(HAVE_TORCH, 'torch, torchao and transformers are required')
-class QuantizationStageTest(unittest.TestCase):
-    def test_every_contraction_is_swapped(self):
-        import torch
+@unittest.skipUnless(HAVE_TORCH, 'torch and transformers are required')
+class QuantizationPassTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from src.export.frontend.export_graph import export_llm
         from src.export.frontend.quantization import quantize
 
-        model = quantize(tiny_llama(), 'w8a8')
-        self.assertFalse([name for name, m in model.named_modules()
-                          if isinstance(m, (torch.nn.Linear, torch.nn.Conv2d))])
+        cls.model = tiny_llama()
+        cls.float_programs, _ = export_llm(cls.model, 32, 4)
+        cls.programs = quantize(cls.float_programs, 'w8a8')
+
+    def test_every_contraction_is_rewritten(self):
+        # 2 layers x 7 projections + lm_head; the embedding becomes an INT8 lookup.
+        for name, ep in self.programs.items():
+            with self.subTest(program=name):
+                ops = targets(ep)
+                self.assertNotIn('aten.linear.default', ops)
+                self.assertNotIn('aten.embedding.default', ops)
+                self.assertEqual(ops['aten._int_mm.default'], 15)
+
+    def test_no_float_weight_is_left(self):
+        import torch
+
+        for name, ep in self.programs.items():
+            with self.subTest(program=name):
+                self.assertFalse([n for n, t in ep.state_dict.items() if t.dtype == torch.float32 and t.dim() == 2])
+
+    def test_programs_share_each_quantized_weight(self):
+        decode, prefill = (self.programs[k].state_dict for k in ('decode', 'prefill'))
+        self.assertTrue(decode)
+        for name, t in decode.items():
+            with self.subTest(weight=name):
+                self.assertTrue(any(t is u for u in prefill.values()))
+
+    def test_the_float_programs_are_left_alone(self):
+        self.assertEqual(targets(self.float_programs['decode'])['aten.linear.default'], 15)
+
+    def test_quantized_logits_stay_near_the_float_ones(self):
+        import torch
+        from src.export.frontend.export_graph.export import cache_spec
+
+        spec = cache_spec(self.model, 32)
+        args = (torch.tensor([[5]]), torch.tensor([0]), *spec.zeros())
+        with torch.no_grad():
+            expected = self.float_programs['decode'].module()(*args)[0]
+            got = self.programs['decode'].module()(*args)[0]
+        torch.testing.assert_close(got, expected, rtol=0.1, atol=0.1)
 
     def test_unknown_scheme_is_refused(self):
         from src.export.frontend.quantization import quantize
 
         with self.assertRaises(ValueError):
-            quantize(tiny_llama(), 'w4a4')
+            quantize(self.float_programs, 'w4a4')
 
 
-@unittest.skipUnless(HAVE_TORCH, 'torch, torchao and transformers are required')
+@unittest.skipUnless(HAVE_TORCH, 'torch and transformers are required')
 class FunctionalCacheTest(unittest.TestCase):
     def test_chunked_prefill_and_decode_match_the_full_forward(self):
         import torch

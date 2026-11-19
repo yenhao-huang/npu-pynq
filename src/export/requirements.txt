@@ -1,4 +1,4 @@
-# The export host's front end (load -> quantize -> export_graph -> to_mlir), pinned together.
+# The export host's front end (load -> export_graph -> quantize -> to_mlir), pinned together.
 # torch comes from the CPU index:
 #   pip install -r src/export/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 # torch-mlir comes from llvm/torch-mlir's release wheels, dated builds whose
@@ -7,7 +7,6 @@
 # clang-22, CMake and Ninja on Linux; pynqo-middle-end builds its own torch-mlir.
 --find-links https://github.com/llvm/torch-mlir-release/releases/expanded_assets/dev-wheels
 torch==2.11.0
-torchao==0.18.0
 transformers==5.21.1
 safetensors==0.8.0
 tokenizers==0.23.3

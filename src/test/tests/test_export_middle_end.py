@@ -14,7 +14,7 @@ import numpy as np
 
 from src.export import pipeline
 
-HAVE_TOOLS = all(importlib.util.find_spec(m) for m in ('torch', 'torch_mlir', 'torchao'))
+HAVE_TOOLS = all(importlib.util.find_spec(m) for m in ('torch', 'torch_mlir'))
 
 
 def tool_is_built(tool=None):
@@ -45,10 +45,15 @@ def conv_bn(bias=True):
     return net
 
 
-def w8a8(net):
-    from src.export.frontend.quantization.torchao.config import quantize
+class W8A8:
+    """A float net that ``lower`` quantizes with the W8A8 graph pass once it is captured."""
 
-    return quantize(net, 'w8a8')
+    def __init__(self, net):
+        self.net = net
+
+
+def w8a8(net):
+    return W8A8(net)
 
 
 def mlp():
@@ -65,10 +70,17 @@ def lower(net, d, emit='linalg', devices=('cpu',), shape=(1, 3, 8, 8)):
     import torch
     from src.export.frontend.to_mlir import to_mlir
 
+    from src.export.frontend.quantization import quantize
+
     d = Path(d)
     d.mkdir(parents=True, exist_ok=True)
-    ep = torch.export.export(net, (torch.zeros(*shape),), strict=False).run_decompositions()
-    imported = to_mlir({'forward': ep}, d)
+    scheme = 'w8a8' if isinstance(net, W8A8) else None
+    net = net.net if scheme else net
+    with torch.no_grad():
+        programs = {'forward': torch.export.export(net, (torch.zeros(*shape),), strict=False)}
+        if scheme:
+            programs = quantize(programs, scheme)
+    imported = to_mlir(programs, d)
     return imported, pipeline.middle_end(imported, d / 'out.mlir', emit=emit, devices=devices)
 
 
@@ -129,17 +141,19 @@ class FuseConvBatchNormTest(unittest.TestCase):
 
     def test_w8a8_rescale_takes_the_batchnorm(self):
         from torch.nn.utils.fusion import fuse_conv_bn_weights
+        from src.export.frontend.quantization.w8a8 import prepare_conv2d
 
         for bias in (True, False):
             with self.subTest(bias=bias):
-                q = w8a8(conv_bn(bias))
-                conv, bn = q.conv, q.bn
-                imported, text = run(q, 'torch')
+                net = conv_bn(bias)
+                conv, bn = net.conv, net.bn
+                _, w_scale = prepare_conv2d(conv.weight)
+                imported, text = run(w8a8(net), 'torch')
                 self.assertNotIn('batch_norm', code(text))
                 # The weights the NPU reads are untouched.
                 name = 'torch_tensor_27_4_torch.int8'
                 self.assertEqual(blob(text, name), blob(imported, name))
-                scale, fused_bias = fuse_conv_bn_weights(conv.scale.unsqueeze(1), conv.bias, bn.running_mean,
+                scale, fused_bias = fuse_conv_bn_weights(w_scale.unsqueeze(1), conv.bias, bn.running_mean,
                                                          bn.running_var, bn.eps, bn.weight, bn.bias)
                 np.testing.assert_array_equal(floats(text, '_fused_scale'), scale.detach().numpy().ravel())
                 np.testing.assert_array_equal(floats(text, '_fused_bias'), fused_bias.detach().numpy().ravel())

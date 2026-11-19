@@ -20,7 +20,7 @@ IREE's VM bytecode (plan 2026-1112-004).
 
 | Stage | Path | In → out | Owns | Never |
 | --- | --- | --- | --- | --- |
-| Front end | `frontend/` (Python) | model → `ir/torch.mlir` | loading, quantization, `torch.export`, import to the torch dialect | MLIR rewrites; anything device- or target-specific |
+| Front end | `frontend/` (Python) | model → `ir/torch.mlir` | loading, `torch.export`, quantization of the captured graph, import to the torch dialect | MLIR rewrites; anything device- or target-specific |
 | Middle end | `middle-end/` (`pynqo-middle-end`) | torch dialect → linalg on tensors: the CPU graph (`ir/model.mlir`) and one module per device (`ir/delegates/<device>.mlir`) | graph-level work: torch rewrites, lowering to linalg, device assignment, partitioning (each device subgraph cut out into its device's module, a bodiless `@__delegate_<id>` called in its place), fusion of the CPU graph | memrefs, loops, LLVM; device code generation; anything that depends on the CPU target |
 | Back end | `backend/` (`pynqo-backend`) | the CPU graph and the device modules → package | code generation: each delegate compiles its own device module; per `--cpus` target, delegate calls to `__delegate__(id, in, out)`, bufferization, loops, LLVM, `llc`, link | deciding which device runs an op; graph rewrites that would give every target the same result; CPU code that depends on how a device computes |
 

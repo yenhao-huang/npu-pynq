@@ -2,8 +2,8 @@
 
     every stage stands alone;  pipeline and cli above all
 
-load builds a float model but never quantizes or exports it; quantization
-takes a model from anywhere; export_graph never loads or lowers; to_mlir only
+load builds a float model but never exports or quantizes it; quantization
+takes ExportedPrograms from anywhere; export_graph never loads or lowers; to_mlir only
 consumes ExportedPrograms. Only pipeline.py passes a model from one to the next."""
 
 import ast
@@ -58,7 +58,8 @@ class ExportLayeringTest(unittest.TestCase):
         # docs/rules/lib/register_quant.md
         for path in sorted((FRONTEND / 'quantization').rglob('*.py')):
             with self.subTest(path=path.relative_to(FRONTEND).as_posix()):
-                self.assertNotRegex(path.read_text(encoding='utf-8'), r'(?i)npu|src\.vendors|vendor')
+                # npu not preceded by a letter: npu, Npu, risc_v_npu, but not "inputs".
+                self.assertNotRegex(path.read_text(encoding='utf-8'), r'(?i)(?<![a-z])npu|src\.vendors|vendor')
 
     def test_an_npu_package_needs_a_scheme_the_npu_accepts(self):
         from src.export.pipeline import check_scheme

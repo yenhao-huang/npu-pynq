@@ -92,7 +92,7 @@ overlay, and package it for the board:
 
 ![Pynqo software stack: PyTorch, Torch-MLIR, Pynqo MLIR, LLVM, runtime and driver, CPU and NPU](docs/assets/npu-compilation-stack.svg)
 
-PyTorch loads and quantizes the model (torchao) and exports an ExportedProgram.
+PyTorch loads the model and exports an ExportedProgram, which an FX pass quantizes.
 Torch-MLIR imports it as the torch dialect. Pynqo MLIR runs the middle end
 (fusion, decomposition, lowering to linalg) and the backend, which partitions
 the graph between the two devices and generates code for each:
