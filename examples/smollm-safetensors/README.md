@@ -32,11 +32,21 @@ python -m pip install -r src/export/requirements.txt \
 curl --fail --location --retry 3 --create-dirs \
   --output "examples/smollm-safetensors/model/checkpoint/#1" \
   "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f77366fa6b3b4b768ec3050bf629380bac/{config.json,tokenizer.json,tokenizer_config.json,model.safetensors}"
-python -m src.export.cli build examples/smollm-safetensors/configs/export.yml --out dist/smollm/package
+python -m src.export.cli build examples/smollm-safetensors/configs/export_risc_v_npu.yml --out dist/smollm/package
 ```
 
 The first time, this builds the compiler tools: go get a coffee, it takes
 about 15 minutes and 4 GB of memory. After that an export takes about five.
+
+The configs live in `configs/`:
+
+| Config | NPU driven by |
+| --- | --- |
+| `export_risc_v_npu.yml` | RV32IMC programs on the CVA6 scalar core (the default); needs a bitstream built with `--scalar-impl CVA6`. Not yet exported or run on the board. |
+| `export.yml` | the fixed `npu_pynq` instruction stream, which runs on the board with the default bitstream |
+
+To use the `npu_pynq` one, swap the config in the command above and build the
+bitstream without `--scalar-impl CVA6`.
 
 **(Optional)Try it on your computer**
 
@@ -52,8 +62,16 @@ on Windows, where Vivado is installed; PowerShell from the repository root
 works. It refuses to run while `src/` has uncommitted changes.
 
 ```powershell
-vivado -mode batch -source src/hw/vivado_tcl/npu_accelerator/build_overlay.tcl -tclargs --out dist/smollm/overlay
+vivado -mode batch -source src/hw/vivado_tcl/npu_accelerator/build_overlay.tcl -tclargs --scalar-impl CVA6 --allow-dirty
 ```
+
+The CVA6 build is exploratory: it has not been run in Vivado yet, and
+`--allow-dirty` skips the overlay verifier, so nothing is copied out. Under
+`build/vivado/npu_accelerator_16x16_cva6/project/`, copy
+`npu_accelerator.runs/impl_1/npu_accelerator_bd_wrapper.bit` and
+`npu_accelerator.gen/sources_1/bd/npu_accelerator_bd/hw_handoff/npu_accelerator_bd.hwh`
+to `dist/smollm/overlay/` as `npu_accelerator.bit` and `npu_accelerator.hwh`.
+For the `npu_pynq` config, drop both flags and add `--out dist/smollm/overlay`.
 
 Already have a 16 x 16 `npu_accelerator.bit` and `npu_accelerator.hwh`? Skip Vivado and
 put them in `dist/smollm/overlay/`. Cloned the repository inside WSL? Copy
