@@ -312,7 +312,7 @@ holds one folder per tool category, each owning its schema and containing one
 file per backend; `ic_daemon/`, `ic_cli/`, `ic_mcp/` and `integrations/pi/` are
 thin clients over it and contain no tool knowledge. Adding a backend touches
 one file and adding a category one folder; no client changes either way. See
-[../ic-design-tools/README.md](../ic-design-tools/README.md).
+[../goals/0924-ic-design-tools/README.md](../goals/0924-ic-design-tools/README.md).
 
 `.pi/` and `.mcp.json` attach those tools to specific agents: `.pi/settings.json`
 selects the native pi package and `.mcp.json` registers the MCP server.
@@ -330,10 +330,12 @@ torch and torch-mlir's own tools, that take a one-layer model to its
 ExportedProgram, torch-dialect and linalg forms. `venv/README.md` records
 where this machine's Python environments are and how to recreate them. `models/<model>/README.md` introduces a model an example runs: where it
 comes from, its architecture and how the export configures it.
-`docs/goals/ic-design-tools/` holds the toolchain overview and its `acceptance/`
+`docs/goals/0924-ic-design-tools/` holds the toolchain overview and its `acceptance/`
 reproduction procedures, including commands, recorded outputs and validation
 limitations. Package installation and demo instructions live under
 `tools/ic/docs/manual/` and ship with the npm package.
+`docs/goals/0928-tool-exploration/` holds the goal for a paper-driven EDA
+tool-exploration agent that extends `tools/ic/`, as given.
 `docs/goals/sw_optimal/` holds the software-stack goal (#119): the goal as
 given, `Results.md` (key results), `Reproduce.md`, and `details/` (hardware
 ISA, compiler, inference framework, quantization, board runs).

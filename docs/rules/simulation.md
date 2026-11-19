@@ -49,4 +49,4 @@ Rules:
 - Verilator, the default backend, is two-state. Use `--backend icarus` for
   reset, initialisation, and X-propagation problems.
 
-See [../ic-design-tools/README.md](../ic-design-tools/README.md).
+See [../goals/0924-ic-design-tools/README.md](../goals/0924-ic-design-tools/README.md).

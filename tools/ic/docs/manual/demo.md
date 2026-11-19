@@ -114,6 +114,6 @@ checks you could not complete. Do not present expected values as measured result
 ```
 
 Keep the transcript and `.ic/` run artifacts. For detailed reproduction and
-historical verification, see [pi acceptance](../../../../docs/goals/ic-design-tools/acceptance/pi-agent.md).
+historical verification, see [pi acceptance](../../../../docs/goals/0924-ic-design-tools/acceptance/pi-agent.md).
 The fixture and acceptance files require the repository checkout; the npm package
 alone does not include the repository's RTL and test fixtures.
