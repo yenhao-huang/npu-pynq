@@ -40,10 +40,10 @@ python -m src.deploy.resnet18_assets gallery
 python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 ```
 
-Want to check it before touching the board? Run it on the host simulator:
+Want to check it before touching the board? Run it entirely on your CPU:
 
 ```bash
-python -m src.runtime.cli classifier --backend sim --package dist/resnet18/package \
+python -m src.runtime.cli classifier --backend host --package dist/resnet18/package \
   --image dist/resnet18/model/demo-image.jpg \
   --labels dist/resnet18/model/imagenet-classes.txt --expected-class Samoyed
 ```

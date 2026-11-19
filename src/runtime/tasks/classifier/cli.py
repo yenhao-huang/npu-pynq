@@ -24,7 +24,8 @@ def main(argv=None):
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--image", type=Path, required=True)
     parser.add_argument("--labels", type=Path, required=True)
-    parser.add_argument("--backend", choices=("sim", "pynq"), default="pynq")
+    parser.add_argument("--backend", choices=("host", "pynq"), default="pynq",
+                        help="host: every delegate runs on this CPU; pynq: on the board's NPU")
     parser.add_argument("--overlay", type=Path)
     parser.add_argument("--expected-class")
     parser.add_argument("--evidence", type=Path)

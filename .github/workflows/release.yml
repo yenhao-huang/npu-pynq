@@ -12,7 +12,7 @@ name: release
 #
 # Each model is one entry of .github/release/models.json and goes the way its
 # example guide does: fetch, export, src/deploy/deploy.sh, then the guide's run
-# command, on the host simulator and on the board.
+# command, on the host CPU and on the board.
 on:
   push:
     branches:
@@ -102,7 +102,7 @@ jobs:
           SH
 
   # The model guide's fetch and export, then its run command on the host
-  # simulator. The host result is the board's reference.
+  # CPU (--backend host). The host result is the board's reference.
   export:
     needs: check
     runs-on: ubuntu-24.04
@@ -133,11 +133,11 @@ jobs:
       - name: Export
         run: python -m src.export.cli build ${{ matrix.config }} --out dist/${{ matrix.model }}/package
 
-      - name: Run on the host simulator
+      - name: Run on the host CPU
         working-directory: dist/${{ matrix.model }}
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: python -m src.runtime.cli ${{ matrix.run }} --backend sim ${{ matrix.evidence }} ../host-${{ matrix.model }}.json
+        run: python -m src.runtime.cli ${{ matrix.run }} --backend host ${{ matrix.evidence }} ../host-${{ matrix.model }}.json
 
       - uses: actions/upload-artifact@v4
         with:
@@ -262,7 +262,7 @@ jobs:
             ${{ env.OUT }}/reports/*.rpt
 
   # The archive deploy.sh writes is the release asset and exactly what the
-  # board runs. The board must answer as the host simulator did.
+  # board runs. The board must answer as the host did.
   test-on-board:
     needs: [check, export, build-bitstream]
     runs-on: [self-hosted, pynq-z1]
@@ -313,7 +313,7 @@ jobs:
           bash .github/release/board_check.sh "$ARCHIVE" "$EVIDENCE" \
             ${{ matrix.run }} --overlay overlay/npu_accelerator.bit ${{ matrix.evidence }} board.json
 
-      - name: Compare with the host simulator
+      - name: Compare with the host run
         run: |
           python - "dist/host-${{ matrix.model }}.json" "$EVIDENCE" <<'PY'
           import json, sys
@@ -323,12 +323,12 @@ jobs:
           if 'output_ids' in host:
               if board['output_ids'] != host['output_ids']:
                   sys.exit(f"board tokens {board['output_ids']} differ from host {host['output_ids']}")
-              print('board output matches the host simulator:', board['output'])
+              print('board output matches the host run:', board['output'])
           else:
               top, expected = board['top5'][0]['name'], host['top5'][0]['name']
               if not board['correct'] or top != expected:
                   sys.exit(f'board top-1 {top} differs from host {expected}')
-              print('board top-1 matches the host simulator:', top)
+              print('board top-1 matches the host run:', top)
           PY
 
       - uses: actions/upload-artifact@v4
