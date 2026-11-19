@@ -19,8 +19,8 @@ from src.runtime.tasks.llm.tokenizer import Tokenizer
 
 
 class ExportedLLM:
-    def __init__(self, package: str | Path, overlay: Any = None) -> None:
-        self.package = ExportedPackage(package, overlay)
+    def __init__(self, package: str | Path, overlay: Any = None, host: bool = False) -> None:
+        self.package = ExportedPackage(package, overlay, host=host)
         meta = self.package.manifest['llm']
         self.vocab, self.chunk, self.max_seq = meta['vocab'], meta['chunk'], meta['max_seq']
         shape = tuple(meta['cache']['shape'])

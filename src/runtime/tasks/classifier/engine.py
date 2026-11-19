@@ -19,7 +19,7 @@ class ImageEngine:
                  stream_weights: Any = None) -> None:
         if backend == 'pynq' and overlay is None:
             raise ValueError('the pynq backend needs the loaded overlay')
-        self.package = ExportedPackage(package, overlay if backend != 'sim' else None)
+        self.package = ExportedPackage(package, overlay, host=backend == 'host')
         meta = self.package.manifest['classifier']
         self.contract = meta['input']
         self.classes = int(meta['classes'])

@@ -48,10 +48,12 @@ The configs live in `configs/`:
 To use the `npu_pynq` one, swap the config in the command above and build the
 bitstream without `--scalar-impl CVA6`.
 
-**(Optional)Try it on your computer**
+**(Optional) Try it on your computer.** `--backend host` runs everything on
+this CPU, the NPU's matrix multiplications included, so it checks the model
+but not the NPU program:
 
 ```bash
-python -m src.runtime.cli llm dist/smollm/package --backend sim \
+python -m src.runtime.cli llm dist/smollm/package --backend host \
   --chat --stream --prompt "What is the capital of France?" --max-new 100
 ```
 
