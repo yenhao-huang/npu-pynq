@@ -124,6 +124,7 @@ npu_repo_in_pynq/
 |   `-- <example>/              see docs/rules/create-example.md
 |       |-- README.md            Linux deployment manual (WSL on Windows)
 |       |-- export.yml           the export config: source, quantization, graph, devices
+|       |-- configs/             instead of export.yml when there are variants: export.yml, export_<variant>.yml
 |       `-- <name>.ipynb
 |-- docs/
 |   |-- assets/
