@@ -1,4 +1,4 @@
-"""Run an exported LLM package on the board (or the host simulator).
+"""Run an exported LLM package on the board, or entirely on this CPU (--backend host).
 
     python -m src.runtime.cli llm package --overlay npu_accelerator.bit --chat --stream --prompt "Hello"
 """
@@ -19,11 +19,11 @@ def run(args) -> int:
     from src.runtime.tasks.llm import ExportedLLM, SamplingParams
 
     overlay = None
-    backend = args.backend or ('pynq' if on_board() else 'sim')
+    backend = args.backend or ('pynq' if on_board() else 'host')
     if backend == 'pynq':
         from pynq import Overlay
         overlay = Overlay(args.overlay)
-    llm = ExportedLLM(Path(args.package), overlay)
+    llm = ExportedLLM(Path(args.package), overlay, host=backend == 'host')
     params = SamplingParams(args.temperature, args.top_k, args.top_p, args.min_p, args.repetition_penalty, args.seed)
 
     profiler = profile.from_arguments(args, llm.package, task='llm', package=str(args.package), backend=backend,
@@ -54,7 +54,8 @@ def main(argv=None) -> int:
     r.add_argument("--prompt", required=True)
     r.add_argument("--chat", action="store_true")
     r.add_argument("--max-new", "--max-new-tokens", type=int, default=32)
-    r.add_argument("--backend", choices=("sim", "pynq"), default=None)
+    r.add_argument("--backend", choices=("host", "pynq"), default=None,
+                   help="host: every delegate runs on this CPU; pynq: on the board's NPU (default on the board)")
     r.add_argument("--overlay", default=os.environ.get("NPU_OVERLAY", "npu_accelerator.bit"))
     r.add_argument("--temperature", type=float, default=0.0)
     r.add_argument("--top-k", type=int, default=0)

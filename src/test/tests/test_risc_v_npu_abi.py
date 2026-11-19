@@ -204,7 +204,7 @@ class DriverSourceTests(unittest.TestCase):
         self.assertIs(backend_class('risc_v_npu'), RiscvNpuBackend)
         self.assertEqual(backend_class('npu').__name__, 'NpuBackend')
         self.assertIsNone(backend_class('gpu'))
-        with self.assertRaisesRegex(DelegateError, 'no SIM backend'):
+        with self.assertRaisesRegex(DelegateError, 'needs the board.*--backend host'):
             RiscvNpuBackend(Path('.'), None)
 
 

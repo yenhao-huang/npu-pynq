@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from src.runtime.delegate import Dispatcher, backend_class
+from src.runtime.delegate import DelegateError, Dispatcher, backend_class
 
 # 3: a delegate's output is its subgraph's result (libnpu_rt sums the NPU's
 # K chunks); /2 packages hand the CPU partial planes and are refused.
@@ -57,9 +57,13 @@ def on_board() -> bool:
 
 
 class ExportedPackage:
-    """model.so with its weights and delegate backends, ready to call."""
+    """model.so with its weights and delegate backends, ready to call.
 
-    def __init__(self, root: str | Path, overlay: Any = None) -> None:
+    ``host=True`` runs every delegate on this CPU (delegate/host.py) instead of
+    on the device the package was exported for; ``overlay`` is then unused.
+    """
+
+    def __init__(self, root: str | Path, overlay: Any = None, host: bool = False) -> None:
         self.root = Path(root)
         self.manifest = json.loads((self.root / 'manifest.json').read_text())
         if self.manifest.get('format') != FORMAT:
@@ -71,6 +75,10 @@ class ExportedPackage:
             raise ValueError(f'{self.root}: npu and risc_v_npu need different overlays; '
                              'a package targets one of them')
         for device in sorted(devices):
+            if host:
+                from src.runtime.delegate.host import HostBackend
+                self.backends[device] = HostBackend(self.root, device)
+                continue
             cls = backend_class(device)
             if cls is not None:   # a device without one fails in install() below
                 self.backends[device] = cls(self.root, overlay)
@@ -93,7 +101,11 @@ class ExportedPackage:
         descs = [descriptor(a) for a in (self.weights, *inputs, *outputs)]
         fn.restype = None
         fn(*(ctypes.byref(d) for d in descs))
-        self.dispatcher.check()
+        try:
+            self.dispatcher.check()
+        except DelegateError as error:
+            details = [b.message for b in self.backends.values() if getattr(b, 'message', '')]
+            raise DelegateError('; '.join([str(error), *details])) from None
 
     def stats(self) -> dict[str, int]:
         npu = self.backends.get('npu') or self.backends.get('risc_v_npu')

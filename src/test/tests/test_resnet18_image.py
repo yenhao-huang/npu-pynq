@@ -41,7 +41,7 @@ class ImageTests(unittest.TestCase):
 
     @patch('src.runtime.tasks.classifier.engine.ExportedPackage',FakePackage)
     def test_abi_prediction_and_counter_deltas(self):
-        engine = ImageEngine('unused','sim')
+        engine = ImageEngine('unused','host')
         image = np.zeros((224,224,3),np.float32)
         first = engine.predict(image)
         second = engine.predict(image[:,::-1])
@@ -53,7 +53,7 @@ class ImageTests(unittest.TestCase):
 
     @patch('src.runtime.tasks.classifier.engine.ExportedPackage',FakePackage)
     def test_reject_wrong_input_before_native_call(self):
-        engine = ImageEngine('unused','sim')
+        engine = ImageEngine('unused','host')
         for value in (np.zeros((3,224,224),np.float32), np.zeros((224,224,3),np.int8),
                       np.full((224,224,3),np.nan,np.float32)):
             with self.assertRaises(ValueError): engine.predict(value)

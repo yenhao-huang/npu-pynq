@@ -33,8 +33,8 @@ PHASE_FIELDS = ('m', 'n', 'k', 'segments', 'calls', 'call_ns_min', 'call_ns_max'
                 'pack_a_ns', 'stage_b_ns', 'pl_ns', 'unpack_c_ns', 'pl_cycles', 'polls', 'jobs',
                 'pack_a_bytes', 'stage_b_bytes', 'unpack_c_bytes')   # rv_npu_rt.h, RV_NPU_RT_PHASE_FIELDS
 PHASES = ('pack_a', 'stage_b', 'pl', 'unpack_c')                     # rv_npu_rt_events' phase ids
-NO_SIM = ("risc_v_npu has no SIM backend: npu_pynq's SIM is an ISA model and cannot run RISC-V; "
-          "run the package on the board with the CVA6 overlay, or export it for [cpu, npu]")
+NO_SIM = ("risc_v_npu needs the board: npu_pynq's SIM is an ISA model and cannot run RISC-V; "
+          "load the CVA6 overlay, or pass --backend host to run every delegate on this CPU")
 
 
 class Buffer(ctypes.Structure):
