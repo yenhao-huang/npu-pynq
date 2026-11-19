@@ -1,10 +1,12 @@
-"""``quantization``: a float PyTorch model -> a quantized model.
+"""``quantization``: captured ExportedPrograms -> quantized ExportedPrograms.
 
-    quantize(model, 'w8a8')
+    quantize({'decode': ep, 'prefill': ep}, 'w8a8')
 
-``scheme`` runs our torchao config on the model.
+A graph pass (``graph.py``) rewrites each aten.linear, aten.conv2d and
+aten.embedding into the scheme's plain-ATen computation (``w8a8.py``); the
+schemes themselves are data in ``schemes.py``.
 """
 
-from .torchao.config import quantize
+from .graph import quantize
 
 __all__ = ['quantize']

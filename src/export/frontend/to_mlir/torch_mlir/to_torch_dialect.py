@@ -1,5 +1,9 @@
 """ExportedPrograms -> one MLIR module in the torch dialect.
 
+Each program is decomposed into the default ATen op set first; export_graph and
+quantization leave them undecomposed so that whole ops (aten.linear) stay
+matchable until here.
+
 Every program becomes a function of the same module; parameters and buffers
 are frozen into ``torch.vtensor.literal`` constants (dense_resource blobs),
 shared between functions when they are the same tensor.
@@ -20,6 +24,9 @@ def to_torch_dialect(programs: dict[str, torch.export.ExportedProgram]):
     torch_d.register_dialect(context)
     importer = FxImporter(context=context)
     for name, ep in programs.items():
+        # torch._int_mm must survive this step, because --npu-claim matches what it lowers to.
+        # If it were decomposed, the contraction would stay on the CPU with no error.
+        ep = ep.run_decompositions()
         # Non-persistent buffers (RoPE's inv_freq) live in ep.constants, where
         # the frozen import does not look for buffers.
         # _state_dict is a private torch attribute, so recheck this on a torch upgrade.

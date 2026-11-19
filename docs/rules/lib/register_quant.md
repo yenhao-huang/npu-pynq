@@ -18,10 +18,11 @@ quantization techniques and knows nothing about any accelerator.
 ## Adding a scheme
 
 1. Define the scheme in `schemes.py`.
-2. Write the quantized modules in `torchao/custom_quant/<scheme>.py`, using plain
-   ATen ops.
-3. Add an `AOBaseConfig` subclass and its `register_quantize_module_handler` handler
-   in `torchao/config.py`, and list the scheme by name.
+2. Write `<scheme>.py` next to `graph.py`: a `prepare_*` per op quantizes that
+   op's weight once, and `linear`, `conv2d` and `embedding` replace aten.linear,
+   aten.conv2d and aten.embedding, using plain ATen ops only, since the
+   re-export traces them into the graph.
+3. List the module by the scheme's name in `SCHEMES` in `graph.py`.
 4. Test its numerics against an independent reference.
 
 `src/test/tests/test_export_layering.py` enforces the first rule.

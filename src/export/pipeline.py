@@ -1,9 +1,9 @@
 """The export, from a config to a package:
 
     load           a framework builds the float model (frontend/load)
-    quantize       our torchao config quantizes it (frontend/quantization)
-    export_graph   torch.export: one ExportedProgram per entry point
-    to_mlir        torch-mlir's importer: torch.mlir, the torch dialect
+    export_graph   torch.export: one ExportedProgram per entry point, undecomposed
+    quantize       a graph pass quantizes each program (frontend/quantization)
+    to_mlir        ATen decompositions, then torch-mlir's importer: torch.mlir, the torch dialect
     pynqo-middle-end the C++ middle end (middle-end/): our rewrites, torch-mlir's
                    pipelines to linalg on tensors, then device assignment and
                    partitioning: model.mlir (the CPU graph, with delegate calls)
@@ -137,7 +137,7 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
                    llvm_bin: str = '/usr/lib/llvm-22/bin', timings: dict | None = None) -> Path:
     """Run the whole export for ``config`` (examples/<demo>/export.yml); write the package to ``out``.
 
-    load -> quantize -> export_graph -> to_mlir -> pynqo-backend -> manifest
+    load -> export_graph -> quantize -> to_mlir -> pynqo-middle-end -> pynqo-backend -> manifest
     """
     # Imported here so that importing this module does not load torch or torch-mlir.
     import shutil
@@ -166,14 +166,7 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     model = load_model(spec['framework'], src, **extra)
     times['load'] = time.monotonic() - start
 
-    # quantize: our torchao config swaps the layers.
-    scheme = config.get('quantization')
-    start = time.monotonic()
-    if scheme:
-        model = quantize(model, scheme)
-    times['quantize'] = time.monotonic() - start
-
-    # export_graph: torch.export captures one ExportedProgram per entry point.
+    # export_graph: torch.export captures one ExportedProgram per entry point, undecomposed.
     graph = config['graph']
     start = time.monotonic()
     if graph['kind'] == 'llm':
@@ -184,7 +177,15 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
         raise ValueError(f"unsupported graph kind {graph['kind']!r}")
     times['export_graph'] = time.monotonic() - start
 
-    # to_mlir: torch-mlir's importer writes the programs as torch.mlir (the torch dialect).
+    # quantize: a graph pass rewrites each program's linears, convolutions and embeddings.
+    scheme = config.get('quantization')
+    start = time.monotonic()
+    if scheme:
+        programs = quantize(programs, scheme)
+    times['quantize'] = time.monotonic() - start
+
+    # to_mlir: ATen decompositions, then torch-mlir's importer writes the programs as
+    # torch.mlir (the torch dialect).
     start = time.monotonic()
     torch_mlir = to_mlir(programs, out / 'ir')
     times['to_mlir'] = time.monotonic() - start

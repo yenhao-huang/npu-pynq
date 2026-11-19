@@ -127,16 +127,16 @@ def example_inputs(spec: CacheSpec, tokens: int, prefill: bool) -> tuple:
 
 
 def export_llm(model: nn.Module, max_seq: int, chunk: int) -> tuple[dict[str, torch.export.ExportedProgram], CacheSpec]:
-    """{'decode': ep, 'prefill': ep} after the default ATen decompositions."""
+    """{'decode': ep, 'prefill': ep}, undecomposed.
+
+    Each nn.Linear is still one aten.linear (and so on), which the quantization
+    pass matches; to_mlir decomposes."""
     spec = cache_spec(model, max_seq)
     programs = {}
     for name, tokens, prefill in (('decode', 1, False), ('prefill', chunk, True)):
         step = Step(model, spec, prefill)
         with torch.no_grad():
-            ep = torch.export.export(step, example_inputs(spec, tokens, prefill), strict=False)
-        # torch._int_mm must survive this step, because --npu-claim matches what it lowers to.
-        # If it were decomposed, the contraction would stay on the CPU with no error.
-        programs[name] = ep.run_decompositions()
+            programs[name] = torch.export.export(step, example_inputs(spec, tokens, prefill), strict=False)
     return programs, spec
 
 
@@ -152,7 +152,6 @@ class Classify(nn.Module):
 
 
 def export_classifier(model: nn.Module, shape: tuple[int, int, int]) -> dict[str, torch.export.ExportedProgram]:
-    """{'forward': ep} for an image classifier taking one NHWC image."""
+    """{'forward': ep} for an image classifier taking one NHWC image, undecomposed."""
     with torch.no_grad():
-        ep = torch.export.export(Classify(model), (torch.zeros(shape),), strict=False)
-    return {'forward': ep.run_decompositions()}
+        return {'forward': torch.export.export(Classify(model), (torch.zeros(shape),), strict=False)}

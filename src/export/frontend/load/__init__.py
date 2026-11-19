@@ -2,7 +2,8 @@
 
     load('huggingface', 'path/to/checkpoint')
 
-The next stage, ``quantization``, quantizes it for the NPU.
+The next stage, ``export_graph``, captures it; ``quantization`` then quantizes
+the captured graph.
 """
 
 from __future__ import annotations
