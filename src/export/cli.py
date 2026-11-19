@@ -1,6 +1,6 @@
 """Export a model into a package from its config.
 
-    python -m src.export.cli build examples/smollm-safetensors/export.yml --out dist/smollm/package
+    python -m src.export.cli build examples/smollm-safetensors/configs/export_risc_v_npu.yml --out dist/smollm/package
     python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 """
 

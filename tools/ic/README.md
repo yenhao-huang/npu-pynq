@@ -176,7 +176,7 @@ using package discovery to avoid registering the tools twice.
 
 `--local` saves the registry package declaration in this project's settings.
 See the
-[pi acceptance guide](../../docs/goals/ic-design-tools/acceptance/pi-agent.md) for all eight checks.
+[pi acceptance guide](../../docs/goals/0924-ic-design-tools/acceptance/pi-agent.md) for all eight checks.
 `ppa` also needs a standard-cell library or PDK. Setup provides OpenROAD from
 the host or Docker; the technology files remain user-supplied and are mounted
 read-write only through their containing directories for each Docker run.

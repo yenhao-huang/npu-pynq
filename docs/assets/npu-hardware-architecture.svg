@@ -35,7 +35,8 @@
   <rect class="card silver" x="70" y="240" width="265" height="140"/>
   <text class="module" x="202" y="319" text-anchor="middle">ARM Cortex-A9</text>
   <rect class="card steel" x="70" y="635" width="265" height="140"/>
-  <text class="module" x="202" y="714" text-anchor="middle">DDR Memory</text>
+  <text class="module" x="202" y="697" text-anchor="middle">DDR3 Memory</text>
+  <text class="detail" x="202" y="729" text-anchor="middle">~2.1 GB/s</text>
 
   <rect class="panel" x="405" y="115" width="1587" height="715" stroke="#ef367c"/>
   <text class="section" x="1198" y="162" text-anchor="middle" fill="#ef367c">Programmable Logic (PL)</text>
@@ -80,6 +81,7 @@
   <text class="label" x="395" y="297" text-anchor="middle">control</text>
   <path class="flow both" d="M335 705H600"/>
   <text class="label" x="467" y="692" text-anchor="middle">data</text>
+  <text class="label" x="480" y="730" text-anchor="middle">800 MB/s</text>
 
   <!-- csr -->
   <path class="flow" d="M500 335V365H600"/>

@@ -5,7 +5,8 @@
 - `export.yml`: the export config (`python -m src.export.cli build
   examples/<example>/export.yml --out ...`), when the demo exports a model.
   Per-demo recipes live here, not under `src/`, because `src/` must not depend
-  on `examples/`. A variant adds `export_<variant>.yml` next to it.
+  on `examples/`. A demo with variants keeps them all in
+  `configs/`: `configs/export.yml` and one `configs/export_<variant>.yml` each.
 - `<name>.ipynb` provides a runnable demo.
 
 # Notes

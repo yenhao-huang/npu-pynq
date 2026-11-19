@@ -1,0 +1,16 @@
+# SmolLM2-135M-Instruct, W8A8 on the PYNQ-Z1 NPU driven by its CVA6 scalar core (the default).
+#   python -m src.export.cli build examples/smollm-safetensors/configs/export_risc_v_npu.yml --out dist/smollm/package
+# Each delegate is compiled to an RV32IMC program for CVA6 instead of the fixed
+# npu_pynq instruction stream, so the bitstream must be built with SCALAR_IMPL="CVA6".
+model: smollm2-135m-instruct
+load:
+  framework: huggingface
+  source: examples/smollm-safetensors/model/checkpoint   # or a Hub id
+quantization: w8a8           # risc_v_npu accepts w8a8 or w4a8
+graph:
+  kind: llm
+  # Both are compiled into the graph's static shapes; changing either needs a re-export.
+  max_seq: 256              # slots in the KV cache: prompt plus output cannot exceed it
+  chunk: 16                 # tokens per prefill call
+devices: [cpu, risc_v_npu]  # every linear layer goes to CVA6 + the 16 x 16 matrix core
+cpus: [arm-cortex-a9, native]   # one model.so each: the board and this host

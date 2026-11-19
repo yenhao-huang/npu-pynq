@@ -78,7 +78,7 @@ For either agent, if you selected a custom `IC_MCP_CACHE`, also pass
 This preserves the cache choice when the agent is launched from another shell.
 
 Ask the agent to call `lint` on `src/hw/rtl/npu_accelerator/matrix_core/systolic_array/pe.sv`, top
-`pe`. See the [tool acceptance guide](../../../../docs/goals/ic-design-tools/acceptance/reproduce.md)
+`pe`. See the [tool acceptance guide](../../../../docs/goals/0924-ic-design-tools/acceptance/reproduce.md)
 for more checks. Other MCP clients can launch the absolute `ic-tools` path with
 `serve --project /absolute/path/to/project` using stdio transport.
 
@@ -103,7 +103,7 @@ prepares the runtime through `postinstall` and reuses completed caches.
 
 Inside pi, run `/ic` to inspect backends, then ask it to call `lint` on
 `src/hw/rtl/npu_accelerator/matrix_core/systolic_array/pe.sv`, top `pe`.
-See [pi acceptance](../../../../docs/goals/ic-design-tools/acceptance/pi-agent.md) for all eight tools.
+See [pi acceptance](../../../../docs/goals/0924-ic-design-tools/acceptance/pi-agent.md) for all eight tools.
 
 ### Migrate an existing pi wrapper
 

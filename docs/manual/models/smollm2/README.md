@@ -51,7 +51,7 @@ gate and up (576 x 1536) and down (1536 x 576).
 
 ## How this repository uses it
 
-[examples/smollm-safetensors/export.yml](../../../../examples/smollm-safetensors/export.yml)
+[examples/smollm-safetensors/configs/export.yml](../../../../examples/smollm-safetensors/configs/export.yml)
 drives the export:
 
 | Setting | Value | Effect |
