@@ -1,9 +1,10 @@
 /* Phase profiling: where one delegate call's time goes.
  *
- * rv_npu_rt_execute times packA, each segment's weight copy into the B stage
- * window, each segment's run on CVA6 (start to done) and unpackC, and adds
- * them to the program's PhaseStats. Off by default; disabled, execute does one
- * branch per call and nothing else. Copied from npu_rt/profile.cpp.
+ * rv_npu_rt_execute times prepareActivation, each segment's weight copy into
+ * the B stage window (prepareWeights), each segment's run on CVA6 (start to
+ * done) and reduceOutput, and adds them to the program's PhaseStats. Off by
+ * default; disabled, execute does one branch per call and nothing else.
+ * Copied from npu_rt/profile.cpp.
  */
 #include "rv_npu_rt.h"
 
@@ -46,8 +47,9 @@ extern "C" int rv_npu_rt_phase_stats(int64_t index, int64_t out[RV_NPU_RT_PHASE_
   PhaseStats s = index < static_cast<int64_t>(rt.phases.size()) ? rt.phases[index] : PhaseStats{};
   const int64_t values[RV_NPU_RT_PHASE_FIELDS] = {
       p.m, p.n, p.k, static_cast<int64_t>(p.segments.size()), s.calls, s.callMin, s.callMax,
-      s.packA, s.stageB, s.pl, s.unpackC, s.plCycles, s.polls, s.jobs,
-      s.packABytes, s.stageBBytes, s.unpackCBytes};
+      s.prepareActivation, s.prepareWeights, s.npuRun, s.reduceOutput,
+      s.npuRunCycles, s.polls, s.jobs,
+      s.prepareActivationBytes, s.prepareWeightsBytes, s.reduceOutputBytes};
   std::copy(values, values + RV_NPU_RT_PHASE_FIELDS, out);
   return 0;
 }

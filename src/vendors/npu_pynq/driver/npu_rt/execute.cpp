@@ -26,7 +26,7 @@ int32_t aOffset(const Program &p, int32_t mi, int32_t kc) {
 }
 int32_t cTileStride(const Program &p, int32_t mi) { return align8(4 * rowsOf(p, mi) * p.tn); }
 
-void packA(const Program &p, const int8_t *a, uint8_t *dst) {
+void prepareActivation(const Program &p, const int8_t *a, uint8_t *dst) {
   int32_t mt = cdiv(p.m, p.tm), kt = cdiv(p.k, p.tk);
   for (int32_t mi = 0; mi < mt; ++mi) {
     int32_t rows = rowsOf(p, mi);
@@ -40,7 +40,7 @@ void packA(const Program &p, const int8_t *a, uint8_t *dst) {
   }
 }
 
-void unpackC(const Program &p, const uint8_t *src, int32_t *c) {
+void reduceOutput(const Program &p, const uint8_t *src, int32_t *c) {
   int32_t mt = cdiv(p.m, p.tm), nt = cdiv(p.n, p.tn), kt = cdiv(p.k, p.tk);
   int32_t plane = 0;
   for (int32_t mi = 0; mi < mt; ++mi)
@@ -90,16 +90,16 @@ void finish(const Program &p) {
 
 /* The same call as npu_rt_execute's, with each phase timed (profile.cpp). */
 int executeProfiled(int64_t index, const Program &p, void **buffers) {
-  enum { PACK_A, STAGE_B, PL, UNPACK_C };
+  enum { PREPARE_ACTIVATION, PREPARE_WEIGHTS, NPU_RUN, REDUCE_OUTPUT };
   PhaseStats &s = rt.phases[index];
   const int64_t cycles = rt.cycles, polls = rt.polls, jobs = rt.jobs;
-  int64_t stageB = 0, pl = 0, stageBBytes = 0;
+  int64_t prepareWeights = 0, npuRun = 0, prepareWeightsBytes = 0;
   uint8_t *io = static_cast<uint8_t *>(rt.io.virt);
 
   const int64_t begin = nowNs();
-  packA(p, static_cast<const int8_t *>(buffers[0]), io);
+  prepareActivation(p, static_cast<const int8_t *>(buffers[0]), io);
   int64_t t = nowNs();
-  recordEvent(index, PACK_A, begin, t);
+  recordEvent(index, PREPARE_ACTIVATION, begin, t);
   const int64_t packed = t;
   const uint64_t *words = static_cast<const uint64_t *>(rt.code.virt);
   for (const Segment &g : p.segments) {
@@ -108,34 +108,34 @@ int executeProfiled(int64_t index, const Program &p, void **buffers) {
     const int64_t t1 = nowNs();
     int32_t status = runSegment(g, words);
     t = nowNs();
-    recordEvent(index, STAGE_B, t0, t1);
-    recordEvent(index, PL, t1, t);
-    stageB += t1 - t0;
-    pl += t - t1;
-    stageBBytes += g.bBytes;
+    recordEvent(index, PREPARE_WEIGHTS, t0, t1);
+    recordEvent(index, NPU_RUN, t1, t);
+    prepareWeights += t1 - t0;
+    npuRun += t - t1;
+    prepareWeightsBytes += g.bBytes;
     if (status)
       return fail(index, status);
   }
   finish(p);
   const int64_t ran = t;
-  unpackC(p, io + p.cBase, static_cast<int32_t *>(buffers[1]));
+  reduceOutput(p, io + p.cBase, static_cast<int32_t *>(buffers[1]));
   const int64_t end = nowNs();
-  recordEvent(index, UNPACK_C, ran, end);
+  recordEvent(index, REDUCE_OUTPUT, ran, end);
 
   const int64_t call = end - begin;
   s.callMin = s.calls ? std::min(s.callMin, call) : call;
   s.callMax = std::max(s.callMax, call);
   s.calls += 1;
-  s.packA += packed - begin;
-  s.stageB += stageB;
-  s.pl += pl;
-  s.unpackC += end - ran;
-  s.plCycles += rt.cycles - cycles;
+  s.prepareActivation += packed - begin;
+  s.prepareWeights += prepareWeights;
+  s.npuRun += npuRun;
+  s.reduceOutput += end - ran;
+  s.npuRunCycles += rt.cycles - cycles;
   s.polls += rt.polls - polls;
   s.jobs += rt.jobs - jobs;
-  s.packABytes += static_cast<int64_t>(p.m) * p.k;
-  s.stageBBytes += stageBBytes;
-  s.unpackCBytes += static_cast<int64_t>(cdiv(p.k, p.tk)) * p.m * p.n * 4;
+  s.prepareActivationBytes += static_cast<int64_t>(p.m) * p.k;
+  s.prepareWeightsBytes += prepareWeightsBytes;
+  s.reduceOutputBytes += static_cast<int64_t>(cdiv(p.k, p.tk)) * p.m * p.n * 4;
   return 0;
 }
 
@@ -150,7 +150,7 @@ extern "C" int npu_rt_execute(int64_t index, void **buffers, int count) {
   if (rt.profile)
     return executeProfiled(index, p, buffers);
   uint8_t *io = static_cast<uint8_t *>(rt.io.virt);
-  packA(p, static_cast<const int8_t *>(buffers[0]), io);
+  prepareActivation(p, static_cast<const int8_t *>(buffers[0]), io);
   const uint64_t *words = static_cast<const uint64_t *>(rt.code.virt);
   for (const Segment &g : p.segments) {
     std::memcpy(rt.stage.virt, rt.weights + g.weightOffset, g.bBytes);
@@ -159,6 +159,6 @@ extern "C" int npu_rt_execute(int64_t index, void **buffers, int count) {
       return fail(index, status);
   }
   finish(p);
-  unpackC(p, io + p.cBase, static_cast<int32_t *>(buffers[1]));
+  reduceOutput(p, io + p.cBase, static_cast<int32_t *>(buffers[1]));
   return 0;
 }

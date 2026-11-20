@@ -3,8 +3,8 @@
 An engine wraps each of its stages (tokenize, prefill, decode, ...) in
 ``profiler.stage(name)``; stages that call the package pass ``model=True``.
 Attached to an ExportedPackage, the profiler also turns on the delegate
-backends' phase counters (for the NPU: pack_a, stage_b, pl, unpack_c per
-program) and collects them when it detaches. The report then splits the time
+backends' phase counters (for the NPU: prepare_activation, prepare_weights,
+npu_run, reduce_output per program) and collects them when it detaches. The report then splits the time
 spent in package calls into delegate time and the rest (model.so's CPU code
 and dispatch).
 
@@ -30,7 +30,8 @@ import time
 from typing import Any, Callable, Iterator
 
 FORMAT = 'pynqo-profile/1'
-PHASES = ('pack_a', 'stage_b', 'pl', 'unpack_c')
+PHASES = ('prepare_activation', 'prepare_weights', 'npu_run', 'reduce_output')
+PHASE_WIDTH = max(len(phase) for phase in PHASES) + 2   # table column width
 
 
 @dataclass
@@ -103,24 +104,26 @@ class Profiler:
     def delegate_report(self, device: str) -> dict[str, Any]:
         data = self.delegates[device]
         clock_hz = data['clock_hz']
-        programs, totals = [], {'calls': 0, 'call_ns': 0, 'pl_cycles': 0, 'polls': 0, 'jobs': 0}
+        programs, totals = [], {'calls': 0, 'call_ns': 0, 'npu_run_cycles': 0, 'polls': 0, 'jobs': 0}
         for p in data['programs']:
             if not p['calls']:
                 continue
             row = dict(p)
             row['call_ns'] = sum(p[f'{phase}_ns'] for phase in PHASES)
-            for phase in PHASES:   # bytes per ns is GB/s; pl's bytes need PL counters
+            for phase in PHASES:   # bytes per ns is GB/s; npu_run moves no host bytes
                 nbytes, ns = p.get(f'{phase}_bytes'), p[f'{phase}_ns']
                 row[f'{phase}_gbps'] = round(nbytes / ns, 4) if nbytes is not None and ns else None
             row['macs'] = p['m'] * p['n'] * p['k'] * p['calls']
-            row['pl_busy_ns'] = round(p['pl_cycles'] * 1e9 / clock_hz) if clock_hz and p['pl_cycles'] else None
+            cycles = p['npu_run_cycles']
+            row['npu_busy_ns'] = round(cycles * 1e9 / clock_hz) if clock_hz and cycles else None
             programs.append(row)
-            for key in ('calls', 'call_ns', 'pl_cycles', 'polls', 'jobs'):
+            for key in ('calls', 'call_ns', 'npu_run_cycles', 'polls', 'jobs'):
                 totals[key] += row[key]
             for phase in PHASES:
                 totals[f'{phase}_ns'] = totals.get(f'{phase}_ns', 0) + p[f'{phase}_ns']
                 totals[f'{phase}_bytes'] = totals.get(f'{phase}_bytes', 0) + p.get(f'{phase}_bytes', 0)
-        totals['pl_busy_ns'] = round(totals['pl_cycles'] * 1e9 / clock_hz) if clock_hz and totals['pl_cycles'] else None
+        cycles = totals['npu_run_cycles']
+        totals['npu_busy_ns'] = round(cycles * 1e9 / clock_hz) if clock_hz and cycles else None
         programs.sort(key=lambda r: r['call_ns'], reverse=True)
         return {'clock_hz': clock_hz, 'totals': totals, 'programs': programs,
                 'events_recorded': len(data['events']), 'events_dropped': data['events_dropped']}
@@ -153,23 +156,23 @@ class Profiler:
         for device, d in report['delegates'].items():
             t = d['totals']
             lines += ['', f'{device}: {t["calls"]} calls, {t["jobs"]} jobs, {t["polls"]} polls',
-                      f'{"phase":<10}{"total ms":>11}{"share":>8}{"MB":>10}{"GB/s":>8}']
+                      f'{"phase":<{PHASE_WIDTH}}{"total ms":>11}{"share":>8}{"MB":>10}{"GB/s":>8}']
             for phase in PHASES:
                 ns, nbytes = t[f'{phase}_ns'], t[f'{phase}_bytes']
                 gbps = f'{nbytes / ns:8.3f}' if ns and nbytes else f'{"-":>8}'
                 share = f'{ns / t["call_ns"]:8.1%}' if t['call_ns'] else f'{"-":>8}'
-                lines.append(f'{phase:<10}{ms(ns)} {share}{nbytes / 1e6:10.2f}{gbps}')
-            if t['pl_busy_ns'] is not None:
-                lines.append(f'pl busy from cycles {ms(t["pl_busy_ns"]).strip()} ms; start and poll overhead '
-                             f'{ms(t["pl_ns"] - t["pl_busy_ns"]).strip()} ms')
+                lines.append(f'{phase:<{PHASE_WIDTH}}{ms(ns)} {share}{nbytes / 1e6:10.2f}{gbps}')
+            if t['npu_busy_ns'] is not None:
+                lines.append(f'npu busy from cycles {ms(t["npu_busy_ns"]).strip()} ms; start and poll overhead '
+                             f'{ms(t["npu_run_ns"] - t["npu_busy_ns"]).strip()} ms')
             if d['events_dropped']:
                 lines.append(f'{d["events_dropped"]} timeline events dropped (raise the event capacity)')
             lines += ['', f'top {top} programs by time',
                       f'{"index":>6}{"m":>6}{"n":>6}{"k":>6}{"calls":>7}{"total ms":>11}'
-                      f'{"pack_a":>9}{"stage_b":>9}{"pl":>9}{"unpack_c":>9}']
+                      + ''.join(f'{phase:>{PHASE_WIDTH}}' for phase in PHASES)]
             for p in d['programs'][:top]:
-                parts = ''.join(f'{p[f"{ph}_ns"] / p["call_ns"]:9.1%}' if p['call_ns'] else f'{"-":>9}'
-                                for ph in PHASES)
+                parts = ''.join(f'{p[f"{ph}_ns"] / p["call_ns"]:{PHASE_WIDTH}.1%}' if p['call_ns']
+                                else f'{"-":>{PHASE_WIDTH}}' for ph in PHASES)
                 lines.append(f'{p["index"]:>6}{p["m"]:>6}{p["n"]:>6}{p["k"]:>6}{p["calls"]:>7}'
                              f'{ms(p["call_ns"])}{parts}')
         return '\n'.join(lines)
@@ -189,7 +192,7 @@ class Profiler:
             events.append({'ph': 'M', 'name': 'thread_name', 'pid': 0, 'tid': tid,
                            'args': {'name': f'{device} delegate'}})
             for index, phase, begin, end in d['events']:
-                events.append({'ph': 'X', 'cat': 'kernel' if phase == 'pl' else 'cpu_op',
+                events.append({'ph': 'X', 'cat': 'kernel' if phase == 'npu_run' else 'cpu_op',
                                'name': phase, 'pid': 0, 'tid': tid, 'ts': us(begin),
                                'dur': (end - begin) / 1e3, 'args': {'program': index}})
         return {'traceEvents': events, 'displayTimeUnit': 'ms', 'otherData': {'format': FORMAT, **self.meta}}
