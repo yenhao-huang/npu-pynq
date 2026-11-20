@@ -3,6 +3,7 @@
 //   pynqo-backend model.mlir --out <dir> --devices cpu,npu   (or cpu,risc_v_npu)
 //               --cpus arm-cortex-a9,native --llvm-bin /usr/lib/llvm-22/bin
 //               [--delegates-dir <dir>, default <model.mlir's dir>/delegates]
+//               [--profile-kernels]
 //
 //   model.mlir               the CPU graph: fused linalg on tensors, weights as
 //                            constants, a call to a bodiless @__delegate_<id>
@@ -16,7 +17,9 @@
 //        risc_v_npu: rv_programs.*, B tiles)
 //     -> CPU: delegate calls become func.call @__delegate__(id, in, out)
 //     -> externalize the remaining weights into weights.bin (`ws` argument)
-//     -> CPU codegen, once per CPU model: <dir>/<model>/model.so
+//     -> CPU codegen, once per CPU model: <dir>/<model>/model.so; with
+//        --profile-kernels every kernel the middle end numbered is timed and
+//        described in <dir>/<model>/kernels.json (cpu/kernel_probes.cpp)
 //     -> <dir>/compile.json: entry points, delegate table, weights, libraries
 //
 // src/export/pipeline.py runs it and adds what the front end knows (argument
@@ -69,6 +72,10 @@ static cl::opt<int64_t> columns("columns", cl::init(16));
 static cl::opt<int64_t> maxK("max-k", cl::init(256));
 static cl::opt<int64_t> segmentBytes("segment-bytes", cl::init(4 << 20));
 static cl::opt<bool> keepIr("keep-ir", cl::desc("Keep intermediate IR"), cl::init(false));
+static cl::opt<bool> profileKernels("profile-kernels",
+                                    cl::desc("Time every CPU kernel (__prof_enter/__prof_exit) and "
+                                             "write kernels.json beside each model.so"),
+                                    cl::init(false));
 static cl::opt<std::string> delegatesDir("delegates-dir",
                                          cl::desc("The device modules (<device>.mlir); "
                                                   "default: <model.mlir's directory>/delegates"),
@@ -342,7 +349,7 @@ int main(int argc, char **argv) {
     // All libraries still share one weights.bin, with the same offsets.
     OwningOpRef<ModuleOp> copy = module->clone();
     std::string dir = out + "/" + target->model;
-    if (failed(backend::codegen(*copy, *target, dir, llvmBin, keepIr, error)))
+    if (failed(backend::codegen(*copy, *target, dir, llvmBin, keepIr, profileKernels, error)))
       return fail(error);
     libraries.push_back({target->model, target->model + "/model.so"});
   }
@@ -353,6 +360,7 @@ int main(int argc, char **argv) {
   //   delegates     the dispatcher's table: id -> device, index
   //   libraries     model.so per CPU model, picked by the runtime's CPU
   //   npu_limits    checked against the overlay before loading
+  //   kernels       with --profile-kernels: kernels.json per CPU model
   std::error_code ec;
   llvm::raw_fd_ostream os(out + "/compile.json", ec, llvm::sys::fs::OF_Text);
   if (ec)
@@ -399,6 +407,11 @@ int main(int argc, char **argv) {
       for (auto &[model, path] : libraries)
         j.attribute(model, path);
     });
+    if (profileKernels)
+      j.attributeObject("kernels", [&] {
+        for (auto &[model, path] : libraries)
+          j.attribute(model, model + "/kernels.json");
+      });
     j.attributeObject("npu_limits", [&] {
       j.attribute("rows", static_cast<int64_t>(rows));
       j.attribute("columns", static_cast<int64_t>(columns));

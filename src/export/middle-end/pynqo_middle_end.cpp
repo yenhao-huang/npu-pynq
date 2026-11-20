@@ -13,6 +13,7 @@
 //   graph cleanups      canonicalize, cse, linalg-fuse-elementwise-ops on the CPU
 //                       graph: target-agnostic, so they run once here, not once
 //                       per CPU target in the back end
+//   kernel ids          pynqo.kernel_id on every CPU kernel, for profiling
 //
 // Both outputs hold only upstream dialects, which pynqo-backend parses, plus
 // the pynqo.* attributes (linalg/transforms/Passes.h). --emit=torch stops
@@ -159,6 +160,8 @@ int main(int argc, char **argv) {
     graph.addPass(createCanonicalizerPass());
     graph.addPass(createCSEPass());
     graph.addPass(createLinalgElementwiseOpFusionPass());
+    // Last, so each number names a kernel exactly as the back end compiles it.
+    graph.addPass(middle_end::createAssignKernelIdsPass());
     if (failed(graph.run(*module)))
       return fail("graph passes failed");
   }

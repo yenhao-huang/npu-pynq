@@ -56,6 +56,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../vendors/risc_v_npu/custom_dia
 add_llvm_executable(pynqo-middle-end
   pynqo_middle_end.cpp
   linalg/transforms/AssignDevices.cpp
+  linalg/transforms/AssignKernelIds.cpp
   linalg/transforms/PartitionDevices.cpp
   torch/transforms/Constants.cpp
   torch/transforms/AnyDimToAnyDims.cpp

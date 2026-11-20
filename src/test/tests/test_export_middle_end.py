@@ -189,7 +189,7 @@ class LoweringTest(unittest.TestCase):
 
     def test_w8a8_contraction_stays_an_int8_matmul(self):
         _, text = run(w8a8(conv_bn(False)), 'linalg')
-        self.assertRegex(text, r'linalg\.matmul ins\(.*xi8>, tensor<\S*xi8>\) outs\(.*xi32>\)')
+        self.assertRegex(text, r'linalg\.matmul (\{[^}]*\} )?ins\(.*xi8>, tensor<\S*xi8>\) outs\(.*xi32>\)')
         self.assertNotIn('torch.', re.sub(r'torch_tensor\S*', '', text))
 
     def test_any_dim_lowers(self):
@@ -325,7 +325,8 @@ class BackendContractTest(unittest.TestCase):
             cpu = code((Path(d) / 'pkg' / 'cpu.mlir').read_text())
             self.assertNotIn('@npu_', cpu)
             self.assertNotRegex(cpu, r'@__delegate_\d')
-            self.assertNotIn('pynqo.', cpu)
+            # The device attributes are consumed; only the kernel numbers stay, for codegen.
+            self.assertNotRegex(cpu, r'pynqo\.(?!kernel_id)')
             self.assertEqual(len(re.findall(r'call @__delegate__\(', cpu)), 2)
             # How the NPU computes the result (K chunks) is not CPU code.
             self.assertNotIn('linalg.reduce', cpu)

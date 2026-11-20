@@ -35,6 +35,7 @@ constexpr llvm::StringLiteral kDelegateFn = "__delegate__";
 // Written by the middle end (middle-end/linalg/transforms/Passes.h); the
 // spellings must agree (src/test/tests/test_export_layering.py).
 constexpr llvm::StringLiteral kDelegateIdAttr = "pynqo.delegate_id";
+constexpr llvm::StringLiteral kKernelIdAttr = "pynqo.kernel_id";
 
 int64_t byteSize(RankedTensorType type) {
   return type.getNumElements() * ((type.getElementTypeBitWidth() + 7) / 8);
@@ -82,7 +83,10 @@ LogicalResult lower(func::CallOp call, int64_t id, func::FuncOp dispatcher) {
       .setWritable(true);
   auto [outFlat, outView] = allocBytes(b, loc, outType, dynBytes);
   Value idValue = arith::ConstantIntOp::create(b, loc, id, 64);
-  func::CallOp::create(b, loc, dispatcher, ValueRange{idValue, inFlat, outFlat});
+  auto dispatch = func::CallOp::create(b, loc, dispatcher, ValueRange{idValue, inFlat, outFlat});
+  // The middle end's kernel number moves to the call that runs the delegate.
+  if (Attribute kernel = call->getAttr(kKernelIdAttr))
+    dispatch->setAttr(kKernelIdAttr, kernel);
   auto result = bufferization::ToTensorOp::create(b, loc, outType, outView);
   // The delegate filled a fresh buffer that nothing else refers to.
   // Later operations may therefore reuse it in place.

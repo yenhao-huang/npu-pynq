@@ -8,7 +8,7 @@
 | Status | Draft |
 | Based on | `origin/dev` at `95c35f7` |
 | Related | #115 (per-stage timing, written for the deprecated JIT runtime), #157 (asynchronous delegates) |
-| Issues | #172 (phase 1) |
+| Issues | #172 (phase 1), #195 (phase 2: L1 on fused kernels) |
 
 ## Goal
 
@@ -21,11 +21,13 @@ the PYNQ-Z1, report, **for every kernel**:
 - where it sits against the board's roofline (compute-bound or memory-bound,
   percentage of the attainable ceiling).
 
-A *kernel* is, for now, **one ATen op** of the exported graph (a
-`torch.aten.*` op in `torch.mlir`), the same granularity as the PyTorch
-profiler. An ATen op runs either as CPU code in `model.so` or, for the
-`_int_mm` contractions the NPU claims, as a `__delegate__` call. Each NPU
-call is further split into its host-side phases and its PL time.
+A *kernel* is **one operation of the CPU graph as `model.so` runs it**: a
+linalg operation after elementwise fusion (one loop nest), a tensor operation
+that copies (`concat`, `insert_slice`, `pad`), a copy bufferization adds, or a
+`__delegate__` call. This is the production build's own granularity, as
+IREE's dispatches and TVM's fused functions are; a fused kernel can cover
+several ATen ops. Each NPU call is further split into its host-side phases
+and its PL time (L2).
 
 The output must answer "where does a 1.5 s decode token go?" without
 guessing. Today's numbers (`docs/goals/sw_optimal/Results.md`) show 453 M PL
@@ -78,7 +80,7 @@ work.
 
 ```text
 L0 engine        tokenize | prefill | decode step | sample | detokenize      (Python)
-L1 aten op       aten.mul#12 | aten._int_mm#40 (npu) | aten.amax#41 ...    (model.so hooks)
+L1 kernel        generic(exp,divf)#57 | concat#58 | delegate 3#59 ...       (model.so probes)
 L2 npu phases    packA | stage weights (per segment) | pl run | poll | unpackC  (libnpu_rt)
 L3 pl counters   AXI read/write bytes, busy and stall cycles, array-active cycles  (RTL)
 ```
@@ -91,110 +93,74 @@ with `time.perf_counter_ns`. The same profiler collects L1–L3 records for the
 step it encloses, so every kernel record carries its step (prefill chunk or
 decode position).
 
-### L1: hooks around every ATen op (export side)
+### L1: probes around every fused kernel (#195)
 
-The hooks are placed where ATen identity is still exact: in `torch.mlir`, one
-`torch.aten.*` op is one ATen op of the `ExportedProgram`. They are carried
-through the lowering as opaque marker ops and become calls only once tensors
-are buffers.
+As ExecuTorch (debug handles at export, events at run time, joined by a table)
+and IREE (dispatches formed in `flow`, instrumentation materialised in
+codegen), naming a kernel and timing it are separate steps in separate stages
+(`docs/rules/lib/export_stages.md`).
 
-**1. Insert markers (pynqo-middle-end, torch dialect).** A new rewrite,
-`--profile-aten`, runs first among our middle-end rewrites. For each
-`torch.aten.*` op it assigns an id and threads the op's tensor operands and
-results through two marker ops of a small `pynqo_prof` dialect:
+**1. Name the kernels (pynqo-middle-end, linalg on tensors).**
+`pynqo-assign-kernel-ids` runs last, after `linalg-fuse-elementwise-ops`, and
+sets `pynqo.kernel_id = <i> : i32` on every kernel of the CPU graph in program
+order, delegate calls included. Views (`extract_slice`, `expand_shape`,
+`collapse_shape`) and scalar reads move no data and are not kernels. It is
+whole-graph and target-agnostic, so every CPU target shares the numbering.
+The attribute is always written: lowering to loops drops it, so it changes no
+code (checked: `model.so` is byte-identical with and without it).
 
-```mlir
-%a1, %w1 = pynqo_prof.enter 40 (%a, %w)          // returns its operands
-%r       = torch.aten._int_mm %a1, %w1
-%r1      = pynqo_prof.exit 40 (%r)               // returns its operand
+**2. Probe them (pynqo-backend `--profile-kernels`, per CPU target).**
+`src/export/backend/cpu/kernel_probes.cpp`, around bufferization in
+`cpu/toolchain.cpp`:
+
+```text
+probeKernels    tensors, before bufferization: each numbered operation is wrapped in
+                func.call @__prof_enter(%id) / @__prof_exit(%id). The calls stay in
+                place through bufferization, so the allocations and copies it adds for
+                an operation (a concat's copies, a copy before an in-place write) are
+                timed with it, whether or not the attribute survives.
+bufferization   unchanged
+probeCopies     memrefs, after bufferization: each memref.copy still outside a window
+                (a result copied into its out-parameter, a delegate's input staged in
+                its buffer) gets a window and a new id after the last.
+to LLVM         unchanged
 ```
 
-The markers return their operands, so the data dependence pins them: nothing
-that reads `%r1` can run before `exit 40`, and the op cannot start before
-`enter 40`. They declare a side effect, so canonicalization and CSE never
-delete or merge them.
+The delegate call carries its number through `cpu/delegate_calls.cpp`.
+`kernels.json` beside each `model.so` describes every id (kind `kernel`,
+`delegate` or `copy`; op; entry point; operand and result types; a linalg
+op's body operations; the delegate id), and `compile.json` lists it under
+`kernels`. Without the flag the pipeline is the single string it was and the
+package is unchanged.
 
-`torch.aten._assert_tensor_metadata` and ops that produce no value are
-skipped. Metadata-only ops (`view`, `unsqueeze`, ...) still get markers; step 3
-drops the ones that end up enclosing no work, so the skip list never has to be
-maintained by hand.
+**Export switch.** `python -m src.export.cli build ... --profile-kernels`
+(`pipeline.export_package(profile_kernels=True)`). A probed package is for
+profiling, not deployment.
 
-**2. Lower the markers with the graph.** A conversion pattern carries
-`pynqo_prof.enter/exit` from `!torch.vtensor` to `tensor` in torch-to-linalg,
-and bufferization treats them as ops that read and forward their operands.
-The partitioner (`partition.cpp`) sees the claimed contraction's activation
-operand come from a marker instead of the producer, which it already allows:
-a claimed op has its constant weight and one other operand.
-
-**3. Turn markers into calls (pynqo-backend CPU pipeline).** One pass at the
-memref level, after `convert-bufferization-to-memref` and before
-`convert-linalg-to-loops` (`src/export/backend/cpu/toolchain.cpp`):
-
-```mlir
-func.call @__prof_enter(%c40, %a_ptr, %w_ptr)    // input buffer pointers
-...  the op's linalg ops, or func.call @__delegate__(...)  ...
-func.call @__prof_exit(%c40, %r_ptr)             // result buffer pointer
-```
-
-- A pair that encloses no linalg op and no `__delegate__` call (a view folded
-  into a subview, a dropped assert) is deleted and its id is marked `elided`.
-- **The buffer pointers are required.** Intermediate buffers are hoisted
-  allocations whose address never escapes, so `llc -O3` may move their loads
-  and stores across an opaque call that passes only an id. Passing the input
-  pointers to `enter` and the result pointer to `exit` makes them escape, so
-  the op's reads happen after `enter` and its writes complete before `exit`.
-  (An inline-asm memory clobber in the hook would not help: it only orders
-  escaped memory.) The pointers come from
-  `memref.extract_aligned_pointer_as_index`.
-
-**Cost table.** The `--profile-aten` rewrite also writes one record per id
-into a `profile` table, copied into `compile.json`:
-
-```json
-{"id": 40, "op": "aten._int_mm", "entry": "decode",
- "in": [{"shape": [1, 576], "dtype": "si8"}, {"shape": [576, 1536], "dtype": "si8"}],
- "out": [{"shape": [1, 1536], "dtype": "si32"}],
- "ops": 1769472, "bytes_read": 885312, "bytes_written": 6144,
- "device": "npu", "elided": false}
-```
-
-- `ops` comes from a per-op formula (contractions `2·M·N·K`, elementwise one
-  op per output element, reductions one per input element); ops without a
-  formula report `null`, not a guess;
-- `bytes_*` is the compulsory traffic (each operand read once, the result
-  written once); real traffic is higher when caches thrash, and L3 measures
-  the real value for NPU work;
-- `device` is filled in after partitioning: `npu` when the pair encloses a
-  `__delegate__` call, else `cpu`.
-
-**Export switch.** `src/export/pipeline.py` passes `--profile-aten` to
-pynqo-middle-end and the memref-level pass to pynqo-backend when the config
-sets `profile: true` or the CLI gets `--profile`; the manifest records
-`"profile": "aten"`. Packages built without it contain no markers and no hooks.
-
-**What this measures.** Markers are fusion barriers: `linalg-fuse-elementwise-ops`
-no longer fuses across ATen op boundaries, so a profiled package runs the
-unfused graph, as PyTorch eager would. The report therefore shows the
-profiled step time beside the unprofiled one; the difference is fusion plus
-hook overhead. Per-op attribution of a fused production build is a later
-level (see "Later").
+**Ordering caveat.** The probes pass only the id. `llc -O3` may move loads and
+stores of buffers whose address never escapes across an opaque call, so a
+little work can land in the neighbouring window. Passing the buffer pointers
+(`memref.extract_aligned_pointer_as_index`) to the probes would pin them; it
+is not done yet and is checked against the disassembly and the coverage
+figure first (Risks).
 
 ### L1 runtime: `__prof_enter` / `__prof_exit`
 
-Defined in `src/runtime/delegate/dispatch.c`, which is already loaded with
-`RTLD_GLOBAL` before `model.so` and resolves `__delegate__` the same way, so
-no new library or loader change is needed.
+`src/runtime/share/kernel_probes.c`, wrapped by `src/runtime/share/kernels.py`
+(`KernelProbes`). `ExportedPackage` loads it with `RTLD_GLOBAL` before a
+probed `model.so`, as it loads the delegate dispatcher.
 
+- Off until profiling starts: each probe is then one load and one branch.
 - Clock: `clock_gettime(CLOCK_MONOTONIC)`, the clock Python's
-  `time.perf_counter_ns` reads on Linux, so hook, phase and engine-stage
-  events share one timeline. The Cortex-A9 PMU cycle counter (`PMCCNTR`) is
-  faster but needs user-mode access enabled by a kernel module; it is a later
-  option, not a requirement.
-- Storage: per-id aggregates (count, total, min, max) always; an optional
-  fixed-size ring of `(id, t_enter, t_exit)` events for a timeline.
-- Read out through `prof_reset(n)`, `prof_aggregates(out)` and
-  `prof_events(out, max)`, wrapped by `Dispatcher` like the existing
-  `delegate_calls`.
+  `time.perf_counter_ns` reads on Linux, so probe, phase and engine-stage
+  events share one timeline. The Cortex-A9 PMU cycle counter (`PMCCNTR`) is a
+  later option.
+- Storage: per-id calls, total, min, max; with an event capacity, `(id, begin,
+  end)` events until full, counting the rest as dropped.
+- `share/profile.py` collects them on detach: `profile.json` gains `kernels`
+  (per kernel, slowest first; time per kind; `coverage` = probed time over
+  package-call time), the table a top-N kernel list, and `trace.json` a
+  `cpu kernels` track.
 
 ### L2: NPU phases (libnpu_rt)
 
@@ -294,8 +260,8 @@ fusion effect (above) is reported separately and has no budget.
 | --- | --- | --- | --- |
 | 0 | Board ceilings | Microbenchmarks run on the board (cached/uncached memcpy, NEON GEMM, a synthetic NPU program that streams B); `CEILINGS` in `spec/board.py` | Repeatable within ±3% over 5 runs; values recorded with the overlay and board image used |
 | 1 | L0 + L2 | Engine `Profiler`; libnpu_rt phases; `profile.json` and table (no re-export needed) | Fake-clock unit tests for aggregation; disabled path leaves existing tests unchanged; one SmolLM2 board run with the NPU phase split |
-| 2a | L1 spike | Insert, lower and call markers on one small graph (linear, add, softmax, one `_int_mm` claimed by the NPU) | The graph exports with `--profile`; claim count unchanged; the backend contract accepts the markers; host run gives one record per non-elided ATen op |
-| 2 | L1 | `--profile-aten` in pynqo-middle-end, memref-level pass in pynqo-backend, `compile.json` `profile` table, hooks in `dispatch.c`, roofline report, Chrome trace | FileCheck-style tests for insertion and elision; profiled and unprofiled SmolLM2 packages give bit-identical logits for 24 greedy steps; coverage ≥ 95% of step time; hook overhead < 2%; static op/byte counts match a hand count for one `_int_mm` and one attention block |
+| 2 | L1 (#195) | `pynqo-assign-kernel-ids` in pynqo-middle-end; `--profile-kernels` probes in pynqo-backend; `kernels.json`; `kernel_probes.c`; kernel table and trace in `profile.py` | Host tests: ids in program order, delegate calls numbered, device modules not; `model.so` byte-identical without the flag; every id probed and described; probed and plain packages give identical outputs, every kernel timed once per call. Board: SmolLM2 logits identical for 24 greedy steps; coverage ≥ 95% of package-call time; probe overhead < 2% |
+| 2b | Roofline | Static op and byte counts per kernel from `kernels.json`; roofline columns | Counts match a hand count for one contraction and one attention block |
 | 3 | L3 | RTL counters, testbench, ABI 2.1, driver reads them | `make -C src/test lint sim` passes; counter values match the testbench's expected bytes and cycles; board run reports NPU DDR GB/s |
 | 4 | Diff and regressions | `profile diff`; optional CI check on host-sim profiles (op/byte counts, not times) | Diff of two board runs reproduces a known change |
 
@@ -305,18 +271,13 @@ one PR to `dev`, per the Git rules.
 
 ## Risks and open questions
 
-- **Markers through torch-mlir.** The backend contract
-  (`torch-backend-to-linalg-on-tensors`) may reject an unknown dialect, and the
-  pattern may need a hook in our torch-mlir patch (`patch_torch_mlir.cmake`).
-  Phase 2a exists to settle this before phase 2.
-- **Profiled build differs from production.** Markers block elementwise
-  fusion, so per-op times describe the unfused graph. Bit-identical logits
-  are expected (elementwise fusion does not reorder reductions) and are an
-  acceptance check, not an assumption.
-- **No layer names yet.** `torch.mlir` carries no locations, so records name
-  the ATen op and its shapes but not the `nn.Module` path. Adding it means
-  writing the FX nodes' `nn_module_stack` into a side table keyed by node order
-  in the front end; left for later.
+- **Probe ordering.** See the caveat under L1: only the id is passed. If the
+  disassembly or a low coverage shows work moving between windows, pass the
+  buffer pointers.
+- **No layer names yet.** `model.mlir` carries no locations, so a kernel is
+  named by its op, body operations and types, not by its ATen op or
+  `nn.Module` path. Plan 2026-1112-004's provenance step (FX locations kept to
+  `model.mlir`) fills `location` in `kernels.json`.
 - **Prefill chunk padding.** Prefill runs `chunk` tokens even when fewer are
   real, so its per-op times include padded work; the report labels prefill
   records with the chunk's real length.
@@ -336,10 +297,14 @@ one PR to `dev`, per the Git rules.
 
 Not part of this plan; recorded so the L1 design does not close them off.
 
-- **Fused-kernel level.** Profile the production (fused) build by wrapping
-  each post-fusion linalg op, or by outlining each into its own function
-  (IREE and TVM get boundaries this way), and map back to ATen ids through
-  locations.
+- **ATen-op level.** Time the unfused graph per ATen op, as the PyTorch
+  profiler does: marker ops threaded through the torch dialect
+  (`pynqo_prof.enter/exit` returning their operands), carried through
+  torch-to-linalg and turned into calls on memrefs. They block fusion, so they
+  describe the unfused graph; the fused-kernel probes (L1) describe what runs.
+- **Kernel outlining.** Once plan 2026-1112-004 outlines each kernel into its
+  own function, probes can move to the call sites, as TVM's debug executor
+  times fused functions; the kernel ids and `kernels.json` stay.
 - **AXI Performance Monitor.** A Xilinx APM on `S_AXI_HP0` would give real NPU
   DDR bytes and latency without changing `npu_accelerator`, ahead of the L3
   RTL counters.
