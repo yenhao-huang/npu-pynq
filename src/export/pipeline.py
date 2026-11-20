@@ -134,10 +134,14 @@ def check_scheme(config: dict) -> None:
 
 
 def export_package(config: dict, out: str | Path, source: str | None = None,
-                   llvm_bin: str = '/usr/lib/llvm-22/bin', timings: dict | None = None) -> Path:
+                   llvm_bin: str = '/usr/lib/llvm-22/bin', timings: dict | None = None,
+                   profile_kernels: bool = False) -> Path:
     """Run the whole export for ``config`` (examples/<demo>/export.yml); write the package to ``out``.
 
     load -> export_graph -> quantize -> to_mlir -> pynqo-middle-end -> pynqo-backend -> manifest
+
+    ``profile_kernels`` builds a model.so that times every CPU kernel
+    (pynqo-backend --profile-kernels); use it to profile, not to deploy.
     """
     # Imported here so that importing this module does not load torch or torch-mlir.
     import shutil
@@ -213,7 +217,8 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
     _linux(f"{tool} '{_linux_path(model_mlir)}' --out '{_linux_path(out)}' "
            f"--delegates-dir '{_linux_path(delegates_dir(model_mlir))}' "
            f"--devices {','.join(config['devices'])} --cpus {','.join(config['cpus'])} "
-           f"--llvm-bin {llvm_bin} --rows {limits.rows} --columns {limits.columns} --max-k {limits.max_k}")
+           f"--llvm-bin {llvm_bin} --rows {limits.rows} --columns {limits.columns} --max-k {limits.max_k}"
+           + (" --profile-kernels" if profile_kernels else ""))
     times['backend'] = time.monotonic() - start
 
     # manifest: add what only the front end knows (runtime files, argument names, model metadata).

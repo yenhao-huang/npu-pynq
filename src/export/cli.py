@@ -15,7 +15,8 @@ from src.export import pipeline
 def cmd_build(args) -> int:
     config = pipeline.read_config(args.config)
     timings: dict[str, float] = {}
-    out = pipeline.export_package(config, args.out, source=args.source, timings=timings)
+    out = pipeline.export_package(config, args.out, source=args.source, timings=timings,
+                                  profile_kernels=args.profile_kernels)
     print(json.dumps({'package': str(out), 'seconds': {k: round(v, 1) for k, v in timings.items()}}, indent=2))
     return 0
 
@@ -27,6 +28,8 @@ def main(argv=None) -> int:
     b.add_argument('config')
     b.add_argument('--out', required=True)
     b.add_argument('--source', help="Override the config's model source")
+    b.add_argument('--profile-kernels', action='store_true',
+                   help='time every CPU kernel of model.so (for --profile; slower, not for deployment)')
     b.set_defaults(fn=cmd_build)
     args = parser.parse_args(argv)
     return args.fn(args)

@@ -6,6 +6,9 @@ Entry points take memref descriptors through MLIR's C interface:
 
     _mlir_ciface_<entry>(ws, *inputs, *outputs)
 
+A package exported with --profile-kernels also lists kernels.json per CPU
+model; its model.so then times every CPU kernel (share/kernels.py).
+
 This module knows no task: tasks/llm and tasks/classifier build their engines on
 ExportedPackage.call and ExportedPackage.stats.
 """
@@ -92,6 +95,12 @@ class ExportedPackage:
         if model == 'arm-cortex-a9':
             for dep in ('libm.so.6', 'libgcc_s.so.1'):
                 ctypes.CDLL(dep, mode=ctypes.RTLD_GLOBAL)
+        # A probed model.so needs __prof_enter / __prof_exit before it loads.
+        self.kernels = None
+        table = self.manifest.get('kernels', {}).get(name)
+        if table:
+            from src.runtime.share.kernels import KernelProbes, read_table
+            self.kernels = KernelProbes(read_table(self.root / table))
         self.lib = ctypes.CDLL(str(self.root / libraries[name]))
         weights = self.root / 'weights.bin'
         self.weights = np.memmap(weights, dtype=np.uint8, mode='r') if weights.stat().st_size else np.zeros(8, np.uint8)
@@ -114,10 +123,21 @@ class ExportedPackage:
         return stats
 
     def profile(self, enable: bool, events: int = 0) -> None:
-        """Start or stop phase profiling in every backend that supports it."""
+        """Start or stop phase profiling in every backend that supports it, and
+        kernel timing when the package was exported with --profile-kernels."""
         for backend in self.backends.values():
             if hasattr(backend, 'profile'):
                 backend.profile(enable, events)
+        if self.kernels is not None:
+            self.kernels.profile(enable, events)
+
+    def kernel_stats(self) -> list[dict[str, Any]] | None:
+        """Per CPU kernel that ran: its kernels.json entry and its times; None
+        when the package was exported without --profile-kernels."""
+        return self.kernels.stats() if self.kernels is not None else None
+
+    def kernel_events(self) -> tuple[list[tuple[int, int, int]], int]:
+        return self.kernels.events() if self.kernels is not None else ([], 0)
 
     def phase_stats(self) -> dict[str, list[dict[str, int]]]:
         return {name: b.phase_stats() for name, b in self.backends.items() if hasattr(b, 'phase_stats')}
