@@ -44,7 +44,10 @@ package cva6_npu_config_pkg;
       VLEN: unsigned'(32),
       FpgaEn: bit'(0),
       FpgaAlteraEn: bit'(0),
-      TechnoCut: bit'(1),
+      // NPU: cv32a60x targets an ASIC cut, whose tc_sram_wrapper_cache_techno
+      // body is synthesis translate_off and leaves the cache SRAMs as black
+      // boxes in Vivado; 0 selects sram, which infers FPGA block RAM.
+      TechnoCut: bit'(0),
       SuperscalarEn: bit'(0),
       NrCommitPorts: unsigned'(1),
       AxiAddrWidth: unsigned'(CVA6ConfigAxiAddrWidth),

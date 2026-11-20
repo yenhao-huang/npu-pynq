@@ -28,6 +28,11 @@ module scalar_core #(
 ) (
     input  logic        clk,
     input  logic        rst_n,
+    // Clock of the CVA6 core alone (CVA6 crosses to clk inside its
+    // implementation); CUSTOM runs entirely on clk and ignores it.
+    /* verilator lint_off UNUSEDSIGNAL */
+    input  logic        scalar_clk,
+    /* verilator lint_on UNUSEDSIGNAL */
 
     input  logic        isa_start,
     input  logic [31:0] prog_addr,
