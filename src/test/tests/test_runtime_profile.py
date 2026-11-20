@@ -29,9 +29,9 @@ class FakeClock:
 
 
 PROGRAM = {'index': 0, 'm': 4, 'n': 4, 'k': 8, 'segments': 1, 'calls': 2, 'call_ns_min': 400,
-           'call_ns_max': 600, 'pack_a_ns': 100, 'stage_b_ns': 300, 'pl_ns': 500, 'unpack_c_ns': 100,
-           'pl_cycles': 30, 'polls': 7, 'jobs': 2, 'pack_a_bytes': 64, 'stage_b_bytes': 64,
-           'unpack_c_bytes': 128}
+           'call_ns_max': 600, 'prepare_activation_ns': 100, 'prepare_weights_ns': 300,
+           'npu_run_ns': 500, 'reduce_output_ns': 100, 'npu_run_cycles': 30, 'polls': 7, 'jobs': 2,
+           'prepare_activation_bytes': 64, 'prepare_weights_bytes': 64, 'reduce_output_bytes': 128}
 
 
 class FakeBackend:
@@ -52,11 +52,12 @@ class FakePackage:
         self.backends['npu'].profile(enable, events)
 
     def phase_stats(self):
-        idle = dict(PROGRAM, index=1, calls=0, pack_a_ns=0, stage_b_ns=0, pl_ns=0, unpack_c_ns=0)
+        idle = dict(PROGRAM, index=1, calls=0, prepare_activation_ns=0, prepare_weights_ns=0,
+                    npu_run_ns=0, reduce_output_ns=0)
         return {'npu': [PROGRAM, idle]}
 
     def events(self):
-        return {'npu': ([(0, 'pack_a', 5000, 5100), (0, 'pl', 5100, 5600)], 3)}
+        return {'npu': ([(0, 'prepare_activation', 5000, 5100), (0, 'npu_run', 5100, 5600)], 3)}
 
 
 class ProfilerTests(unittest.TestCase):
@@ -95,9 +96,9 @@ class ProfilerTests(unittest.TestCase):
         self.assertEqual(len(npu['programs']), 1, 'programs never called are left out')
         row = npu['programs'][0]
         self.assertEqual(row['call_ns'], 1000)
-        self.assertEqual(row['pl_busy_ns'], 300)       # 30 cycles at 100 MHz
-        self.assertEqual(row['stage_b_gbps'], round(64 / 300, 4))
-        self.assertIsNone(row['pl_gbps'])
+        self.assertEqual(row['npu_busy_ns'], 300)       # 30 cycles at 100 MHz
+        self.assertEqual(row['prepare_weights_gbps'], round(64 / 300, 4))
+        self.assertIsNone(row['npu_run_gbps'])
         self.assertEqual(row['macs'], 4 * 4 * 8 * 2)
         self.assertEqual(npu['totals']['calls'], 2)
         self.assertEqual(npu['events_dropped'], 3)
@@ -105,7 +106,7 @@ class ProfilerTests(unittest.TestCase):
         self.assertEqual((summary['model_ns'], summary['delegate_ns'], summary['other_ns']), (2000, 1000, 1000))
         self.assertEqual(summary['delegate_share'], 0.5)
         table = prof.table()
-        for text in ('decode', 'stage_b', 'pl busy from cycles', '3 timeline events dropped', '50.0%'):
+        for text in ('decode', 'prepare_weights', 'npu busy from cycles', '3 timeline events dropped', '50.0%'):
             self.assertIn(text, table)
 
     def test_trace_is_chrome_trace_events(self) -> None:
@@ -117,7 +118,7 @@ class ProfilerTests(unittest.TestCase):
         prof.detach()
         trace = prof.trace()
         spans = [e for e in trace['traceEvents'] if e['ph'] == 'X']
-        self.assertEqual([e['name'] for e in spans], ['decode', 'pack_a', 'pl'])
+        self.assertEqual([e['name'] for e in spans], ['decode', 'prepare_activation', 'npu_run'])
         self.assertEqual(spans[0]['args'], {'pos': 7})
         self.assertEqual(spans[2]['cat'], 'kernel')
         self.assertEqual(spans[2]['dur'], 0.5)            # 500 ns in microseconds
@@ -226,13 +227,15 @@ class NpuPhaseTests(unittest.TestCase):
                 [row] = backend.phase_stats()
                 self.assertEqual({k: row[k] for k in ('m', 'n', 'k', 'segments', 'calls', 'jobs')},
                                  {'m': 4, 'n': 4, 'k': 8, 'segments': 1, 'calls': 3, 'jobs': 3})
-                self.assertEqual((row['pack_a_bytes'], row['stage_b_bytes'], row['unpack_c_bytes']),
-                                 (3 * 32, 3 * 32, 3 * 64))
-                phases = row['pack_a_ns'] + row['stage_b_ns'] + row['pl_ns'] + row['unpack_c_ns']
+                self.assertEqual((row['prepare_activation_bytes'], row['prepare_weights_bytes'],
+                                  row['reduce_output_bytes']), (3 * 32, 3 * 32, 3 * 64))
+                phases = (row['prepare_activation_ns'] + row['prepare_weights_ns'] + row['npu_run_ns']
+                          + row['reduce_output_ns'])
                 self.assertLessEqual(row['call_ns_min'] * 3, phases)
                 self.assertGreaterEqual(row['call_ns_max'] * 3, phases)
                 events, dropped = backend.events()
-                self.assertEqual([e[1] for e in events], ['pack_a', 'stage_b', 'pl', 'unpack_c', 'pack_a'])
+                self.assertEqual([e[1] for e in events], ['prepare_activation', 'prepare_weights', 'npu_run',
+                                                          'reduce_output', 'prepare_activation'])
                 self.assertEqual(dropped, 3 * 4 - 5)
                 self.assertTrue(all(begin <= end for _, _, begin, end in events))
                 self.assertEqual(backend.stats()['calls'], 4)

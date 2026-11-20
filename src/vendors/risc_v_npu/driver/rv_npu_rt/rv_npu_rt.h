@@ -73,13 +73,15 @@ int64_t rv_npu_rt_program_count(void);
 
 /* Per program `index`, RV_NPU_RT_PHASE_FIELDS values, in order (as npu_rt):
  *   m, n, k, segments, calls, call_ns_min, call_ns_max,
- *   pack_a_ns, stage_b_ns, pl_ns, unpack_c_ns, pl_cycles, polls, jobs,
- *   pack_a_bytes, stage_b_bytes, unpack_c_bytes */
+ *   prepare_activation_ns, prepare_weights_ns, npu_run_ns, reduce_output_ns,
+ *   npu_run_cycles, polls, jobs,
+ *   prepare_activation_bytes, prepare_weights_bytes, reduce_output_bytes */
 #define RV_NPU_RT_PHASE_FIELDS 17
 int rv_npu_rt_phase_stats(int64_t index, int64_t out[RV_NPU_RT_PHASE_FIELDS]);
 
-/* Timeline events: program index, phase (0 pack_a, 1 stage_b, 2 pl,
- * 3 unpack_c), begin_ns, end_ns. As npu_rt_events. */
+/* Timeline events: program index, phase (0 prepare_activation,
+ * 1 prepare_weights, 2 npu_run, 3 reduce_output), begin_ns, end_ns. As
+ * npu_rt_events. */
 #define RV_NPU_RT_EVENT_FIELDS 4
 int64_t rv_npu_rt_events(int64_t *out, int64_t max, int64_t *dropped);
 const char *rv_npu_rt_error(void);
@@ -107,9 +109,10 @@ struct Program {
 
 struct PhaseStats {
   int64_t calls = 0, callMin = 0, callMax = 0;
-  int64_t packA = 0, stageB = 0, pl = 0, unpackC = 0;  /* nanoseconds */
-  int64_t plCycles = 0, polls = 0, jobs = 0;
-  int64_t packABytes = 0, stageBBytes = 0, unpackCBytes = 0;
+  /* nanoseconds */
+  int64_t prepareActivation = 0, prepareWeights = 0, npuRun = 0, reduceOutput = 0;
+  int64_t npuRunCycles = 0, polls = 0, jobs = 0;
+  int64_t prepareActivationBytes = 0, prepareWeightsBytes = 0, reduceOutputBytes = 0;
 };
 
 struct Event {

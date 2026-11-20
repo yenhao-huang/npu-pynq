@@ -19,10 +19,13 @@ from . import DelegateError, build_library
 
 DRIVER = Path(__file__).resolve().parents[2] / 'vendors' / 'npu_pynq' / 'driver' / 'npu_rt'
 SOURCES = ('load.cpp', 'execute.cpp', 'pynq.cpp', 'sim.cpp', 'profile.cpp')
+# npu_rt.h, NPU_RT_PHASE_FIELDS, in order
 PHASE_FIELDS = ('m', 'n', 'k', 'segments', 'calls', 'call_ns_min', 'call_ns_max',
-                'pack_a_ns', 'stage_b_ns', 'pl_ns', 'unpack_c_ns', 'pl_cycles', 'polls', 'jobs',
-                'pack_a_bytes', 'stage_b_bytes', 'unpack_c_bytes')   # npu_rt.h, NPU_RT_PHASE_FIELDS
-PHASES = ('pack_a', 'stage_b', 'pl', 'unpack_c')                     # npu_rt_events' phase ids
+                'prepare_activation_ns', 'prepare_weights_ns', 'npu_run_ns', 'reduce_output_ns',
+                'npu_run_cycles', 'polls', 'jobs',
+                'prepare_activation_bytes', 'prepare_weights_bytes', 'reduce_output_bytes')
+# npu_rt_events' phase ids
+PHASES = ('prepare_activation', 'prepare_weights', 'npu_run', 'reduce_output')
 
 
 class Buffer(ctypes.Structure):
