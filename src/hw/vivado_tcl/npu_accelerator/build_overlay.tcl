@@ -308,6 +308,16 @@ if {$scalar_impl eq "CVA6"} {
     puts $hook_file {if {[llength $unread_cells]} { remove_cell $unread_cells }}
     close $hook_file
     set_property STEPS.OPT_DESIGN.TCL.PRE $opt_pre_hook [get_runs impl_1]
+} else {
+    # The matrix core controller's align_row -> span_cycles / enable paths
+    # land within tens of picoseconds of 10 ns either way, route-dominated
+    # (v1.0.8: +0.031 ns; dev 06a7b70: -0.041 ns on 4 endpoints). As
+    # 5471ff4 did for the old --hexagon flow, extra physical optimisation
+    # after placement and after routing recovers that without an RTL change.
+    set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+    set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
+    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
 }
 
 launch_runs impl_1 -to_step write_bitstream -jobs $jobs
