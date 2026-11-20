@@ -20,6 +20,11 @@ module npu_accelerator #(
     /* verilator lint_off SYNCASYNCNET */
     input  logic                              s_axi_aresetn,
     /* verilator lint_on SYNCASYNCNET */
+    // Clock of the CVA6 core alone; it crosses to s_axi_aclk inside
+    // scalar_core_cva6. CUSTOM ignores it: tie it to s_axi_aclk. No FREQ_HZ,
+    // so the block design takes it from the clock it is connected to.
+    (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 scalar_clk CLK" *)
+    input  logic                              scalar_clk,
     input  logic [C_S_AXI_ADDR_WIDTH-1:0]     s_axi_awaddr,
     input  logic [2:0]                        s_axi_awprot,
     input  logic                              s_axi_awvalid,
@@ -140,6 +145,7 @@ module npu_accelerator #(
     ) u_scalar_core (
         .clk(s_axi_aclk),
         .rst_n(s_axi_aresetn),
+        .scalar_clk(scalar_clk),
         .isa_start(isa_start_pulse),
         .prog_addr(isa_prog_addr),
         .prog_len(isa_prog_len),

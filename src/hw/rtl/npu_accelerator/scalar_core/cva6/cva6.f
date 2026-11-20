@@ -210,6 +210,10 @@ upstream/vendor/pulp-platform/common_cells/src/spill_register_flushable.sv
 upstream/vendor/pulp-platform/common_cells/src/spill_register.sv
 upstream/vendor/pulp-platform/common_cells/src/deprecated/fifo_v2.sv
 upstream/vendor/pulp-platform/common_cells/src/stream_register.sv
+upstream/vendor/pulp-platform/common_cells/src/sync.sv
+upstream/vendor/pulp-platform/common_cells/src/binary_to_gray.sv
+upstream/vendor/pulp-platform/common_cells/src/gray_to_binary.sv
+upstream/vendor/pulp-platform/common_cells/src/cdc_fifo_gray.sv
 upstream/vendor/pulp-platform/axi/src/axi_intf.sv
 upstream/vendor/pulp-platform/axi/src/axi_atop_filter.sv
 upstream/vendor/pulp-platform/axi/src/axi_id_prepend.sv
@@ -218,6 +222,9 @@ upstream/vendor/pulp-platform/axi/src/axi_mux.sv
 upstream/vendor/pulp-platform/axi/src/axi_serializer.sv
 upstream/vendor/pulp-platform/axi/src/axi_id_serialize.sv
 upstream/vendor/pulp-platform/axi/src/axi_err_slv.sv
+upstream/vendor/pulp-platform/axi/src/axi_cdc_src.sv
+upstream/vendor/pulp-platform/axi/src/axi_cdc_dst.sv
+upstream/vendor/pulp-platform/axi/src/axi_cdc.sv
 
 // NPU integration
 scalar_core_cva6.sv

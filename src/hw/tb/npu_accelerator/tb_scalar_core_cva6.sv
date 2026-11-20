@@ -36,6 +36,9 @@ module tb_scalar_core_cva6;
 `endif
 
     logic s_axi_aclk = 0, s_axi_aresetn = 0;
+    // The CVA6 core's own clock: 50 MHz as on the board, its edges offset
+    // from s_axi_aclk so the CDC sees no fixed phase. CUSTOM ignores it.
+    logic scalar_clk = 0;
     logic [7:0] s_axi_awaddr = 0, s_axi_araddr = 0;
     logic [2:0] s_axi_awprot = 0, s_axi_arprot = 0;
     logic s_axi_awvalid = 0, s_axi_wvalid = 0, s_axi_bready = 0;
@@ -63,6 +66,10 @@ module tb_scalar_core_cva6;
         .ROWS(16), .COLUMNS(16), .MAX_K(256), .IN_BYTES(8), .SCALAR_IMPL(IMPL)
     ) dut (.*);
     always #5 s_axi_aclk = ~s_axi_aclk;
+    initial begin
+        #3;
+        forever #10 scalar_clk = ~scalar_clk;
+    end
 
     logic [63:0] mem [0:MEM_WORDS-1];
     logic [63:0] expected [0:MEM_WORDS-1];

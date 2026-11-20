@@ -7,9 +7,11 @@
 // from DDR and drives the matrix core through the MMIO job registers of
 // cva6_npu_mmio; cva6_dma streams each job's operands and result.
 //
-//                 +------------+      +-------------+  0 DDR
-//   cva6  ------> | stop gate  | ---> | axi_demux   | ------------+
-//   (4-bit IDs)   +------------+      | (address)   |  1 MMIO     |
+//   scalar_clk : clk
+//              :
+//   cva6 ---> axi_cdc --+   +------------+      +-------------+  0 DDR
+//   (4-bit IDs)         +-> | stop gate  | ---> | axi_demux   | ------------+
+//                           +------------+      | (address)   |  1 MMIO     |
 //                                     |             | ---> cva6_npu_mmio --> ctl_*, cva6_dma
 //                                     |             |  2 unmapped |
 //                                     +-------------+ ---> axi_err_slv (DECERR)
@@ -26,6 +28,17 @@
 // ID, so the ID-less m_axi needs no response-ID bookkeeping of its own (the
 // serializer keeps the slave-side IDs and the in-order slave returns responses
 // in request order).
+//
+// Clocks: only the cva6 core runs on scalar_clk (50 MHz on the PYNQ-Z1, as it
+// cannot close timing at 100 MHz); everything else, the stop gate included,
+// runs on clk. axi_cdc (pulp gray-code FIFOs) carries its AXI port across.
+// cpu_rst_n resets both sides of axi_cdc together with the core, so requests
+// still queued in the FIFOs when a program ends are discarded rather than
+// replayed into the next one. boot_addr only changes in IDLE, while the core
+// is held in reset, so it crosses as a quasi-static signal. The board build
+// constrains the crossing with set_max_delay -datapath_only (see
+// src/hw/constraints/npu_accelerator_cva6_cdc.xdc). Tie scalar_clk to clk
+// where one clock is enough (the simulation testbenches may use either).
 //
 // Run control:
 //   IDLE   CVA6 held in reset (rst_ni low). An isa_start while not busy loads
@@ -51,6 +64,7 @@ module scalar_core_cva6 #(
 ) (
     input  logic        clk,
     input  logic        rst_n,
+    input  logic        scalar_clk,       // cva6 core only; see "Clocks"
 
     input  logic        isa_start,
     input  logic [31:0] prog_addr,
@@ -240,8 +254,27 @@ module scalar_core_cva6 #(
     end
 
     // ------------------------------------------------------------------ CVA6
-    cpu_req_t  cpu_req, gate_req;
-    cpu_resp_t cpu_resp, gate_resp;
+    // core_*: the CVA6 port on scalar_clk; cpu_*: the same AXI port on clk,
+    // after axi_cdc.
+    cpu_req_t  core_req, cpu_req, gate_req;
+    cpu_resp_t core_resp, cpu_resp, gate_resp;
+
+    // cpu_rst_n on scalar_clk: asserted asynchronously, released after two
+    // scalar_clk edges.
+    // A reset synchronizer: its last stage is both a flop and the core's
+    // asynchronous reset.
+    /* verilator lint_off SYNCASYNCNET */
+    (* ASYNC_REG = "TRUE" *) logic [1:0] core_rst_sync;
+    /* verilator lint_on SYNCASYNCNET */
+    logic core_rst_n;
+
+    always_ff @(posedge scalar_clk or negedge cpu_rst_n) begin
+        if (!cpu_rst_n)
+            core_rst_sync <= 2'b00;
+        else
+            core_rst_sync <= {core_rst_sync[0], 1'b1};
+    end
+    assign core_rst_n = core_rst_sync[1];
 
     // The RVFI trace and the CV-X-IF request are not used (CvxifEn = 0).
     /* verilator lint_off PINCONNECTEMPTY */
@@ -255,8 +288,8 @@ module scalar_core_cva6 #(
         .noc_req_t     (cpu_req_t),
         .noc_resp_t    (cpu_resp_t)
     ) u_cva6 (
-        .clk_i         (clk),
-        .rst_ni        (cpu_rst_n),
+        .clk_i         (scalar_clk),
+        .rst_ni        (core_rst_n),
         .boot_addr_i   (boot_addr),
         .hart_id_i     ('0),
         .irq_i         (2'b00),
@@ -266,10 +299,32 @@ module scalar_core_cva6 #(
         .rvfi_probes_o (),
         .cvxif_req_o   (),
         .cvxif_resp_i  ('0),
-        .noc_req_o     (cpu_req),
-        .noc_resp_i    (cpu_resp)
+        .noc_req_o     (core_req),
+        .noc_resp_i    (core_resp)
     );
     /* verilator lint_on PINCONNECTEMPTY */
+
+    // Four entries per channel: enough to keep a two-beat cache refill moving
+    // across the gray-pointer round trip, small for the 90 % LUT budget.
+    axi_cdc #(
+        .aw_chan_t  (cpu_aw_chan_t),
+        .w_chan_t   (cpu_w_chan_t),
+        .b_chan_t   (cpu_b_chan_t),
+        .ar_chan_t  (cpu_ar_chan_t),
+        .r_chan_t   (cpu_r_chan_t),
+        .axi_req_t  (cpu_req_t),
+        .axi_resp_t (cpu_resp_t),
+        .LogDepth   (2)
+    ) u_cdc (
+        .src_clk_i  (scalar_clk),
+        .src_rst_ni (core_rst_n),
+        .src_req_i  (core_req),
+        .src_resp_o (core_resp),
+        .dst_clk_i  (clk),
+        .dst_rst_ni (cpu_rst_n),
+        .dst_req_o  (cpu_req),
+        .dst_resp_i (cpu_resp)
+    );
 
     // ------------------------------------------------------------ stop gate
     // In STOP, an AR / AW already presented (held) completes; no new one is

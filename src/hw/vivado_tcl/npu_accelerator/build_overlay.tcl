@@ -138,6 +138,18 @@ if {$scalar_impl eq "CVA6"} {
         }
     }
     close $flist
+    # As upstream's own FPGA flow (upstream/Makefile, fpga target) does, swap
+    # the simulation-only tc_sram_wrapper (body is translate_off, a black box
+    # in Vivado) for the FPGA one built on fpga-support's SyncSpRamBeNx64.
+    # cva6.f keeps the simulation wrapper for Verilator.
+    set sim_sram_wrapper [file normalize [file join $cva6_dir upstream common local util tc_sram_wrapper.sv]]
+    set sram_index [lsearch -exact $cva6_files $sim_sram_wrapper]
+    if {$sram_index < 0} {
+        error "cva6.f no longer lists $sim_sram_wrapper; update the FPGA SRAM swap"
+    }
+    set cva6_files [lreplace $cva6_files $sram_index $sram_index \
+        [file normalize [file join $cva6_dir upstream common local util tc_sram_fpga_wrapper.sv]] \
+        [file normalize [file join $cva6_dir upstream vendor pulp-platform fpga-support rtl SyncSpRamBeNx64.sv]]]
     foreach cva6_file $cva6_files {
         if {![file isfile $cva6_file]} {
             error "missing CVA6 source (is the submodule initialized?): $cva6_file"
@@ -145,8 +157,29 @@ if {$scalar_impl eq "CVA6"} {
     }
     add_files -norecurse $cva6_files
     set_property file_type {SystemVerilog} [get_files $cva6_files]
+    # A block-design module reference only resolves `include files that are
+    # project members, so add every header under the include directories.
+    set cva6_headers {}
+    set pending_dirs $cva6_incdirs
+    while {[llength $pending_dirs]} {
+        set pending_dirs [lassign $pending_dirs dir]
+        foreach header [glob -nocomplain -types f -directory $dir *.svh *.vh] {
+            if {$header ni $cva6_headers} { lappend cva6_headers $header }
+        }
+        lappend pending_dirs {*}[glob -nocomplain -types d -directory $dir *]
+    }
+    if {[llength $cva6_headers]} {
+        add_files -norecurse $cva6_headers
+        set_property file_type {Verilog Header} [get_files $cva6_headers]
+    }
     set_property include_dirs $cva6_incdirs [current_fileset]
     set_property verilog_define $cva6_defines [current_fileset]
+
+    # The 100 MHz / 50 MHz crossing of the cva6 core; read after the PS7
+    # constraints that create the two clocks.
+    set cdc_xdc [file join $repo_root src hw constraints npu_accelerator_cva6_cdc.xdc]
+    add_files -fileset constrs_1 -norecurse $cdc_xdc
+    set_property PROCESSING_ORDER LATE [get_files $cdc_xdc]
 }
 update_compile_order -fileset sources_1
 
@@ -158,6 +191,13 @@ set_property -dict [list \
     CONFIG.PCW_USE_FABRIC_INTERRUPT {1} \
     CONFIG.PCW_IRQ_F2P_INTR {1} \
     CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ {100.000}] $ps7
+if {$scalar_impl eq "CVA6"} {
+    # The cva6 core does not close timing at 100 MHz; it runs alone on
+    # FCLK_CLK1 and crosses to FCLK_CLK0 inside scalar_core_cva6.
+    set_property -dict [list \
+        CONFIG.PCW_EN_CLK1_PORT {1} \
+        CONFIG.PCW_FPGA1_PERIPHERAL_FREQMHZ {50.000}] $ps7
+}
 apply_bd_automation -rule xilinx.com:bd_rule:processing_system7 \
     -config {make_external "FIXED_IO, DDR" apply_board_preset "0" Master "Disable" Slave "Disable"} \
     $ps7
@@ -176,7 +216,8 @@ set_property -dict [list \
     CONFIG.MAX_K {256} \
     CONFIG.IN_BYTES {8}] $accelerator
 if {$scalar_impl eq "CVA6"} {
-    set_property CONFIG.SCALAR_IMPL {"CVA6"} $accelerator
+    # Bare value: the module reference quotes string parameters itself.
+    set_property CONFIG.SCALAR_IMPL {CVA6} $accelerator
 }
 
 connect_bd_intf_net [get_bd_intf_pins ps7/M_AXI_GP0] [get_bd_intf_pins control_ic/S00_AXI]
@@ -192,6 +233,12 @@ connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
     [get_bd_pins memory_ic/M00_ACLK] \
     [get_bd_pins ps7/M_AXI_GP0_ACLK] [get_bd_pins ps7/S_AXI_HP0_ACLK] \
     [get_bd_pins npu_accelerator_0/s_axi_aclk]
+# scalar_clk clocks only the CVA6 core; CUSTOM ignores it.
+if {$scalar_impl eq "CVA6"} {
+    connect_bd_net [get_bd_pins ps7/FCLK_CLK1] [get_bd_pins npu_accelerator_0/scalar_clk]
+} else {
+    connect_bd_net [get_bd_pins ps7/FCLK_CLK0] [get_bd_pins npu_accelerator_0/scalar_clk]
+}
 connect_bd_net [get_bd_pins ps7/FCLK_RESET0_N] [get_bd_pins reset_inverter/Op1]
 connect_bd_net [get_bd_pins reset_inverter/Res] [get_bd_pins reset0/ext_reset_in]
 connect_bd_net [get_bd_pins reset0/interconnect_aresetn] \
@@ -211,6 +258,12 @@ assign_bd_address
 validate_bd_design
 save_bd_design
 set bd_file [get_files [file join $project_dir npu_accelerator.srcs sources_1 bd npu_accelerator_bd npu_accelerator_bd.bd]]
+if {$scalar_impl eq "CVA6"} {
+    # With out-of-context IP runs, finishing the CVA6 module-reference run
+    # regenerates the block design and deletes hdl/<bd>_wrapper.v before
+    # synth_1 reads it. Global synthesis has no per-IP runs.
+    set_property synth_checkpoint_mode None $bd_file
+}
 generate_target all $bd_file
 make_wrapper -files $bd_file -top
 set wrapper_file [file join $project_dir npu_accelerator.gen sources_1 bd npu_accelerator_bd hdl npu_accelerator_bd_wrapper.v]
@@ -239,6 +292,23 @@ if {[get_property PROGRESS [get_runs synth_1]] ne "100%"} {
 open_run synth_1
 report_utilization -file [file join $report_dir utilization_synth.rpt]
 close_design
+
+if {$scalar_impl eq "CVA6"} {
+    # With CVA6 the device is ~90 % full and the 100 MHz matrix core's
+    # high-fanout PE enables miss by ~0.5 ns on routing alone; the explore
+    # strategy adds placement exploration and post-route physical
+    # optimization (fanout replication). Set first: a strategy resets every
+    # step property, the hook below included.
+    set_property strategy Performance_ExplorePostRoutePhysOpt [get_runs impl_1]
+    # common_cells' unread is an empty input-only module that Vivado leaves as
+    # a black box (DRC INBB-3). It drives nothing, so drop it before opt_design.
+    set opt_pre_hook [file join $build_root opt_design_pre.tcl]
+    set hook_file [open $opt_pre_hook w]
+    puts $hook_file {set unread_cells [get_cells -hierarchical -quiet -filter {REF_NAME == unread}]}
+    puts $hook_file {if {[llength $unread_cells]} { remove_cell $unread_cells }}
+    close $hook_file
+    set_property STEPS.OPT_DESIGN.TCL.PRE $opt_pre_hook [get_runs impl_1]
+}
 
 launch_runs impl_1 -to_step write_bitstream -jobs $jobs
 wait_on_run impl_1

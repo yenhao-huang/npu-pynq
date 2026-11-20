@@ -18,6 +18,8 @@ module tb_npu_accelerator;
     localparam integer DATA_WORD = DATA_BASE / 8;
 
     logic s_axi_aclk = 0, s_axi_aresetn = 0;
+    // CUSTOM ignores scalar_clk (only the CVA6 core runs on it).
+    wire scalar_clk = s_axi_aclk;
     logic [7:0] s_axi_awaddr = 0, s_axi_araddr = 0;
     logic [2:0] s_axi_awprot = 0, s_axi_arprot = 0;
     logic s_axi_awvalid = 0, s_axi_wvalid = 0, s_axi_bready = 0;
