@@ -8,6 +8,9 @@ load:
   framework: huggingface
   source: examples/smollm-safetensors/model/checkpoint   # or a Hub id
 quantization: w8a8           # the scheme to apply after load
+calibration:                # what the static activation scales are measured on
+  text: examples/smollm-safetensors/README.md   # tokenized with the checkpoint's tokenizer
+  count: 32                 # prefill chunks of `chunk` tokens
 graph:
   kind: llm
   # Both are compiled into the graph's static shapes; changing either needs a re-export.

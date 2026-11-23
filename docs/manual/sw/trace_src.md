@@ -50,7 +50,7 @@ dist/smollm/package/
 
 ```
 src/export/cli.py  build <config> --out <dir>
-  └─ pipeline.export_package(config, out)            src/export/pipeline.py:111
+  └─ pipeline.export_package(config, out)            src/export/pipeline.py:182
        ├─ load                frontend/load           -> nn.Module (float)
        ├─ quantize            frontend/quantization   -> nn.Module (W8A8 layers)
        ├─ export_graph        frontend/export_graph   -> {name: ExportedProgram}
@@ -71,7 +71,7 @@ Linux with LLVM 22; on Windows, `pipeline._linux` runs them in WSL and
 
 ## 1. Export
 
-### load (pipeline.py:130)
+### load (pipeline.py:205)
 
 ```
 load_model(spec['framework'], src, **extra)          frontend/load/__init__.py
@@ -83,7 +83,7 @@ load_model(spec['framework'], src, **extra)          frontend/load/__init__.py
 A relative `source` that exists is resolved against the repository root. Any
 other key under `load:` (such as `model: resnet18`) goes to the adapter.
 
-### export_graph (pipeline.py:169)
+### export_graph (pipeline.py:219)
 
 `torch.export` traces the model once per entry point with example inputs.
 Only their shapes and dtypes matter, and they become static in the graph.
@@ -108,18 +108,21 @@ export_classifier(model, (224, 224, 3))              export.py:154
        -> {'forward': ep}
 ```
 
-### quantize (pipeline.py:180)
+### quantize (pipeline.py:230)
 
 ```
-quantize(programs, 'w8a8')                           frontend/quantization/quantize.py:27
+quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:33
+  ├─ calibration: w8a8.observe runs the float prefill (or forward) program on the
+  │    config's calibration: inputs (pipeline.calibration_inputs) and records each
+  │    layer's largest |input|, keyed by its weight
   └─ per program: ep.module(), the unlifted GraphModule, weights as get_attr
        ├─ w8a8.select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)
        ├─ w8a8.rewrite, per node (quantization/fx/transforms/w8a8.py)
        │    → a call to w8a8.linear / w8a8.conv2d / w8a8.embedding:
        │      INT8 weights with a per-channel scale, quantized once and
-       │      shared by every program; linear and conv2d quantize activations at run
-       │      time and compute (int8(x) @ W_q) with torch._int_mm:
-       │      quant.quantize_per_token -> _int_mm -> quant.dequantize -> + bias
+       │      shared by every program; linear and conv2d quantize activations with
+       │      their calibrated [1] scale and compute (int8(x) @ W_q) with torch._int_mm:
+       │      quant.quantize_per_tensor -> _int_mm -> quant.dequantize -> + bias
        │      (the quant.* ops are custom ops, quantization/fx/custom_ops.py)
        ├─ w8a8.finish: the float weights no node reads any more are dropped
        └─ torch.export.export(gm, ep.example_inputs)   traces those calls; each
@@ -128,7 +131,7 @@ quantize(programs, 'w8a8')                           frontend/quantization/quant
 
 The programs are still undecomposed ExportedPrograms; `ep.module()` runs one in eager PyTorch.
 
-### to_mlir (pipeline.py:187)
+### to_mlir (pipeline.py:239)
 
 ```
 to_mlir(programs, out/'ir')                          frontend/to_mlir/__init__.py:12
@@ -143,7 +146,7 @@ to_mlir(programs, out/'ir')                          frontend/to_mlir/__init__.p
   └─ write ir/torch.mlir   UTF-8, LF, because Linux LLVM parses it
 ```
 
-### pynqo-middle-end (pipeline.py:193)
+### pynqo-middle-end (pipeline.py:245)
 
 ```
 build_middle_end()      cmake + ninja in build/pynqo-middle-end; a no-op when unchanged
@@ -151,7 +154,7 @@ middle_end(torch.mlir, ir/model.mlir, devices)
   └─ pynqo-middle-end torch.mlir -o model.mlir --emit=linalg --devices cpu,npu
                       --delegates-dir ir/delegates            middle-end/pynqo_middle_end.cpp
        ├─ our rewrites on the torch dialect           middle-end/torch/transforms/
-       │    ├─ DecomposeQuantOps   quant.quantize_per_token / quant.dequantize -> their ATen
+       │    ├─ DecomposeQuantOps   quant.quantize_per_tensor / quant.dequantize -> their ATen
        │    │                      arithmetic (torch-mlir cannot lower torch.operator)
        │    ├─ FuseConvBatchNorm   fold inference BatchNorm into the conv before it
        │    │                      (float: weight and bias; W8A8: w_scale and bias)
@@ -172,7 +175,7 @@ middle_end(torch.mlir, ir/model.mlir, devices)
 dialects (linalg, tensor, arith, func) with the weights still inline as
 constants. `--emit=torch` stops after our rewrites.
 
-### pynqo-backend (pipeline.py:203)
+### pynqo-backend (pipeline.py:255)
 
 ```
 build_backend()         cmake + ninja in build/pynqo-backend; a no-op when unchanged
@@ -203,7 +206,7 @@ pynqo-backend model.mlir --out <dir> --devices cpu,npu --cpus arm-cortex-a9,nati
   └─ compile.json: entry points, abi, delegate table, weights, libraries, npu_limits
 ```
 
-### manifest (pipeline.py:219)
+### manifest (pipeline.py:272)
 
 ```
 manifest = compile.json + {format: pynqo-package/3, model, quantization, compile_seconds}
@@ -212,7 +215,7 @@ manifest = compile.json + {format: pynqo-package/3, model, quantization, compile
   │              manifest['llm'] = vocab, max_seq, chunk, cache shape, eos
   └─ classifier: entry_points.forward.names = image -> logits
                  manifest['classifier'] = input contract, classes
-  -> manifest.json   (pipeline.py:214)
+  -> manifest.json   (pipeline.py:297)
 ```
 
 ## 2. Run

@@ -30,7 +30,7 @@ checked against a pinned hash):
 python -m src.deploy.resnet18_assets model
 # the dataset: ImageNet class names and a test picture from https://github.com/pytorch/hub
 python -m src.deploy.resnet18_assets demo
-# the showcase: five photos from Wikimedia Commons for the notebook (optional)
+# the showcase: five photos from Wikimedia Commons for the notebook
 python -m src.deploy.resnet18_assets gallery
 ```
 
@@ -39,6 +39,9 @@ python -m src.deploy.resnet18_assets gallery
 ```bash
 python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 ```
+
+The export measures each layer's INT8 activation scale on the six pictures in
+`dist/resnet18/model` (`calibration:` in `export.yml`), so download them first.
 
 Want to check it before touching the board? Run it entirely on your CPU:
 

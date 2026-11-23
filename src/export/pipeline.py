@@ -2,7 +2,8 @@
 
     load           a framework builds the float model (frontend/load)
     export_graph   torch.export: one ExportedProgram per entry point, undecomposed
-    quantize       a graph pass quantizes each program (frontend/quantization)
+    quantize       a graph pass quantizes each program (frontend/quantization),
+                   calibrated on the config's calibration: inputs
     to_mlir        ATen decompositions, then torch-mlir's importer: torch.mlir, the torch dialect
     pynqo-middle-end the C++ middle end (middle-end/): our rewrites, torch-mlir's
                    pipelines to linalg on tensors, then device assignment and
@@ -133,6 +134,51 @@ def check_scheme(config: dict) -> None:
             raise ValueError(f'{device} accepts {quant.ACCEPTED_SCHEMES}, not {scheme!r}')
 
 
+def calibration_inputs(config: dict, programs: dict, source: str, cache=None) -> dict[str, list[tuple]]:
+    """The config's ``calibration:`` block -> {program name: [argument tuples]} for ``quantize``.
+
+    classifier   ``images``: a directory; the first ``count`` of its *.jpg in name
+                 order, preprocessed exactly as the runtime feeds an image.
+    llm          ``text``: a text file, tokenized with the checkpoint's tokenizer and
+                 cut into ``count`` prefill chunks of ``chunk`` tokens. Each chunk
+                 continues the KV cache of the one before, as the runtime runs a
+                 prompt, and a new sequence starts when the cache is full. Only the
+                 prefill program is calibrated; decode shares its layers' scales.
+    """
+    import numpy as np
+    import torch
+
+    spec, graph = config['calibration'], config['graph']
+    path = Path(spec.get('images') or spec['text'])
+    path = path if path.is_absolute() else REPO / path
+    count = int(spec['count'])
+    if graph['kind'] == 'classifier':
+        from PIL import Image
+        from src.runtime.tasks.classifier.preprocess import preprocess
+
+        files = sorted(path.glob('*.jpg'))[:count]
+        if not files:
+            raise ValueError(f'no calibration images (*.jpg) in {path}')
+        return {'forward': [(torch.from_numpy(preprocess(Image.open(f), graph['input'])),) for f in files]}
+    from src.runtime.tasks.llm.tokenizer import Tokenizer
+
+    chunk, max_seq = graph['chunk'], graph['max_seq']
+    ids = Tokenizer(Path(source) / 'tokenizer.json').encode(path.read_text(encoding='utf-8'))
+    if len(ids) < count * chunk:
+        raise ValueError(f'{path} has {len(ids)} tokens; {count} chunks of {chunk} need {count * chunk}')
+    run = programs['prefill'].module()
+    inputs, kv, pos = [], cache.zeros(), 0
+    with torch.no_grad():
+        for i in range(count):
+            if pos + chunk > max_seq:
+                kv, pos = cache.zeros(), 0
+            tokens = torch.from_numpy(np.asarray([ids[i * chunk:(i + 1) * chunk]], np.int64))
+            args = (tokens, torch.tensor([pos]), torch.tensor([chunk - 1]), *kv)
+            inputs.append(args)
+            kv, pos = list(run(*args)[1:]), pos + chunk
+    return {'prefill': inputs}
+
+
 def export_package(config: dict, out: str | Path, source: str | None = None,
                    llvm_bin: str = '/usr/lib/llvm-22/bin', timings: dict | None = None,
                    profile_kernels: bool = False) -> Path:
@@ -181,11 +227,13 @@ def export_package(config: dict, out: str | Path, source: str | None = None,
         raise ValueError(f"unsupported graph kind {graph['kind']!r}")
     times['export_graph'] = time.monotonic() - start
 
-    # quantize: a graph pass rewrites each program's linears, convolutions and embeddings.
+    # quantize: calibrate on the config's inputs, then a graph pass rewrites each
+    # program's linears, convolutions and embeddings.
     scheme = config.get('quantization')
     start = time.monotonic()
     if scheme:
-        programs = quantize(programs, scheme)
+        calibration = calibration_inputs(config, programs, src, cache) if 'calibration' in config else None
+        programs = quantize(programs, scheme, calibration)
     times['quantize'] = time.monotonic() - start
 
     # to_mlir: ATen decompositions, then torch-mlir's importer writes the programs as

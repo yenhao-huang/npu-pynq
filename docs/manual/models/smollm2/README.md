@@ -57,7 +57,8 @@ drives the export:
 | Setting | Value | Effect |
 | --- | --- | --- |
 | `load` | `huggingface`, the checkpoint folder | `AutoModelForCausalLM.from_pretrained` in float32 |
-| `quantization` | `w8a8` | every linear layer and the embedding become INT8 weights with per-channel scales; activations are quantized per token at run time |
+| `quantization` | `w8a8` | every linear layer and the embedding become INT8 weights with per-channel scales; each linear layer's input is quantized to INT8 with one static scale, calibrated at export |
+| `calibration` | `examples/smollm-safetensors/README.md`, 32 chunks | the text the static activation scales are measured on: 32 prefill chunks of 16 tokens, through the float model |
 | `graph.max_seq` | 256 | KV cache slots: prompt plus answer cannot exceed 256 tokens (the model itself was trained to 8192) |
 | `graph.chunk` | 16 | tokens per prefill call |
 | `devices` | `cpu`, `npu` | the INT8 matrix multiplications run on the NPU, everything else on the Cortex-A9 |
