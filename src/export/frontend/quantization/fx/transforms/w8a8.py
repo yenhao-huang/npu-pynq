@@ -10,10 +10,11 @@ A weight's amax is its channel's; an activation's is the largest |input| the
 layer saw while quantize.calibrate ran the float program on calibration
 inputs (``calibrated_layers`` names those layers).
 
-``rewrite`` replaces one aten.linear, aten.conv2d or aten.embedding node of an
-unlifted GraphModule (weights as get_attr) with a call to ``linear``,
-``conv2d`` or ``embedding`` below, after quantizing the weight and fixing the
-activation scale once; both are stored as buffers. The re-export traces the
+``quantize_layer`` quantizes a layer's weight and fixes its activation scale
+(a QuantizedLayer), once per weight. ``rewrite`` then replaces one
+aten.linear, aten.conv2d or aten.embedding node of an unlifted GraphModule
+(weights as get_attr) with a call to ``linear``, ``conv2d`` or ``embedding``
+below, reading those tensors as buffers. The re-export traces the
 replacement functions; a contraction becomes
 
     xq  = quant.quantize_per_tensor(x, x_scale)    activations to INT8, constant [1] scale
@@ -31,7 +32,7 @@ Overflow: |acc| <= K * 127 * 127, which stays below 2**31 while K is under about
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, NamedTuple
 
 import torch
 from torch import fx
@@ -49,8 +50,20 @@ QMAX = W8A8['activation_qmax']
 class Op:
     """What W8A8 needs to know about one of the scheme's ops (schemes.W8A8['ops'])."""
     target: object                 # the aten node it rewrites
+    weight_arg: int                # which of the node's arguments is its weight
     quantize_weight: Callable      # float weight -> its quantized tensors
     calibrated: bool               # its input is quantized, so it needs an activation scale
+
+
+class QuantizedLayer(NamedTuple):
+    """One weight's quantized tensors, as ``quantize_layer`` makes them and ``rewrite`` reads them."""
+    weight: torch.Tensor                        # INT8
+    weight_scale: torch.Tensor                  # float32, per output channel (per row for a table)
+    activation_scale: torch.Tensor | None = None   # [1] float32; None when the input is not quantized
+
+    def tensors(self) -> tuple[torch.Tensor, ...]:
+        """The tensors that become buffers, in this order."""
+        return tuple(t for t in self if t is not None)
 
 
 # --- weights and activation scales, fixed once ------------------------------
@@ -81,9 +94,9 @@ def quantize_embedding_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch
 
 
 OPS = {
-    'linear': Op(aten.linear.default, quantize_weight, True),
-    'conv2d': Op(aten.conv2d.default, quantize_conv2d_weight, True),
-    'embedding': Op(aten.embedding.default, quantize_embedding_weight, False),
+    'linear': Op(aten.linear.default, 1, quantize_weight, True),
+    'conv2d': Op(aten.conv2d.default, 1, quantize_conv2d_weight, True),
+    'embedding': Op(aten.embedding.default, 0, quantize_embedding_weight, False),
 }
 # A node's target -> its op name in OPS.
 OP_NAMES = {op.target: name for name, op in OPS.items()}
@@ -101,9 +114,30 @@ def calibrated_layers(gm: fx.GraphModule, ops) -> dict[fx.Node, tuple]:
 
     quantize.calibrate records each one's largest |input| (its first argument;
     for a convolution, before the padding, which adds zeros only). The key is
-    the layer's weight's, the same one ``_quantized`` looks the statistic up by."""
-    return {n: _key(gm, OP_NAMES[n.target], n.args[1]) for n in select(gm, ops)
-            if OPS[OP_NAMES[n.target]].calibrated}
+    the layer's weight's, the same one ``quantize_layer`` looks the statistic up by."""
+    return {n: layer_key(gm, n) for n in select(gm, ops) if OPS[OP_NAMES[n.target]].calibrated}
+
+
+# --- weight quantization ----------------------------------------------------
+
+def layer_key(gm: fx.GraphModule, node: fx.Node) -> tuple:
+    """The key of ``node``'s layer: its op name and where its float weight lives."""
+    kind = OP_NAMES[node.target]
+    return _key(gm, kind, node.args[OPS[kind].weight_arg])
+
+
+def quantize_layer(gm: fx.GraphModule, node: fx.Node, stats: dict) -> QuantizedLayer:
+    """``node``'s weight quantized, plus its activation scale from ``stats`` when it is calibrated."""
+    kind = OP_NAMES[node.target]
+    weight = node.args[OPS[kind].weight_arg]
+    key = _key(gm, kind, weight)
+    q, scale = OPS[kind].quantize_weight(_attr(gm, weight.target))
+    if not OPS[kind].calibrated:
+        return QuantizedLayer(q, scale)
+    if key not in stats:
+        raise ValueError(f'no calibration statistics for {kind} weight {weight.target}; '
+                         'w8a8 needs calibration inputs that reach every layer')
+    return QuantizedLayer(q, scale, activation_scale(stats[key]))
 
 
 # --- the graph rewrite ------------------------------------------------------
@@ -114,17 +148,16 @@ def select(gm: fx.GraphModule, ops) -> list[fx.Node]:
     return [n for n in gm.graph.nodes if n.op == 'call_function' and n.target in targets]
 
 
-def rewrite(gm: fx.GraphModule, node: fx.Node, cache: dict, stats: dict) -> None:
+def rewrite(gm: fx.GraphModule, node: fx.Node, weights: dict) -> None:
     """Replace ``node`` with the call that computes it in W8A8.
 
-    ``cache`` maps each float weight to its quantized tensors and activation
-    scale, and ``stats`` holds what quantize.calibrate recorded; the caller shares
-    both across the programs of a model, so every program reads the same
-    tensors for a weight it shares with another."""
+    ``weights`` maps each layer key to its QuantizedLayer (quantize.prepare);
+    the caller shares it across the programs of a model, so every program
+    reads the same tensors for a weight it shares with another."""
     with gm.graph.inserting_before(node):
         if node.target == aten.linear.default:
             x, w, b = list(node.args) + [None] * (3 - len(node.args))   # aten.linear(x, weight, bias=None)
-            qw, s, xs = _quantized(gm, 'linear', w, cache, stats)
+            qw, s, xs = _buffers(gm, 'linear', w, weights)
             new = gm.graph.call_function(linear, (x, qw, s, xs, b))
         elif node.target == aten.conv2d.default:
             # aten.conv2d(x, weight, bias=None, stride=1, padding=0, dilation=1, groups=1)
@@ -133,11 +166,11 @@ def rewrite(gm: fx.GraphModule, node: fx.Node, cache: dict, stats: dict) -> None
             if groups != 1 or tuple(dilation) != (1, 1):
                 raise ValueError('w8a8 supports ungrouped, undilated convolutions only')
             kernel = tuple(_attr(gm, w.target).shape[2:])
-            qw, s, xs = _quantized(gm, 'conv2d', w, cache, stats)
+            qw, s, xs = _buffers(gm, 'conv2d', w, weights)
             new = gm.graph.call_function(conv2d, (x, qw, s, xs, b, kernel, tuple(stride), tuple(padding)))
         elif node.target == aten.embedding.default:
             w, ids = node.args[:2]
-            qw, s = _quantized(gm, 'embedding', w, cache, stats)
+            qw, s = _buffers(gm, 'embedding', w, weights)
             new = gm.graph.call_function(embedding, (ids, qw, s))
         else:
             raise ValueError(f'w8a8 cannot rewrite {node.target}')
@@ -177,19 +210,13 @@ def _key(gm: fx.GraphModule, kind: str, weight: fx.Node) -> tuple:
     return (kind, t.untyped_storage().data_ptr(), t.storage_offset(), tuple(t.shape), tuple(t.stride()))
 
 
-def _quantized(gm: fx.GraphModule, kind: str, weight: fx.Node, cache: dict, stats: dict) -> tuple:
-    """get_attr nodes for the quantized ``weight`` (and, for a contraction, its
-    activation scale), computing them only the first time."""
+def _buffers(gm: fx.GraphModule, kind: str, weight: fx.Node, weights: dict) -> tuple[fx.Node, ...]:
+    """get_attr nodes for the tensors ``weights`` holds for ``weight``, in QuantizedLayer order."""
     key = _key(gm, kind, weight)
-    if key not in cache:
-        tensors = OPS[kind].quantize_weight(_attr(gm, weight.target))
-        if OPS[kind].calibrated:
-            if key not in stats:
-                raise ValueError(f'no calibration statistics for {kind} weight {weight.target}; '
-                                 'w8a8 needs calibration inputs that reach every layer')
-            tensors += (activation_scale(stats[key]),)
-        cache[key] = tensors
-    return tuple(_buffer(gm, f'{weight.target}_{kind}_{i}', q) for i, q in enumerate(cache[key]))
+    if key not in weights:
+        raise KeyError(f'{kind} weight {weight.target} was not prepared; '
+                       'prepare must cover every node that rewrite replaces')
+    return tuple(_buffer(gm, f'{weight.target}_{kind}_{i}', t) for i, t in enumerate(weights[key].tensors()))
 
 
 def _buffer(gm: fx.GraphModule, hint: str, t: torch.Tensor) -> fx.Node:

@@ -26,12 +26,17 @@ Schemes are applied as FX transforms in `fx/transforms/`.
      its ATen target, `'linear'` to aten.linear);
    - `calibrated_layers(gm, ops)`, for a scheme with static activation
      scales: the nodes whose input `quantize.calibrate` observes, each with
-     the key its statistic goes under (the layer's float weight, like the
-     weight cache); the input is the node's first argument;
-   - `rewrite(gm, node, cache, stats)`: quantize the node's weight once (keyed
-     in `cache` by the float weight's storage, so programs share it), fix its
-     activation scale from `stats`, register the results as buffers, and
-     replace the node with a call to the scheme's function for that op;
+     the key its statistic goes under (the layer's float weight); the input
+     is the node's first argument;
+   - `layer_key(gm, node)`: the key of a node's layer, its op name and where
+     its float weight's storage lives (taken before any transpose), so
+     programs that share a weight share the key;
+   - `quantize_layer(gm, node, stats)`: the node's weight quantized, with its
+     activation scale from `stats` (a `QuantizedLayer`); `quantize.prepare`
+     calls it once per key;
+   - `rewrite(gm, node, weights)`: graph surgery only. Look the node's
+     tensors up in `weights` by key, register them as buffers, and replace
+     the node with a call to the scheme's function for that op;
    - `finish(gm)`: drop dead nodes and the unused float weights, recompile;
    - the functions the re-export traces into the graph, written in ATen ops
      and the custom ops of `fx/custom_ops.py` only.
@@ -66,8 +71,10 @@ quantization/
 |-- schemes.py            the schemes as data: parameters and the ops each quantizes
 |-- quantize.py           the stage driver: 1. calibrate (run the float programs on the
 |                         calibration inputs, record each calibrated layer's largest
-|                         |input|) 2. replace (have the scheme's transform rewrite each
-|                         node, re-export); owns the statistics and weight cache
+|                         |input|) 2. prepare (have the transform quantize every
+|                         selected weight once) 3. replace (have the transform rewrite
+|                         each node from 2.'s tensors, re-export); owns the statistics
+|                         and the quantized weights
 `-- fx/
     |-- custom_ops.py     the quant.* custom ops
     `-- transforms/

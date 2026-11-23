@@ -4,13 +4,16 @@
 
 export_graph captures each entry point before any decomposition, so every op
 a scheme quantizes is still one node (aten.linear ...) whose weight is a
-get_attr of the unlifted module (``ep.module()``). The stage does two things:
+get_attr of the unlifted module (``ep.module()``). The stage runs in three steps:
 
 1. calibrate: runs each program named in ``calibration`` on its argument
    tuples, in float, and records the largest |input| of every layer the
    scheme's transform calibrates;
-2. replace: in every program, has the transform replace each node of the
-   scheme's ops (``schemes.py``), then re-captures the module with torch.export.
+2. prepare: has the transform quantize the weight of every node of the
+   scheme's ops (``schemes.py``), with its activation scale, once per weight;
+3. replace: in every program, has the transform replace each of those nodes
+   with its quantized computation, reading step 2's tensors, then re-captures
+   the module with torch.export.
 
 Statistics and quantized weights are kept per weight tensor, not per program:
 decode and prefill share every weight, so calibrating prefill alone gives
@@ -44,9 +47,8 @@ def quantize(programs: dict[str, torch.export.ExportedProgram], scheme: str,
                          f'known: {sorted(TRANSFORMS)}') from None
     ops = SCHEMES[scheme]['ops']
     stats = calibrate(programs, transform, ops, calibration or {})       # 1. calibrate
-    cache: dict = {}   # float weight -> its quantized tensors, shared by every program
-    return {name: replace(ep, transform, ops, cache, stats)              # 2. replace
-            for name, ep in programs.items()}
+    weights = prepare(programs, transform, ops, stats)                   # 2. quantize the weights
+    return replace(programs, transform, ops, weights)                    # 3. replace the nodes
 
 
 def calibrate(programs: dict[str, torch.export.ExportedProgram], transform, ops,
@@ -75,13 +77,32 @@ def calibrate(programs: dict[str, torch.export.ExportedProgram], transform, ops,
     return stats
 
 
-def replace(ep: torch.export.ExportedProgram, transform, ops, cache: dict, stats: dict
-            ) -> torch.export.ExportedProgram:
-    """Replace every node of ``ops`` in ``ep`` with the transform's computation; re-capture."""
-    gm = ep.module()
-    for node in transform.select(gm, ops):
-        transform.rewrite(gm, node, cache, stats)
-    transform.finish(gm)
-    args, kwargs = ep.example_inputs
-    with torch.no_grad():
-        return torch.export.export(gm, args, kwargs, strict=False)
+def prepare(programs: dict[str, torch.export.ExportedProgram], transform, ops, stats: dict) -> dict:
+    """Quantize the weight of every node of ``ops`` in every program; return {layer key: tensors}.
+
+    A weight shared by several programs, or by several nodes, has one key and
+    is quantized once. A tied weight used by two kinds of op (lm_head and the
+    embedding) has one key per kind."""
+    weights: dict = {}
+    for ep in programs.values():
+        gm = ep.module()
+        for node in transform.select(gm, ops):
+            key = transform.layer_key(gm, node)
+            if key not in weights:
+                weights[key] = transform.quantize_layer(gm, node, stats)
+    return weights
+
+
+def replace(programs: dict[str, torch.export.ExportedProgram], transform, ops, weights: dict
+            ) -> dict[str, torch.export.ExportedProgram]:
+    """Replace every node of ``ops`` in each program with the transform's computation; re-capture."""
+    out = {}
+    for name, ep in programs.items():
+        gm = ep.module()
+        for node in transform.select(gm, ops):
+            transform.rewrite(gm, node, weights)
+        transform.finish(gm)
+        args, kwargs = ep.example_inputs
+        with torch.no_grad():
+            out[name] = torch.export.export(gm, args, kwargs, strict=False)
+    return out
