@@ -8,7 +8,8 @@ aten.embedding node whose weight is a get_attr of the unlifted module
 (``ep.module()``). For each such node the pass quantizes the weight, stores the
 INT8 weight and its scales as buffers, and replaces the node with a call to the
 scheme's function (``w8a8.linear`` ...). torch.export then re-captures the
-module, tracing that function into plain ATen ops.
+module, tracing that function into ATen ops and the quant.* custom ops
+(``fx/ops.py``), each of which stays one node.
 
 Weights are quantized once per tensor across all programs: decode and prefill
 share every weight, and giving both the same quantized tensors keeps to_mlir

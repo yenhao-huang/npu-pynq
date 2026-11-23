@@ -95,7 +95,8 @@ npu_repo_in_pynq/
 |   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point, undecomposed
 |   |   |   |-- quantization/    schemes.py: the schemes as data, framework independent; one subpackage
 |   |   |   |                    per framework that applies them: fx/ (transforms/quantize.py: the FX
-|   |   |   |                    pass; <scheme>.py: its ATen computation)
+|   |   |   |                    pass; <scheme>.py: its computation; ops.py: the quant.* custom ops
+|   |   |   |                    it puts in the graph, expanded by the middle end's DecomposeQuantOps)
 |   |   |   `-- to_mlir/         torch-mlir's importer (llvm/torch-mlir wheels): torch.mlir
 |   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir (fused linalg, CPU
 |   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:

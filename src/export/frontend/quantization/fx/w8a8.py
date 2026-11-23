@@ -12,9 +12,15 @@ When each part is quantized:
                    (so there is no calibration step and no stored activation scale)
 
 ``linear``, ``conv2d`` and ``embedding`` replace aten.linear, aten.conv2d and
-aten.embedding in a captured graph. They use only plain ATen ops, so the
-re-export traces them into the graph. ``torch._int_mm`` is the INT8 x INT8 ->
-INT32 contraction, on a constant weight.
+aten.embedding in a captured graph, and the re-export traces them into it. A
+contraction becomes four nodes (ops.py has the custom ops):
+
+    xq, xs = quant.quantize_per_token(x)       activations to INT8, per token
+    acc    = aten._int_mm(xq, w)               INT8 x INT8 -> INT32, constant weight
+    y      = quant.dequantize(acc, xs, w_scale)
+    y      = y + bias
+
+The embedding uses plain ATen ops only.
 
 Overflow: |acc| <= K * 127 * 127, which stays below 2**31 while K is under about
 133,000, so an INT32 accumulator cannot overflow or saturate.
@@ -24,6 +30,7 @@ from __future__ import annotations
 
 import torch
 
+from src.export.frontend.quantization.fx import ops
 from src.export.frontend.quantization.schemes import W8A8
 
 EPS = W8A8['eps']
@@ -41,9 +48,7 @@ def quantize_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
 
 def quantize_tokens(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """[M, K] float -> ([M, K] int8, [M] float32 scale), symmetric per token."""
-    scale = torch.clamp(x.abs().amax(-1), min=EPS) * (1.0 / QMAX)
-    q = torch.clamp(torch.round(x * (1.0 / scale)[:, None]), -QMAX, QMAX).to(torch.int8)
-    return q, scale
+    return ops.quantize_per_token(x, EPS, QMAX)
 
 
 # --- weights, quantized once by the pass ------------------------------------
@@ -81,7 +86,7 @@ def linear(x: torch.Tensor, qweight: torch.Tensor, scale: torch.Tensor,
     x2 = x.reshape(-1, k).to(torch.float32)
     xq, xs = quantize_tokens(x2)
     acc = torch._int_mm(xq, qweight)
-    y = acc.to(torch.float32) * xs[:, None] * scale[None, :]
+    y = ops.dequantize(acc, xs, scale)
     if bias is not None:
         y = y + bias
     return y.reshape(*shape[:-1], n)
@@ -106,7 +111,7 @@ def conv2d(x: torch.Tensor, qweight: torch.Tensor, scale: torch.Tensor, bias: to
     cols = torch.stack(patches, dim=1).permute(0, 3, 4, 1, 2).reshape(n * oh * ow, kh * kw * c)
     xq, xs = quantize_tokens(cols)
     acc = torch._int_mm(xq, qweight)
-    y = acc.to(torch.float32) * xs[:, None] * scale[None, :]
+    y = ops.dequantize(acc, xs, scale)
     if bias is not None:
         y = y + bias
     return y.reshape(n, oh, ow, cout).permute(0, 3, 1, 2)

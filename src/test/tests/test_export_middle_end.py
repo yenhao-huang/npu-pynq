@@ -180,6 +180,42 @@ class FuseConvBatchNormTest(unittest.TestCase):
         self.assertIn('batch_norm', code(text))
 
 
+# One W8A8 linear layer after the torch-dialect rewrites: the ATen ops the eager
+# quant.quantize_per_token and quant.dequantize compute, in their order.
+W8A8_LINEAR_OPS = ['view',
+                   # quantize_per_token
+                   'abs', 'amax', 'clamp', 'mul.Scalar', 'reciprocal', 'mul.Scalar', 'unsqueeze',
+                   'mul.Tensor', 'round', 'clamp', '_to_copy',
+                   'mm',          # _int_mm, after DecomposeIntMm
+                   # dequantize
+                   '_to_copy', 'unsqueeze', 'mul.Tensor', 'unsqueeze', 'mul.Tensor',
+                   'add.Tensor', 'view']
+
+
+@unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and pynqo-middle-end are required')
+class DecomposeQuantOpsTest(unittest.TestCase):
+    def test_quant_ops_become_their_aten_arithmetic(self):
+        import torch
+
+        torch.manual_seed(6)
+        imported, text = run(w8a8(torch.nn.Linear(16, 8).eval()), 'torch', shape=MLP_INPUT)
+        self.assertEqual(len(re.findall(r'torch\.operator "torch\.quant\.quantize_per_token"', imported)), 1)
+        self.assertEqual(len(re.findall(r'torch\.operator "torch\.quant\.dequantize"', imported)), 1)
+        self.assertNotIn('torch.operator', code(text))
+        ops = re.findall(r'= torch\.aten\.(\S+) ', functions(text)['forward'][1])
+        self.assertEqual(ops, W8A8_LINEAR_OPS)
+        # The scheme's parameters arrive as the ops' constant arguments.
+        self.assertIn('torch.constant.float 1.000000e-08', text)
+        self.assertIn('torch.constant.float 0.0078740157480314959', text)
+        self.assertIn('torch.constant.int -127', text)
+
+    def test_the_npu_still_claims_the_contraction(self):
+        imported, text, modules = run_with_delegates(mlp(), 'linalg', ('cpu', 'npu'), MLP_INPUT)
+        self.assertIn('torch.operator "torch.quant.', imported)
+        self.assertNotIn('torch.', re.sub(r'torch_tensor\S*', '', code(text)))
+        self.assertEqual(list(functions(modules['npu'])), ['npu_0', 'npu_1'])
+
+
 @unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and pynqo-middle-end are required')
 class LoweringTest(unittest.TestCase):
     def test_float_model_lowers_to_upstream_dialects(self):

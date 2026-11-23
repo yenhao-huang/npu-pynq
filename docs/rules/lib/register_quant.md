@@ -22,11 +22,29 @@ Schemes are applied by the FX pass in `fx/`.
 1. Define the scheme in `schemes.py`.
 2. Write `fx/<scheme>.py`: a `prepare_*` per op quantizes that op's weight
    once, and `linear`, `conv2d` and `embedding` replace aten.linear,
-   aten.conv2d and aten.embedding, using plain ATen ops only, since the
-   re-export traces them into the graph.
+   aten.conv2d and aten.embedding. The re-export traces them into the graph,
+   so they use ATen ops and the custom ops of `fx/ops.py` only.
 3. List the module by the scheme's name in `IMPLEMENTATIONS` in
    `fx/transforms/quantize.py`.
 4. Test its numerics against an independent reference.
+
+## Custom ops
+
+`fx/ops.py` defines the quantization steps that stay one node in the graph,
+as `torch.library` custom ops in the `quant` namespace (no `aten`, no device
+name): `quantize_per_token` (float activations to INT8 and a per-token scale)
+and `dequantize` (an INT32 accumulator times the activation and weight
+scales). The contraction between them stays `aten._int_mm`.
+
+- Each op has an eager implementation and a `register_fake`, so
+  `torch.export` traces it and `ep.module()` runs it.
+- A scheme's parameters (eps, qmax) are op arguments, never constants of the
+  op, so they stay in `schemes.py`.
+- torch-mlir imports a custom op as `torch.operator "torch.quant.<name>"`,
+  which it cannot lower. `middle-end/torch/transforms/DecomposeQuantOps.cpp`
+  expands each op into the ATen ops of its eager implementation, op for op,
+  so compiled results equal PyTorch's arithmetic. Changing an op's arithmetic
+  means changing both, and adding an op means adding its expansion there.
 
 ## Layout
 

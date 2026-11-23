@@ -108,7 +108,10 @@ int main(int argc, char **argv) {
     return fail("cannot parse " + input);
 
   PassManager pm(&context);
-  // BatchNorm first: it matches _int_mm, which the next pass replaces.
+  // The quant.* ops first: BatchNorm matches the rescale that dequantize
+  // expands into, after _int_mm. BatchNorm before DecomposeIntMm, which
+  // replaces the _int_mm it matches.
+  pm.addPass(middle_end::createDecomposeQuantOpsPass());
   pm.addPass(middle_end::createFuseConvBatchNormPass());
   pm.addPass(middle_end::createDecomposeIntMmPass());
   pm.addPass(middle_end::createAnyDimToAnyDimsPass());

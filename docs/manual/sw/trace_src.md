@@ -117,10 +117,12 @@ quantize(programs, 'w8a8')                           frontend/quantization/fx/tr
        │    → a call to w8a8.linear / w8a8.conv2d / w8a8.embedding (quantization/fx/w8a8.py):
        │      INT8 weights with a per-channel scale, quantized once (prepare_*) and
        │      shared by every program; linear and conv2d quantize activations at run
-       │      time and compute (int8(x) @ W_q) with torch._int_mm, then
-       │      * x_scale * w_scale + bias
+       │      time and compute (int8(x) @ W_q) with torch._int_mm:
+       │      quant.quantize_per_token -> _int_mm -> quant.dequantize -> + bias
+       │      (the quant.* ops are custom ops, quantization/fx/ops.py)
        ├─ the float weights no node reads any more are dropped
-       └─ torch.export.export(gm, ep.example_inputs)   traces those calls into ATen
+       └─ torch.export.export(gm, ep.example_inputs)   traces those calls; each
+                                                      quant.* op stays one node
 ```
 
 The programs are still undecomposed ExportedPrograms; `ep.module()` runs one in eager PyTorch.
@@ -131,7 +133,8 @@ The programs are still undecomposed ExportedPrograms; `ep.module()` runs one in 
 to_mlir(programs, out/'ir')                          frontend/to_mlir/__init__.py:12
   └─ to_torch_dialect(programs)                      to_mlir/torch_mlir/to_torch_dialect.py:16
        ├─ FxImporter(context)
-       ├─ ep.run_decompositions()   default ATen decompositions; _int_mm survives
+       ├─ ep.run_decompositions()   default ATen decompositions; _int_mm and the
+       │                            quant.* custom ops survive (torch.operator)
        ├─ copy non-persistent buffers (RoPE inv_freq) from ep.constants into ep._state_dict
        └─ importer.import_frozen_program(ep, func_name=name)   once per program
             parameters and buffers become torch.vtensor.literal constants,
@@ -147,6 +150,8 @@ middle_end(torch.mlir, ir/model.mlir, devices)
   └─ pynqo-middle-end torch.mlir -o model.mlir --emit=linalg --devices cpu,npu
                       --delegates-dir ir/delegates            middle-end/pynqo_middle_end.cpp
        ├─ our rewrites on the torch dialect           middle-end/torch/transforms/
+       │    ├─ DecomposeQuantOps   quant.quantize_per_token / quant.dequantize -> their ATen
+       │    │                      arithmetic (torch-mlir cannot lower torch.operator)
        │    ├─ FuseConvBatchNorm   fold inference BatchNorm into the conv before it
        │    │                      (float: weight and bias; W8A8: w_scale and bias)
        │    ├─ DecomposeIntMm      _int_mm -> aten.mm on i8 (torch-mlir cannot lower _int_mm)

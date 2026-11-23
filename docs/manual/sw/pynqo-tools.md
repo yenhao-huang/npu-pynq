@@ -20,7 +20,7 @@ pynqo-middle-end <torch.mlir> -o <model.mlir> [--emit=linalg|torch] [--devices c
 | --- | --- |
 | Input | `ir/torch.mlir`: the torch dialect, written by `to_mlir` |
 | Output | `ir/model.mlir`: the CPU graph, linalg on tensors, weights inline as constants, a call to a bodiless `@__delegate_<id>` per device subgraph; `ir/delegates/<device>.mlir`: that device's subgraphs, one `@<device>_<id>` each |
-| Passes | FuseConvBatchNorm, DecomposeIntMm, AnyDimToAnyDims, torch-mlir's two pipelines to linalg, pynqo-assign-devices, pynqo-partition-devices, then canonicalize, CSE and elementwise fusion on the CPU graph |
+| Passes | DecomposeQuantOps, FuseConvBatchNorm, DecomposeIntMm, AnyDimToAnyDims, torch-mlir's two pipelines to linalg, pynqo-assign-devices, pynqo-partition-devices, then canonicalize, CSE and elementwise fusion on the CPU graph |
 | `--devices` | `cpu` (default): nothing is assigned; `cpu,npu`: INT8 matmuls on constant weights with a zero accumulator go to the NPU |
 | `--delegates-dir` | where the device modules go (default `delegates/` next to `-o`) |
 | `--emit=torch` | stop after our passes, to inspect them |

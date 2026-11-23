@@ -48,6 +48,27 @@ class W8A8NumericsTest(unittest.TestCase):
         np.testing.assert_array_equal(q.numpy(), rq)
         np.testing.assert_array_equal(s.numpy(), rs)
 
+    def test_custom_ops_are_the_plain_aten_arithmetic_bit_for_bit(self):
+        # quant.quantize_per_token and quant.dequantize against the ATen
+        # expressions w8a8 computed before they were custom ops.
+        import torch
+        from src.export.frontend.quantization.fx import ops
+
+        rng = np.random.default_rng(6)
+        x = torch.from_numpy((rng.normal(size=(7, 40)) * 5).astype(np.float32))
+        x[3] = 0                                     # an all-zero token takes the EPS scale
+        q, s = ops.quantize_per_token(x, EPS, 127)
+        scale = torch.clamp(x.abs().amax(-1), min=EPS) * (1.0 / 127)
+        expected = torch.clamp(torch.round(x * (1.0 / scale)[:, None]), -127, 127).to(torch.int8)
+        self.assertEqual((q.dtype, s.dtype), (torch.int8, torch.float32))
+        self.assertTrue(torch.equal(q, expected))
+        self.assertTrue(torch.equal(s, scale))
+
+        acc = torch.from_numpy(rng.integers(-2**20, 2**20, size=(7, 9)).astype(np.int32))
+        w_scale = torch.from_numpy(rng.uniform(1e-4, 1e-1, size=9).astype(np.float32))
+        y = ops.dequantize(acc, s, w_scale)
+        self.assertTrue(torch.equal(y, acc.to(torch.float32) * s[:, None] * w_scale[None, :]))
+
     def test_linear_is_the_int8_contraction_rescaled(self):
         import torch
         from src.export.frontend.quantization.fx.w8a8 import linear, prepare_linear
@@ -92,6 +113,44 @@ class W8A8NumericsTest(unittest.TestCase):
         self.assertEqual(targets(ep)['aten.batch_norm.default'], 1)
         torch.testing.assert_close(got, expected, rtol=0.1, atol=0.1)
 
+def call_targets(ep):
+    """The targets of ``ep``'s call_function nodes in order, without metadata asserts."""
+    return [str(n.target) for n in ep.graph.nodes
+            if n.op == 'call_function' and str(n.target) != 'aten._assert_tensor_metadata.default']
+
+
+@unittest.skipUnless(HAVE_TORCH, 'torch and transformers are required')
+class QuantizedGraphTest(unittest.TestCase):
+    def test_a_quantized_linear_is_four_nodes(self):
+        # quantize_per_token -> _int_mm -> dequantize -> + bias, between the
+        # reshapes that make the contraction rank 2; still so after
+        # run_decompositions, which to_mlir applies.
+        import torch
+        from src.export.frontend.quantization import quantize
+
+        torch.manual_seed(7)
+        net = torch.nn.Linear(16, 8).eval()
+        x = torch.randn(2, 3, 16)
+        with torch.no_grad():
+            ep = quantize({'forward': torch.export.export(net, (x,), strict=False)}, 'w8a8')['forward']
+            got = ep.module()(x)
+        decomposed = ep.run_decompositions()
+        self.assertEqual(call_targets(decomposed),
+                         ['aten.view.default', 'quant.quantize_per_token.default',
+                          '<built-in function getitem>', '<built-in function getitem>',
+                          'aten._int_mm.default', 'quant.dequantize.default', 'aten.add.Tensor',
+                          'aten.view.default'])
+        self.assertFalse([n for n, t in ep.state_dict.items() if t.dtype == torch.float32 and t.dim() == 2])
+        # The graph computes what w8a8.linear computes in eager PyTorch, bit for bit.
+        from src.export.frontend.quantization.fx.w8a8 import prepare_linear
+
+        qw, ws = prepare_linear(net.weight)
+        xq, xs = reference_rows(x.reshape(-1, 16).numpy())
+        acc = torch.from_numpy(xq.astype(np.int32) @ qw.numpy().astype(np.int32))
+        expected = acc.to(torch.float32) * torch.from_numpy(xs)[:, None] * ws[None, :] + net.bias
+        self.assertTrue(torch.equal(got, expected.reshape(2, 3, 8)))
+
+
 def targets(ep):
     """op name -> how many call_function nodes of ``ep`` call it."""
     import collections
@@ -129,6 +188,10 @@ class QuantizationPassTest(unittest.TestCase):
                 self.assertNotIn('aten.linear.default', ops)
                 self.assertNotIn('aten.embedding.default', ops)
                 self.assertEqual(ops['aten._int_mm.default'], 15)
+                self.assertEqual(ops['quant.quantize_per_token.default'], 15)
+                self.assertEqual(ops['quant.dequantize.default'], 15)
+                # The activation quantization is inside the custom ops, not spelled out in ATen.
+                self.assertNotIn('aten.round.default', ops)
 
     def test_no_float_weight_is_left(self):
         import torch
