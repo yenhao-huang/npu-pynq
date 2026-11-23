@@ -24,13 +24,14 @@ together: the Calibrator (`fx/calibrator.py`), the scheme's Quantizer
 Calibrator and the Rewriter are shared by every scheme and know none.
 
 1. Define the scheme in `schemes.py`, with the ops it quantizes in `ops`
-   (names from `OPS` in `fx/utils/share.py`: `linear`, `conv2d`, `embedding`).
+   (names from `OPS` in `fx/utils/share.py`: `linear`, `conv2d`, `embedding`)
+   and, in `calibrated_ops`, the subset whose input it quantizes with a
+   static scale: the Calibrator observes those, and the quantizer reads the
+   same list (`self.calibrated_ops`), so it is declared once.
    A new ATen op gets an entry there: its target and how to parse its node
    into named arguments (`weight`, and `x` for an op whose input is quantized).
 2. Subclass `Quantizer` (`fx/quantizer/base.py`) in `fx/quantizer/<scheme>.py`
-   and implement:
-   - `calibrated_ops(ops)` (a classmethod): the op names whose input it
-     quantizes, which the Calibrator observes;
+   and implement its two abstract methods:
    - `quantize_layer(key, kind, weight, name)`: a layer's float weight
      quantized, with its activation scale from `self.stats[key]`, as a
      `QuantizedLayer`;

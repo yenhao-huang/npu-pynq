@@ -114,7 +114,7 @@ export_classifier(model, (224, 224, 3))              export.py:154
 quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:42
   ├─ 1. Calibrator.run (fx/calibrator.py) -> stats: an fx.Interpreter runs the float prefill
   │    (or forward) program on the config's calibration: inputs (pipeline.calibration_inputs)
-  │    and records the largest |input| of each node of W8A8Quantizer.calibrated_ops
+  │    and records the largest |input| of each node of schemes.W8A8's calibrated_ops
   │    (linear, conv2d), keyed by layer_key (fx/utils/share.py: op name + float weight storage)
   ├─ 2. W8A8Quantizer.run (Quantizer.run, fx/quantizer/base.py) -> plan, over every
   │    program's selected nodes: check, then once per layer key quantize_layer (INT8 weight,

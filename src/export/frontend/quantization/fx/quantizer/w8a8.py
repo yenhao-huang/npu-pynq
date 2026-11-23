@@ -130,18 +130,17 @@ def embedding(ids: torch.Tensor, qweight: torch.Tensor, scale: torch.Tensor) -> 
 @dataclass(frozen=True)
 class Op:
     quantize_weight: Callable      # float weight -> (INT8 weight, weight scale)
-    calibrated: bool               # its input is quantized, so it needs an activation scale
     function: Callable             # what replaces the node, traced into the graph
     arguments: Callable            # (node's parsed args, buffer nodes, float weight's shape) -> its arguments
 
 
 OPS = {
-    'linear': Op(quantize_weight, True, linear,
+    'linear': Op(quantize_weight, linear,
                  lambda args, buffers, shape: (args['x'], *buffers, args['bias'])),
-    'conv2d': Op(quantize_conv2d_weight, True, conv2d,
+    'conv2d': Op(quantize_conv2d_weight, conv2d,
                  lambda args, buffers, shape: (args['x'], *buffers, args['bias'], shape[2:],
                                                args['stride'], args['padding'])),
-    'embedding': Op(quantize_embedding_weight, False, embedding,
+    'embedding': Op(quantize_embedding_weight, embedding,
                     lambda args, buffers, shape: (args['ids'], *buffers)),
 }
 
@@ -149,20 +148,16 @@ OPS = {
 class W8A8Quantizer(Quantizer):
     """W8A8's numbers: per-channel INT8 weights and a calibrated [1] scale per layer input."""
 
-    @classmethod
-    def calibrated_ops(cls, ops) -> tuple[str, ...]:
-        """The op names among ``ops`` whose input is quantized, and so calibrated."""
-        return tuple(op for op in ops if OPS[op].calibrated)
-
     def check(self, kind: str, args: dict) -> None:
         """Refuse a node W8A8 cannot compute."""
         if kind == 'conv2d' and (args['groups'] != 1 or args['dilation'] != (1, 1)):
             raise ValueError('w8a8 supports ungrouped, undilated convolutions only')
 
     def quantize_layer(self, key: tuple, kind: str, weight: torch.Tensor, name: str) -> QuantizedLayer:
-        """``weight`` quantized for ``kind``, plus its activation scale when the op is calibrated."""
+        """``weight`` quantized for ``kind``, plus its activation scale when the scheme
+        calibrates ``kind`` (schemes.W8A8['calibrated_ops'])."""
         q, scale = OPS[kind].quantize_weight(weight)
-        if not OPS[kind].calibrated:
+        if kind not in self.calibrated_ops:
             return QuantizedLayer(q, scale)
         if key not in self.stats:
             raise ValueError(f'no calibration statistics for {kind} weight {name}; '

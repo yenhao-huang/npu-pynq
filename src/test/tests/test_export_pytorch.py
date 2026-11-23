@@ -141,20 +141,31 @@ class QuantizerContractTest(unittest.TestCase):
         from src.export.frontend.quantization.fx.quantizer.base import Quantizer
         from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8Quantizer
 
-        with self.assertRaises(TypeError):
-            Quantizer(('linear',), {})
+        args = (('linear',), ('linear',), {})
+        with self.assertRaisesRegex(TypeError, 'abstract'):
+            Quantizer(*args)
 
         class NoReplacement(Quantizer):
-            @classmethod
-            def calibrated_ops(cls, ops):
-                return tuple(ops)
-
             def quantize_layer(self, key, kind, weight, name):
                 raise NotImplementedError
 
-        with self.assertRaises(TypeError):
-            NoReplacement(('linear',), {})
-        self.assertIsInstance(W8A8Quantizer(('linear',), {}), Quantizer)
+        with self.assertRaisesRegex(TypeError, 'abstract'):
+            NoReplacement(*args)
+        self.assertIsInstance(W8A8Quantizer(*args), Quantizer)
+
+    def test_calibrated_ops_must_be_among_the_ops(self):
+        from unittest import mock
+
+        import torch
+        from src.export.frontend.quantization import quantize
+        from src.export.frontend.quantization.schemes import SCHEMES
+
+        net = torch.nn.Linear(4, 2).eval()
+        with torch.no_grad():
+            programs = {'forward': torch.export.export(net, (torch.zeros(1, 4),), strict=False)}
+        with mock.patch.dict(SCHEMES['w8a8'], ops=('linear',), calibrated_ops=('linear', 'conv2d')), \
+                self.assertRaisesRegex(ValueError, 'calibrated_ops'):
+            quantize(programs, 'w8a8', {'forward': [(torch.ones(1, 4),)]})
 
 
 @unittest.skipUnless(HAVE_TORCH, 'torch and transformers are required')

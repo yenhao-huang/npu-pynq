@@ -51,7 +51,10 @@ def quantize(programs: dict[str, torch.export.ExportedProgram], scheme: str,
     except KeyError:
         raise ValueError(f'unknown quantization scheme {scheme!r}; '
                          f'known: {sorted(QUANTIZERS)}') from None
-    ops = SCHEMES[scheme]['ops']
-    stats = Calibrator(quantizer_class.calibrated_ops(ops)).run(programs, calibration or {})   # 1. calibrate
-    plan = quantizer_class(ops, stats).run(programs)                                           # 2. quantize weights
-    return Rewriter(ops, plan).run(programs)                                                   # 3. replace nodes
+    spec = SCHEMES[scheme]
+    ops, calibrated_ops = spec['ops'], spec['calibrated_ops']
+    if not set(calibrated_ops) <= set(ops):
+        raise ValueError(f'{scheme}: calibrated_ops {calibrated_ops} must be among its ops {ops}')
+    stats = Calibrator(calibrated_ops).run(programs, calibration or {})            # 1. calibrate
+    plan = quantizer_class(ops, calibrated_ops, stats).run(programs)               # 2. quantize weights
+    return Rewriter(ops, plan).run(programs)                                       # 3. replace nodes

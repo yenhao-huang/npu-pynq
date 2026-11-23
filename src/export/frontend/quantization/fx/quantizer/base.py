@@ -1,15 +1,14 @@
 """The Quantizer base class: what every quantization scheme implements, and what it shares.
 
-A scheme decides every number and does no graph surgery. The driver
-(quantize.py) asks its class which ops the Calibrator observes
-(``calibrated_ops``), then ``run`` quantizes each selected layer once and
-returns the plan: layer key -> Replacement (utils/share.py), which the
+A scheme decides every number and does no graph surgery. Which ops it
+quantizes, and which of them have a calibrated input, are data in
+schemes.py (``ops``, ``calibrated_ops``). ``run`` quantizes each selected
+layer once and returns the plan: layer key -> Replacement (utils/share.py), which the
 Rewriter applies. A quantizer imports neither the Calibrator nor the
 Rewriter; it receives statistics and returns the plan as plain data.
 
 A scheme subclasses Quantizer in fx/quantizer/<scheme>.py and implements
-``calibrated_ops``, ``quantize_layer`` and ``replacement``; ``check`` is an
-optional hook.
+``quantize_layer`` and ``replacement``; ``check`` is an optional hook.
 """
 
 from __future__ import annotations
@@ -36,9 +35,10 @@ class QuantizedLayer(NamedTuple):
 class Quantizer(ABC):
     """One quantization scheme: decides every number, does no graph surgery."""
 
-    def __init__(self, ops, stats: dict) -> None:
-        self.ops = tuple(ops)          # the scheme's op names (schemes.py's ``ops``)
-        self.stats = stats             # layer key -> largest |input|, from the Calibrator
+    def __init__(self, ops, calibrated_ops, stats: dict) -> None:
+        self.ops = tuple(ops)                        # the scheme's op names (schemes.py's ``ops``)
+        self.calibrated_ops = tuple(calibrated_ops)  # those whose input has a calibrated scale
+        self.stats = stats                           # layer key -> largest |input|, from the Calibrator
 
     # --- shared ---------------------------------------------------------------
 
@@ -63,11 +63,6 @@ class Quantizer(ABC):
         return plan
 
     # --- what a scheme implements ---------------------------------------------
-
-    @classmethod
-    @abstractmethod
-    def calibrated_ops(cls, ops) -> tuple[str, ...]:
-        """The op names among ``ops`` whose input is quantized, and so calibrated."""
 
     @abstractmethod
     def quantize_layer(self, key: tuple, kind: str, weight: torch.Tensor, name: str) -> QuantizedLayer:
