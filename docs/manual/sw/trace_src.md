@@ -111,16 +111,17 @@ export_classifier(model, (224, 224, 3))              export.py:154
 ### quantize (pipeline.py:230)
 
 ```
-quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:42
+quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:43
   ├─ 1. Calibrator.run (fx/calibrator.py) -> stats: an fx.Interpreter runs the float prefill
   │    (or forward) program on the config's calibration: inputs (pipeline.calibration_inputs)
   │    and records the largest |input| of each node of schemes.W8A8's calibrated_ops
   │    (linear, conv2d), keyed by layer_key (fx/utils/share.py: op name + float weight storage)
-  ├─ 2. W8A8Quantizer.run (Quantizer.run, fx/quantizer/base.py) -> plan, over every
-  │    program's selected nodes: check each, then once per layer key quantize_layer
-  │    (fx/quantizer/w8a8.py): INT8 weight, per-channel scale and, for linear and conv2d,
-  │    the [1] activation scale, in a Replacement of w8a8.linear / conv2d / embedding with
-  │    its argument builder; shared by every program
+  ├─ 2. Quantizer(W8A8QuantizedLayer()).run (fx/quantizer/base.py) -> plan, over every
+  │    program's selected nodes: layer.check each, then once per layer key the method named
+  │    after the op (fx/quantizer/w8a8.py): linear / conv2d(weight, amax), embedding(weight):
+  │    INT8 weight, per-channel scale and, for linear and conv2d, the [1] activation scale,
+  │    in a Replacement of _linear_graph / _conv2d_graph / _embedding_graph with its
+  │    argument builder; shared by every program
   └─ 3. Rewriter.run (fx/rewriter.py), per program: ep.module(), weights as get_attr
        ├─ select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)
        ├─ Rewriter.rewrite, per node: parse its arguments, look plan[layer_key] up, register

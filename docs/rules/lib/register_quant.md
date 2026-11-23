@@ -19,33 +19,38 @@ quantization techniques and knows nothing about any accelerator.
 ## Adding a scheme
 
 Schemes are applied with FX, in three stages that quantize.py wires
-together: the Calibrator (`fx/calibrator.py`), the scheme's Quantizer
-(`fx/quantizer/<scheme>.py`) and the Rewriter (`fx/rewriter.py`). The
-Calibrator and the Rewriter are shared by every scheme and know none.
+together: the Calibrator (`fx/calibrator.py`), the Quantizer
+(`fx/quantizer/base.py`), which runs the scheme's QuantizedLayer
+(`fx/quantizer/<scheme>.py`), and the Rewriter (`fx/rewriter.py`). Only the
+QuantizedLayer is the scheme's; the rest is shared and knows no scheme.
 
 1. Define the scheme in `schemes.py`, with the ops it quantizes in `ops`
    (names from `OPS` in `fx/utils/share.py`: `linear`, `conv2d`, `embedding`)
    and, in `calibrated_ops`, the subset whose input it quantizes with a
-   static scale: the Calibrator observes those, and the quantizer reads the
-   same list (`self.calibrated_ops`), so it is declared once.
+   static scale: the Calibrator observes those, and the Quantizer passes
+   their calibrated amax to the layer, so the list is declared once.
    A new ATen op gets an entry there: its target and how to parse its node
    into named arguments (`weight`, and `x` for an op whose input is quantized).
-2. Subclass `Quantizer` (`fx/quantizer/base.py`) in `fx/quantizer/<scheme>.py`
-   and implement its one abstract method:
-   - `quantize_layer(key, kind, weight, name)`: the layer's `Replacement`
-     (`fx/utils/share.py`). Quantize the float weight, add the activation
-     scale from `self.stats[key]` for an op in `self.calibrated_ops`, and
-     give the function that replaces the layer's nodes, those tensors (which
-     become buffers, in order) and how to build the function's arguments
-     from the node's parsed arguments and the buffers;
-   - optionally `check(kind, args)`, to refuse a node it cannot compute.
+2. Subclass `QuantizedLayer` (`fx/quantizer/base.py`) in
+   `fx/quantizer/<scheme>.py` and override the method of each op in `ops`,
+   named after the op: `linear(weight, amax)`, `conv2d(weight, amax)`,
+   `embedding(weight)` (an op in `calibrated_ops` gets its amax). Each
+   quantizes the float weight and returns the layer's `Replacement`
+   (`fx/utils/share.py`): the function that replaces its nodes, the tensors
+   that become buffers (in order), and how to build the function's
+   arguments from the node's parsed arguments and the buffers. Optionally
+   override `check(kind, args)` to refuse a node, and set `name` to the
+   scheme's name for error messages.
 
-   The base class's `run(programs)` calls `check` on every selected node and
-   `quantize_layer` once per layer key, and returns the plan, layer key ->
-   `Replacement`. The replacement functions,
-   which the re-export traces into the graph, use ATen ops and the custom ops
-   of `fx/custom_ops.py` only; keep each next to the weight layout it reads.
-3. List the class by the scheme's name in `QUANTIZERS` in `quantize.py`.
+   The base methods raise NotImplementedError, and the Quantizer refuses a
+   layer that lacks a method for one of the scheme's ops. It calls `check`
+   on every selected node and the op's method once per layer key, and
+   returns the plan, layer key -> `Replacement`. The module holds only the
+   class: helpers and the replacement functions, which the re-export traces
+   into the graph using ATen ops and the custom ops of `fx/custom_ops.py`
+   only, are its members, each next to the weight layout it reads
+   (`test_export_layering.py` checks there is no module-level function).
+3. List the class by the scheme's name in `LAYERS` in `quantize.py`.
    Calibration inputs reach `quantize(programs, scheme, calibration)` from the
    config's `calibration:` block, which `pipeline.py` loads.
 4. Test its numerics against an independent reference.
@@ -74,7 +79,7 @@ scales). The contraction between them stays `aten._int_mm`.
 quantization/
 |-- __init__.py           exports quantize
 |-- schemes.py            the schemes as data: parameters and the ops each quantizes
-|-- quantize.py           the stage driver: Calibrator -> stats -> Quantizer -> plan -> Rewriter
+|-- quantize.py           the stage driver: Calibrator -> stats -> Quantizer(scheme's layer) -> plan -> Rewriter
 `-- fx/
     |-- custom_ops.py     the quant.* custom ops
     |-- utils/
@@ -85,10 +90,11 @@ quantization/
     |-- rewriter.py       Rewriter: applies a plan to every program (buffers, node
     |                     replacement), re-exports
     `-- quantizer/
-        |-- base.py       Quantizer: the shared loop (run -> plan), the abstract
-        |                 quantize_layer and the optional check
-        `-- <scheme>.py   one scheme: what is calibrated, weight layouts and quantization,
-                          activation scales, the functions that replace each op
+        |-- base.py       QuantizedLayer (one method per op, and check) and Quantizer,
+        |                 which runs a layer over every program (run -> plan)
+        `-- <scheme>.py   one scheme's QuantizedLayer subclass, and nothing else: weight
+                          layouts and quantization, activation scales, the functions
+                          that replace each op
 ```
 
 `schemes.py` and `quantize.py` stay at the top: the pipeline only calls
@@ -98,8 +104,8 @@ decoupled: the Calibrator, the quantizers and the Rewriter never import each
 other, and nothing under `fx/` imports `quantize.py`. They exchange plain
 data, the statistics and the plan, through `quantize.py`, and take what they
 share from `fx/utils/share.py`. The Calibrator and the Rewriter decide nothing
-about numerics; a quantizer decides all of its scheme and does no graph
-surgery. A second scheme adds a file under `quantizer/`; code two frameworks
+about numerics; a scheme's QuantizedLayer decides all of its numbers and
+does no graph surgery. A second scheme adds a file under `quantizer/`; code two frameworks
 need moves up only when the second framework actually needs it.
 
 `src/test/tests/test_export_layering.py` enforces the first rule under Rules and the

@@ -34,19 +34,28 @@ def reference_activations(x, scale):
 @unittest.skipUnless(HAVE_TORCH, 'torch and transformers are required')
 class W8A8NumericsTest(unittest.TestCase):
     def test_weights_match_the_numeric_contract_bit_for_bit(self):
+        # linear writes the per-channel arithmetic out; embedding and conv2d
+        # share _per_channel. Both must be the contract's.
         import torch
-        from src.export.frontend.quantization.fx.quantizer.w8a8 import quantize_weight
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8QuantizedLayer
 
+        layer = W8A8QuantizedLayer()
         w = np.random.default_rng(0).normal(size=(48, 64)).astype(np.float32)
-        q, s = quantize_weight(torch.from_numpy(w))
         rq, rs = reference_weight(w)
+        q, s, _ = layer.linear(torch.from_numpy(w), 1.0).tensors
         np.testing.assert_array_equal(q.numpy(), rq)
+        np.testing.assert_array_equal(s.numpy(), rs)
+        q, s = layer.embedding(torch.from_numpy(w)).tensors     # per row of the [V, H] table
+        np.testing.assert_array_equal(q.numpy(), rq.T)
         np.testing.assert_array_equal(s.numpy(), rs)
 
     def test_activations_match_the_numeric_contract_bit_for_bit(self):
         import torch
         from src.export.frontend.quantization.fx import custom_ops
-        from src.export.frontend.quantization.fx.quantizer.w8a8 import activation_scale
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8QuantizedLayer
+
+        def activation_scale(amax):
+            return W8A8QuantizedLayer().linear(torch.ones(2, 3), amax).tensors[2]
 
         x = (np.random.default_rng(1).normal(size=(5, 64)) * 3).astype(np.float32)
         # A calibrated amax below the input's own: the largest values saturate.
@@ -82,13 +91,14 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_linear_is_the_int8_contraction_rescaled(self):
         import torch
-        from src.export.frontend.quantization.fx.quantizer.w8a8 import activation_scale, linear, quantize_weight
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8QuantizedLayer
 
         rng = np.random.default_rng(2)
         w = rng.normal(size=(32, 64)).astype(np.float32)
         x = rng.normal(size=(3, 64)).astype(np.float32)
-        xs = activation_scale(float(np.abs(x).max()))
-        y = linear(torch.from_numpy(x), *quantize_weight(torch.from_numpy(w)), xs, None).numpy()
+        r = W8A8QuantizedLayer().linear(torch.from_numpy(w), float(np.abs(x).max()))
+        y = r.function(torch.from_numpy(x), *r.tensors, None).numpy()
+        xs = r.tensors[2]
         wq, ws = reference_weight(w)
         xq = reference_activations(x, xs.numpy())
         acc = xq.astype(np.int32) @ wq.astype(np.int32)
@@ -96,15 +106,14 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_convolution_is_the_contraction_of_its_patches(self):
         import torch
-        from src.export.frontend.quantization.fx.quantizer.w8a8 import (activation_scale, conv2d,
-                                                                         quantize_conv2d_weight)
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8QuantizedLayer
 
         torch.manual_seed(4)
         conv = torch.nn.Conv2d(5, 7, 3, stride=2, padding=1)
         x = torch.randn(1, 5, 9, 11)
         with torch.no_grad():
-            y = conv2d(x, *quantize_conv2d_weight(conv.weight), activation_scale(float(x.abs().max())),
-                       conv.bias, (3, 3), (2, 2), (1, 1))
+            r = W8A8QuantizedLayer().conv2d(conv.weight, float(x.abs().max()))
+            y = r.function(x, *r.tensors, conv.bias, (3, 3), (2, 2), (1, 1))
             expected = conv(x)
         self.assertEqual(tuple(y.shape), tuple(expected.shape))
         # The W8A8 result stays within quantization error of the float convolution.
@@ -137,21 +146,25 @@ def call_targets(ep):
 
 @unittest.skipUnless(HAVE_TORCH, 'torch and transformers are required')
 class QuantizerContractTest(unittest.TestCase):
-    def test_a_scheme_must_implement_every_abstract_method(self):
-        from src.export.frontend.quantization.fx.quantizer.base import Quantizer
-        from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8Quantizer
+    def test_a_scheme_needs_a_method_for_each_of_its_ops(self):
+        import torch
+        from src.export.frontend.quantization.fx.quantizer.base import QuantizedLayer, Quantizer
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8QuantizedLayer
 
-        args = (('linear',), ('linear',), {})
-        with self.assertRaisesRegex(TypeError, 'abstract'):
-            Quantizer(*args)
+        base = QuantizedLayer()
+        for call in (lambda: base.linear(torch.ones(2, 2), 1.0), lambda: base.conv2d(torch.ones(1, 1, 1, 1), 1.0),
+                     lambda: base.embedding(torch.ones(2, 2))):
+            with self.assertRaises(NotImplementedError):
+                call()
 
-        class OnlyCheck(Quantizer):          # check is optional; quantize_layer is not
-            def check(self, kind, args):
-                pass
+        class OnlyLinear(QuantizedLayer):
+            def linear(self, weight, amax):
+                raise AssertionError('not called')
 
-        with self.assertRaisesRegex(TypeError, 'abstract'):
-            OnlyCheck(*args)
-        self.assertIsInstance(W8A8Quantizer(*args), Quantizer)
+        Quantizer(OnlyLinear(), ('linear',), ('linear',), {})
+        with self.assertRaisesRegex(ValueError, "op\\(s\\) \\['embedding'\\]"):
+            Quantizer(OnlyLinear(), ('linear', 'embedding'), ('linear',), {})
+        Quantizer(W8A8QuantizedLayer(), ('linear', 'conv2d', 'embedding'), ('linear', 'conv2d'), {})
 
     def test_calibrated_ops_must_be_among_the_ops(self):
         from unittest import mock

@@ -73,6 +73,20 @@ class ExportLayeringTest(unittest.TestCase):
                                 self.assertFalse(module.startswith(f'{package}.fx.{other}'),
                                                  f'{path.name} imports {module}')
 
+    def test_a_quantizer_module_holds_only_its_class(self):
+        # register_quant.md: fx/quantizer/<scheme>.py defines one QuantizedLayer
+        # subclass and no module-level function; every helper is a member.
+        for path in sorted((FRONTEND / 'quantization' / 'fx' / 'quantizer').glob('*.py')):
+            if path.name == 'base.py':
+                continue
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+            with self.subTest(path=path.name):
+                for i, node in enumerate(tree.body):
+                    docstring = i == 0 and isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+                    self.assertTrue(docstring or isinstance(node, (ast.Import, ast.ImportFrom, ast.ClassDef)),
+                                    f'{path.name}:{node.lineno} is a {type(node).__name__} at module level')
+                self.assertEqual(sum(isinstance(n, ast.ClassDef) for n in tree.body), 1)
+
     def test_quantization_knows_no_device(self):
         # docs/rules/lib/register_quant.md
         for path in sorted((FRONTEND / 'quantization').rglob('*.py')):
