@@ -1,9 +1,6 @@
-"""The Rewriter: scheme-agnostic graph surgery from a plan.
+"""The Rewriter: scheme-agnostic graph surgery from a plan (layer key -> Replacement).
 
-The plan maps each layer key (utils/share.py's ``layer_key``) to a
-Replacement: the function that replaces the layer's nodes, the tensors that
-become buffers of the module, and how to build the function's arguments. The
-Rewriter applies it to every selected node of each program and re-captures
+It applies the plan to every selected node of each program and re-captures
 the programs; it decides nothing about numerics and knows no scheme.
 """
 
@@ -39,7 +36,7 @@ class Rewriter:
     def rewrite(self, node: fx.Node) -> None:
         """Replace ``node`` with its plan entry's function, its tensors read as buffers."""
         kind, args = parse(node)
-        key = layer_key(self.gm, node)
+        key = layer_key(self.gm, kind, args)
         if key not in self.plan:
             raise KeyError(f'no plan entry for {kind} weight {args["weight"].target}; '
                            'the plan must cover every node of the ops being replaced')

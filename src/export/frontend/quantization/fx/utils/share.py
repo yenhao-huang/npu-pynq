@@ -1,19 +1,15 @@
 """What the FX stages share: the ATen ops a scheme can quantize, node helpers, and the plan's type.
 
-The Calibrator, the quantizers and the Rewriter never import each other; they
-exchange plain data (statistics, a plan of Replacements) through quantize.py,
-and take everything they have in common from here.
-
 export_graph captures each entry point undecomposed, so every op a scheme
 quantizes is one aten.linear, aten.conv2d or aten.embedding node of the
 unlifted module (``ep.module()``), its weight a get_attr. ``OPS`` says, per op
 name (schemes.py's ``ops``), which node that is and how to read its
-arguments; ``select`` and ``layer_key`` find the nodes and name their layers.
+arguments; ``select``, ``parse`` and ``layer_key`` find the nodes, read them
+and name their layers.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Callable, NamedTuple
 
 import torch
@@ -42,8 +38,7 @@ def _embedding(node: fx.Node) -> dict:
     return {'weight': w, 'ids': ids}
 
 
-@dataclass(frozen=True)
-class AtenOp:
+class AtenOp(NamedTuple):
     """One op a scheme can quantize, at the ATen level."""
     target: object                      # the aten node
     parse: Callable[[fx.Node], dict]    # the node -> its arguments by name; 'weight' is the get_attr
@@ -79,14 +74,13 @@ def parse(node: fx.Node) -> tuple[str, dict]:
     return kind, OPS[kind].parse(node)
 
 
-def layer_key(gm: fx.GraphModule, node: fx.Node) -> tuple:
-    """The key of ``node``'s layer: its op name and where its float weight's data lives.
+def layer_key(gm: fx.GraphModule, kind: str, args: dict) -> tuple:
+    """The key of a parsed node's layer: its op name and where its float weight's data lives.
 
     Taken before any transpose or permute. The same parameter reaches every
     program as the same storage, so this names a layer's weight across
     programs, unlike its module path; a weight two kinds of op use (a tied
     lm_head and embedding) has one key per kind."""
-    kind, args = parse(node)
     weight = args['weight']
     if weight.op != 'get_attr':
         raise ValueError(f'{kind} weight {weight.name} is not a constant of the model')

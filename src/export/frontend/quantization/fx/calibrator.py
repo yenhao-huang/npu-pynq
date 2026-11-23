@@ -1,12 +1,9 @@
 """The Calibrator: records each calibrated layer's largest |input| on calibration data.
 
-Scheme-agnostic: quantize.py passes the op names whose input the scheme
-quantizes, and the Calibrator runs the float programs with
-``torch.fx.Interpreter``, observing the input (``'x'``) of every node of those
-ops. Each statistic is keyed like the layer's weight (``layer_key``, from
-utils/share.py), so every program that shares the weight shares it:
-calibrating an LLM's prefill gives decode its scales too. The statistics are
-returned as plain data; the Calibrator imports no other stage.
+It runs the float programs with ``torch.fx.Interpreter`` and observes the
+input (``'x'``) of every node of the given ops. Each statistic is keyed like
+the layer's weight (``layer_key``), so every program that shares the weight
+shares it: calibrating an LLM's prefill gives decode its scales too.
 """
 
 from __future__ import annotations
@@ -31,7 +28,10 @@ class Calibrator:
         A convolution's input is taken before its padding, which adds zeros only."""
         for name, inputs in calibration.items():
             gm = programs[name].module()
-            layers = {n: (layer_key(gm, n), parse(n)[1]['x']) for n in select(gm, self.ops)}
+            layers = {}
+            for n in select(gm, self.ops):
+                kind, args = parse(n)
+                layers[n] = (layer_key(gm, kind, args), args['x'])
             stats = self.stats
 
             class Observer(fx.Interpreter):

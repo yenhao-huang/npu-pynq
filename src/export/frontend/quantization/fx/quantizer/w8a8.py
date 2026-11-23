@@ -9,10 +9,9 @@ activations, one scale per layer input, are both symmetric with zero point 0:
 A weight's amax is its channel's; an activation's is the largest |input| the
 Calibrator recorded for the layer.
 
-W8A8Quantizer quantizes every selected layer's weight once and fixes its
-activation scale (a QuantizedLayer); the Rewriter then replaces each node with
-the Replacement ``replacement`` builds, a call to ``linear``, ``conv2d`` or ``embedding``
-below. The re-export traces those functions; a contraction becomes
+W8A8Quantizer quantizes each layer's weight, fixes its activation scale and
+returns its Replacement: a call to ``linear``, ``conv2d`` or ``embedding``
+below, which the re-export traces. A contraction becomes
 
     xq  = quant.quantize_per_tensor(x, x_scale)    activations to INT8, constant [1] scale
     acc = aten._int_mm(xq, w)                      INT8 x INT8 -> INT32, constant [K, N] weight
@@ -28,14 +27,13 @@ Overflow: |acc| <= K * 127 * 127, which stays below 2**31 while K is under about
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import partial
-from typing import Callable
+from typing import Callable, NamedTuple
 
 import torch
 
 from src.export.frontend.quantization.fx import custom_ops
-from src.export.frontend.quantization.fx.quantizer.base import QuantizedLayer, Quantizer
+from src.export.frontend.quantization.fx.quantizer.base import Quantizer
 from src.export.frontend.quantization.fx.utils.share import Replacement
 from src.export.frontend.quantization.schemes import W8A8
 
@@ -127,8 +125,7 @@ def embedding(ids: torch.Tensor, qweight: torch.Tensor, scale: torch.Tensor) -> 
 
 # --- per op: how W8A8 quantizes it and what replaces it ---------------------
 
-@dataclass(frozen=True)
-class Op:
+class Op(NamedTuple):
     quantize_weight: Callable      # float weight -> (INT8 weight, weight scale)
     function: Callable             # what replaces the node, traced into the graph
     arguments: Callable            # (node's parsed args, buffer nodes, float weight's shape) -> its arguments
@@ -153,18 +150,15 @@ class W8A8Quantizer(Quantizer):
         if kind == 'conv2d' and (args['groups'] != 1 or args['dilation'] != (1, 1)):
             raise ValueError('w8a8 supports ungrouped, undilated convolutions only')
 
-    def quantize_layer(self, key: tuple, kind: str, weight: torch.Tensor, name: str) -> QuantizedLayer:
-        """``weight`` quantized for ``kind``, plus its activation scale when the scheme
-        calibrates ``kind`` (schemes.W8A8['calibrated_ops'])."""
-        q, scale = OPS[kind].quantize_weight(weight)
-        if kind not in self.calibrated_ops:
-            return QuantizedLayer(q, scale)
-        if key not in self.stats:
-            raise ValueError(f'no calibration statistics for {kind} weight {name}; '
-                             'w8a8 needs calibration inputs that reach every layer')
-        return QuantizedLayer(q, scale, activation_scale(self.stats[key]))
-
-    def replacement(self, kind: str, layer: QuantizedLayer, weight: torch.Tensor) -> Replacement:
-        """``kind``'s function with ``layer``'s tensors; a convolution's kernel comes from ``weight``'s shape."""
+    def quantize_layer(self, key: tuple, kind: str, weight: torch.Tensor, name: str) -> Replacement:
+        """``weight`` quantized for ``kind``, with its activation scale when the scheme
+        calibrates ``kind`` (schemes.W8A8['calibrated_ops']); a convolution's kernel
+        comes from ``weight``'s shape."""
         op = OPS[kind]
-        return Replacement(op.function, layer.tensors(), partial(op.arguments, shape=tuple(weight.shape)))
+        tensors = op.quantize_weight(weight)          # (INT8 weight, weight scale)
+        if kind in self.calibrated_ops:
+            if key not in self.stats:
+                raise ValueError(f'no calibration statistics for {kind} weight {name}; '
+                                 'w8a8 needs calibration inputs that reach every layer')
+            tensors += (activation_scale(self.stats[key]),)
+        return Replacement(op.function, tensors, partial(op.arguments, shape=tuple(weight.shape)))

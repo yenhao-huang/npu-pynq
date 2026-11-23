@@ -145,12 +145,12 @@ class QuantizerContractTest(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, 'abstract'):
             Quantizer(*args)
 
-        class NoReplacement(Quantizer):
-            def quantize_layer(self, key, kind, weight, name):
-                raise NotImplementedError
+        class OnlyCheck(Quantizer):          # check is optional; quantize_layer is not
+            def check(self, kind, args):
+                pass
 
         with self.assertRaisesRegex(TypeError, 'abstract'):
-            NoReplacement(*args)
+            OnlyCheck(*args)
         self.assertIsInstance(W8A8Quantizer(*args), Quantizer)
 
     def test_calibrated_ops_must_be_among_the_ops(self):

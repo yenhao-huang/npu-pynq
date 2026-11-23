@@ -117,10 +117,10 @@ quantize(programs, 'w8a8', calibration)              frontend/quantization/quant
   │    and records the largest |input| of each node of schemes.W8A8's calibrated_ops
   │    (linear, conv2d), keyed by layer_key (fx/utils/share.py: op name + float weight storage)
   ├─ 2. W8A8Quantizer.run (Quantizer.run, fx/quantizer/base.py) -> plan, over every
-  │    program's selected nodes: check, then once per layer key quantize_layer (INT8 weight,
-  │    per-channel scale and, for linear and conv2d, the [1] activation scale) and
-  │    replacement (fx/quantizer/w8a8.py): a Replacement of w8a8.linear / conv2d / embedding,
-  │    the layer's tensors and its argument builder; shared by every program
+  │    program's selected nodes: check each, then once per layer key quantize_layer
+  │    (fx/quantizer/w8a8.py): INT8 weight, per-channel scale and, for linear and conv2d,
+  │    the [1] activation scale, in a Replacement of w8a8.linear / conv2d / embedding with
+  │    its argument builder; shared by every program
   └─ 3. Rewriter.run (fx/rewriter.py), per program: ep.module(), weights as get_attr
        ├─ select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)
        ├─ Rewriter.rewrite, per node: parse its arguments, look plan[layer_key] up, register

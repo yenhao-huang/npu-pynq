@@ -31,18 +31,18 @@ Calibrator and the Rewriter are shared by every scheme and know none.
    A new ATen op gets an entry there: its target and how to parse its node
    into named arguments (`weight`, and `x` for an op whose input is quantized).
 2. Subclass `Quantizer` (`fx/quantizer/base.py`) in `fx/quantizer/<scheme>.py`
-   and implement its two abstract methods:
-   - `quantize_layer(key, kind, weight, name)`: a layer's float weight
-     quantized, with its activation scale from `self.stats[key]`, as a
-     `QuantizedLayer`;
-   - `replacement(kind, layer, weight)`: the layer's `Replacement`
-     (`fx/utils/share.py`): the function that replaces its nodes, the
-     tensors that become buffers, and how to build the function's arguments
+   and implement its one abstract method:
+   - `quantize_layer(key, kind, weight, name)`: the layer's `Replacement`
+     (`fx/utils/share.py`). Quantize the float weight, add the activation
+     scale from `self.stats[key]` for an op in `self.calibrated_ops`, and
+     give the function that replaces the layer's nodes, those tensors (which
+     become buffers, in order) and how to build the function's arguments
      from the node's parsed arguments and the buffers;
    - optionally `check(kind, args)`, to refuse a node it cannot compute.
 
-   The base class's `run(programs)` calls these once per layer key and
-   returns the plan, layer key -> `Replacement`. The replacement functions,
+   The base class's `run(programs)` calls `check` on every selected node and
+   `quantize_layer` once per layer key, and returns the plan, layer key ->
+   `Replacement`. The replacement functions,
    which the re-export traces into the graph, use ATen ops and the custom ops
    of `fx/custom_ops.py` only; keep each next to the weight layout it reads.
 3. List the class by the scheme's name in `QUANTIZERS` in `quantize.py`.
@@ -85,8 +85,8 @@ quantization/
     |-- rewriter.py       Rewriter: applies a plan to every program (buffers, node
     |                     replacement), re-exports
     `-- quantizer/
-        |-- base.py       Quantizer: the shared loop (run -> plan) and the abstract hooks;
-        |                 QuantizedLayer
+        |-- base.py       Quantizer: the shared loop (run -> plan), the abstract
+        |                 quantize_layer and the optional check
         `-- <scheme>.py   one scheme: what is calibrated, weight layouts and quantization,
                           activation scales, the functions that replace each op
 ```
