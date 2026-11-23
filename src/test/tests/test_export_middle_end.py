@@ -141,13 +141,13 @@ class FuseConvBatchNormTest(unittest.TestCase):
 
     def test_w8a8_rescale_takes_the_batchnorm(self):
         from torch.nn.utils.fusion import fuse_conv_bn_weights
-        from src.export.frontend.quantization.fx.w8a8 import prepare_conv2d
+        from src.export.frontend.quantization.fx.transforms.w8a8 import quantize_conv2d_weight
 
         for bias in (True, False):
             with self.subTest(bias=bias):
                 net = conv_bn(bias)
                 conv, bn = net.conv, net.bn
-                _, w_scale = prepare_conv2d(conv.weight)
+                _, w_scale = quantize_conv2d_weight(conv.weight)
                 imported, text = run(w8a8(net), 'torch')
                 self.assertNotIn('batch_norm', code(text))
                 # The weights the NPU reads are untouched.

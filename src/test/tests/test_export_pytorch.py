@@ -30,7 +30,7 @@ def reference_rows(x):
 class W8A8NumericsTest(unittest.TestCase):
     def test_weights_match_the_numeric_contract_bit_for_bit(self):
         import torch
-        from src.export.frontend.quantization.fx.w8a8 import quantize_weight
+        from src.export.frontend.quantization.fx.transforms.w8a8 import quantize_weight
 
         w = np.random.default_rng(0).normal(size=(48, 64)).astype(np.float32)
         q, s = quantize_weight(torch.from_numpy(w))
@@ -40,10 +40,10 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_activations_match_the_numeric_contract_bit_for_bit(self):
         import torch
-        from src.export.frontend.quantization.fx.w8a8 import quantize_tokens
+        from src.export.frontend.quantization.fx import custom_ops
 
         x = (np.random.default_rng(1).normal(size=(5, 64)) * 3).astype(np.float32)
-        q, s = quantize_tokens(torch.from_numpy(x))
+        q, s = custom_ops.quantize_per_token(torch.from_numpy(x), EPS, 127)
         rq, rs = reference_rows(x)
         np.testing.assert_array_equal(q.numpy(), rq)
         np.testing.assert_array_equal(s.numpy(), rs)
@@ -52,7 +52,7 @@ class W8A8NumericsTest(unittest.TestCase):
         # quant.quantize_per_token and quant.dequantize against the ATen
         # expressions w8a8 computed before they were custom ops.
         import torch
-        from src.export.frontend.quantization.fx import ops
+        from src.export.frontend.quantization.fx import custom_ops as ops
 
         rng = np.random.default_rng(6)
         x = torch.from_numpy((rng.normal(size=(7, 40)) * 5).astype(np.float32))
@@ -71,12 +71,12 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_linear_is_the_int8_contraction_rescaled(self):
         import torch
-        from src.export.frontend.quantization.fx.w8a8 import linear, prepare_linear
+        from src.export.frontend.quantization.fx.transforms.w8a8 import linear, quantize_weight
 
         rng = np.random.default_rng(2)
         w = rng.normal(size=(32, 64)).astype(np.float32)
         x = rng.normal(size=(3, 64)).astype(np.float32)
-        y = linear(torch.from_numpy(x), *prepare_linear(torch.from_numpy(w)), None).numpy()
+        y = linear(torch.from_numpy(x), *quantize_weight(torch.from_numpy(w)), None).numpy()
         wq, ws = reference_weight(w)
         xq, xs = reference_rows(x)
         acc = xq.astype(np.int32) @ wq.astype(np.int32)
@@ -84,13 +84,13 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_convolution_is_the_contraction_of_its_patches(self):
         import torch
-        from src.export.frontend.quantization.fx.w8a8 import conv2d, prepare_conv2d
+        from src.export.frontend.quantization.fx.transforms.w8a8 import conv2d, quantize_conv2d_weight
 
         torch.manual_seed(4)
         conv = torch.nn.Conv2d(5, 7, 3, stride=2, padding=1)
         x = torch.randn(1, 5, 9, 11)
         with torch.no_grad():
-            y = conv2d(x, *prepare_conv2d(conv.weight), conv.bias, (3, 3), (2, 2), (1, 1))
+            y = conv2d(x, *quantize_conv2d_weight(conv.weight), conv.bias, (3, 3), (2, 2), (1, 1))
             expected = conv(x)
         self.assertEqual(tuple(y.shape), tuple(expected.shape))
         # The W8A8 result stays within quantization error of the float convolution.
@@ -142,9 +142,9 @@ class QuantizedGraphTest(unittest.TestCase):
                           'aten.view.default'])
         self.assertFalse([n for n, t in ep.state_dict.items() if t.dtype == torch.float32 and t.dim() == 2])
         # The graph computes what w8a8.linear computes in eager PyTorch, bit for bit.
-        from src.export.frontend.quantization.fx.w8a8 import prepare_linear
+        from src.export.frontend.quantization.fx.transforms.w8a8 import quantize_weight
 
-        qw, ws = prepare_linear(net.weight)
+        qw, ws = quantize_weight(net.weight)
         xq, xs = reference_rows(x.reshape(-1, 16).numpy())
         acc = torch.from_numpy(xq.astype(np.int32) @ qw.numpy().astype(np.int32))
         expected = acc.to(torch.float32) * torch.from_numpy(xs)[:, None] * ws[None, :] + net.bias

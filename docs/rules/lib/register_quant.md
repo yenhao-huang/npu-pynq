@@ -9,28 +9,34 @@ quantization techniques and knows nothing about any accelerator.
   vendor path, no backend pass.
 - Name a scheme and its granularity for what they do: `W8A8Config`,
   per-channel weights, per-token activations.
-- A scheme's parameters (bits, range, granularity, rounding) live in the library,
-  in `schemes.py`. A vendor names the schemes its device accepts
+- A scheme's parameters (bits, range, granularity, rounding) and the ops it
+  quantizes (`ops`, framework-neutral names: `linear`, `conv2d`, `embedding`)
+  live in the library, in `schemes.py`. A vendor names the schemes its device accepts
   (`spec/quant.py`), and `pipeline.py` compares the names; neither imports the other.
 - What a device can run belongs to the vendor and the back end. They match the
   graph the scheme produces; a scheme is never shaped around one device's pass.
 
 ## Adding a scheme
 
-Schemes are applied by the FX pass in `fx/`.
+Schemes are applied as FX transforms in `fx/transforms/`.
 
-1. Define the scheme in `schemes.py`.
-2. Write `fx/<scheme>.py`: a `prepare_*` per op quantizes that op's weight
-   once, and `linear`, `conv2d` and `embedding` replace aten.linear,
-   aten.conv2d and aten.embedding. The re-export traces them into the graph,
-   so they use ATen ops and the custom ops of `fx/ops.py` only.
-3. List the module by the scheme's name in `IMPLEMENTATIONS` in
-   `fx/transforms/quantize.py`.
+1. Define the scheme in `schemes.py`, with the ops it quantizes in `ops`.
+2. Write `fx/transforms/<scheme>.py`, the scheme's whole transform:
+   - `select(gm, ops)`: the nodes the op names cover (each op name maps to
+     its ATen target, `'linear'` to aten.linear);
+   - `rewrite(gm, node, cache)`: quantize the node's weight once (keyed in
+     `cache` by the float weight's storage, so programs share it), register
+     the result as buffers, and replace the node with a call to the scheme's
+     function for that op;
+   - `finish(gm)`: drop dead nodes and the unused float weights, recompile;
+   - the functions the re-export traces into the graph, written in ATen ops
+     and the custom ops of `fx/custom_ops.py` only.
+3. List the module by the scheme's name in `TRANSFORMS` in `quantize.py`.
 4. Test its numerics against an independent reference.
 
 ## Custom ops
 
-`fx/ops.py` defines the quantization steps that stay one node in the graph,
+`fx/custom_ops.py` defines the quantization steps that stay one node in the graph,
 as `torch.library` custom ops in the `quant` namespace (no `aten`, no device
 name): `quantize_per_token` (float activations to INT8 and a per-token scale)
 and `dequantize` (an INT32 accumulator times the activation and weight
@@ -48,11 +54,24 @@ scales). The contraction between them stays `aten._int_mm`.
 
 ## Layout
 
-`schemes.py` stays at the top: it is data every framework has to follow.
-Everything that depends on how the schemes are applied lives in one subpackage
-per framework (`fx/` today), and `quantization/__init__.py` exports the
-`quantize` of the one in use, so the pipeline never names a framework. A new
-framework gets its own subpackage next to `fx/`; code both need moves up only
-when the second one actually needs it.
+```text
+quantization/
+|-- __init__.py           exports quantize
+|-- schemes.py            the schemes as data: parameters and the ops each quantizes
+|-- quantize.py           the stage driver: select each scheme op's nodes, have the
+|                         scheme's transform rewrite them, re-export; owns the weight
+|                         cache shared by every program
+`-- fx/
+    |-- custom_ops.py     the quant.* custom ops
+    `-- transforms/
+        `-- <scheme>.py   one scheme's whole transform
+```
+
+`schemes.py` and `quantize.py` stay at the top: they name no framework, so the
+pipeline never does either. Everything that depends on how a scheme is applied
+lives in one subpackage per framework (`fx/` today). A transform file holds
+all of its scheme, graph machinery included; machinery moves into a module of
+its own only when a second scheme needs it, and code two frameworks need moves
+up only when the second framework actually needs it.
 
 `src/test/tests/test_export_layering.py` enforces the first rule under Rules.

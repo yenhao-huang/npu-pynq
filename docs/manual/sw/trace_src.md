@@ -111,16 +111,17 @@ export_classifier(model, (224, 224, 3))              export.py:154
 ### quantize (pipeline.py:180)
 
 ```
-quantize(programs, 'w8a8')                           frontend/quantization/fx/transforms/quantize.py:123
+quantize(programs, 'w8a8')                           frontend/quantization/quantize.py:27
   └─ per program: ep.module(), the unlifted GraphModule, weights as get_attr
-       ├─ aten.linear / aten.conv2d / aten.embedding with a constant weight
-       │    → a call to w8a8.linear / w8a8.conv2d / w8a8.embedding (quantization/fx/w8a8.py):
-       │      INT8 weights with a per-channel scale, quantized once (prepare_*) and
+       ├─ w8a8.select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)
+       ├─ w8a8.rewrite, per node (quantization/fx/transforms/w8a8.py)
+       │    → a call to w8a8.linear / w8a8.conv2d / w8a8.embedding:
+       │      INT8 weights with a per-channel scale, quantized once and
        │      shared by every program; linear and conv2d quantize activations at run
        │      time and compute (int8(x) @ W_q) with torch._int_mm:
        │      quant.quantize_per_token -> _int_mm -> quant.dequantize -> + bias
-       │      (the quant.* ops are custom ops, quantization/fx/ops.py)
-       ├─ the float weights no node reads any more are dropped
+       │      (the quant.* ops are custom ops, quantization/fx/custom_ops.py)
+       ├─ w8a8.finish: the float weights no node reads any more are dropped
        └─ torch.export.export(gm, ep.example_inputs)   traces those calls; each
                                                       quant.* op stays one node
 ```

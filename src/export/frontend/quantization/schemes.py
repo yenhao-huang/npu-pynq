@@ -1,4 +1,7 @@
-"""The quantization schemes, as data. Values lie in [-qmax, qmax] unless qmin is given."""
+"""The quantization schemes, as data: their parameters and the ops each one quantizes.
+
+Values lie in [-qmax, qmax] unless qmin is given. ``ops`` names the layers a
+scheme rewrites, framework independent: linear, conv2d, embedding."""
 
 EPS = 1e-8   # smallest scale denominator, before dividing by qmax
 
@@ -6,7 +9,8 @@ EPS = 1e-8   # smallest scale denominator, before dividing by qmax
 # symmetric, round half to even.
 W8A8 = dict(name='w8a8', weight_bits=8, weight_qmax=127, weight_granularity='per_channel',
             activation_bits=8, activation_qmax=127, activation_granularity='per_token',
-            symmetric=True, rounding='half_even', eps=EPS)
+            symmetric=True, rounding='half_even', eps=EPS,
+            ops=('linear', 'conv2d', 'embedding'))
 
 # W4A8: group-wise INT4 weights in [-8, 7] (one scale per K group and output
 # channel, scale = amax / 7), the same INT8 activations. Each group's INT32

@@ -1,6 +1,6 @@
 //===- DecomposeQuantOps.cpp - quant.* custom ops -> torch-dialect arithmetic -===//
 //
-// The front end's quantization (frontend/quantization/fx/ops.py) leaves two
+// The front end's quantization (frontend/quantization/fx/custom_ops.py) leaves two
 // custom ops in the graph, which torch-mlir imports as generic torch.operator
 // ops; its backend pipeline rejects those. This pass expands each into the
 // ATen ops of its arithmetic, op for op as the eager implementation computes

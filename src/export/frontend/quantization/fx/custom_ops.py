@@ -1,4 +1,4 @@
-"""The custom ops the schemes' functions put in the graph, in the ``quant`` namespace.
+"""Custom torch.library ops for quantization, in the ``quant`` namespace.
 
     quant::quantize_per_token(x, eps, qmax) -> (q, scale)
         [M, K] float32 -> ([M, K] int8, [M] float32), symmetric per token:
@@ -11,7 +11,7 @@
 
 torch.export traces each one as a single node (``register_fake`` gives its
 output shapes) and run_decompositions keeps it, because a custom op has no
-decomposition. torch-mlir imports it as ``torch.operator "quant.<name>"``; the
+decomposition. torch-mlir imports it as ``torch.operator "torch.quant.<name>"``; the
 middle end's DecomposeQuantOps expands it into the torch-dialect ops of the
 arithmetic above before lowering. The eager implementations here and that
 expansion must stay the same arithmetic, op for op.
