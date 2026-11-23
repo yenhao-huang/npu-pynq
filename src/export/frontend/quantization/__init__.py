@@ -2,11 +2,14 @@
 
     quantize({'decode': ep, 'prefill': ep}, 'w8a8')
 
-A graph pass (``graph.py``) rewrites each aten.linear, aten.conv2d and
-aten.embedding into the scheme's plain-ATen computation (``w8a8.py``); the
-schemes themselves are data in ``schemes.py``.
+The schemes are data in ``schemes.py``, independent of how they are applied.
+Each subpackage applies them with one framework; ``quantize`` is the one in use:
+
+    fx/    an FX graph pass (``fx/transforms/quantize.py``) rewrites each
+           aten.linear, aten.conv2d and aten.embedding into the scheme's
+           plain-ATen computation (``fx/<scheme>.py``)
 """
 
-from .graph import quantize
+from .fx import quantize
 
 __all__ = ['quantize']

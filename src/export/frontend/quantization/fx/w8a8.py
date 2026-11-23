@@ -7,7 +7,7 @@ The scheme is defined in quantization/schemes.py:
 
 When each part is quantized:
 
-    weights        once, by the graph pass (``prepare_*``)
+    weights        once, by the FX pass (``prepare_*``, see transforms/quantize.py)
     activations    on every call, in the graph, on the CPU
                    (so there is no calibration step and no stored activation scale)
 

@@ -1,4 +1,4 @@
-"""The quantization pass: captured ExportedPrograms -> quantized ExportedPrograms.
+"""The FX quantization pass: captured ExportedPrograms -> quantized ExportedPrograms.
 
     quantize({'decode': ep, 'prefill': ep}, 'w8a8')
 
@@ -22,7 +22,7 @@ from typing import Callable
 import torch
 from torch import fx
 
-from src.export.frontend.quantization import w8a8
+from src.export.frontend.quantization.fx import w8a8
 
 aten = torch.ops.aten
 
@@ -115,16 +115,19 @@ class _Pass:
                 delattr(module, leaf)
 
 
-SCHEMES = {'w8a8': w8a8}
+# Scheme name -> the module implementing it for this pass. The scheme's
+# parameters are schemes.SCHEMES.
+IMPLEMENTATIONS = {'w8a8': w8a8}
 
 
 def quantize(programs: dict[str, torch.export.ExportedProgram], scheme: str
              ) -> dict[str, torch.export.ExportedProgram]:
     """Quantize every program with ``scheme``; return them re-captured, undecomposed."""
     try:
-        ops = SCHEMES[scheme]
+        ops = IMPLEMENTATIONS[scheme]
     except KeyError:
-        raise ValueError(f'unknown quantization scheme {scheme!r}; known: {sorted(SCHEMES)}') from None
+        raise ValueError(f'unknown quantization scheme {scheme!r}; '
+                         f'known: {sorted(IMPLEMENTATIONS)}') from None
     cache: dict = {}
     out = {}
     for name, ep in programs.items():

@@ -30,7 +30,7 @@ def reference_rows(x):
 class W8A8NumericsTest(unittest.TestCase):
     def test_weights_match_the_numeric_contract_bit_for_bit(self):
         import torch
-        from src.export.frontend.quantization.w8a8 import quantize_weight
+        from src.export.frontend.quantization.fx.w8a8 import quantize_weight
 
         w = np.random.default_rng(0).normal(size=(48, 64)).astype(np.float32)
         q, s = quantize_weight(torch.from_numpy(w))
@@ -40,7 +40,7 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_activations_match_the_numeric_contract_bit_for_bit(self):
         import torch
-        from src.export.frontend.quantization.w8a8 import quantize_tokens
+        from src.export.frontend.quantization.fx.w8a8 import quantize_tokens
 
         x = (np.random.default_rng(1).normal(size=(5, 64)) * 3).astype(np.float32)
         q, s = quantize_tokens(torch.from_numpy(x))
@@ -50,7 +50,7 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_linear_is_the_int8_contraction_rescaled(self):
         import torch
-        from src.export.frontend.quantization.w8a8 import linear, prepare_linear
+        from src.export.frontend.quantization.fx.w8a8 import linear, prepare_linear
 
         rng = np.random.default_rng(2)
         w = rng.normal(size=(32, 64)).astype(np.float32)
@@ -63,7 +63,7 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_convolution_is_the_contraction_of_its_patches(self):
         import torch
-        from src.export.frontend.quantization.w8a8 import conv2d, prepare_conv2d
+        from src.export.frontend.quantization.fx.w8a8 import conv2d, prepare_conv2d
 
         torch.manual_seed(4)
         conv = torch.nn.Conv2d(5, 7, 3, stride=2, padding=1)
