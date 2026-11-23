@@ -111,10 +111,10 @@ export_classifier(model, (224, 224, 3))              export.py:154
 ### quantize (pipeline.py:180)
 
 ```
-quantize(programs, 'w8a8')                           frontend/quantization/graph.py:120
+quantize(programs, 'w8a8')                           frontend/quantization/fx/transforms/quantize.py:123
   └─ per program: ep.module(), the unlifted GraphModule, weights as get_attr
        ├─ aten.linear / aten.conv2d / aten.embedding with a constant weight
-       │    → a call to w8a8.linear / w8a8.conv2d / w8a8.embedding (quantization/w8a8.py):
+       │    → a call to w8a8.linear / w8a8.conv2d / w8a8.embedding (quantization/fx/w8a8.py):
        │      INT8 weights with a per-channel scale, quantized once (prepare_*) and
        │      shared by every program; linear and conv2d quantize activations at run
        │      time and compute (int8(x) @ W_q) with torch._int_mm, then
