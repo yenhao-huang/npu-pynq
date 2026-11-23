@@ -112,10 +112,11 @@ export_classifier(model, (224, 224, 3))              export.py:154
 
 ```
 quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:33
-  ├─ calibration: w8a8.observe runs the float prefill (or forward) program on the
-  │    config's calibration: inputs (pipeline.calibration_inputs) and records each
-  │    layer's largest |input|, keyed by its weight
-  └─ per program: ep.module(), the unlifted GraphModule, weights as get_attr
+  ├─ 1. calibrate (quantize.calibrate): an fx.Interpreter runs the float prefill (or
+  │    forward) program on the config's calibration: inputs (pipeline.calibration_inputs)
+  │    and records the largest |input| of each layer w8a8.calibrated_layers names,
+  │    keyed by its weight
+  └─ 2. replace (quantize.replace), per program: ep.module(), weights as get_attr
        ├─ w8a8.select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)
        ├─ w8a8.rewrite, per node (quantization/fx/transforms/w8a8.py)
        │    → a call to w8a8.linear / w8a8.conv2d / w8a8.embedding:

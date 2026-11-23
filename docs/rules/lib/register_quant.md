@@ -24,9 +24,10 @@ Schemes are applied as FX transforms in `fx/transforms/`.
 2. Write `fx/transforms/<scheme>.py`, the scheme's whole transform:
    - `select(gm, ops)`: the nodes the op names cover (each op name maps to
      its ATen target, `'linear'` to aten.linear);
-   - `observe(gm, ops, inputs, stats)`, for a scheme with static activation
-     scales: run calibration inputs through the float program and record
-     what the scales need, keyed like the weight cache;
+   - `calibrated_layers(gm, ops)`, for a scheme with static activation
+     scales: the nodes whose input `quantize.calibrate` observes, each with
+     the key its statistic goes under (the layer's float weight, like the
+     weight cache); the input is the node's first argument;
    - `rewrite(gm, node, cache, stats)`: quantize the node's weight once (keyed
      in `cache` by the float weight's storage, so programs share it), fix its
      activation scale from `stats`, register the results as buffers, and
@@ -63,18 +64,22 @@ scales). The contraction between them stays `aten._int_mm`.
 quantization/
 |-- __init__.py           exports quantize
 |-- schemes.py            the schemes as data: parameters and the ops each quantizes
-|-- quantize.py           the stage driver: calibrate, select each scheme op's nodes,
-|                         have the scheme's transform rewrite them, re-export; owns the
-|                         statistics and weight cache shared by every program
+|-- quantize.py           the stage driver: 1. calibrate (run the float programs on the
+|                         calibration inputs, record each calibrated layer's largest
+|                         |input|) 2. replace (have the scheme's transform rewrite each
+|                         node, re-export); owns the statistics and weight cache
 `-- fx/
     |-- custom_ops.py     the quant.* custom ops
     `-- transforms/
         `-- <scheme>.py   one scheme's whole transform
 ```
 
-`schemes.py` and `quantize.py` stay at the top: they name no framework, so the
-pipeline never does either. Everything that depends on how a scheme is applied
-lives in one subpackage per framework (`fx/` today). A transform file holds
+`schemes.py` stays at the top and names no framework. `quantize.py` is the
+stage driver; it runs calibration itself, with `torch.fx.Interpreter` over the
+captured programs, so it is written against torch and FX, but it holds no
+scheme: which layers are calibrated, how weights are quantized and what each
+node becomes live in the scheme's transform, in one subpackage per framework
+(`fx/` today). A transform file holds
 all of its scheme, graph machinery included; machinery moves into a module of
 its own only when a second scheme needs it, and code two frameworks need moves
 up only when the second framework actually needs it.

@@ -7,7 +7,8 @@ activations, one scale per layer input, are both symmetric with zero point 0:
     q     = round(value / scale)    half to even (torch.round), clamped to [-127, 127]
 
 A weight's amax is its channel's; an activation's is the largest |input| the
-layer saw while ``observe`` ran the float program on calibration inputs.
+layer saw while quantize.calibrate ran the float program on calibration
+inputs (``calibrated_layers`` names those layers).
 
 ``rewrite`` replaces one aten.linear, aten.conv2d or aten.embedding node of an
 unlifted GraphModule (weights as get_attr) with a call to ``linear``,
@@ -92,27 +93,14 @@ def activation_scale(amax: float) -> torch.Tensor:
 
 # --- calibration ------------------------------------------------------------
 
-def observe(gm: fx.GraphModule, ops, inputs, stats: dict) -> None:
-    """Run each argument tuple of ``inputs`` through ``gm``, a float program.
+def calibrated_layers(gm: fx.GraphModule, ops) -> dict[fx.Node, tuple]:
+    """The contractions among ``ops``' nodes -> the key their statistic goes under.
 
-    For every contraction ``ops`` covers, ``stats`` keeps the largest |input|
-    seen, under the same key as the layer's weight, so every program that
-    shares the weight shares the statistic. A convolution's input is taken
-    before its padding, which adds zeros only."""
-    keys = {n: _key(gm, KINDS[n.target], n.args[1]) for n in select(gm, ops)
+    quantize.calibrate records each one's largest |input| (its first argument;
+    for a convolution, before the padding, which adds zeros only). The key is
+    the layer's weight's, the same one ``_quantized`` looks the statistic up by."""
+    return {n: _key(gm, KINDS[n.target], n.args[1]) for n in select(gm, ops)
             if KINDS[n.target] in CONTRACTIONS}
-
-    class Observer(fx.Interpreter):
-        def run_node(self, n):
-            if n in keys:
-                amax = float(self.env[n.args[0]].detach().abs().amax())
-                stats[keys[n]] = max(stats.get(keys[n], 0.0), amax)
-            return super().run_node(n)
-
-    observer = Observer(gm)
-    with torch.no_grad():
-        for args in inputs:
-            observer.run(*args)
 
 
 # --- the graph rewrite ------------------------------------------------------
@@ -127,7 +115,7 @@ def rewrite(gm: fx.GraphModule, node: fx.Node, cache: dict, stats: dict) -> None
     """Replace ``node`` with the call that computes it in W8A8.
 
     ``cache`` maps each float weight to its quantized tensors and activation
-    scale, and ``stats`` holds what ``observe`` recorded; the caller shares
+    scale, and ``stats`` holds what quantize.calibrate recorded; the caller shares
     both across the programs of a model, so every program reads the same
     tensors for a weight it shares with another."""
     with gm.graph.inserting_before(node):
