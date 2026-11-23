@@ -1,11 +1,12 @@
-"""What the FX stages share: the ATen ops a scheme can quantize, node helpers, and the plan's type.
+"""What the FX stages share: the ATen ops a scheme can quantize, node helpers, and the data they pass.
 
 export_graph captures each entry point undecomposed, so every op a scheme
 quantizes is one aten.linear, aten.conv2d or aten.embedding node of the
 unlifted module (``ep.module()``), its weight a get_attr. ``OPS`` says, per op
 name (schemes.py's ``ops``), which node that is and how to read its
 arguments; ``select``, ``parse`` and ``layer_key`` find the nodes, read them
-and name their layers.
+and name their layers. ``Scales`` (Calibrator -> Quantizer) and ``Replacement``
+(Quantizer -> Rewriter) are what the stages pass on, one per layer key.
 """
 
 from __future__ import annotations
@@ -52,6 +53,12 @@ OPS = {
 }
 # A node's target -> its op name in OPS.
 OP_NAMES = {op.target: name for name, op in OPS.items()}
+
+
+class Scales(NamedTuple):
+    """One layer's scales, as the Calibrator computes them and a QuantizedLayer uses them."""
+    weight_scale: torch.Tensor                     # [N] float32, one per output channel (per row for a table)
+    activation_scale: torch.Tensor | None = None   # [1] float32; None when the input is not quantized
 
 
 class Replacement(NamedTuple):

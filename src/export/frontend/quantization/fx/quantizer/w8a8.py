@@ -1,17 +1,14 @@
 """W8A8: per-output-channel INT8 weights, static per-tensor INT8 activations.
 
-The scheme's parameters are schemes.W8A8. Weights, per output channel, and
-activations, one scale per layer input, are both symmetric with zero point 0:
+The scheme's parameters are schemes.W8A8. The Calibrator computes the scales
+(per output channel for weights, one [1] scale per layer input for
+activations); W8A8QuantizedLayer only lays each weight out for its op and
+rounds it with its scale, symmetric with zero point 0:
 
-    scale = max(amax, EPS) / 127    EPS avoids dividing by zero on an all-zero channel or input
-    q     = round(value / scale)    half to even (torch.round), clamped to [-127, 127]
+    q = clamp(round(weight / weight_scale), -127, 127)    half to even (torch.round)
 
-A weight's amax is its channel's; an activation's is the largest |input| the
-Calibrator recorded for the layer.
-
-W8A8QuantizedLayer quantizes each layer's weight, fixes its activation scale
-and returns its Replacement: a call to one of its ``_*_graph`` functions,
-which the re-export traces. A contraction becomes
+and returns the layer's Replacement: a call to one of its ``_*_graph``
+functions, which the re-export traces. A contraction becomes
 
     xq  = quant.quantize_per_tensor(x, x_scale)    activations to INT8, constant [1] scale
     acc = aten._int_mm(xq, w)                      INT8 x INT8 -> INT32, constant [K, N] weight
@@ -33,46 +30,42 @@ import torch
 
 from src.export.frontend.quantization.fx import custom_ops
 from src.export.frontend.quantization.fx.quantizer.base import QuantizedLayer
-from src.export.frontend.quantization.fx.utils.share import Replacement
+from src.export.frontend.quantization.fx.utils.share import Replacement, Scales
 from src.export.frontend.quantization.schemes import W8A8
 
 
 class W8A8QuantizedLayer(QuantizedLayer):
-    """W8A8's numbers: per-channel INT8 weights and a calibrated [1] scale per layer input."""
+    """W8A8's layouts and rounding: per-channel INT8 weights; inputs quantized with a [1] scale in the graph."""
 
-    name = W8A8['name']
-    EPS = W8A8['eps']
     QMAX = W8A8['activation_qmax']
     WEIGHT_QMAX = W8A8['weight_qmax']
 
     # --- the ops ----------------------------------------------------------------
 
-    def linear(self, weight: torch.Tensor, amax: float) -> Replacement:
+    def linear(self, weight: torch.Tensor, scales: Scales) -> Replacement:
         """aten.linear: [out, in] float weight -> [K, N] = [in, out] INT8, so the
-        contraction's right operand is the weight itself; per-output-channel scale."""
+        contraction's right operand is the weight itself; one scale per output channel N."""
         w = weight.detach().to(torch.float32).t().contiguous()           # [K, N]
         qmax = self.WEIGHT_QMAX
-        scale = torch.clamp(w.abs().amax(0), min=self.EPS) / qmax
-        q = torch.clamp(torch.round(w / scale), -qmax, qmax).to(torch.int8)
-        tensors = (q, scale.to(torch.float32), self._activation_scale(amax))
-        return Replacement(self._linear_graph, tensors,
+        q = torch.clamp(torch.round(w / scales.weight_scale), -qmax, qmax).to(torch.int8)
+        return Replacement(self._linear_graph, (q, scales.weight_scale, scales.activation_scale),
                            lambda args, buffers: (args['x'], *buffers, args['bias']))
 
-    def conv2d(self, weight: torch.Tensor, amax: float) -> Replacement:
+    def conv2d(self, weight: torch.Tensor, scales: Scales) -> Replacement:
         """aten.conv2d: [Cout, Cin, kh, kw] float weight -> [kh * kw * Cin, Cout] INT8.
 
         K follows the (ky, kx, c) order that ``_conv2d_graph``'s im2col uses."""
         w = weight.detach().permute(0, 2, 3, 1).reshape(weight.shape[0], -1)   # [Cout, (ky, kx, c)]
-        q, scale = self._per_channel(w)
+        q = self._round(w.to(torch.float32).t().contiguous(), scales.weight_scale)   # [K, Cout]
         kernel = tuple(weight.shape[2:])
-        return Replacement(self._conv2d_graph, (q, scale, self._activation_scale(amax)),
+        return Replacement(self._conv2d_graph, (q, scales.weight_scale, scales.activation_scale),
                            lambda args, buffers: (args['x'], *buffers, args['bias'], kernel,
                                                   args['stride'], args['padding']))
 
-    def embedding(self, weight: torch.Tensor) -> Replacement:
+    def embedding(self, weight: torch.Tensor, scales: Scales) -> Replacement:
         """aten.embedding: [V, H] float table -> [V, H] INT8 with one scale per row."""
-        q, scale = self._per_channel(weight)      # per output channel of [V, H].T = per row
-        return Replacement(self._embedding_graph, (q.t().contiguous(), scale),
+        q = self._round(weight.detach().to(torch.float32), scales.weight_scale[:, None])
+        return Replacement(self._embedding_graph, (q, scales.weight_scale),
                            lambda args, buffers: (args['ids'], *buffers))
 
     def check(self, kind: str, args: dict) -> None:
@@ -80,22 +73,10 @@ class W8A8QuantizedLayer(QuantizedLayer):
         if kind == 'conv2d' and (args['groups'] != 1 or args['dilation'] != (1, 1)):
             raise ValueError('w8a8 supports ungrouped, undilated convolutions only')
 
-    # --- quantization shared by the ops ---------------------------------------------
-
     @classmethod
-    def _per_channel(cls, weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """[out, in] float -> ([in, out] int8, [out] float32 scale), symmetric per output channel.
-
-        ``linear`` writes the same arithmetic out in full."""
-        w = weight.detach().to(torch.float32).t().contiguous()
-        scale = torch.clamp(w.abs().amax(0), min=cls.EPS) / cls.WEIGHT_QMAX
-        q = torch.clamp(torch.round(w / scale), -cls.WEIGHT_QMAX, cls.WEIGHT_QMAX).to(torch.int8)
-        return q, scale.to(torch.float32)
-
-    @classmethod
-    def _activation_scale(cls, amax: float) -> torch.Tensor:
-        """The calibrated max |input| of a layer -> its [1] float32 activation scale."""
-        return torch.clamp(torch.tensor([amax], dtype=torch.float32), min=cls.EPS) / cls.QMAX
+    def _round(cls, w: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
+        """Float ``w`` -> INT8 with ``scale`` broadcast over it; ``linear`` writes this out in full."""
+        return torch.clamp(torch.round(w / scale), -cls.WEIGHT_QMAX, cls.WEIGHT_QMAX).to(torch.int8)
 
     # --- the replacements, traced into the graph ---------------------------------
 

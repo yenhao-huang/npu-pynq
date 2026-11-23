@@ -6,21 +6,22 @@ export_graph captures each entry point before any decomposition, so every op
 a scheme quantizes is still one node (aten.linear ...) whose weight is a
 get_attr of the unlifted module (``ep.module()``). The stage runs in three steps:
 
-1. calibrate (fx/calibrator.py): runs each program named in ``calibration``
-   on its argument tuples, in float, and records the largest |input| of every
-   layer whose input the scheme quantizes;
+1. calibrate (fx/calibrator.py): from the scheme's parameters, computes every
+   layer's Scales: a weight scale per output channel, and, for the scheme's
+   calibrated_ops, an activation scale from the largest |input| seen while
+   each program named in ``calibration`` ran on its argument tuples, in float;
 2. quantize (fx/quantizer/): Quantizer runs the scheme's QuantizedLayer
-   (fx/quantizer/<scheme>.py) over every node of its ops (``schemes.py``):
-   it quantizes each weight once, with its activation scale, and returns the
-   plan, layer key -> Replacement;
+   (fx/quantizer/<scheme>.py) over every node of its ops (``schemes.py``): it
+   lays each weight out and rounds it with its scale, once per weight, and
+   returns the plan, layer key -> Replacement;
 3. replace (fx/rewriter.py): in every program, each of those nodes becomes its
    plan entry's function, its tensors registered as buffers; the module is
    re-captured with torch.export.
 
 The three stages never import each other: they exchange plain data (the
-statistics, the plan) through this module, and share only fx/utils/share.py.
+scales, the plan) through this module, and share only fx/utils/share.py.
 
-Statistics and quantized weights are kept per weight tensor, not per program:
+Scales and quantized weights are kept per weight tensor, not per program:
 decode and prefill share every weight, so calibrating prefill alone gives
 decode the same activation scales, and giving both the same quantized tensors
 keeps to_mlir freezing one constant per weight.
@@ -53,9 +54,8 @@ def quantize(programs: dict[str, torch.export.ExportedProgram], scheme: str,
         raise ValueError(f'unknown quantization scheme {scheme!r}; '
                          f'known: {sorted(LAYERS)}') from None
     spec = SCHEMES[scheme]
-    ops, calibrated_ops = spec['ops'], spec['calibrated_ops']
-    if not set(calibrated_ops) <= set(ops):
-        raise ValueError(f'{scheme}: calibrated_ops {calibrated_ops} must be among its ops {ops}')
-    stats = Calibrator(calibrated_ops).run(programs, calibration or {})            # 1. calibrate
-    plan = Quantizer(layer_class(), ops, calibrated_ops, stats).run(programs)      # 2. quantize weights
-    return Rewriter(ops, plan).run(programs)                                       # 3. replace nodes
+    if not set(spec['calibrated_ops']) <= set(spec['ops']):
+        raise ValueError(f"{scheme}: calibrated_ops {spec['calibrated_ops']} must be among its ops {spec['ops']}")
+    scales = Calibrator(spec).run(programs, calibration or {})                     # 1. statistics -> scales
+    plan = Quantizer(layer_class(), spec['ops'], scales).run(programs)             # 2. quantize weights with them
+    return Rewriter(spec['ops'], plan).run(programs)                               # 3. replace nodes

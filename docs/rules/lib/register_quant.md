@@ -24,23 +24,37 @@ together: the Calibrator (`fx/calibrator.py`), the Quantizer
 (`fx/quantizer/<scheme>.py`), and the Rewriter (`fx/rewriter.py`). Only the
 QuantizedLayer is the scheme's; the rest is shared and knows no scheme.
 
+Responsibilities are split by kind of work:
+
+- the Calibrator computes every scale, from the scheme's parameters in
+  `schemes.py` (eps, weight_qmax, activation_qmax, weight_granularity,
+  activation_granularity): a per-channel weight scale for every layer (no
+  calibration data needed) and a per-tensor activation scale for each
+  calibrated layer, from the largest |input| seen on the calibration inputs.
+  It refuses a granularity it does not implement;
+- a QuantizedLayer only quantizes: it lays each weight out for its op and
+  rounds it with the scale it is given, `clamp(round(w / scale), -qmax, qmax)`;
+  it computes no scale;
+- the Rewriter only edits the graph.
+
 1. Define the scheme in `schemes.py`, with the ops it quantizes in `ops`
    (names from `OPS` in `fx/utils/share.py`: `linear`, `conv2d`, `embedding`)
    and, in `calibrated_ops`, the subset whose input it quantizes with a
-   static scale: the Calibrator observes those, and the Quantizer passes
-   their calibrated amax to the layer, so the list is declared once.
+   static scale, which the Calibrator gives an activation scale. Its
+   parameters (qmax, eps, granularities) are what the Calibrator computes
+   the scales from.
    A new ATen op gets an entry there: its target and how to parse its node
    into named arguments (`weight`, and `x` for an op whose input is quantized).
 2. Subclass `QuantizedLayer` (`fx/quantizer/base.py`) in
    `fx/quantizer/<scheme>.py` and override the method of each op in `ops`,
-   named after the op: `linear(weight, amax)`, `conv2d(weight, amax)`,
-   `embedding(weight)` (an op in `calibrated_ops` gets its amax). Each
-   quantizes the float weight and returns the layer's `Replacement`
-   (`fx/utils/share.py`): the function that replaces its nodes, the tensors
-   that become buffers (in order), and how to build the function's
-   arguments from the node's parsed arguments and the buffers. Optionally
-   override `check(kind, args)` to refuse a node, and set `name` to the
-   scheme's name for error messages.
+   named after the op: `linear(weight, scales)`, `conv2d(weight, scales)`,
+   `embedding(weight, scales)`, where `scales` is the layer's `Scales`
+   (`fx/utils/share.py`: weight_scale, and activation_scale for a calibrated
+   op). Each lays the float weight out for its op, rounds it with
+   `weight_scale`, and returns the layer's `Replacement`: the function that
+   replaces its nodes, the tensors that become buffers (in order), and how
+   to build the function's arguments from the node's parsed arguments and
+   the buffers. Optionally override `check(kind, args)` to refuse a node.
 
    The base methods raise NotImplementedError, and the Quantizer refuses a
    layer that lacks a method for one of the scheme's ops. It calls `check`
@@ -84,17 +98,16 @@ quantization/
     |-- custom_ops.py     the quant.* custom ops
     |-- utils/
     |   `-- share.py      what the stages share: the ATen op table (target, argument parsing),
-    |                     select, parse, layer_key, attr, and Replacement (a plan entry)
-    |-- calibrator.py     Calibrator: runs the float programs on calibration inputs and
-    |                     records each calibrated layer's largest |input|
+    |                     select, parse, layer_key, attr, Scales and Replacement
+    |-- calibrator.py     Calibrator: every layer's Scales, from the scheme's parameters, the
+    |                     float weights and the largest |input| seen on calibration inputs
     |-- rewriter.py       Rewriter: applies a plan to every program (buffers, node
     |                     replacement), re-exports
     `-- quantizer/
         |-- base.py       QuantizedLayer (one method per op, and check) and Quantizer,
         |                 which runs a layer over every program (run -> plan)
         `-- <scheme>.py   one scheme's QuantizedLayer subclass, and nothing else: weight
-                          layouts and quantization, activation scales, the functions
-                          that replace each op
+                          layouts and rounding, the functions that replace each op
 ```
 
 `schemes.py` and `quantize.py` stay at the top: the pipeline only calls
@@ -102,10 +115,8 @@ quantization/
 subpackage per framework (`fx/` today). Inside it the three stages are
 decoupled: the Calibrator, the quantizers and the Rewriter never import each
 other, and nothing under `fx/` imports `quantize.py`. They exchange plain
-data, the statistics and the plan, through `quantize.py`, and take what they
-share from `fx/utils/share.py`. The Calibrator and the Rewriter decide nothing
-about numerics; a scheme's QuantizedLayer decides all of its numbers and
-does no graph surgery. A second scheme adds a file under `quantizer/`; code two frameworks
+data, the scales and the plan, through `quantize.py`, and take what they
+share from `fx/utils/share.py`. A second scheme adds a file under `quantizer/`; code two frameworks
 need moves up only when the second framework actually needs it.
 
 `src/test/tests/test_export_layering.py` enforces the first rule under Rules and the

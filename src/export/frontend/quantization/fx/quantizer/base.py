@@ -1,31 +1,30 @@
 """QuantizedLayer, what a scheme implements, and Quantizer, the loop every scheme shares.
 
-A scheme subclasses QuantizedLayer in fx/quantizer/<scheme>.py and overrides
-one method per op it supports, named after the op: the float weight (and,
-for an op whose input is calibrated, its largest |input|) -> the layer's
-Replacement. ``check`` is an optional hook that refuses a node. Quantizer
-runs a QuantizedLayer over every program and returns the plan.
+Quantization only: the scales come from the Calibrator. A scheme subclasses
+QuantizedLayer in fx/quantizer/<scheme>.py and overrides one method per op it
+supports, named after the op: (float weight, its Scales) -> the layer's
+Replacement, the weight laid out for the op and rounded with the given scale.
+``check`` is an optional hook that refuses a node. Quantizer runs a
+QuantizedLayer over every program and returns the plan.
 """
 
 from __future__ import annotations
 
 import torch
 
-from src.export.frontend.quantization.fx.utils.share import Replacement, attr, layer_key, parse, select
+from src.export.frontend.quantization.fx.utils.share import Replacement, Scales, attr, layer_key, parse, select
 
 
 class QuantizedLayer:
-    """How one scheme quantizes each op. Each method: float weight (+ activation amax) -> Replacement."""
+    """How one scheme quantizes each op. Each method: float weight and its Scales -> Replacement."""
 
-    name = ''   # the scheme's name, for error messages
-
-    def linear(self, weight: torch.Tensor, amax: float) -> Replacement:
+    def linear(self, weight: torch.Tensor, scales: Scales) -> Replacement:
         raise NotImplementedError('linear')
 
-    def conv2d(self, weight: torch.Tensor, amax: float) -> Replacement:
+    def conv2d(self, weight: torch.Tensor, scales: Scales) -> Replacement:
         raise NotImplementedError('conv2d')
 
-    def embedding(self, weight: torch.Tensor) -> Replacement:
+    def embedding(self, weight: torch.Tensor, scales: Scales) -> Replacement:
         raise NotImplementedError('embedding')
 
     def check(self, kind: str, args: dict) -> None:
@@ -35,15 +34,14 @@ class QuantizedLayer:
 class Quantizer:
     """Runs a scheme's QuantizedLayer over every program: checks each node, quantizes each layer once."""
 
-    def __init__(self, layer: QuantizedLayer, ops, calibrated_ops, stats: dict) -> None:
+    def __init__(self, layer: QuantizedLayer, ops, scales: dict[tuple, Scales]) -> None:
         missing = [op for op in ops
                    if getattr(type(layer), op, None) is getattr(QuantizedLayer, op, object())]
         if missing:
             raise ValueError(f'{type(layer).__name__} has no method for op(s) {missing}')
         self.layer = layer
-        self.ops = tuple(ops)                        # the scheme's op names (schemes.py's ``ops``)
-        self.calibrated_ops = tuple(calibrated_ops)  # those whose input has a calibrated scale
-        self.stats = stats                           # layer key -> largest |input|, from the Calibrator
+        self.ops = tuple(ops)          # the scheme's op names (schemes.py's ``ops``)
+        self.scales = scales           # layer key -> Scales, from the Calibrator
 
     def run(self, programs: dict[str, torch.export.ExportedProgram]) -> dict[tuple, Replacement]:
         """Check every node of ``ops`` in every program, quantize each layer once; return the plan.
@@ -60,13 +58,8 @@ class Quantizer:
                 if key in plan:
                     continue
                 name = args['weight'].target
-                weight = attr(gm, name)
-                method = getattr(self.layer, kind)
-                if kind not in self.calibrated_ops:
-                    plan[key] = method(weight)
-                    continue
-                if key not in self.stats:
-                    raise ValueError(f'no calibration statistics for {kind} weight {name}; '
-                                     f'{self.layer.name} needs calibration inputs that reach every layer')
-                plan[key] = method(weight, self.stats[key])
+                if key not in self.scales:
+                    raise KeyError(f'no Scales for {kind} weight {name}; '
+                                   'the Calibrator must cover every layer the Quantizer quantizes')
+                plan[key] = getattr(self.layer, kind)(attr(gm, name), self.scales[key])
         return plan
