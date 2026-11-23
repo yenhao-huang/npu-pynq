@@ -40,8 +40,15 @@ python -m src.deploy.resnet18_assets gallery
 python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 ```
 
-The export measures each layer's INT8 activation scale on the six pictures in
-`dist/resnet18/model` (`calibration:` in `export.yml`), so download them first.
+The export measures each layer's INT8 activation scale on the `*.jpg` pictures
+in `data/calib` (`calibration:` in `export.yml`; the first `count` in name
+order). The directory is untracked and empty in a clean checkout, so put your
+calibration pictures there first. To use the downloaded demo and gallery
+photos:
+
+```bash
+cp dist/resnet18/model/*.jpg data/calib/
+```
 
 Want to check it before touching the board? Run it entirely on your CPU:
 

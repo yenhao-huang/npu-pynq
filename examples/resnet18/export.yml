@@ -1,6 +1,6 @@
 # TorchVision ResNet-18 (IMAGENET1K_V1), W8A8 on the PYNQ-Z1 NPU.
 #   python -m src.deploy.resnet18_assets model
-#   python -m src.deploy.resnet18_assets demo && python -m src.deploy.resnet18_assets gallery   # calibration photos
+#   cp <your calibration photos>.jpg data/calib/     # e.g. dist/resnet18/model/*.jpg after resnet18_assets demo, gallery
 #   python -m src.export.cli build examples/resnet18/export.yml --out dist/resnet18/package
 model: resnet18
 load:
@@ -9,7 +9,7 @@ load:
   source: dist/resnet18/model/resnet18-f37072fd.pth   # or IMAGENET1K_V1 (downloads)
 quantization: w8a8           # the scheme to apply after load
 calibration:                # what the static activation scales are measured on
-  images: dist/resnet18/model   # its *.jpg: the demo and gallery photos (src.deploy.resnet18_assets demo, gallery)
+  images: data/calib          # its *.jpg, in name order; untracked, filled by you
   count: 6
 graph:
   kind: classifier

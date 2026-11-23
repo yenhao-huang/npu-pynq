@@ -199,6 +199,8 @@ npu_repo_in_pynq/
 |   |-- changes/
 |   `-- specs/
 |-- .ic/                        run store, not tracked
+|-- data/
+|   `-- calib/                  calibration inputs for static quantization, not tracked
 `-- dist/
 ```
 
@@ -374,6 +376,11 @@ and use descriptive, stable file names.
 `docs/human/` contains the human-owned feature list, roadmap, and weekly
 changelog. Agents may read it, but every mutation requires explicit human
 confirmation for the exact proposed batch under `docs/rules/human-docs.md`.
+
+`data/` holds local inputs the export reads but never ships, today
+`data/calib/`: the pictures a config's `calibration:` block measures static
+activation scales on. It is empty in a clean checkout and its contents are
+never committed, because they are third-party photographs or datasets.
 
 `dist/` is empty in a clean checkout. It receives build products staged for
 the board and nothing is authored there.
