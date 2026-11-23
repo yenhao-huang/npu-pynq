@@ -47,10 +47,10 @@ class W8A8NumericsTest(unittest.TestCase):
         rq, rs = reference_weight(w)
         scale = Calibrator(W8A8).weight_scale(torch.from_numpy(w))
         np.testing.assert_array_equal(scale.numpy(), rs)
-        q, s, _ = layer.linear(torch.from_numpy(w), Scales(scale, torch.ones(1))).tensors
+        q, s, _ = layer.linear(torch.from_numpy(w), Scales(scale, torch.ones(1))).tensors()
         np.testing.assert_array_equal(q.numpy(), rq)
         np.testing.assert_array_equal(s.numpy(), rs)
-        q, s = layer.embedding(torch.from_numpy(w), Scales(scale)).tensors     # per row of the [V, H] table
+        q, s = layer.embedding(torch.from_numpy(w), Scales(scale)).tensors()     # per row of the [V, H] table
         np.testing.assert_array_equal(q.numpy(), rq.T)
         np.testing.assert_array_equal(s.numpy(), rs)
         # A convolution's per-channel scale is over every dim but Cout.
@@ -99,40 +99,36 @@ class W8A8NumericsTest(unittest.TestCase):
                 self.assertTrue(torch.equal(y, acc.to(torch.float32) * x_scale[:, None] * w_scale[None, :]))
 
     def test_linear_is_the_int8_contraction_rescaled(self):
+        # The whole stage on one bias-free Linear, calibrated on its own input:
+        # the INT8 contraction of the reference weight and activations, rescaled.
         import torch
-        from src.export.frontend.quantization.fx.calibrator import Calibrator
-        from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8QuantizedLayer
-        from src.export.frontend.quantization.fx.utils.share import Scales
-        from src.export.frontend.quantization.schemes import W8A8
+        from src.export.frontend.quantization import quantize
 
         rng = np.random.default_rng(2)
         w = rng.normal(size=(32, 64)).astype(np.float32)
-        x = rng.normal(size=(3, 64)).astype(np.float32)
-        calibrator = Calibrator(W8A8)
-        scales = Scales(calibrator.weight_scale(torch.from_numpy(w)), calibrator.activation_scale(float(np.abs(x).max())))
-        r = W8A8QuantizedLayer().linear(torch.from_numpy(w), scales)
-        y = r.function(torch.from_numpy(x), *r.tensors, None).numpy()
-        xs = r.tensors[2]
+        x = torch.from_numpy(rng.normal(size=(3, 64)).astype(np.float32))
+        net = torch.nn.Linear(64, 32, bias=False).eval()
+        with torch.no_grad():
+            net.weight.copy_(torch.from_numpy(w))
+            ep = quantize({'forward': torch.export.export(net, (x,), strict=False)}, 'w8a8',
+                          {'forward': [(x,)]})['forward']
+            y = ep.module()(x).numpy()
+        xs = reference_activation_scale(float(x.abs().max()))
         wq, ws = reference_weight(w)
-        xq = reference_activations(x, xs.numpy())
-        acc = xq.astype(np.int32) @ wq.astype(np.int32)
-        np.testing.assert_allclose(y, acc.astype(np.float32) * xs.numpy() * ws[None, :], rtol=1e-6, atol=1e-6)
+        acc = reference_activations(x.numpy(), xs).astype(np.int32) @ wq.astype(np.int32)
+        np.testing.assert_allclose(y, acc.astype(np.float32) * xs * ws[None, :], rtol=1e-6, atol=1e-6)
 
     def test_convolution_is_the_contraction_of_its_patches(self):
         import torch
-        from src.export.frontend.quantization.fx.calibrator import Calibrator
-        from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8QuantizedLayer
-        from src.export.frontend.quantization.fx.utils.share import Scales
-        from src.export.frontend.quantization.schemes import W8A8
+        from src.export.frontend.quantization import quantize
 
         torch.manual_seed(4)
-        conv = torch.nn.Conv2d(5, 7, 3, stride=2, padding=1)
+        conv = torch.nn.Conv2d(5, 7, 3, stride=2, padding=1).eval()
         x = torch.randn(1, 5, 9, 11)
         with torch.no_grad():
-            calibrator = Calibrator(W8A8)
-            scales = Scales(calibrator.weight_scale(conv.weight), calibrator.activation_scale(float(x.abs().max())))
-            r = W8A8QuantizedLayer().conv2d(conv.weight, scales)
-            y = r.function(x, *r.tensors, conv.bias, (3, 3), (2, 2), (1, 1))
+            ep = quantize({'forward': torch.export.export(conv, (x,), strict=False)}, 'w8a8',
+                          {'forward': [(x,)]})['forward']
+            y = ep.module()(x)
             expected = conv(x)
         self.assertEqual(tuple(y.shape), tuple(expected.shape))
         # The W8A8 result stays within quantization error of the float convolution.
@@ -209,6 +205,51 @@ class QuantizerContractTest(unittest.TestCase):
         with mock.patch.dict(SCHEMES['w8a8'], ops=('linear',), calibrated_ops=('linear', 'conv2d')), \
                 self.assertRaisesRegex(ValueError, 'calibrated_ops'):
             quantize(programs, 'w8a8', {'forward': [(torch.ones(1, 4),)]})
+
+
+@unittest.skipUnless(HAVE_TORCH, 'torch and transformers are required')
+class RewriterPassesTest(unittest.TestCase):
+    def test_insert_qdq_op_then_mismatch_type_handler(self):
+        # After pass b every selected op sits between a quantize and a dequantize
+        # and reads the INT8 weight; after pass a no aten.linear or aten.conv2d is
+        # left, each contraction being an aten._int_mm between the same two ops.
+        import torch
+        from src.export.frontend.quantization.fx.calibrator import Calibrator
+        from src.export.frontend.quantization.fx.quantizer.base import Quantizer
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8QuantizedLayer
+        from src.export.frontend.quantization.fx.rewriter import DEQUANTIZE, QUANTIZE, Rewriter
+        from src.export.frontend.quantization.schemes import W8A8
+
+        torch.manual_seed(8)
+        net = torch.nn.Sequential(torch.nn.Conv2d(3, 4, 3, padding=1), torch.nn.ReLU(), torch.nn.Flatten(),
+                                  torch.nn.Linear(4 * 6 * 6, 10)).eval()
+        x = torch.randn(1, 3, 6, 6)
+        with torch.no_grad():
+            programs = {'forward': torch.export.export(net, (x,), strict=False)}
+        scales = Calibrator(W8A8).run(programs, {'forward': [(x,)]})
+        plan = Quantizer(W8A8QuantizedLayer(), W8A8['ops'], scales).run(programs)
+        rewriter = Rewriter(W8A8['ops'], plan, W8A8['activation_qmax'])
+        rewriter.gm = programs['forward'].module()
+        aten = torch.ops.aten
+
+        rewriter.insert_qdq_op()
+        ops = [n for n in rewriter.gm.graph.nodes if n.target in (aten.linear.default, aten.conv2d.default)]
+        self.assertEqual(len(ops), 2)
+        for op in ops:
+            with self.subTest(op=str(op.target)):
+                self.assertIs(op.args[0].target, QUANTIZE)
+                self.assertEqual([u.target for u in op.users], [DEQUANTIZE])
+                self.assertEqual(getattr(rewriter.gm, op.args[1].target).dtype, torch.int8)
+
+        rewriter.mismatch_type_handler()
+        targets = [n.target for n in rewriter.gm.graph.nodes]
+        self.assertNotIn(aten.linear.default, targets)
+        self.assertNotIn(aten.conv2d.default, targets)
+        products = [n for n in rewriter.gm.graph.nodes if n.target is torch._int_mm]
+        self.assertEqual(len(products), 2)
+        for product in products:
+            self.assertIs(product.args[0].target, QUANTIZE)
+            self.assertEqual([u.target for u in product.users], [DEQUANTIZE])
 
 
 @unittest.skipUnless(HAVE_TORCH, 'torch and transformers are required')

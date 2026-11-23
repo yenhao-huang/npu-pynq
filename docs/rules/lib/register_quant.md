@@ -35,7 +35,24 @@ Responsibilities are split by kind of work:
 - a QuantizedLayer only quantizes: it lays each weight out for its op and
   rounds it with the scale it is given, `clamp(round(w / scale), -qmax, qmax)`;
   it computes no scale;
-- the Rewriter only edits the graph.
+- the Rewriter only edits the graph, in two passes:
+  - b, `insert_qdq_op`, knows no op: it swaps the INT8 weight buffer in for
+    the float weight and, for a layer with an activation scale, inserts
+    `quant.quantize_per_tensor` before the op's activation input and
+    `quant.dequantize` after the op, leaving the op and its other arguments
+    as they are (`x -> quantize -> aten.linear(x_q, W_q, bias) -> dequantize`).
+    That graph is never run;
+  - a, `mismatch_type_handler`, holds one rule per op: it replaces each op
+    that now reads INT8 operands with its integer form and moves the float
+    bias after the dequantize (`x -> quantize -> aten._int_mm(x_q, W_q) ->
+    dequantize -> + bias`). linear reshapes to 2-D around the contraction,
+    conv2d pads and builds (ky, kx, c) patches (im2col) and goes back to
+    NCHW, and the embedding becomes a lookup in the INT8 table times the row
+    scale. These rules are for symmetric INT8 with zero point 0; a scheme
+    that needs a different lowering adds its own rule there.
+
+  qmax for the quantize comes from the scheme's parameters; the Rewriter
+  never imports a quantizer.
 
 1. Define the scheme in `schemes.py`, with the ops it quantizes in `ops`
    (names from `OPS` in `fx/utils/share.py`: `linear`, `conv2d`, `embedding`)
@@ -50,20 +67,18 @@ Responsibilities are split by kind of work:
    named after the op: `linear(weight, scales)`, `conv2d(weight, scales)`,
    `embedding(weight, scales)`, where `scales` is the layer's `Scales`
    (`fx/utils/share.py`: weight_scale, and activation_scale for a calibrated
-   op). Each lays the float weight out for its op, rounds it with
-   `weight_scale`, and returns the layer's `QuantizedOp`: the function that
-   replaces its nodes, the tensors that become buffers (in order), and how
-   to build the function's arguments from the node's parsed arguments and
-   the buffers. Optionally override `check(kind, args)` to refuse a node.
+   op). Each lays the float weight out in the layout the Rewriter's integer
+   form of the op reads, rounds it with `weight_scale`, and returns the
+   layer's `QuantizedOp`: constants only (the INT8 weight, its scale and the
+   activation scale), which become buffers in that order. Optionally
+   override `check(kind, args)` to refuse a node.
 
    The base methods raise NotImplementedError, and the Quantizer refuses a
    layer that lacks a method for one of the scheme's ops. It calls `check`
    on every selected node and the op's method once per layer key, and
    returns the plan, layer key -> `QuantizedOp`. The module holds only the
-   class: helpers and the replacement functions, which the re-export traces
-   into the graph using ATen ops and the custom ops of `fx/custom_ops.py`
-   only, are its members, each next to the weight layout it reads
-   (`test_export_layering.py` checks there is no module-level function).
+   class: every helper is one of its members (`test_export_layering.py`
+   checks there is no module-level function).
 3. List the class by the scheme's name in `LAYERS` in `quantize.py`.
    Calibration inputs reach `quantize(programs, scheme, calibration)` from the
    config's `calibration:` block, which `pipeline.py` loads.
@@ -101,8 +116,9 @@ quantization/
     |                     select, parse, layer_key, attr, Scales and QuantizedOp
     |-- calibrator.py     Calibrator: every layer's Scales, from the scheme's parameters, the
     |                     float weights and the largest |input| seen on calibration inputs
-    |-- rewriter.py       Rewriter: applies a plan to every program (buffers, node
-    |                     replacement), re-exports
+    |-- rewriter.py       Rewriter: applies a plan to every program in two passes, b
+    |                     insert_qdq_op (quantize/dequantize, INT8 weight; knows no op) and
+    |                     a mismatch_type_handler (one integer-form rule per op), re-exports
     `-- quantizer/
         |-- base.py       QuantizedLayer (one method per op, and check) and Quantizer,
         |                 which runs a layer over every program (run -> plan)

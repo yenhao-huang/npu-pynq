@@ -62,11 +62,14 @@ class Scales(NamedTuple):
 
 
 class QuantizedOp(NamedTuple):
-    """What the Rewriter puts in place of every node of one layer (one entry of the plan)."""
-    function: Callable                          # the function traced into the graph
-    tensors: tuple[torch.Tensor, ...]           # registered as buffers {weight}_{op}_{i}, in this order
-    arguments: Callable[[dict, tuple], tuple]   # (the node's parsed arguments, the buffers' get_attr
-                                                # nodes) -> the function's arguments
+    """One layer's constants, as a QuantizedLayer makes them and the Rewriter puts them in (a plan entry)."""
+    weight: torch.Tensor                           # INT8, in the layout the Rewriter's integer form reads
+    weight_scale: torch.Tensor                     # [N] float32
+    activation_scale: torch.Tensor | None = None   # [1] float32; None when the input is not quantized
+
+    def tensors(self) -> tuple[torch.Tensor, ...]:
+        """The tensors that become buffers {weight}_{op}_{i}, in this order."""
+        return tuple(t for t in self if t is not None)
 
 
 def select(gm: fx.GraphModule, ops) -> list[fx.Node]:

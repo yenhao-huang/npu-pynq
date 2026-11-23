@@ -3,7 +3,8 @@
 Quantization only: the scales come from the Calibrator. A scheme subclasses
 QuantizedLayer in fx/quantizer/<scheme>.py and overrides one method per op it
 supports, named after the op: (float weight, its Scales) -> the layer's
-QuantizedOp, the weight laid out for the op and rounded with the given scale.
+QuantizedOp: the weight laid out for the op and rounded with the given scale,
+and the scales the Rewriter puts in the graph.
 ``check`` is an optional hook that refuses a node. Quantizer runs a
 QuantizedLayer over every program and returns the plan.
 """

@@ -111,7 +111,7 @@ export_classifier(model, (224, 224, 3))              export.py:154
 ### quantize (pipeline.py:230)
 
 ```
-quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:44
+quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:45
   ├─ 1. Calibrator(schemes.W8A8).run (fx/calibrator.py) -> scales, per layer_key (op name +
   │    float weight storage): an fx.Interpreter runs the float prefill (or forward) program
   │    on the config's calibration: inputs (pipeline.calibration_inputs) and records the
@@ -122,14 +122,16 @@ quantize(programs, 'w8a8', calibration)              frontend/quantization/quant
   │    over every program's selected nodes: layer.check each, then once per layer key the
   │    method named after the op (fx/quantizer/w8a8.py), linear / conv2d / embedding(weight,
   │    scales): the weight laid out for the op and rounded to INT8 with its scale, in a
-  │    QuantizedOp of _linear_graph / _conv2d_graph / _embedding_graph with its argument
-  │    builder; shared by every program
-  └─ 3. Rewriter.run (fx/rewriter.py), per program: ep.module(), weights as get_attr
-       ├─ select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)
-       ├─ Rewriter.rewrite, per node: parse its arguments, look plan[layer_key] up, register
-       │    its tensors as buffers and call its function; linear and conv2d quantize
-       │    activations with their calibrated [1] scale and compute (int8(x) @ W_q)
-       │    with torch._int_mm:
+  │    QuantizedOp (INT8 weight, weight scale, activation scale); shared by every program
+  └─ 3. Rewriter(ops, plan, activation_qmax).run (fx/rewriter.py), per program:
+       ├─ ep.module(), weights as get_attr
+       ├─ b. insert_qdq_op, per node of the scheme's ops: plan[layer_key]'s tensors become
+       │    buffers, the INT8 weight replaces the float one and, with an activation scale,
+       │    x -> quant.quantize_per_tensor -> op(x_q, W_q, bias) -> quant.dequantize
+       ├─ a. mismatch_type_handler, one rule per op: linear -> reshape to rows, conv2d ->
+       │    pad + (ky, kx, c) im2col, before the quantize; the op -> torch._int_mm; the bias
+       │    added after the dequantize; reshape / back to NCHW; embedding -> INT8 lookup
+       │    times the row scale:
        │      quant.quantize_per_tensor -> _int_mm -> quant.dequantize -> + bias
        │      (the quant.* ops are custom ops, quantization/fx/custom_ops.py)
        ├─ Rewriter.finish: the float weights no node reads any more are dropped

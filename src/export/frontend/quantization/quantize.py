@@ -14,9 +14,10 @@ get_attr of the unlifted module (``ep.module()``). The stage runs in three steps
    (fx/quantizer/<scheme>.py) over every node of its ops (``schemes.py``): it
    lays each weight out and rounds it with its scale, once per weight, and
    returns the plan, layer key -> QuantizedOp;
-3. replace (fx/rewriter.py): in every program, each of those nodes becomes its
-   plan entry's function, its tensors registered as buffers; the module is
-   re-captured with torch.export.
+3. replace (fx/rewriter.py): in every program, quantize/dequantize go around
+   each of those nodes with its plan entry's tensors as buffers, then each op
+   becomes its integer form (aten._int_mm); the module is re-captured with
+   torch.export.
 
 The three stages never import each other: they exchange plain data (the
 scales, the plan) through this module, and share only fx/utils/share.py.
@@ -58,4 +59,4 @@ def quantize(programs: dict[str, torch.export.ExportedProgram], scheme: str,
         raise ValueError(f"{scheme}: calibrated_ops {spec['calibrated_ops']} must be among its ops {spec['ops']}")
     scales = Calibrator(spec).run(programs, calibration or {})                     # 1. statistics -> scales
     plan = Quantizer(layer_class(), spec['ops'], scales).run(programs)             # 2. quantize weights with them
-    return Rewriter(spec['ops'], plan).run(programs)                               # 3. replace nodes
+    return Rewriter(spec['ops'], plan, spec['activation_qmax']).run(programs)      # 3. replace nodes
