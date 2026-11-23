@@ -122,7 +122,7 @@ quantize(programs, 'w8a8', calibration)              frontend/quantization/quant
   │    over every program's selected nodes: layer.check each, then once per layer key the
   │    method named after the op (fx/quantizer/w8a8.py), linear / conv2d / embedding(weight,
   │    scales): the weight laid out for the op and rounded to INT8 with its scale, in a
-  │    Replacement of _linear_graph / _conv2d_graph / _embedding_graph with its argument
+  │    QuantizedOp of _linear_graph / _conv2d_graph / _embedding_graph with its argument
   │    builder; shared by every program
   └─ 3. Rewriter.run (fx/rewriter.py), per program: ep.module(), weights as get_attr
        ├─ select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)

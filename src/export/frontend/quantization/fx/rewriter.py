@@ -1,4 +1,4 @@
-"""The Rewriter: scheme-agnostic graph surgery from a plan (layer key -> Replacement).
+"""The Rewriter: scheme-agnostic graph surgery from a plan (layer key -> QuantizedOp).
 
 It applies the plan to every selected node of each program and re-captures
 the programs; it decides nothing about numerics and knows no scheme.
@@ -9,15 +9,15 @@ from __future__ import annotations
 import torch
 from torch import fx
 
-from src.export.frontend.quantization.fx.utils.share import Replacement, layer_key, parse, select
+from src.export.frontend.quantization.fx.utils.share import QuantizedOp, layer_key, parse, select
 
 
 class Rewriter:
     """Replaces every node of ``ops`` in each program with its plan entry; re-captures."""
 
-    def __init__(self, ops, plan: dict[tuple, Replacement]) -> None:
+    def __init__(self, ops, plan: dict[tuple, QuantizedOp]) -> None:
         self.ops = tuple(ops)          # the op names whose nodes are replaced
-        self.plan = plan               # layer key -> Replacement
+        self.plan = plan               # layer key -> QuantizedOp
         self.gm: fx.GraphModule | None = None   # the module being rewritten
 
     def run(self, programs: dict[str, torch.export.ExportedProgram]

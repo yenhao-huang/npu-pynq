@@ -99,7 +99,7 @@ npu_repo_in_pynq/
 |   |   |   |                    calibrator.py, quantizer/ (base.py: the Quantizer base class;
 |   |   |   |                    <scheme>.py: one scheme) and rewriter.py, three stages that never
 |   |   |   |                    import each other; utils/share.py: what they share (the ATen op table,
-|   |   |   |                    node helpers, the plan's Replacement)
+|   |   |   |                    node helpers, the plan's QuantizedOp)
 |   |   |   `-- to_mlir/         torch-mlir's importer (llvm/torch-mlir wheels): torch.mlir
 |   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir (fused linalg, CPU
 |   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:

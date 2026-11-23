@@ -7,7 +7,7 @@ rounds it with its scale, symmetric with zero point 0:
 
     q = clamp(round(weight / weight_scale), -127, 127)    half to even (torch.round)
 
-and returns the layer's Replacement: a call to one of its ``_*_graph``
+and returns the layer's QuantizedOp: a call to one of its ``_*_graph``
 functions, which the re-export traces. A contraction becomes
 
     xq  = quant.quantize_per_tensor(x, x_scale)    activations to INT8, constant [1] scale
@@ -30,7 +30,7 @@ import torch
 
 from src.export.frontend.quantization.fx import custom_ops
 from src.export.frontend.quantization.fx.quantizer.base import QuantizedLayer
-from src.export.frontend.quantization.fx.utils.share import Replacement, Scales
+from src.export.frontend.quantization.fx.utils.share import QuantizedOp, Scales
 from src.export.frontend.quantization.schemes import W8A8
 
 
@@ -42,30 +42,30 @@ class W8A8QuantizedLayer(QuantizedLayer):
 
     # --- the ops ----------------------------------------------------------------
 
-    def linear(self, weight: torch.Tensor, scales: Scales) -> Replacement:
+    def linear(self, weight: torch.Tensor, scales: Scales) -> QuantizedOp:
         """aten.linear: [out, in] float weight -> [K, N] = [in, out] INT8, so the
         contraction's right operand is the weight itself; one scale per output channel N."""
         w = weight.detach().to(torch.float32).t().contiguous()           # [K, N]
         qmax = self.WEIGHT_QMAX
         q = torch.clamp(torch.round(w / scales.weight_scale), -qmax, qmax).to(torch.int8)
-        return Replacement(self._linear_graph, (q, scales.weight_scale, scales.activation_scale),
+        return QuantizedOp(self._linear_graph, (q, scales.weight_scale, scales.activation_scale),
                            lambda args, buffers: (args['x'], *buffers, args['bias']))
 
-    def conv2d(self, weight: torch.Tensor, scales: Scales) -> Replacement:
+    def conv2d(self, weight: torch.Tensor, scales: Scales) -> QuantizedOp:
         """aten.conv2d: [Cout, Cin, kh, kw] float weight -> [kh * kw * Cin, Cout] INT8.
 
         K follows the (ky, kx, c) order that ``_conv2d_graph``'s im2col uses."""
         w = weight.detach().permute(0, 2, 3, 1).reshape(weight.shape[0], -1)   # [Cout, (ky, kx, c)]
         q = self._round(w.to(torch.float32).t().contiguous(), scales.weight_scale)   # [K, Cout]
         kernel = tuple(weight.shape[2:])
-        return Replacement(self._conv2d_graph, (q, scales.weight_scale, scales.activation_scale),
+        return QuantizedOp(self._conv2d_graph, (q, scales.weight_scale, scales.activation_scale),
                            lambda args, buffers: (args['x'], *buffers, args['bias'], kernel,
                                                   args['stride'], args['padding']))
 
-    def embedding(self, weight: torch.Tensor, scales: Scales) -> Replacement:
+    def embedding(self, weight: torch.Tensor, scales: Scales) -> QuantizedOp:
         """aten.embedding: [V, H] float table -> [V, H] INT8 with one scale per row."""
         q = self._round(weight.detach().to(torch.float32), scales.weight_scale[:, None])
-        return Replacement(self._embedding_graph, (q, scales.weight_scale),
+        return QuantizedOp(self._embedding_graph, (q, scales.weight_scale),
                            lambda args, buffers: (args['ids'], *buffers))
 
     def check(self, kind: str, args: dict) -> None:

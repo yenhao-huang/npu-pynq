@@ -51,7 +51,7 @@ Responsibilities are split by kind of work:
    `embedding(weight, scales)`, where `scales` is the layer's `Scales`
    (`fx/utils/share.py`: weight_scale, and activation_scale for a calibrated
    op). Each lays the float weight out for its op, rounds it with
-   `weight_scale`, and returns the layer's `Replacement`: the function that
+   `weight_scale`, and returns the layer's `QuantizedOp`: the function that
    replaces its nodes, the tensors that become buffers (in order), and how
    to build the function's arguments from the node's parsed arguments and
    the buffers. Optionally override `check(kind, args)` to refuse a node.
@@ -59,7 +59,7 @@ Responsibilities are split by kind of work:
    The base methods raise NotImplementedError, and the Quantizer refuses a
    layer that lacks a method for one of the scheme's ops. It calls `check`
    on every selected node and the op's method once per layer key, and
-   returns the plan, layer key -> `Replacement`. The module holds only the
+   returns the plan, layer key -> `QuantizedOp`. The module holds only the
    class: helpers and the replacement functions, which the re-export traces
    into the graph using ATen ops and the custom ops of `fx/custom_ops.py`
    only, are its members, each next to the weight layout it reads
@@ -98,7 +98,7 @@ quantization/
     |-- custom_ops.py     the quant.* custom ops
     |-- utils/
     |   `-- share.py      what the stages share: the ATen op table (target, argument parsing),
-    |                     select, parse, layer_key, attr, Scales and Replacement
+    |                     select, parse, layer_key, attr, Scales and QuantizedOp
     |-- calibrator.py     Calibrator: every layer's Scales, from the scheme's parameters, the
     |                     float weights and the largest |input| seen on calibration inputs
     |-- rewriter.py       Rewriter: applies a plan to every program (buffers, node

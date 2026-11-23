@@ -13,7 +13,7 @@ get_attr of the unlifted module (``ep.module()``). The stage runs in three steps
 2. quantize (fx/quantizer/): Quantizer runs the scheme's QuantizedLayer
    (fx/quantizer/<scheme>.py) over every node of its ops (``schemes.py``): it
    lays each weight out and rounds it with its scale, once per weight, and
-   returns the plan, layer key -> Replacement;
+   returns the plan, layer key -> QuantizedOp;
 3. replace (fx/rewriter.py): in every program, each of those nodes becomes its
    plan entry's function, its tensors registered as buffers; the module is
    re-captured with torch.export.

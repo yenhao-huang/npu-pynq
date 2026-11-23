@@ -5,7 +5,7 @@ quantizes is one aten.linear, aten.conv2d or aten.embedding node of the
 unlifted module (``ep.module()``), its weight a get_attr. ``OPS`` says, per op
 name (schemes.py's ``ops``), which node that is and how to read its
 arguments; ``select``, ``parse`` and ``layer_key`` find the nodes, read them
-and name their layers. ``Scales`` (Calibrator -> Quantizer) and ``Replacement``
+and name their layers. ``Scales`` (Calibrator -> Quantizer) and ``QuantizedOp``
 (Quantizer -> Rewriter) are what the stages pass on, one per layer key.
 """
 
@@ -61,7 +61,7 @@ class Scales(NamedTuple):
     activation_scale: torch.Tensor | None = None   # [1] float32; None when the input is not quantized
 
 
-class Replacement(NamedTuple):
+class QuantizedOp(NamedTuple):
     """What the Rewriter puts in place of every node of one layer (one entry of the plan)."""
     function: Callable                          # the function traced into the graph
     tensors: tuple[torch.Tensor, ...]           # registered as buffers {weight}_{op}_{i}, in this order
