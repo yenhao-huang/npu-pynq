@@ -21,8 +21,8 @@ IREE's VM bytecode (plan 2026-1112-004).
 | Stage | Path | In → out | Owns | Never |
 | --- | --- | --- | --- | --- |
 | Front end | `frontend/` (Python) | model → `ir/torch.mlir` | loading, `torch.export`, quantization of the captured graph, import to the torch dialect | MLIR rewrites; anything device- or target-specific |
-| Middle end | `middle-end/` (`pynqo-middle-end`) | torch dialect → linalg on tensors: the CPU graph (`ir/model.mlir`) and one module per device (`ir/delegates/<device>.mlir`) | graph-level work: torch rewrites, lowering to linalg, device assignment, partitioning (each device subgraph cut out into its device's module, a bodiless `@__delegate_<id>` called in its place), fusion of the CPU graph | memrefs, loops, LLVM; device code generation; anything that depends on the CPU target |
-| Back end | `backend/` (`pynqo-backend`) | the CPU graph and the device modules → package | code generation: each delegate compiles its own device module; per `--cpus` target, delegate calls to `__delegate__(id, in, out)`, bufferization, loops, LLVM, `llc`, link | deciding which device runs an op; graph rewrites that would give every target the same result; CPU code that depends on how a device computes |
+| Middle end | `middle-end/` (`pynqo-middle-end`) | torch dialect → linalg on tensors: the CPU graph (`ir/model.mlir`) and one module per device (`ir/delegates/<device>.mlir`) | graph-level work: torch rewrites, lowering to linalg, device assignment, partitioning (each device subgraph cut out into its device's module, a bodiless `@__delegate_<id>` called in its place), fusion of the CPU graph, numbering its kernels (`pynqo.kernel_id`) | memrefs, loops, LLVM; device code generation; anything that depends on the CPU target |
+| Back end | `backend/` (`pynqo-backend`) | the CPU graph and the device modules → package | code generation: each delegate compiles its own device module; per `--cpus` target, delegate calls to `__delegate__(id, in, out)`, bufferization, loops, LLVM, `llc`, link; with `--profile-kernels`, timing probes around the numbered kernels | deciding which device runs an op; graph rewrites that would give every target the same result; CPU code that depends on how a device computes |
 
 ## Rules
 
@@ -56,6 +56,12 @@ IREE's VM bytecode (plan 2026-1112-004).
   middle end `model.mlir` and `delegates/<device>.mlir`; each is printed with
   locations kept. Only
   `pipeline.py` runs the stages and passes those files on.
+- **Naming a kernel is middle end; timing it is back end.** Which operations
+  form a kernel is a whole-graph, target-agnostic decision, so the middle end
+  numbers them once (`pynqo.kernel_id`), as ExecuTorch assigns debug handles at
+  export and IREE forms dispatches in `flow`. Probes need buffers and a target,
+  so the back end inserts them (`--profile-kernels`), as IREE materialises
+  dispatch instrumentation in codegen.
 - **A new step goes where its input is.** If it needs memrefs or a target, it
   is back end; otherwise it is middle end, even if it is about a device.
 

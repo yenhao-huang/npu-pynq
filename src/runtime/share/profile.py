@@ -6,7 +6,8 @@ Attached to an ExportedPackage, the profiler also turns on the delegate
 backends' phase counters (for the NPU: prepare_activation, prepare_weights,
 npu_run, reduce_output per program) and collects them when it detaches. The report then splits the time
 spent in package calls into delegate time and the rest (model.so's CPU code
-and dispatch).
+and dispatch). A package exported with --profile-kernels also times every CPU
+kernel of model.so (share/kernels.py); the report then ranks the kernels.
 
 Nothing here knows a task or a device: phase names, byte counts and the
 device clock come from the backends.
@@ -28,6 +29,8 @@ import json
 from pathlib import Path
 import time
 from typing import Any, Callable, Iterator
+
+from src.runtime.share.kernels import describe
 
 FORMAT = 'pynqo-profile/1'
 PHASES = ('prepare_activation', 'prepare_weights', 'npu_run', 'reduce_output')
@@ -65,6 +68,7 @@ class Profiler:
         self.model_stages: set[str] = set()
         self.stage_events: list[tuple[str, int, int, dict]] = []
         self.delegates: dict[str, dict[str, Any]] = {}
+        self.kernels: dict[str, Any] | None = None   # with a --profile-kernels package
         self.package = None
         self.start_ns = clock()
 
@@ -96,6 +100,12 @@ class Profiler:
             recorded, dropped = events.get(device, ([], 0))
             self.delegates[device] = {'clock_hz': clocks.get(device), 'programs': programs,
                                       'events': recorded, 'events_dropped': dropped}
+        kernels = getattr(self.package, 'kernel_stats', lambda: None)()
+        if kernels is not None:
+            recorded, dropped = self.package.kernel_events()
+            labels = {k['id']: describe(k) for k in kernels}
+            self.kernels = {'stats': kernels, 'labels': labels, 'events': recorded,
+                            'events_dropped': dropped}
         self.package.profile(False)
         self.package = None
 
@@ -128,6 +138,41 @@ class Profiler:
         return {'clock_hz': clock_hz, 'totals': totals, 'programs': programs,
                 'events_recorded': len(data['events']), 'events_dropped': data['events_dropped']}
 
+    def kernel_report(self, model_ns: int) -> dict[str, Any]:
+        """Every CPU kernel that ran, slowest first, and the time per kind."""
+        data = self.kernels
+        rows = sorted(data['stats'], key=lambda k: k['total_ns'], reverse=True)
+        probed = sum(k['total_ns'] for k in rows)
+        by_kind: dict[str, int] = {}
+        for k in rows:
+            by_kind[k['kind']] = by_kind.get(k['kind'], 0) + k['total_ns']
+        kernels = [{'id': k['id'], 'kind': k['kind'], 'label': data['labels'][k['id']],
+                    'function': k['function'], 'calls': k['calls'], 'total_ns': k['total_ns'],
+                    'mean_ns': round(k['total_ns'] / k['calls'], 1), 'min_ns': k['min_ns'],
+                    'max_ns': k['max_ns'],
+                    'share': round(k['total_ns'] / probed, 4) if probed else None}
+                   for k in rows]
+        # Kernels with the same entry point and label (op, body, type) are one
+        # kind of work repeated, usually once per layer: summed, they rank it.
+        cpu = [k for k in kernels if k['kind'] != 'delegate']
+        cpu_ns = sum(k['total_ns'] for k in cpu)
+        grouped: dict[tuple[str, str], dict[str, Any]] = {}
+        for k in cpu:
+            g = grouped.setdefault((k['function'], k['label']),
+                                   {'function': k['function'], 'label': k['label'], 'kernels': 0,
+                                    'calls': 0, 'total_ns': 0, 'ids': []})
+            g['kernels'] += 1
+            g['calls'] += k['calls']
+            g['total_ns'] += k['total_ns']
+            g['ids'].append(k['id'])
+        groups = sorted(grouped.values(), key=lambda g: g['total_ns'], reverse=True)
+        for g in groups:
+            g['share'] = round(g['total_ns'] / cpu_ns, 4) if cpu_ns else None
+        return {'probed_ns': probed, 'kinds': by_kind, 'cpu_ns': cpu_ns,
+                'coverage': round(probed / model_ns, 4) if model_ns else None,
+                'kernels': kernels, 'groups': groups, 'events_recorded': len(data['events']),
+                'events_dropped': data['events_dropped']}
+
     def report(self) -> dict[str, Any]:
         stages = {name: agg.as_dict() for name, agg in self.stages.items()}
         delegates = {device: self.delegate_report(device) for device in self.delegates}
@@ -137,8 +182,11 @@ class Profiler:
                    'other_ns': model_ns - delegate_ns if model_ns else None,
                    'delegate_share': round(delegate_ns / model_ns, 4) if model_ns else None,
                    'model_stages': sorted(self.model_stages)}
-        return {'format': FORMAT, 'clock': 'CLOCK_MONOTONIC', 'meta': self.meta,
-                'stages': stages, 'delegates': delegates, 'summary': summary}
+        report = {'format': FORMAT, 'clock': 'CLOCK_MONOTONIC', 'meta': self.meta,
+                  'stages': stages, 'delegates': delegates, 'summary': summary}
+        if self.kernels is not None:
+            report['kernels'] = self.kernel_report(model_ns)
+        return report
 
     def table(self, top: int = 10) -> str:
         report = self.report()
@@ -153,6 +201,21 @@ class Profiler:
             lines += ['', f'package calls {ms(summary["model_ns"]).strip()} ms = delegates '
                           f'{ms(summary["delegate_ns"]).strip()} ms ({share:.1%}) + model.so and dispatch '
                           f'{ms(summary["other_ns"]).strip()} ms']
+        if 'kernels' in report:
+            k = report['kernels']
+            kinds = ', '.join(f'{kind} {ms(ns).strip()} ms' for kind, ns in sorted(k['kinds'].items()))
+            coverage = f' = {k["coverage"]:.1%} of package calls' if k['coverage'] is not None else ''
+            lines += ['', f'cpu kernels: {len(k["kernels"])} ran, {ms(k["probed_ns"]).strip()} ms probed'
+                          f'{coverage} ({kinds})',
+                      f'top {top} CPU kernels by time, alike kernels summed (share of '
+                      f'{ms(k["cpu_ns"]).strip()} ms of CPU kernels and copies)',
+                      f'{"entry":<9}{"kernels":>8}{"calls":>8}{"total ms":>11}{"share":>8}  kernel']
+            for g in k['groups'][:top]:
+                share = f'{g["share"]:8.1%}' if g['share'] is not None else f'{"-":>8}'
+                lines.append(f'{g["function"]:<9}{g["kernels"]:>8}{g["calls"]:>8}{ms(g["total_ns"])}'
+                             f'{share}  {g["label"]}')
+            if k['events_dropped']:
+                lines.append(f'{k["events_dropped"]} kernel events dropped (raise the event capacity)')
         for device, d in report['delegates'].items():
             t = d['totals']
             lines += ['', f'{device}: {t["calls"]} calls, {t["jobs"]} jobs, {t["polls"]} polls',
@@ -179,8 +242,10 @@ class Profiler:
 
     def trace(self) -> dict[str, Any]:
         """Chrome trace events (``ph: X``, microseconds), as Kineto writes them."""
+        kernel_events = self.kernels['events'] if self.kernels else []
         origin = min([self.start_ns] + [b for _, b, _, _ in self.stage_events]
-                     + [e[2] for d in self.delegates.values() for e in d['events']])
+                     + [e[2] for d in self.delegates.values() for e in d['events']]
+                     + [e[1] for e in kernel_events])
         us = lambda ns: (ns - origin) / 1e3
         events: list[dict[str, Any]] = [
             {'ph': 'M', 'name': 'process_name', 'pid': 0, 'args': {'name': 'pynqo runtime'}},
@@ -195,6 +260,15 @@ class Profiler:
                 events.append({'ph': 'X', 'cat': 'kernel' if phase == 'npu_run' else 'cpu_op',
                                'name': phase, 'pid': 0, 'tid': tid, 'ts': us(begin),
                                'dur': (end - begin) / 1e3, 'args': {'program': index}})
+        if kernel_events:
+            tid = len(self.delegates) + 1
+            labels = self.kernels['labels']
+            events.append({'ph': 'M', 'name': 'thread_name', 'pid': 0, 'tid': tid,
+                           'args': {'name': 'cpu kernels'}})
+            for kid, begin, end in kernel_events:
+                events.append({'ph': 'X', 'cat': 'cpu_op', 'name': labels.get(kid, f'kernel {kid}'),
+                               'pid': 0, 'tid': tid, 'ts': us(begin), 'dur': (end - begin) / 1e3,
+                               'args': {'kernel': kid}})
         return {'traceEvents': events, 'displayTimeUnit': 'ms', 'otherData': {'format': FORMAT, **self.meta}}
 
     def write(self, directory: str | Path) -> list[Path]:

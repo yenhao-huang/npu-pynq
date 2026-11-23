@@ -35,6 +35,7 @@ add_executable(pynqo-backend
   package.cpp
   cpu/toolchain.cpp
   cpu/delegate_calls.cpp
+  cpu/kernel_probes.cpp
   delegates/npu/lower.cpp
   delegates/risc_v_npu/lower.cpp
   delegates/risc_v_npu/rv_codegen.cpp)
