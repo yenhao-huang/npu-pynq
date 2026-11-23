@@ -10,7 +10,7 @@ load:
 quantization: w8a8           # the scheme to apply after load
 calibration:                # what the static activation scales are measured on
   images: data/calib          # its *.jpg, in name order; untracked, filled by you
-  count: 6
+  count: 100                  # at most; fewer pictures are used as they are
 graph:
   kind: classifier
   input:                      # what the runtime feeds: one normalized NHWC image
