@@ -96,8 +96,10 @@ npu_repo_in_pynq/
 |   |   |   |-- quantization/    schemes.py: the schemes as data (parameters, ops quantized), framework
 |   |   |   |                    independent; quantize.py: the stage driver; fx/: custom_ops.py (the
 |   |   |   |                    quant.* custom ops, expanded by the middle end's DecomposeQuantOps),
-|   |   |   |                    calibrator.py and rewriter.py (shared FX machinery: calibration, the
-|   |   |   |                    ATen op table and graph surgery), quantizer/<scheme>.py (one scheme)
+|   |   |   |                    calibrator.py, quantizer/ (base.py: the Quantizer base class;
+|   |   |   |                    <scheme>.py: one scheme) and rewriter.py, three stages that never
+|   |   |   |                    import each other; utils/share.py: what they share (the ATen op table,
+|   |   |   |                    node helpers, the plan's Replacement)
 |   |   |   `-- to_mlir/         torch-mlir's importer (llvm/torch-mlir wheels): torch.mlir
 |   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir (fused linalg, CPU
 |   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:
@@ -248,7 +250,7 @@ before the board loads the bitstream.
 config (`examples/<demo>/export.yml`): `frontend/load/` builds the float model with its
 framework; `frontend/export_graph/` captures it with `torch.export`, one
 undecomposed ExportedProgram per entry point; `frontend/quantization/`
-quantizes the captured graphs, today with FX (`quantization/fx/`: a scheme's quantizer and a shared calibrator and rewriter) that rewrites each
+quantizes the captured graphs, today with FX (`quantization/fx/`: a calibrator, a scheme's quantizer and a rewriter) that rewrites each
 `aten.linear`, `aten.conv2d` and `aten.embedding`; `frontend/to_mlir/`
 decomposes them and imports them into the torch dialect with torch-mlir; `middle-end/` (`pynqo-middle-end`, C++ against LLVM 22 and a pinned
 torch-mlir it builds from source) rewrites layers while they are recognisable,

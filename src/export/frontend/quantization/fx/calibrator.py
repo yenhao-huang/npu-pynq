@@ -1,10 +1,12 @@
 """The Calibrator: records each calibrated layer's largest |input| on calibration data.
 
-Scheme-agnostic: the scheme names the ops whose input it quantizes, and the
-Calibrator runs the float programs with ``torch.fx.Interpreter``, observing
-the input (``'x'``) of every node of those ops. Each statistic is keyed like
-the layer's weight (``rewriter.layer_key``), so every program that shares the
-weight shares it: calibrating an LLM's prefill gives decode its scales too.
+Scheme-agnostic: quantize.py passes the op names whose input the scheme
+quantizes, and the Calibrator runs the float programs with
+``torch.fx.Interpreter``, observing the input (``'x'``) of every node of those
+ops. Each statistic is keyed like the layer's weight (``layer_key``, from
+utils/share.py), so every program that shares the weight shares it:
+calibrating an LLM's prefill gives decode its scales too. The statistics are
+returned as plain data; the Calibrator imports no other stage.
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from __future__ import annotations
 import torch
 from torch import fx
 
-from src.export.frontend.quantization.fx.rewriter import layer_key, parse, select
+from src.export.frontend.quantization.fx.utils.share import layer_key, parse, select
 
 
 class Calibrator:

@@ -11,7 +11,7 @@ Calibrator recorded for the layer.
 
 W8A8Quantizer quantizes every selected layer's weight once and fixes its
 activation scale (a QuantizedLayer); the Rewriter then replaces each node with
-the call ``replacement`` builds, to ``linear``, ``conv2d`` or ``embedding``
+the Replacement ``replacement`` builds, a call to ``linear``, ``conv2d`` or ``embedding``
 below. The re-export traces those functions; a contraction becomes
 
     xq  = quant.quantize_per_tensor(x, x_scale)    activations to INT8, constant [1] scale
@@ -29,27 +29,18 @@ Overflow: |acc| <= K * 127 * 127, which stays below 2**31 while K is under about
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, NamedTuple
+from functools import partial
+from typing import Callable
 
 import torch
 
 from src.export.frontend.quantization.fx import custom_ops
-from src.export.frontend.quantization.fx.rewriter import attr, layer_key, parse, select
+from src.export.frontend.quantization.fx.quantizer.base import QuantizedLayer, Quantizer
+from src.export.frontend.quantization.fx.utils.share import Replacement
 from src.export.frontend.quantization.schemes import W8A8
 
 EPS = W8A8['eps']
 QMAX = W8A8['activation_qmax']
-
-
-class QuantizedLayer(NamedTuple):
-    """One weight's quantized tensors, as W8A8Quantizer makes them and the Rewriter reads them."""
-    weight: torch.Tensor                        # INT8
-    weight_scale: torch.Tensor                  # float32, per output channel (per row for a table)
-    activation_scale: torch.Tensor | None = None   # [1] float32; None when the input is not quantized
-
-    def tensors(self) -> tuple[torch.Tensor, ...]:
-        """The tensors that become buffers, in this order."""
-        return tuple(t for t in self if t is not None)
 
 
 def quantize_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -140,50 +131,30 @@ def embedding(ids: torch.Tensor, qweight: torch.Tensor, scale: torch.Tensor) -> 
 class Op:
     quantize_weight: Callable      # float weight -> (INT8 weight, weight scale)
     calibrated: bool               # its input is quantized, so it needs an activation scale
-    call: Callable                 # (args, buffers, float weight) -> (function, its arguments)
+    function: Callable             # what replaces the node, traced into the graph
+    arguments: Callable            # (node's parsed args, buffer nodes, float weight's shape) -> its arguments
 
 
 OPS = {
-    'linear': Op(quantize_weight, True,
-                 lambda args, buffers, weight: (linear, (args['x'], *buffers, args['bias']))),
-    'conv2d': Op(quantize_conv2d_weight, True,
-                 lambda args, buffers, weight: (conv2d, (args['x'], *buffers, args['bias'], tuple(weight.shape[2:]),
-                                                         args['stride'], args['padding']))),
-    'embedding': Op(quantize_embedding_weight, False,
-                    lambda args, buffers, weight: (embedding, (args['ids'], *buffers))),
+    'linear': Op(quantize_weight, True, linear,
+                 lambda args, buffers, shape: (args['x'], *buffers, args['bias'])),
+    'conv2d': Op(quantize_conv2d_weight, True, conv2d,
+                 lambda args, buffers, shape: (args['x'], *buffers, args['bias'], shape[2:],
+                                               args['stride'], args['padding'])),
+    'embedding': Op(quantize_embedding_weight, False, embedding,
+                    lambda args, buffers, shape: (args['ids'], *buffers)),
 }
 
 
-class W8A8Quantizer:
-    """Quantizes every selected layer once and holds the results, by layer key."""
+class W8A8Quantizer(Quantizer):
+    """W8A8's numbers: per-channel INT8 weights and a calibrated [1] scale per layer input."""
 
-    def __init__(self, ops, stats: dict) -> None:
-        self.ops = tuple(ops)          # the scheme's op names (schemes.W8A8['ops'])
-        self.stats = stats             # layer key -> largest |input|, from the Calibrator
-        self.layers: dict[tuple, QuantizedLayer] = {}
-
-    @staticmethod
-    def calibrated_ops(ops) -> tuple[str, ...]:
+    @classmethod
+    def calibrated_ops(cls, ops) -> tuple[str, ...]:
         """The op names among ``ops`` whose input is quantized, and so calibrated."""
         return tuple(op for op in ops if OPS[op].calibrated)
 
-    def run(self, programs: dict[str, torch.export.ExportedProgram]) -> None:
-        """Quantize the weight of every node of ``ops`` in every program, once per layer key.
-
-        A weight shared by several programs, or by several nodes, is quantized
-        once; a tied weight two kinds of op use has one entry per kind."""
-        for ep in programs.values():
-            gm = ep.module()
-            for node in select(gm, self.ops):
-                kind, args = parse(node)
-                self.check(kind, args)
-                key = layer_key(gm, node)
-                if key not in self.layers:
-                    self.layers[key] = self.quantize_layer(key, kind, attr(gm, args['weight'].target),
-                                                           args['weight'].target)
-
-    @staticmethod
-    def check(kind: str, args: dict) -> None:
+    def check(self, kind: str, args: dict) -> None:
         """Refuse a node W8A8 cannot compute."""
         if kind == 'conv2d' and (args['groups'] != 1 or args['dilation'] != (1, 1)):
             raise ValueError('w8a8 supports ungrouped, undilated convolutions only')
@@ -198,13 +169,7 @@ class W8A8Quantizer:
                              'w8a8 needs calibration inputs that reach every layer')
         return QuantizedLayer(q, scale, activation_scale(self.stats[key]))
 
-    def tensors(self, key: tuple) -> tuple[torch.Tensor, ...]:
-        """The tensors of the layer ``key``, in the order they become buffers."""
-        if key not in self.layers:
-            raise KeyError(f'layer {key[0]} was not quantized; run must cover every node the Rewriter replaces')
-        return self.layers[key].tensors()
-
-    @staticmethod
-    def replacement(kind: str, args: dict, buffers: tuple, weight: torch.Tensor) -> tuple[Callable, tuple]:
-        """The function that replaces a ``kind`` node and its arguments, ``buffers`` in tensors' order."""
-        return OPS[kind].call(args, buffers, weight)
+    def replacement(self, kind: str, layer: QuantizedLayer, weight: torch.Tensor) -> Replacement:
+        """``kind``'s function with ``layer``'s tensors; a convolution's kernel comes from ``weight``'s shape."""
+        op = OPS[kind]
+        return Replacement(op.function, layer.tensors(), partial(op.arguments, shape=tuple(weight.shape)))

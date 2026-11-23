@@ -54,6 +54,25 @@ class ExportLayeringTest(unittest.TestCase):
                             self.assertFalse(module.startswith(f'src.export.frontend.{target}'),
                                              f'{path.name} imports {module}')
 
+    def test_quantization_stages_never_import_each_other(self):
+        # docs/rules/lib/register_quant.md: the Calibrator, the quantizers and the
+        # Rewriter exchange plain data through quantize.py and share only
+        # fx/utils/share.py; nothing under fx/ imports the driver.
+        fx = FRONTEND / 'quantization' / 'fx'
+        package = 'src.export.frontend.quantization'
+        stages = {'calibrator': [fx / 'calibrator.py'], 'rewriter': [fx / 'rewriter.py'],
+                  'quantizer': sorted((fx / 'quantizer').glob('*.py'))}
+        self.assertTrue(all(p.is_file() for paths in stages.values() for p in paths))
+        for stage, paths in stages.items():
+            for path in paths:
+                for module in imports(path):
+                    with self.subTest(path=path.relative_to(FRONTEND).as_posix(), module=module):
+                        self.assertFalse(module.startswith(f'{package}.quantize'), f'{path.name} imports {module}')
+                        for other in stages:
+                            if other != stage:
+                                self.assertFalse(module.startswith(f'{package}.fx.{other}'),
+                                                 f'{path.name} imports {module}')
+
     def test_quantization_knows_no_device(self):
         # docs/rules/lib/register_quant.md
         for path in sorted((FRONTEND / 'quantization').rglob('*.py')):

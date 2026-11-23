@@ -11,10 +11,13 @@ get_attr of the unlifted module (``ep.module()``). The stage runs in three steps
    layer whose input the scheme quantizes;
 2. quantize (fx/quantizer/<scheme>.py): the scheme quantizes the weight of
    every node of its ops (``schemes.py``), with its activation scale, once
-   per weight;
-3. replace (fx/rewriter.py): in every program, each of those nodes becomes the
-   scheme's computation, reading step 2's tensors; the module is re-captured
-   with torch.export.
+   per weight, and returns the plan: layer key -> Replacement;
+3. replace (fx/rewriter.py): in every program, each of those nodes becomes its
+   plan entry's function, its tensors registered as buffers; the module is
+   re-captured with torch.export.
+
+The three stages never import each other: they exchange plain data (the
+statistics, the plan) through this module, and share only fx/utils/share.py.
 
 Statistics and quantized weights are kept per weight tensor, not per program:
 decode and prefill share every weight, so calibrating prefill alone gives
@@ -27,12 +30,13 @@ from __future__ import annotations
 import torch
 
 from src.export.frontend.quantization.fx.calibrator import Calibrator
+from src.export.frontend.quantization.fx.quantizer.base import Quantizer
 from src.export.frontend.quantization.fx.quantizer.w8a8 import W8A8Quantizer
 from src.export.frontend.quantization.fx.rewriter import Rewriter
 from src.export.frontend.quantization.schemes import SCHEMES
 
 # Scheme name -> the quantizer that applies it. Its parameters are schemes.SCHEMES.
-QUANTIZERS = {'w8a8': W8A8Quantizer}
+QUANTIZERS: dict[str, type[Quantizer]] = {'w8a8': W8A8Quantizer}
 
 
 def quantize(programs: dict[str, torch.export.ExportedProgram], scheme: str,
@@ -49,6 +53,5 @@ def quantize(programs: dict[str, torch.export.ExportedProgram], scheme: str,
                          f'known: {sorted(QUANTIZERS)}') from None
     ops = SCHEMES[scheme]['ops']
     stats = Calibrator(quantizer_class.calibrated_ops(ops)).run(programs, calibration or {})   # 1. calibrate
-    quantizer = quantizer_class(ops, stats)
-    quantizer.run(programs)                                                                    # 2. quantize weights
-    return Rewriter(quantizer).run(programs)                                                   # 3. replace nodes
+    plan = quantizer_class(ops, stats).run(programs)                                           # 2. quantize weights
+    return Rewriter(ops, plan).run(programs)                                                   # 3. replace nodes

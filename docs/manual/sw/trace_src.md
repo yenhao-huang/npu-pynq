@@ -111,20 +111,20 @@ export_classifier(model, (224, 224, 3))              export.py:154
 ### quantize (pipeline.py:230)
 
 ```
-quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:38
-  ├─ 1. Calibrator.run (fx/calibrator.py): an fx.Interpreter runs the float prefill (or
-  │    forward) program on the config's calibration: inputs (pipeline.calibration_inputs)
+quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:42
+  ├─ 1. Calibrator.run (fx/calibrator.py) -> stats: an fx.Interpreter runs the float prefill
+  │    (or forward) program on the config's calibration: inputs (pipeline.calibration_inputs)
   │    and records the largest |input| of each node of W8A8Quantizer.calibrated_ops
-  │    (linear, conv2d), keyed by rewriter.layer_key (op name + float weight storage)
-  ├─ 2. W8A8Quantizer.run (fx/quantizer/w8a8.py), over every program's selected nodes:
-  │    check, then quantize_layer once per layer key: INT8 weight, per-channel scale
-  │    and, for linear and conv2d, the [1] activation scale (a QuantizedLayer),
-  │    shared by every program
+  │    (linear, conv2d), keyed by layer_key (fx/utils/share.py: op name + float weight storage)
+  ├─ 2. W8A8Quantizer.run (Quantizer.run, fx/quantizer/base.py) -> plan, over every
+  │    program's selected nodes: check, then once per layer key quantize_layer (INT8 weight,
+  │    per-channel scale and, for linear and conv2d, the [1] activation scale) and
+  │    replacement (fx/quantizer/w8a8.py): a Replacement of w8a8.linear / conv2d / embedding,
+  │    the layer's tensors and its argument builder; shared by every program
   └─ 3. Rewriter.run (fx/rewriter.py), per program: ep.module(), weights as get_attr
        ├─ select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)
-       ├─ Rewriter.rewrite, per node: parse its arguments (rewriter.OPS), make the
-       │    quantizer's tensors buffers, call the function W8A8Quantizer.replacement
-       │    names (w8a8.linear / conv2d / embedding); linear and conv2d quantize
+       ├─ Rewriter.rewrite, per node: parse its arguments, look plan[layer_key] up, register
+       │    its tensors as buffers and call its function; linear and conv2d quantize
        │    activations with their calibrated [1] scale and compute (int8(x) @ W_q)
        │    with torch._int_mm:
        │      quant.quantize_per_tensor -> _int_mm -> quant.dequantize -> + bias

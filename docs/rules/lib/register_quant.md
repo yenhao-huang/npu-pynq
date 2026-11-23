@@ -18,28 +18,32 @@ quantization techniques and knows nothing about any accelerator.
 
 ## Adding a scheme
 
-Schemes are applied with FX. Two pieces in `fx/` are shared by every scheme
-and know none: `calibrator.py` (the Calibrator) and `rewriter.py` (the ATen op
-table and the Rewriter). A scheme is one file, `fx/quantizer/<scheme>.py`.
+Schemes are applied with FX, in three stages that quantize.py wires
+together: the Calibrator (`fx/calibrator.py`), the scheme's Quantizer
+(`fx/quantizer/<scheme>.py`) and the Rewriter (`fx/rewriter.py`). The
+Calibrator and the Rewriter are shared by every scheme and know none.
 
 1. Define the scheme in `schemes.py`, with the ops it quantizes in `ops`
-   (names from `rewriter.OPS`: `linear`, `conv2d`, `embedding`). A new ATen op
-   gets an entry in `rewriter.OPS`: its target and how to parse its node into
-   named arguments (`weight`, and `x` for an op whose input is quantized).
-2. Write `fx/quantizer/<scheme>.py`, one class holding everything the scheme
-   decides:
-   - `calibrated_ops(ops)`: the op names whose input it quantizes, which the
-     Calibrator observes;
-   - `__init__(ops, stats)` and `run(programs)`: quantize the weight of every
-     selected node once per `rewriter.layer_key` (op name and float weight
-     storage, before any transpose), with its activation scale from `stats`,
-     and refuse a node it cannot compute;
-   - `tensors(key)`: a layer's tensors, in the order they become buffers;
-   - `replacement(kind, args, buffers, weight)`: the function that replaces
-     a node of op `kind` and its arguments;
-   - those functions, which the re-export traces into the graph, written in
-     ATen ops and the custom ops of `fx/custom_ops.py` only, each next to the
-     weight layout it reads.
+   (names from `OPS` in `fx/utils/share.py`: `linear`, `conv2d`, `embedding`).
+   A new ATen op gets an entry there: its target and how to parse its node
+   into named arguments (`weight`, and `x` for an op whose input is quantized).
+2. Subclass `Quantizer` (`fx/quantizer/base.py`) in `fx/quantizer/<scheme>.py`
+   and implement:
+   - `calibrated_ops(ops)` (a classmethod): the op names whose input it
+     quantizes, which the Calibrator observes;
+   - `quantize_layer(key, kind, weight, name)`: a layer's float weight
+     quantized, with its activation scale from `self.stats[key]`, as a
+     `QuantizedLayer`;
+   - `replacement(kind, layer, weight)`: the layer's `Replacement`
+     (`fx/utils/share.py`): the function that replaces its nodes, the
+     tensors that become buffers, and how to build the function's arguments
+     from the node's parsed arguments and the buffers;
+   - optionally `check(kind, args)`, to refuse a node it cannot compute.
+
+   The base class's `run(programs)` calls these once per layer key and
+   returns the plan, layer key -> `Replacement`. The replacement functions,
+   which the re-export traces into the graph, use ATen ops and the custom ops
+   of `fx/custom_ops.py` only; keep each next to the weight layout it reads.
 3. List the class by the scheme's name in `QUANTIZERS` in `quantize.py`.
    Calibration inputs reach `quantize(programs, scheme, calibration)` from the
    config's `calibration:` block, which `pipeline.py` loads.
@@ -69,25 +73,33 @@ scales). The contraction between them stays `aten._int_mm`.
 quantization/
 |-- __init__.py           exports quantize
 |-- schemes.py            the schemes as data: parameters and the ops each quantizes
-|-- quantize.py           the stage driver: Calibrator -> the scheme's quantizer -> Rewriter
+|-- quantize.py           the stage driver: Calibrator -> stats -> Quantizer -> plan -> Rewriter
 `-- fx/
     |-- custom_ops.py     the quant.* custom ops
+    |-- utils/
+    |   `-- share.py      what the stages share: the ATen op table (target, argument parsing),
+    |                     select, parse, layer_key, attr, and Replacement (a plan entry)
     |-- calibrator.py     Calibrator: runs the float programs on calibration inputs and
     |                     records each calibrated layer's largest |input|
-    |-- rewriter.py       the ATen op table (target, argument parsing), select, layer_key,
-    |                     and the Rewriter: buffers, node replacement, re-export
+    |-- rewriter.py       Rewriter: applies a plan to every program (buffers, node
+    |                     replacement), re-exports
     `-- quantizer/
+        |-- base.py       Quantizer: the shared loop (run -> plan) and the abstract hooks;
+        |                 QuantizedLayer
         `-- <scheme>.py   one scheme: what is calibrated, weight layouts and quantization,
                           activation scales, the functions that replace each op
 ```
 
-`schemes.py` and `quantize.py` stay at the top: neither names a framework
-detail beyond the classes it calls, and the pipeline only calls `quantize`.
-Everything that depends on how a scheme is applied lives in one subpackage
-per framework (`fx/` today). Inside it, the Calibrator and the Rewriter are
-shared machinery and decide nothing about numerics; a quantizer decides all
-of its scheme and does no graph surgery. A second scheme adds a file under
-`quantizer/` and reuses both; code two frameworks need moves up only when the
-second framework actually needs it.
+`schemes.py` and `quantize.py` stay at the top: the pipeline only calls
+`quantize`. Everything that depends on how a scheme is applied lives in one
+subpackage per framework (`fx/` today). Inside it the three stages are
+decoupled: the Calibrator, the quantizers and the Rewriter never import each
+other, and nothing under `fx/` imports `quantize.py`. They exchange plain
+data, the statistics and the plan, through `quantize.py`, and take what they
+share from `fx/utils/share.py`. The Calibrator and the Rewriter decide nothing
+about numerics; a quantizer decides all of its scheme and does no graph
+surgery. A second scheme adds a file under `quantizer/`; code two frameworks
+need moves up only when the second framework actually needs it.
 
-`src/test/tests/test_export_layering.py` enforces the first rule under Rules.
+`src/test/tests/test_export_layering.py` enforces the first rule under Rules and the
+stages' decoupling.
