@@ -30,6 +30,9 @@ Overflow: |acc| <= K * 127 * 127, which stays below 2**31 while K is under about
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Callable
+
 import torch
 from torch import fx
 
@@ -41,15 +44,13 @@ aten = torch.ops.aten
 EPS = W8A8['eps']
 QMAX = W8A8['activation_qmax']
 
-# The scheme's op names (schemes.W8A8['ops']) -> the node each one rewrites.
-TARGETS = {
-    'linear': aten.linear.default,
-    'conv2d': aten.conv2d.default,
-    'embedding': aten.embedding.default,
-}
-KINDS = {target: op for op, target in TARGETS.items()}
-# The ops whose input is quantized, and so calibrated.
-CONTRACTIONS = ('linear', 'conv2d')
+
+@dataclass(frozen=True)
+class Op:
+    """What W8A8 needs to know about one of the scheme's ops (schemes.W8A8['ops'])."""
+    target: object                 # the aten node it rewrites
+    quantize_weight: Callable      # float weight -> its quantized tensors
+    calibrated: bool               # its input is quantized, so it needs an activation scale
 
 
 # --- weights and activation scales, fixed once ------------------------------
@@ -79,11 +80,13 @@ def quantize_embedding_weight(weight: torch.Tensor) -> tuple[torch.Tensor, torch
     return q.t().contiguous(), s
 
 
-QUANTIZE_WEIGHT = {
-    'linear': quantize_weight,
-    'conv2d': quantize_conv2d_weight,
-    'embedding': quantize_embedding_weight,
+OPS = {
+    'linear': Op(aten.linear.default, quantize_weight, True),
+    'conv2d': Op(aten.conv2d.default, quantize_conv2d_weight, True),
+    'embedding': Op(aten.embedding.default, quantize_embedding_weight, False),
 }
+# A node's target -> its op name in OPS.
+OP_NAMES = {op.target: name for name, op in OPS.items()}
 
 
 def activation_scale(amax: float) -> torch.Tensor:
@@ -99,15 +102,15 @@ def calibrated_layers(gm: fx.GraphModule, ops) -> dict[fx.Node, tuple]:
     quantize.calibrate records each one's largest |input| (its first argument;
     for a convolution, before the padding, which adds zeros only). The key is
     the layer's weight's, the same one ``_quantized`` looks the statistic up by."""
-    return {n: _key(gm, KINDS[n.target], n.args[1]) for n in select(gm, ops)
-            if KINDS[n.target] in CONTRACTIONS}
+    return {n: _key(gm, OP_NAMES[n.target], n.args[1]) for n in select(gm, ops)
+            if OPS[OP_NAMES[n.target]].calibrated}
 
 
 # --- the graph rewrite ------------------------------------------------------
 
 def select(gm: fx.GraphModule, ops) -> list[fx.Node]:
     """The nodes of ``gm`` that the op names ``ops`` cover, in graph order."""
-    targets = {TARGETS[op] for op in ops}
+    targets = {OPS[op].target for op in ops}
     return [n for n in gm.graph.nodes if n.op == 'call_function' and n.target in targets]
 
 
@@ -179,8 +182,8 @@ def _quantized(gm: fx.GraphModule, kind: str, weight: fx.Node, cache: dict, stat
     activation scale), computing them only the first time."""
     key = _key(gm, kind, weight)
     if key not in cache:
-        tensors = QUANTIZE_WEIGHT[kind](_attr(gm, weight.target))
-        if kind in CONTRACTIONS:
+        tensors = OPS[kind].quantize_weight(_attr(gm, weight.target))
+        if OPS[kind].calibrated:
             if key not in stats:
                 raise ValueError(f'no calibration statistics for {kind} weight {weight.target}; '
                                  'w8a8 needs calibration inputs that reach every layer')
