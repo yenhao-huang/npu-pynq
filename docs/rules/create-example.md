@@ -8,6 +8,9 @@
   on `examples/`. A demo with variants keeps them all in
   `configs/`: `configs/export.yml` and one `configs/export_<variant>.yml` each.
 - `<name>.ipynb` provides a runnable demo.
+- `download_calib.sh`: optional; fetches the demo's pinned calibration data into
+  the untracked `data/calib/` (size and SHA-256 checked). The one script an
+  example may carry.
 
 # Notes
 

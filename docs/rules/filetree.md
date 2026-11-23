@@ -129,6 +129,7 @@ npu_repo_in_pynq/
 |       |-- README.md            Linux deployment manual (WSL on Windows)
 |       |-- export.yml           the export config: source, quantization, graph, devices
 |       |-- configs/             instead of export.yml when there are variants: export.yml, export_<variant>.yml
+|       |-- download_calib.sh    optional: pinned calibration data -> data/calib/
 |       `-- <name>.ipynb
 |-- docs/
 |   |-- assets/

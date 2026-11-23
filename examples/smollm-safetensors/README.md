@@ -32,8 +32,13 @@ python -m pip install -r src/export/requirements.txt \
 curl --fail --location --retry 3 --create-dirs \
   --output "examples/smollm-safetensors/model/checkpoint/#1" \
   "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/12fd25f77366fa6b3b4b768ec3050bf629380bac/{config.json,tokenizer.json,tokenizer_config.json,model.safetensors}"
+bash examples/smollm-safetensors/download_calib.sh   # C4 calibration text -> data/calib/smollm.txt
 python -m src.export.cli build examples/smollm-safetensors/configs/export_risc_v_npu.yml --out dist/smollm/package
 ```
+
+The export measures each layer's INT8 activation scale on that text
+(`calibration:` in the configs): the first 200 documents of a pinned C4 shard
+(English validation, ODC-BY), checked by size and SHA-256. It is never committed.
 
 The first time, this builds the compiler tools: go get a coffee, it takes
 about 15 minutes and 4 GB of memory. After that an export takes about five.

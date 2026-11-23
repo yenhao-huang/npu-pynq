@@ -8,7 +8,7 @@ load:
   source: examples/smollm-safetensors/model/checkpoint   # or a Hub id
 quantization: w8a8           # risc_v_npu accepts w8a8 or w4a8
 calibration:                # what the static activation scales are measured on
-  text: examples/smollm-safetensors/README.md   # tokenized with the checkpoint's tokenizer
+  text: data/calib/smollm.txt   # C4 text (download_calib.sh), tokenized with the checkpoint's tokenizer
   count: 32                 # prefill chunks of `chunk` tokens
 graph:
   kind: llm
