@@ -79,7 +79,10 @@ def lower(net, d, emit='linalg', devices=('cpu',), shape=(1, 3, 8, 8)):
     with torch.no_grad():
         programs = {'forward': torch.export.export(net, (torch.zeros(*shape),), strict=False)}
         if scheme:
-            programs = quantize(programs, scheme)
+            # Calibrated on a few random inputs of the same shape.
+            g = torch.Generator().manual_seed(9)
+            calibration = [(torch.randn(*shape, generator=g),) for _ in range(3)]
+            programs = quantize(programs, scheme, {'forward': calibration})
     imported = to_mlir(programs, d)
     return imported, pipeline.middle_end(imported, d / 'out.mlir', emit=emit, devices=devices)
 
@@ -141,13 +144,14 @@ class FuseConvBatchNormTest(unittest.TestCase):
 
     def test_w8a8_rescale_takes_the_batchnorm(self):
         from torch.nn.utils.fusion import fuse_conv_bn_weights
-        from src.export.frontend.quantization.fx.w8a8 import prepare_conv2d
+        from src.export.frontend.quantization.fx.calibrator import Calibrator
+        from src.export.frontend.quantization.schemes import W8A8
 
         for bias in (True, False):
             with self.subTest(bias=bias):
                 net = conv_bn(bias)
                 conv, bn = net.conv, net.bn
-                _, w_scale = prepare_conv2d(conv.weight)
+                w_scale = Calibrator(W8A8).weight_scale(conv.weight)
                 imported, text = run(w8a8(net), 'torch')
                 self.assertNotIn('batch_norm', code(text))
                 # The weights the NPU reads are untouched.
@@ -180,6 +184,41 @@ class FuseConvBatchNormTest(unittest.TestCase):
         self.assertIn('batch_norm', code(text))
 
 
+# One W8A8 linear layer after the torch-dialect rewrites: the ATen ops the eager
+# quant.quantize_per_tensor and quant.dequantize compute, in their order.
+W8A8_LINEAR_OPS = ['view',
+                   # quantize_per_tensor
+                   'reciprocal', 'mul.Scalar', 'mul.Tensor', 'round', 'clamp', '_to_copy',
+                   'mm',          # _int_mm, after DecomposeIntMm
+                   # dequantize; unsqueeze(x_scale) folds into a new [1, 1] constant
+                   '_to_copy', 'mul.Tensor', 'unsqueeze', 'mul.Tensor',
+                   'add.Tensor', 'view']
+
+
+@unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and pynqo-middle-end are required')
+class DecomposeQuantOpsTest(unittest.TestCase):
+    def test_quant_ops_become_their_aten_arithmetic(self):
+        import torch
+
+        torch.manual_seed(6)
+        imported, text = run(w8a8(torch.nn.Linear(16, 8).eval()), 'torch', shape=MLP_INPUT)
+        self.assertEqual(len(re.findall(r'torch\.operator "torch\.quant\.quantize_per_tensor"', imported)), 1)
+        self.assertEqual(len(re.findall(r'torch\.operator "torch\.quant\.dequantize"', imported)), 1)
+        self.assertNotIn('torch.operator', code(text))
+        ops = re.findall(r'= torch\.aten\.(\S+) ', functions(text)['forward'][1])
+        self.assertEqual(ops, W8A8_LINEAR_OPS)
+        # qmax arrives as the op's constant argument, the activation scale as a [1] constant.
+        self.assertIn('torch.constant.int -127', text)
+        self.assertRegex(text, r'torch\.aten\.reciprocal %\d+ : !torch\.vtensor<\[1\],f32>')
+        self.assertRegex(code(imported), r'torch\.vtensor\.literal\(dense\S*<\S+> : tensor<1xf32>\)')
+
+    def test_the_npu_still_claims_the_contraction(self):
+        imported, text, modules = run_with_delegates(mlp(), 'linalg', ('cpu', 'npu'), MLP_INPUT)
+        self.assertIn('torch.operator "torch.quant.', imported)
+        self.assertNotIn('torch.', re.sub(r'torch_tensor\S*', '', code(text)))
+        self.assertEqual(list(functions(modules['npu'])), ['npu_0', 'npu_1'])
+
+
 @unittest.skipUnless(HAVE_TOOLS and tool_is_built(), 'torch, torch-mlir and pynqo-middle-end are required')
 class LoweringTest(unittest.TestCase):
     def test_float_model_lowers_to_upstream_dialects(self):
@@ -188,8 +227,14 @@ class LoweringTest(unittest.TestCase):
         self.assertNotIn('torch.', re.sub(r'torch_tensor\S*', '', text))
 
     def test_w8a8_contraction_stays_an_int8_matmul(self):
+        # On the CPU alone, elementwise fusion merges the per-tensor quantize
+        # (one input once its scale is a constant) into the convolution's
+        # contraction, as it merges producers into every CPU contraction; the
+        # kernel still reads the INT8 weight and accumulates in INT32. With a
+        # device, the matmul is cut out before fusion (DevicePartitionTest).
         _, text = run(w8a8(conv_bn(False)), 'linalg')
-        self.assertRegex(text, r'linalg\.matmul (\{[^}]*\} )?ins\(.*xi8>, tensor<\S*xi8>\) outs\(.*xi32>\)')
+        self.assertRegex(text, r'linalg\.(matmul|generic) .*ins\(.*tensor<\S*xi8>\) outs\(.*xi32>\)')
+        self.assertIn('arith.fptosi', text)
         self.assertNotIn('torch.', re.sub(r'torch_tensor\S*', '', text))
 
     def test_any_dim_lowers(self):

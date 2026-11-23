@@ -87,15 +87,19 @@ npu_repo_in_pynq/
 |   |           |                delegate's M x N result, PYNQ backend only
 |   |           `-- overlay/     manifest and verification of the CVA6 overlay
 |   |-- export/                  host-side model -> package; never runs on the board
-|   |   |-- cli.py               build <config>
+|   |   |-- cli.py               build <config>; configs live in examples/, never under src/
 |   |   |-- pipeline.py          load -> export_graph -> quantize -> to_mlir -> pynqo-backend
 |   |   |-- requirements.txt     the pinned front-end frameworks
 |   |   |-- frontend/            Python
 |   |   |   |-- load/            frameworks/ (transformers, torchvision): the float model
 |   |   |   |-- export_graph/    torch.export: one ExportedProgram per entry point, undecomposed
-|   |   |   |-- quantization/    schemes.py: the schemes as data, framework independent; one subpackage
-|   |   |   |                    per framework that applies them: fx/ (transforms/quantize.py: the FX
-|   |   |   |                    pass; <scheme>.py: its ATen computation)
+|   |   |   |-- quantization/    schemes.py: the schemes as data (parameters, ops quantized), framework
+|   |   |   |                    independent; quantize.py: the stage driver; fx/: custom_ops.py (the
+|   |   |   |                    quant.* custom ops, expanded by the middle end's DecomposeQuantOps),
+|   |   |   |                    calibrator.py, quantizer/ (base.py: the Quantizer base class;
+|   |   |   |                    <scheme>.py: one scheme) and rewriter.py, three stages that never
+|   |   |   |                    import each other; utils/share.py: what they share (the ATen op table,
+|   |   |   |                    node helpers, the plan's QuantizedOp)
 |   |   |   `-- to_mlir/         torch-mlir's importer (llvm/torch-mlir wheels): torch.mlir
 |   |   |-- middle-end/          C++ pynqo-middle-end: torch.mlir -> model.mlir (fused linalg, CPU
 |   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:
@@ -128,6 +132,7 @@ npu_repo_in_pynq/
 |       |-- README.md            Linux deployment manual (WSL on Windows)
 |       |-- export.yml           the export config: source, quantization, graph, devices
 |       |-- configs/             instead of export.yml when there are variants: export.yml, export_<variant>.yml
+|       |-- download_calib.sh    optional: pinned calibration data -> data/calib/
 |       `-- <name>.ipynb
 |-- docs/
 |   |-- assets/
@@ -198,6 +203,8 @@ npu_repo_in_pynq/
 |   |-- changes/
 |   `-- specs/
 |-- .ic/                        run store, not tracked
+|-- data/
+|   `-- calib/                  calibration inputs for static quantization, not tracked
 `-- dist/
 ```
 
@@ -243,7 +250,7 @@ before the board loads the bitstream.
 config (`examples/<demo>/export.yml`): `frontend/load/` builds the float model with its
 framework; `frontend/export_graph/` captures it with `torch.export`, one
 undecomposed ExportedProgram per entry point; `frontend/quantization/`
-quantizes the captured graphs, today with an FX pass (`quantization/fx/`) that rewrites each
+quantizes the captured graphs, today with FX (`quantization/fx/`: a calibrator, a scheme's quantizer and a rewriter) that rewrites each
 `aten.linear`, `aten.conv2d` and `aten.embedding`; `frontend/to_mlir/`
 decomposes them and imports them into the torch dialect with torch-mlir; `middle-end/` (`pynqo-middle-end`, C++ against LLVM 22 and a pinned
 torch-mlir it builds from source) rewrites layers while they are recognisable,
@@ -374,6 +381,11 @@ and use descriptive, stable file names.
 changelog. Agents may read it, but every mutation requires explicit human
 confirmation for the exact proposed batch under `docs/rules/human-docs.md`.
 
+`data/` holds local inputs the export reads but never ships, today
+`data/calib/`: the pictures a config's `calibration:` block measures static
+activation scales on. It is empty in a clean checkout and its contents are
+never committed, because they are third-party photographs or datasets.
+
 `dist/` is empty in a clean checkout. It receives build products staged for
 the board and nothing is authored there.
 
@@ -488,6 +500,13 @@ Do not add a top-level `skills/`, `scripts/`, `sim/`, `sw/`, `configs/`,
 `logs/`, `core/`, `test/`, or `tools/`. Simulation entry points belong in
 `src/test/`, board software in `src/runtime/`, project-generating Tcl in
 `src/hw/vivado_tcl/`, and agent skills in `.codex/skills/`.
+
+Do not add an export config under `src/` (no `src/export/configs/`). Each
+config belongs to its demo: `examples/<example>/export.yml`, or
+`examples/<example>/configs/export.yml` and `export_<variant>.yml` when the
+demo has variants (see `docs/rules/create-example.md`). `src/` must not depend
+on `examples/`, so nothing under `src/` names a config path either.
+`src/test/tests/test_export_layering.py` enforces the first rule.
 
 Do not add `vivado_projects/`, `results/`, a bitstream, or any Vivado project
 directory. Regenerate them from `src/hw/vivado_tcl/`; bitstreams attach to a

@@ -15,6 +15,8 @@
 
 namespace middle_end {
 
+// quant.quantize_per_tensor and quant.dequantize -> the ATen ops of their arithmetic.
+std::unique_ptr<mlir::Pass> createDecomposeQuantOpsPass();
 // convolution + BatchNorm -> one layer, with the BatchNorm folded into constants.
 std::unique_ptr<mlir::Pass> createFuseConvBatchNormPass();
 // aten._int_mm -> aten.mm, which this torch-mlir lowers to linalg.matmul.

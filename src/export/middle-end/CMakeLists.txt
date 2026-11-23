@@ -61,6 +61,7 @@ add_llvm_executable(pynqo-middle-end
   torch/transforms/Constants.cpp
   torch/transforms/AnyDimToAnyDims.cpp
   torch/transforms/DecomposeIntMm.cpp
+  torch/transforms/DecomposeQuantOps.cpp
   torch/transforms/FuseConvBatchNorm.cpp)
 llvm_update_compile_flags(pynqo-middle-end)
 target_include_directories(pynqo-middle-end PRIVATE

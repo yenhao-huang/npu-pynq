@@ -22,8 +22,9 @@
 //
 //   W8A8    _int_mm -> to float -> * x_scale -> * w_scale [-> + bias]
 //           -> view -> permute(0, 3, 1, 2) -> BatchNorm
-//           (W8A8Conv2d's forward.) w_scale takes the multiplier and the bias
-//           is replaced; the INT8 weights and _int_mm do not change.
+//           (w8a8.conv2d, with quant.dequantize as DecomposeQuantOps expands
+//           it, so that pass runs first.) w_scale takes the multiplier and the
+//           bias is replaced; the INT8 weights and _int_mm do not change.
 //
 // Each case is handled in three steps: match, compute, rewrite. A BatchNorm is
 // left alone unless every value involved is a constant and each intermediate

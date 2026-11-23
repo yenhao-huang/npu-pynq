@@ -50,6 +50,13 @@ obj_dir/
 dist/*
 !dist/.gitkeep
 
+# Calibration data: local inputs for static quantization, never committed
+data/*
+!data/.gitkeep
+!data/calib/
+data/calib/*
+!data/calib/.gitkeep
+
 # Example-local downloaded and converted model workspaces
 examples/*/model/*
 !examples/*/model/.gitkeep
