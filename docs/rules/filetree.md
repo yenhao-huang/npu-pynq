@@ -87,7 +87,7 @@ npu_repo_in_pynq/
 |   |           |                delegate's M x N result, PYNQ backend only
 |   |           `-- overlay/     manifest and verification of the CVA6 overlay
 |   |-- export/                  host-side model -> package; never runs on the board
-|   |   |-- cli.py               build <config>
+|   |   |-- cli.py               build <config>; configs live in examples/, never under src/
 |   |   |-- pipeline.py          load -> export_graph -> quantize -> to_mlir -> pynqo-backend
 |   |   |-- requirements.txt     the pinned front-end frameworks
 |   |   |-- frontend/            Python
@@ -496,6 +496,13 @@ Do not add a top-level `skills/`, `scripts/`, `sim/`, `sw/`, `configs/`,
 `logs/`, `core/`, `test/`, or `tools/`. Simulation entry points belong in
 `src/test/`, board software in `src/runtime/`, project-generating Tcl in
 `src/hw/vivado_tcl/`, and agent skills in `.codex/skills/`.
+
+Do not add an export config under `src/` (no `src/export/configs/`). Each
+config belongs to its demo: `examples/<example>/export.yml`, or
+`examples/<example>/configs/export.yml` and `export_<variant>.yml` when the
+demo has variants (see `docs/rules/create-example.md`). `src/` must not depend
+on `examples/`, so nothing under `src/` names a config path either.
+`src/test/tests/test_export_layering.py` enforces the first rule.
 
 Do not add `vivado_projects/`, `results/`, a bitstream, or any Vivado project
 directory. Regenerate them from `src/hw/vivado_tcl/`; bitstreams attach to a

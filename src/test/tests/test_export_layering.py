@@ -78,6 +78,12 @@ class ExportLayeringTest(unittest.TestCase):
         self.assertEqual(set(FORBIDDEN), stages)
         self.assertEqual(set(STAGES), stages)
 
+    def test_no_export_config_lives_under_src(self):
+        # Configs belong to their demos in examples/ (docs/rules/filetree.md).
+        configs = sorted(p.relative_to(EXPORT.parent).as_posix()
+                         for pattern in ('*.yml', '*.yaml') for p in EXPORT.rglob(pattern))
+        self.assertEqual(configs, [], 'move these to examples/<example>/')
+
     def test_runtime_and_vendor_never_import_export(self):
         src = FRONTEND.parents[1]
         for root in (src / 'runtime', src / 'vendors'):
