@@ -18,29 +18,29 @@ quantization techniques and knows nothing about any accelerator.
 
 ## Adding a scheme
 
-Schemes are applied as FX transforms in `fx/transforms/`.
+Schemes are applied with FX. Two pieces in `fx/` are shared by every scheme
+and know none: `calibrator.py` (the Calibrator) and `rewriter.py` (the ATen op
+table and the Rewriter). A scheme is one file, `fx/quantizer/<scheme>.py`.
 
-1. Define the scheme in `schemes.py`, with the ops it quantizes in `ops`.
-2. Write `fx/transforms/<scheme>.py`, the scheme's whole transform:
-   - `select(gm, ops)`: the nodes the op names cover (each op name maps to
-     its ATen target, `'linear'` to aten.linear);
-   - `calibrated_layers(gm, ops)`, for a scheme with static activation
-     scales: the nodes whose input `quantize.calibrate` observes, each with
-     the key its statistic goes under (the layer's float weight); the input
-     is the node's first argument;
-   - `layer_key(gm, node)`: the key of a node's layer, its op name and where
-     its float weight's storage lives (taken before any transpose), so
-     programs that share a weight share the key;
-   - `quantize_layer(gm, node, stats)`: the node's weight quantized, with its
-     activation scale from `stats` (a `QuantizedLayer`); `quantize.prepare`
-     calls it once per key;
-   - `rewrite(gm, node, weights)`: graph surgery only. Look the node's
-     tensors up in `weights` by key, register them as buffers, and replace
-     the node with a call to the scheme's function for that op;
-   - `finish(gm)`: drop dead nodes and the unused float weights, recompile;
-   - the functions the re-export traces into the graph, written in ATen ops
-     and the custom ops of `fx/custom_ops.py` only.
-3. List the module by the scheme's name in `TRANSFORMS` in `quantize.py`.
+1. Define the scheme in `schemes.py`, with the ops it quantizes in `ops`
+   (names from `rewriter.OPS`: `linear`, `conv2d`, `embedding`). A new ATen op
+   gets an entry in `rewriter.OPS`: its target and how to parse its node into
+   named arguments (`weight`, and `x` for an op whose input is quantized).
+2. Write `fx/quantizer/<scheme>.py`, one class holding everything the scheme
+   decides:
+   - `calibrated_ops(ops)`: the op names whose input it quantizes, which the
+     Calibrator observes;
+   - `__init__(ops, stats)` and `run(programs)`: quantize the weight of every
+     selected node once per `rewriter.layer_key` (op name and float weight
+     storage, before any transpose), with its activation scale from `stats`,
+     and refuse a node it cannot compute;
+   - `tensors(key)`: a layer's tensors, in the order they become buffers;
+   - `replacement(kind, args, buffers, weight)`: the function that replaces
+     a node of op `kind` and its arguments;
+   - those functions, which the re-export traces into the graph, written in
+     ATen ops and the custom ops of `fx/custom_ops.py` only, each next to the
+     weight layout it reads.
+3. List the class by the scheme's name in `QUANTIZERS` in `quantize.py`.
    Calibration inputs reach `quantize(programs, scheme, calibration)` from the
    config's `calibration:` block, which `pipeline.py` loads.
 4. Test its numerics against an independent reference.
@@ -69,26 +69,25 @@ scales). The contraction between them stays `aten._int_mm`.
 quantization/
 |-- __init__.py           exports quantize
 |-- schemes.py            the schemes as data: parameters and the ops each quantizes
-|-- quantize.py           the stage driver: 1. calibrate (run the float programs on the
-|                         calibration inputs, record each calibrated layer's largest
-|                         |input|) 2. prepare (have the transform quantize every
-|                         selected weight once) 3. replace (have the transform rewrite
-|                         each node from 2.'s tensors, re-export); owns the statistics
-|                         and the quantized weights
+|-- quantize.py           the stage driver: Calibrator -> the scheme's quantizer -> Rewriter
 `-- fx/
     |-- custom_ops.py     the quant.* custom ops
-    `-- transforms/
-        `-- <scheme>.py   one scheme's whole transform
+    |-- calibrator.py     Calibrator: runs the float programs on calibration inputs and
+    |                     records each calibrated layer's largest |input|
+    |-- rewriter.py       the ATen op table (target, argument parsing), select, layer_key,
+    |                     and the Rewriter: buffers, node replacement, re-export
+    `-- quantizer/
+        `-- <scheme>.py   one scheme: what is calibrated, weight layouts and quantization,
+                          activation scales, the functions that replace each op
 ```
 
-`schemes.py` stays at the top and names no framework. `quantize.py` is the
-stage driver; it runs calibration itself, with `torch.fx.Interpreter` over the
-captured programs, so it is written against torch and FX, but it holds no
-scheme: which layers are calibrated, how weights are quantized and what each
-node becomes live in the scheme's transform, in one subpackage per framework
-(`fx/` today). A transform file holds
-all of its scheme, graph machinery included; machinery moves into a module of
-its own only when a second scheme needs it, and code two frameworks need moves
-up only when the second framework actually needs it.
+`schemes.py` and `quantize.py` stay at the top: neither names a framework
+detail beyond the classes it calls, and the pipeline only calls `quantize`.
+Everything that depends on how a scheme is applied lives in one subpackage
+per framework (`fx/` today). Inside it, the Calibrator and the Rewriter are
+shared machinery and decide nothing about numerics; a quantizer decides all
+of its scheme and does no graph surgery. A second scheme adds a file under
+`quantizer/` and reuses both; code two frameworks need moves up only when the
+second framework actually needs it.
 
 `src/test/tests/test_export_layering.py` enforces the first rule under Rules.

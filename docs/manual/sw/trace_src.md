@@ -111,24 +111,25 @@ export_classifier(model, (224, 224, 3))              export.py:154
 ### quantize (pipeline.py:230)
 
 ```
-quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:36
-  ├─ 1. calibrate (quantize.calibrate): an fx.Interpreter runs the float prefill (or
+quantize(programs, 'w8a8', calibration)              frontend/quantization/quantize.py:38
+  ├─ 1. Calibrator.run (fx/calibrator.py): an fx.Interpreter runs the float prefill (or
   │    forward) program on the config's calibration: inputs (pipeline.calibration_inputs)
-  │    and records the largest |input| of each layer w8a8.calibrated_layers names,
-  │    keyed by its weight
-  ├─ 2. prepare (quantize.prepare), over every program's w8a8.select nodes:
-  │    w8a8.quantize_layer once per w8a8.layer_key (op name + float weight storage):
-  │    INT8 weight, per-channel scale and, for linear and conv2d, the [1] activation
-  │    scale (a QuantizedLayer), shared by every program
-  └─ 3. replace (quantize.replace), per program: ep.module(), weights as get_attr
-       ├─ w8a8.select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)
-       ├─ w8a8.rewrite, per node (quantization/fx/transforms/w8a8.py): step 2's tensors
-       │    become buffers, the node a call to w8a8.linear / w8a8.conv2d / w8a8.embedding;
-       │      linear and conv2d quantize activations with
-       │      their calibrated [1] scale and compute (int8(x) @ W_q) with torch._int_mm:
+  │    and records the largest |input| of each node of W8A8Quantizer.calibrated_ops
+  │    (linear, conv2d), keyed by rewriter.layer_key (op name + float weight storage)
+  ├─ 2. W8A8Quantizer.run (fx/quantizer/w8a8.py), over every program's selected nodes:
+  │    check, then quantize_layer once per layer key: INT8 weight, per-channel scale
+  │    and, for linear and conv2d, the [1] activation scale (a QuantizedLayer),
+  │    shared by every program
+  └─ 3. Rewriter.run (fx/rewriter.py), per program: ep.module(), weights as get_attr
+       ├─ select: the nodes of the scheme's ops (schemes.py: linear, conv2d, embedding)
+       ├─ Rewriter.rewrite, per node: parse its arguments (rewriter.OPS), make the
+       │    quantizer's tensors buffers, call the function W8A8Quantizer.replacement
+       │    names (w8a8.linear / conv2d / embedding); linear and conv2d quantize
+       │    activations with their calibrated [1] scale and compute (int8(x) @ W_q)
+       │    with torch._int_mm:
        │      quant.quantize_per_tensor -> _int_mm -> quant.dequantize -> + bias
        │      (the quant.* ops are custom ops, quantization/fx/custom_ops.py)
-       ├─ w8a8.finish: the float weights no node reads any more are dropped
+       ├─ Rewriter.finish: the float weights no node reads any more are dropped
        └─ torch.export.export(gm, ep.example_inputs)   traces those calls; each
                                                       quant.* op stays one node
 ```

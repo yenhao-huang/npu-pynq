@@ -35,7 +35,7 @@ def reference_activations(x, scale):
 class W8A8NumericsTest(unittest.TestCase):
     def test_weights_match_the_numeric_contract_bit_for_bit(self):
         import torch
-        from src.export.frontend.quantization.fx.transforms.w8a8 import quantize_weight
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import quantize_weight
 
         w = np.random.default_rng(0).normal(size=(48, 64)).astype(np.float32)
         q, s = quantize_weight(torch.from_numpy(w))
@@ -46,7 +46,7 @@ class W8A8NumericsTest(unittest.TestCase):
     def test_activations_match_the_numeric_contract_bit_for_bit(self):
         import torch
         from src.export.frontend.quantization.fx import custom_ops
-        from src.export.frontend.quantization.fx.transforms.w8a8 import activation_scale
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import activation_scale
 
         x = (np.random.default_rng(1).normal(size=(5, 64)) * 3).astype(np.float32)
         # A calibrated amax below the input's own: the largest values saturate.
@@ -82,7 +82,7 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_linear_is_the_int8_contraction_rescaled(self):
         import torch
-        from src.export.frontend.quantization.fx.transforms.w8a8 import activation_scale, linear, quantize_weight
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import activation_scale, linear, quantize_weight
 
         rng = np.random.default_rng(2)
         w = rng.normal(size=(32, 64)).astype(np.float32)
@@ -96,7 +96,7 @@ class W8A8NumericsTest(unittest.TestCase):
 
     def test_convolution_is_the_contraction_of_its_patches(self):
         import torch
-        from src.export.frontend.quantization.fx.transforms.w8a8 import (activation_scale, conv2d,
+        from src.export.frontend.quantization.fx.quantizer.w8a8 import (activation_scale, conv2d,
                                                                          quantize_conv2d_weight)
 
         torch.manual_seed(4)
