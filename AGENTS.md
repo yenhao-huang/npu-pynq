@@ -92,6 +92,12 @@ and on what may not be added.
   prepare the promotion pull request, and merge it with a merge commit.
   Publishing is the `publish` workflow, never a hand-published Release. The
   `release-npu-pynq` skill under `.codex/skills/deploy/` has the full procedure.
+- When you prepare a `dev` → `main` merge, remind the person to check the
+  figures in `README.md`. If the software stack (export, runtime, or driver)
+  changed, the Software Stack figure (`docs/assets/npu-compilation-stack.svg`)
+  may need a change. If the hardware (`src/hw/`) changed, the Hardware
+  Architecture figure (`docs/assets/npu-hardware-architecture.svg`) may need a
+  change. Do not redraw the figures yourself.
 - Agents may read `docs/human/`, but must obtain explicit human confirmation
   for the exact batch before creating, editing, appending, formatting,
   renaming, moving, or deleting anything under it. Code, issue, PR, merge, and

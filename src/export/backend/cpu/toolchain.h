@@ -12,7 +12,7 @@ namespace backend {
 
 // Lower `module` (linalg on tensors, with __delegate__ calls) to LLVM IR in
 // process, then llc and link it with MLIR's runtime support into
-// `<dir>/model.so`. `llvmBin` holds llc, clang and ld.lld (LLVM 22).
+// `<dir>/model.so`. `llvmBin` holds opt, llc, clang and ld.lld (LLVM 22).
 // `profileKernels` times every kernel (kernel_probes.h) and writes
 // `<dir>/kernels.json`.
 mlir::LogicalResult codegen(mlir::ModuleOp module, const CpuTarget &target,

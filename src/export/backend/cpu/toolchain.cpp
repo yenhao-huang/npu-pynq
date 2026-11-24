@@ -3,11 +3,15 @@
 // Upstream MLIR passes, in process, from linalg on tensors to the LLVM
 // dialect:
 //
-//   bufferize (function boundaries included) -> results become out-params
+//   loop interchange for unit-stride innermost loops (interchangeForUnitStride)
+//   -> bufferize (function boundaries included) -> results become out-params
 //   -> deallocation -> loops -> LLVM dialect, index width of the target
 //
-// then LLVM IR, llc for the target CPU, and a shared library linked with the
-// MLIR runtime support the generated code may call (memrefCopy). Public
+// then LLVM IR, opt (kCanonicalPasses, then kVectorizePasses) and llc for the
+// target CPU, and a shared library linked with the MLIR runtime support the
+// generated code may call (memrefCopy). Between the two opt runs, every
+// innermost loop that carries no floating-point value asks to be vectorized
+// (vectorizeHints), so loops become NEON code on the Cortex-A9. Public
 // functions keep MLIR's C interface (_mlir_ciface_<name>, memref
 // descriptors); __delegate__ stays undefined for the runtime to provide.
 //
@@ -18,15 +22,26 @@
 #include "kernel_probes.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassRegistry.h"
 #include "mlir/Target/LLVMIR/Export.h"
 
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace mlir;
@@ -79,6 +94,19 @@ void memrefCopy(intptr_t elem_size, unranked_memref *src, unranked_memref *dst) 
   }
 }
 )c";
+
+// The IR passes before llc, in two opt runs with vectorizeHints between them.
+// The first makes the loops what the loop vectorizer needs: canonical and
+// rotated, invariants hoisted (accumulators promoted to registers), and
+// invariant branches such as the cf.assert of a fused quantization unswitched
+// out of them. The second vectorizes and cleans up. Not -O3: prefill and
+// decode are single functions of about 100k instructions and 10k loops, and
+// -O3 spends 37 minutes on them (-O1 9 minutes) in loop passes that run once
+// per loop over the whole function. These take under a minute together.
+constexpr const char *kCanonicalPasses =
+    "function(sroa,early-cse,instcombine,simplifycfg,loop-simplify,lcssa,"
+    "loop(loop-rotate),loop-mssa(licm,simple-loop-unswitch,licm),loop(indvars))";
+constexpr const char *kVectorizePasses = "function(loop-vectorize,early-cse,instcombine,simplifycfg)";
 
 // Bufferization, and what follows it to the LLVM dialect. --profile-kernels
 // runs the kernel probes before the first part and between the two.
@@ -151,6 +179,163 @@ bool writeText(const std::string &path, llvm::StringRef text, std::string &error
   return true;
 }
 
+// How many operands of `op` a loop over `dim` reads or writes with a stride
+// other than one: those whose indexing map uses `dim` anywhere but as its
+// whole last result. An operand that does not use `dim` is invariant in it.
+unsigned stridedOperands(linalg::LinalgOp op, unsigned dim) {
+  unsigned strided = 0;
+  for (AffineMap map : op.getIndexingMapsArray()) {
+    unsigned n = map.getNumResults();
+    bool used = false, unitStride = false;
+    for (unsigned r = 0; r < n; ++r) {
+      AffineExpr e = map.getResult(r);
+      if (!e.isFunctionOfDim(dim))
+        continue;
+      used = true;
+      auto d = dyn_cast<AffineDimExpr>(e);
+      unitStride = r == n - 1 && d && d.getPosition() == dim;
+      if (!unitStride)
+        break;
+    }
+    if (used && !unitStride)
+      ++strided;
+  }
+  return strided;
+}
+
+// The dimension to make innermost: the one with the fewest strided operands,
+// the current innermost (the last) on a tie. Too short a loop to fill a
+// vector is not worth moving inward.
+unsigned bestInnermost(linalg::LinalgOp op) {
+  unsigned loops = op.getNumLoops();
+  SmallVector<int64_t> ranges = op.getStaticLoopRanges();
+  unsigned best = loops - 1, fewest = stridedOperands(op, best);
+  for (unsigned d = 0; d + 1 < loops; ++d) {
+    if (!ShapedType::isDynamic(ranges[d]) && ranges[d] < 4)
+      continue;
+    unsigned strided = stridedOperands(op, d);
+    if (strided < fewest) {
+      best = d;
+      fewest = strided;
+    }
+  }
+  return best;
+}
+
+// convert-linalg-to-loops nests the loops in iterator order, so a linalg
+// op's innermost loop is its last dimension. Make it the dimension with the
+// fewest strided operands (bestInnermost), so that LLVM's loop vectorizer sees
+// unit-stride or invariant accesses, and work that does not depend on it
+// leaves the loop. Named ops (linalg.matmul) are generalized first.
+//
+//   attention     Q·Kᵀ reduces over the head dimension with K stored
+//                 [head_dim, seq], P·V over the sequence with V stored
+//                 [seq, head_dim]: both read with a stride; with the output's
+//                 last dimension innermost every access is unit-stride or
+//                 invariant, and the RoPE fused into Q·Kᵀ is computed once
+//                 per element of Q instead of once per key.
+//   INT8 linear   matmuls reduce over K with B stored [K, N]; the activation
+//                 quantization fused into them (and the SiLU before it)
+//                 becomes invariant in N.
+//
+// The other loops keep their order, so every output element still sums its
+// terms in the same order: the result is bit-identical.
+void interchangeForUnitStride(ModuleOp module) {
+  IRRewriter rewriter(module.getContext());
+  SmallVector<linalg::LinalgOp> ops;
+  module.walk([&](linalg::LinalgOp op) {
+    if (op.getNumLoops() >= 2 && op.hasPureTensorSemantics() &&
+        bestInnermost(op) != op.getNumLoops() - 1)
+      ops.push_back(op);
+  });
+  for (linalg::LinalgOp op : ops) {
+    unsigned loops = op.getNumLoops(), best = bestInnermost(op);
+    rewriter.setInsertionPoint(op);
+    auto generic = dyn_cast<linalg::GenericOp>(op.getOperation());
+    if (!generic) {
+      DictionaryAttr attrs = op->getDiscardableAttrDictionary();
+      FailureOr<linalg::GenericOp> g = linalg::generalizeNamedOp(rewriter, op);
+      if (failed(g))
+        continue;
+      generic = *g;
+      generic->setDiscardableAttrs(attrs); // pynqo.kernel_id
+    }
+    SmallVector<unsigned> order;
+    for (unsigned d = 0; d < loops; ++d)
+      if (d != best)
+        order.push_back(d);
+    order.push_back(best);
+    (void)linalg::interchangeGenericOp(rewriter, generic, order);
+  }
+}
+
+// Let LLVM vectorize the CPU code for targets whose SIMD unit is not fully
+// IEEE 754, such as ARMv7 NEON (denormals flush to zero): there LLVM's loop
+// vectorizer refuses any loop with a floating-point operation not marked
+// `fast`. llvm.loop.vectorize.enable on a loop lifts that veto; legality
+// checks and the cost model still decide whether and how wide.
+//
+// The hint also lets the vectorizer reorder a floating-point reduction (as
+// `#pragma clang loop vectorize(enable)` does), and W8A8 static quantization
+// amplifies that reordering into visibly different logits. So a loop that
+// carries a floating-point value from one iteration to the next (a phi of a
+// floating-point type in its header: a float reduction, once the first opt run
+// has promoted the accumulator) gets no hint and stays scalar and in order.
+// interchangeForUnitStride has already turned the hot reductions into loops
+// over an output dimension, which carry nothing.
+//
+// No fast-math flag is set either (`fast` would also be wrong here: its `ninf`
+// makes the -inf of attention masks and max reductions poison). The results
+// differ from scalar code only where NEON flushes a denormal to zero.
+void vectorizeHints(llvm::Module &m) {
+  llvm::LLVMContext &ctx = m.getContext();
+  for (llvm::Function &f : m) {
+    if (f.isDeclaration())
+      continue;
+    llvm::DominatorTree dt(f);
+    llvm::LoopInfo li(dt);
+    for (llvm::Loop *loop : li.getLoopsInPreorder()) {
+      if (!loop->isInnermost())
+        continue;
+      bool floatRecurrence = false;
+      for (llvm::PHINode &phi : loop->getHeader()->phis())
+        floatRecurrence |= phi.getType()->isFPOrFPVectorTy();
+      if (floatRecurrence)
+        continue;
+      llvm::SmallVector<llvm::BasicBlock *, 2> latches;
+      loop->getLoopLatches(latches);
+      llvm::Metadata *enable[] = {
+          llvm::MDString::get(ctx, "llvm.loop.vectorize.enable"),
+          llvm::ConstantAsMetadata::get(llvm::ConstantInt::getTrue(ctx))};
+      llvm::Metadata *ops[] = {nullptr, llvm::MDNode::get(ctx, enable)};
+      llvm::MDNode *id = llvm::MDNode::getDistinct(ctx, ops);
+      id->replaceOperandWith(0, id);
+      for (llvm::BasicBlock *latch : latches)
+        latch->getTerminator()->setMetadata(llvm::LLVMContext::MD_loop, id);
+    }
+  }
+}
+
+// Read `in` (bitcode), add vectorizeHints, write `out`.
+bool hintBitcode(const std::string &in, const std::string &out, std::string &error) {
+  llvm::LLVMContext ctx;
+  llvm::SMDiagnostic diag;
+  std::unique_ptr<llvm::Module> m = llvm::parseIRFile(in, diag, ctx);
+  if (!m) {
+    error = "cannot read " + in + ": " + diag.getMessage().str();
+    return false;
+  }
+  vectorizeHints(*m);
+  std::error_code ec;
+  llvm::raw_fd_ostream os(out, ec, llvm::sys::fs::OF_None);
+  if (ec) {
+    error = "cannot write " + out + ": " + ec.message();
+    return false;
+  }
+  llvm::WriteBitcodeToFile(*m, os);
+  return true;
+}
+
 } // namespace
 
 LogicalResult codegen(ModuleOp module, const CpuTarget &target, const std::string &dir,
@@ -160,6 +345,7 @@ LogicalResult codegen(ModuleOp module, const CpuTarget &target, const std::strin
   for (auto fn : module.getOps<func::FuncOp>())
     if (!fn.isPrivate())
       fn->setAttr("llvm.emit_c_interface", UnitAttr::get(module.getContext()));
+  interchangeForUnitStride(module);
 
   if (!profileKernels) {
     if (!runPipeline(module, pipeline(target.indexBits), error)) {
@@ -197,7 +383,8 @@ LogicalResult codegen(ModuleOp module, const CpuTarget &target, const std::strin
     error = "translation to LLVM IR failed";
     return failure();
   }
-  std::string ll = dir + "/model.ll", obj = dir + "/model.o";
+  std::string ll = dir + "/model.ll", canonical = dir + "/model.canonical.bc",
+              hinted = dir + "/model.hinted.bc", bc = dir + "/model.opt.bc", obj = dir + "/model.o";
   std::string rtC = dir + "/runtime_support.c", rtObj = dir + "/runtime_support.o";
   {
     std::error_code ec;
@@ -211,12 +398,21 @@ LogicalResult codegen(ModuleOp module, const CpuTarget &target, const std::strin
   if (!writeText(rtC, kRuntimeSupport, error))
     return failure();
 
-  std::vector<std::string> llc = {"-mtriple=" + target.triple, "-relocation-model=pic",
-                                  "-O3", "-filetype=obj", ll, "-o", obj};
+  // opt and llc see the same target, so the vectorizer's cost model is the
+  // target CPU's.
+  std::vector<std::string> targetFlags = {"-mtriple=" + target.triple};
   if (!target.cpu.empty())
-    llc.push_back("-mcpu=" + target.cpu);
+    targetFlags.push_back("-mcpu=" + target.cpu);
   if (!target.features.empty())
-    llc.push_back("-mattr=" + target.features);
+    targetFlags.push_back("-mattr=" + target.features);
+  std::vector<std::string> first = targetFlags, second = targetFlags;
+  first.insert(first.end(), {"-passes=" + std::string(kCanonicalPasses), ll, "-o", canonical});
+  second.insert(second.end(), {"-passes=" + std::string(kVectorizePasses), hinted, "-o", bc});
+  if (!run(llvmBin + "/opt", first, error) || !hintBitcode(canonical, hinted, error) ||
+      !run(llvmBin + "/opt", second, error))
+    return failure();
+  std::vector<std::string> llc = targetFlags;
+  llc.insert(llc.end(), {"-relocation-model=pic", "-O3", "-filetype=obj", bc, "-o", obj});
   if (!target.floatAbi.empty())
     llc.push_back("-float-abi=" + target.floatAbi);
   if (!run(llvmBin + "/llc", llc, error))
@@ -246,7 +442,10 @@ LogicalResult codegen(ModuleOp module, const CpuTarget &target, const std::strin
   if (!keepIr) {
     llvm::sys::fs::remove(ll);
     llvm::sys::fs::remove(rtC);
+    llvm::sys::fs::remove(bc);
   }
+  llvm::sys::fs::remove(canonical);
+  llvm::sys::fs::remove(hinted);
   llvm::sys::fs::remove(obj);
   llvm::sys::fs::remove(rtObj);
   return success();
