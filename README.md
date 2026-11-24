@@ -90,27 +90,40 @@ overlay, and package it for the board:
 
 ## Software Stack
 
-![Pynqo software stack: PyTorch, Torch-MLIR, Pynqo MLIR, LLVM, runtime and driver, CPU and NPU](docs/assets/npu-compilation-stack.svg)
+![Pynqo software stack: PyTorch, Torch-MLIR, Pynqo MLIR middle end and back end, LLVM, runtime and driver, Cortex-A9 with NEON and the NPU](docs/assets/npu-compilation-stack.svg)
 
-PyTorch loads the model and exports an ExportedProgram, which an FX pass quantizes.
-Torch-MLIR imports it as the torch dialect. Pynqo MLIR runs the middle end
-(fusion, decomposition, lowering to linalg) and the backend, which partitions
-the graph between the two devices and generates code for each:
+PyTorch loads the model and exports an ExportedProgram, which an FX pass
+quantizes (W8A8). Torch-MLIR imports it as the torch dialect. Pynqo MLIR then
+runs two stages:
 
-- **CPU:** LLVM IR, compiled by LLVM (`llc`, `ld.lld`) into a `.so` that the
-  runtime runs on the Cortex-A9.
-- **NPU:** NPU ISA programs. The runtime hands each NPU region to the driver
-  through `__delegate__`, and the driver runs it on the NPU.
+- **Middle end:** decomposes, fuses, and lowers the graph to linalg. It also
+  splits the graph between the CPU and the NPU.
+- **Back end:** generates code for each device.
+
+What the back end makes for each device:
+
+- **CPU:** LLVM IR. The back end first moves each kernel's unit-stride loop
+  innermost. LLVM (`opt`, `llc`, `ld.lld`) then vectorizes the loops for NEON
+  and builds a `.so` that the runtime runs on the Cortex-A9.
+- **NPU:** the back end tiles each INT8 matrix multiplication and packs its
+  weights. It also makes the NPU program:
+  - `npu_pynq`: an NPU ISA stream for the custom scalar core.
+  - `risc_v_npu`: one RV32 GEMM kernel, with its parameters, for CVA6.
+
+  The runtime hands each NPU region to the driver through `__delegate__`.
 
 Note:
 
-- **Host compile:** `python -m src.export.cli export` turns a model into a
+- **Host compile:** `python -m src.export.cli build` turns a model into a
   package.
 - **Board run:** `python -m src.runtime.cli llm` loads that package on the
   PYNQ-Z1 and runs inference.
 - **NPU driver:** runs on the Cortex-A9. For each NPU matrix multiplication it
-  packs the activations into tiles, writes the program address to the NPU's
-  registers, starts it, polls until it finishes, and unpacks the result.
+  does these steps:
+  1. Packs the activations into tiles.
+  2. Copies the packed weights into NPU memory.
+  3. Starts the NPU and polls until it finishes.
+  4. Unpacks the result.
 
 ## Hardware Architecture
 
