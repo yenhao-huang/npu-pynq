@@ -1,13 +1,18 @@
-"""pynqo-backend's risc_v_npu delegate: the RISC-V programs issue the npu jobs.
+"""pynqo-backend's risc_v_npu delegate: the RISC-V kernel issues the npu jobs.
 
 One INT8 GEMM goes through pynqo-backend twice, as ``[cpu, npu]`` and as
 ``[cpu, risc_v_npu]``, each fed what pynqo-middle-end writes for that device
 list (``write_model``: a CPU graph calling a bodiless ``@__delegate_0``, and
 ``delegates/<device>.mlir`` holding the subgraph). The npu ISA program runs on
-the golden model (``src/test/model/isa_sim.py``); every risc_v_npu segment
-binary runs on the small RV32IMC interpreter below, which records the jobs its
-MMIO stores issue. Both must issue the same jobs, in the same order, at the
-same offsets, and both delegate tables must give the subgraph's result size.
+the golden model (``src/test/model/isa_sim.py``). The risc_v_npu package holds
+one parameterized RV32IMC kernel (``rv_programs.txt`` format 2); per task and
+segment the test writes the 64-byte parameter block at ``DATA_BASE`` exactly as
+librv_npu_rt does (issue #206) and runs the kernel on the small RV32IMC
+interpreter below, which records the jobs its MMIO stores issue. Both must
+issue the same jobs, in the same order, at the same offsets within the A, B and
+C regions (the risc_v_npu data block starts with the parameter block, so its A,
+C and B sit further in than npu's), and both delegate tables must give the
+subgraph's result size.
 
 Skipped where pynqo-backend is not built (``src/export/pipeline.py``'s
 ``build_backend`` builds it; ``PYNQO_BACKEND_BUILD`` points at another build).
@@ -23,6 +28,7 @@ import numpy as np
 
 from src.export import pipeline
 from src.vendors.npu_pynq.spec import isa
+from src.vendors.risc_v_npu.spec.layout import BLOCK_ALIGN, GemmPlan, align
 from src.test.model import isa_sim
 
 REPO = Path(__file__).resolve().parents[3]
@@ -30,6 +36,22 @@ REPO = Path(__file__).resolve().parents[3]
 MMIO_BASE = 0x4000_0000
 SHAPE_MN, SHAPE_K, ADDR_A, ADDR_B, ADDR_C, DOORBELL = 0x00, 0x04, 0x08, 0x0C, 0x10, 0x14
 FENCE, DONE, DATA_BASE = 0x1C, 0x20, 0x24
+
+#: The kernel's parameter block at DATA_BASE (issue #206), written out here
+#: from the contract rather than imported, so the test checks spec/layout.py,
+#: the compiler and the driver against one independent statement of it.
+PARAM_NAMES = ('M', 'N', 'K', 'TM', 'TN', 'TK', 'MT', 'KT', 'NT', 'NI_LO', 'NI_HI',
+               'A_BASE', 'C_BASE', 'B_BASE', 'B_PANEL', 'C_PLANE')
+PARAM_BYTES = 64
+
+
+def param_block(plan: GemmPlan, ni_lo: int, ni_hi: int, c_base: int, b_base: int) -> bytes:
+    """The 16 little-endian int32 words the driver writes before running a segment."""
+    words = {'M': plan.m, 'N': plan.n, 'K': plan.k, 'TM': plan.tm, 'TN': plan.tn, 'TK': plan.tk,
+             'MT': plan.mt, 'KT': plan.kt, 'NT': plan.nt, 'NI_LO': ni_lo, 'NI_HI': ni_hi,
+             'A_BASE': PARAM_BYTES, 'C_BASE': c_base, 'B_BASE': b_base,
+             'B_PANEL': plan.b_panel, 'C_PLANE': plan.c_plane_bytes()}
+    return b''.join(words[name].to_bytes(4, 'little', signed=True) for name in PARAM_NAMES)
 
 
 def backend_tool() -> str:
@@ -59,13 +81,18 @@ class Halt(Exception):
 class Rv32:
     """Enough of RV32IMC (machine mode, no interrupts) to run a program.
 
-    Memory is the program image at ``base``; MMIO stores are recorded and
-    turned into jobs on DOORBELL; DONE ends the run.
+    Memory is the program image at ``base`` (``mem_bytes``: image, .bss and
+    stack) and the read-only parameter block ``params`` at ``data_base``; any
+    other access fails, so the kernel provably reads nothing but its
+    parameters (A, B and C go through the matrix core's DMA). MMIO stores are
+    recorded and turned into jobs on DOORBELL; DONE ends the run.
     """
 
-    def __init__(self, image: bytes, mem_bytes: int, base: int, data_base: int):
+    def __init__(self, image: bytes, mem_bytes: int, base: int, data_base: int, params: bytes = b''):
         self.mem = bytearray(image) + bytearray(mem_bytes - len(image))
         self.base, self.data_base = base, data_base
+        self.params = bytes(params)
+        self.param_loads: set[int] = set()   # word indices the kernel read
         self.x = [0] * 32
         self.pc = base
         self.regs: dict[int, int] = {}
@@ -85,6 +112,13 @@ class Rv32:
             if off == FENCE:
                 return 0    # nothing outstanding, no error
             return self.regs.get(off, 0)
+        p = addr - self.data_base
+        if 0 <= p <= len(self.params) - size:
+            if p % size:
+                raise AssertionError(f'misaligned parameter load at {addr:#x}')
+            self.param_loads.update(range(p // 4, (p + size + 3) // 4))
+            v = int.from_bytes(self.params[p:p + size], 'little')
+            return _sext(v, 8 * size) & 0xFFFFFFFF if signed else v
         i = addr - self.base
         if not 0 <= i <= len(self.mem) - size:
             raise AssertionError(f'load outside the program at {addr:#x}')
@@ -109,7 +143,7 @@ class Rv32:
             return
         i = addr - self.base
         if not 0 <= i <= len(self.mem) - size:
-            raise AssertionError(f'store outside the program at {addr:#x}')
+            raise AssertionError(f'store outside the program at {addr:#x}')   # the data block too
         self.mem[i:i + size] = value.to_bytes(size, 'little')
 
     def set(self, rd: int, value: int) -> None:
@@ -343,34 +377,74 @@ def run_backend(model: Path, out: Path, devices: str, segment_bytes: int) -> Non
                     f"--devices {devices} --cpus arm-cortex-a9 --segment-bytes {segment_bytes}")
 
 
-def npu_jobs(package: Path) -> list[list[tuple]]:
-    """Per segment, the jobs of the npu ISA program (ADDR_B inside the segment's block)."""
+Job = tuple[int, int, int, int, int, int]   # (m, n, k, a, b, c); a, b, c are region offsets
+
+
+def npu_jobs(package: Path) -> list[list[Job]]:
+    """Per segment, the jobs of the npu ISA program.
+
+    A is at the start of npu's data block and ADDR_B already inside the
+    segment's stage block; C is taken relative to the task's ``c_base``.
+    """
     words = isa.unpack((package / 'programs.bin').read_bytes())
-    lines = (package / 'programs.txt').read_text().split('\n')
-    segments = []
-    for line in lines:
+    segments, c_base = [], 0
+    for line in (package / 'programs.txt').read_text().split('\n'):
         f = line.split()
-        if f and f[0] == 'seg':
+        if f and f[0] == 'task':
+            c_base = int(f[9])
+        elif f and f[0] == 'seg':
             offset, length = int(f[1]), int(f[2])
             trace = isa_sim.run(words[offset:offset + length], np.zeros(1 << 24, np.uint8), log_jobs=True)
-            segments.append(trace.jobs_log)
+            segments.append([(m, n, k, a, b, c - c_base) for m, n, k, a, b, c in trace.jobs_log])
     return segments
 
 
-def rv_jobs(package: Path, base=0x0010_0000, data_base=0x0080_0000) -> list[list[tuple]]:
-    """Per segment, the jobs its binary issues, as offsets like npu_jobs."""
-    blob = (package / 'rv_programs.bin').read_bytes()
-    table = json.loads((package / 'rv_programs.json').read_text())
+def read_rv_programs(package: Path) -> tuple[list[int], list[tuple[list[int], list[list[int]]]]]:
+    """``rv_programs.txt`` format 2: the header numbers and, per task, its numbers and its segs'."""
+    lines = [line.split() for line in (package / 'rv_programs.txt').read_text().split('\n') if line.strip()]
+    header = lines[0]
+    assert header[:2] == ['rv-programs', '2'] and len(header) == 8, header
+    tasks: list[tuple[list[int], list[list[int]]]] = []
+    for f in lines[1:]:
+        if f[0] == 'task':
+            assert len(f) == 13, f
+            tasks.append(([int(v) for v in f[1:]], []))
+        else:
+            assert f[0] == 'seg' and len(f) == 5 and tasks, f
+            tasks[-1][1].append([int(v) for v in f[1:]])
+    return [int(v) for v in header[2:]], tasks
+
+
+def rv_jobs(package: Path, base=0x0010_0000, data_base=0x0080_0000) -> list[list[Job]]:
+    """Per (task, segment), the jobs the one kernel issues, as offsets like npu_jobs.
+
+    Before each run the parameter block is written as librv_npu_rt writes it;
+    the kernel may read it and nothing else of the data block.
+    """
+    (rows, columns, max_k, bin_bytes, mem_bytes, count), tasks = read_rv_programs(package)
+    kernel = (package / 'rv_programs.bin').read_bytes()
+    assert len(kernel) == bin_bytes > 0 and mem_bytes >= bin_bytes, (len(kernel), bin_bytes, mem_bytes)
+    assert len(tasks) == count
     segments = []
-    for task in table['tasks']:
-        for seg in task['segments']:
-            image = blob[seg['bin_offset']:seg['bin_offset'] + seg['bin_bytes']]
-            cpu = Rv32(image, seg['mem_bytes'], base, data_base)
+    for index, (task, segs) in enumerate(tasks):
+        tid, m, n, k, tm, tn, tk, a_bytes, c_base, c_bytes, b_base, nseg = task
+        assert tid == index and nseg == len(segs) > 0
+        plan = GemmPlan(m, n, k, tm, tn, tk)
+        # The data block: parameters, A, C, the B window (spec/layout.py data_layout).
+        assert a_bytes == plan.a_bytes and c_bytes == plan.c_bytes
+        assert c_base == align(PARAM_BYTES + a_bytes, BLOCK_ALIGN), (c_base, a_bytes)
+        assert b_base == align(c_base + c_bytes, BLOCK_ALIGN), (b_base, c_base, c_bytes)
+        expect_lo = 0
+        for ni_lo, ni_hi, weight_offset, b_bytes in segs:
+            assert ni_lo == expect_lo and ni_lo < ni_hi <= plan.nt, (ni_lo, ni_hi, plan.nt)
+            assert b_bytes == (ni_hi - ni_lo) * plan.b_panel
+            expect_lo = ni_hi
+            cpu = Rv32(kernel, mem_bytes, base, data_base, param_block(plan, ni_lo, ni_hi, c_base, b_base))
             cpu.run()
             assert cpu.done == 0, f'DONE code {cpu.done}'
-            b0 = data_base + task['b_base']
-            segments.append([(m, n, k, a - data_base, b - b0, c - data_base)
-                             for m, n, k, a, b, c in cpu.jobs])
+            segments.append([(mm, nn, kk, a - data_base - PARAM_BYTES, b - data_base - b_base,
+                              c - data_base - c_base) for mm, nn, kk, a, b, c in cpu.jobs])
+        assert expect_lo == plan.nt
     return segments
 
 
@@ -398,23 +472,45 @@ class RiscvNpuBackendTests(unittest.TestCase):
             self.assertEqual((d / 'rv' / 'weights.bin').read_bytes(),
                              (d / 'npu' / 'weights.bin').read_bytes())
             table = (d / 'rv' / 'rv_programs.txt').read_text().split('\n')
-            self.assertTrue(table[0].startswith('rv-programs 1 16 16 256 '))
+            self.assertTrue(table[0].startswith('rv-programs 2 16 16 256 '))
             blob = (d / 'rv' / 'rv_programs.bin').read_bytes()
             self.assertEqual(len(blob) % 8, 0)
             self.assertEqual(int(table[0].split()[5]), len(blob))
             # The driver gets M, N, K and tk; it sums ceil(K / tk) planes.
             self.assertEqual(table[1].split()[:8], ['task', '0', str(m), str(n), str(k), str(min(m, 16)),
                                                     str(min(n, 16)), str(min(k, 256))])
+            # rv_programs.json mirrors the table.
+            header, tasks = read_rv_programs(d / 'rv')
+            summary = json.loads((d / 'rv' / 'rv_programs.json').read_text())
+            self.assertEqual(summary['format'], 'rv-programs/2')
+            self.assertEqual((summary['bin_bytes'], summary['mem_bytes'], len(summary['tasks'])),
+                             (header[3], header[4], header[5]))
+            for entry, (task, segs) in zip(summary['tasks'], tasks, strict=True):
+                self.assertEqual([entry[key] for key in ('id', 'm', 'n', 'k', 'tm', 'tn', 'tk', 'a_bytes',
+                                                         'c_base', 'c_bytes', 'b_base')], task[:11])
+                self.assertEqual([[s[key] for key in ('ni_lo', 'ni_hi', 'weight_offset', 'b_bytes')]
+                                  for s in entry['segments']], segs)
 
     def test_one_segment_with_partial_tiles(self):
         self.check(33, 320, 20, 4 << 20, 1)
 
     def test_segments_and_a_narrow_last_tile(self):
-        # One B panel per segment: three binaries, the last one narrow.
+        # One B panel per segment: three runs of the kernel, the last one narrow.
         self.check(17, 300, 40, 1, 3)
 
     def test_single_tile(self):
         self.check(4, 8, 8, 4 << 20, 1)
+
+    def test_several_k_chunks_and_segments(self):
+        # Three K chunks (600 = 256 + 256 + 88), three row tiles, four segments.
+        self.check(40, 600, 50, 1, 4)
+
+    def test_segments_of_two_panels(self):
+        # b_panel = 100 * 16 bytes: two column tiles per segment over five.
+        self.check(20, 100, 70, 3200, 3)
+
+    def test_one_row_and_a_ragged_k(self):
+        self.check(1, 513, 33, 1, 3)
 
     def test_a_subgraph_that_is_not_one_matmul_is_refused(self):
         with tempfile.TemporaryDirectory() as d:

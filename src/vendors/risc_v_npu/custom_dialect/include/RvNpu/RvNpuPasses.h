@@ -2,10 +2,11 @@
 //
 // The risc_v_npu delegate's compile-time steps (plan 2026-1112-003 section
 // 6.2): Claim and Pack are copies of npu_pynq's; LowerToRiscv replaces its
-// ISA encoder with an RV32IMC program per segment, issued through the CVA6
-// MMIO window (RvNpuMmio.h). The back end's delegate
-// (src/export/backend/delegates/risc_v_npu/) drives them and compiles the
-// programs; nothing here includes the back end.
+// ISA encoder with one parameterized RV32IMC kernel per package (issue #206)
+// that issues every task's jobs through the CVA6 MMIO window (RvNpuMmio.h),
+// reading the task and segment from a parameter block at DATA_BASE. The back
+// end's delegate (src/export/backend/delegates/risc_v_npu/) drives them and
+// compiles the kernel; nothing here includes the back end.
 //
 //===----------------------------------------------------------------------===//
 #ifndef RVNPU_RVNPUPASSES_H
@@ -42,15 +43,17 @@ void registerClaimPass();
 std::vector<int8_t> packB(const GemmPlan &plan, const int8_t *b);
 
 // One delegate's data block, as offsets from DATA_BASE (spec/layout.py
-// DataLayout): A at 0, C at cBase, the staged B segment at bBase.
+// DataLayout): the kernel's parameter block at 0 (RVNPU_PARAM_BYTES), A at
+// aBase (= RVNPU_PARAM_BYTES), C at cBase, the staged B segment at bBase.
 struct DataLayout {
-  int64_t aBytes, cBase, cBytes, bBase, bBytes;
+  int64_t aBase, aBytes, cBase, cBytes, bBase, bBytes;
 };
 
 // One segment: the column tiles [niLo, niHi) whose B panels form one block
 // of at most segmentBytes (the same split as npu_pynq's Encode.cpp and
 // spec/layout.py GemmPlan.segments). The driver stages that block at
-// DATA_BASE + bBase and runs the segment's own binary.
+// DATA_BASE + bBase, writes the segment's parameter block at DATA_BASE and
+// runs the kernel.
 struct Segment {
   int64_t niLo, niHi, weightOffset, bBytes, jobs;
 };
@@ -68,20 +71,21 @@ struct Program {
 Program planProgram(int64_t id, const GemmPlan &plan, int64_t weightOffset,
                     int64_t segmentBytes);
 
-// The name of the function a program module defines; crt0.S calls it and
+// The name of the function the kernel module defines; crt0.S calls it and
 // stores its i32 result to DONE.
 constexpr llvm::StringLiteral kEntryName = "rvnpu_main";
 
-// LowerToRiscv: segment `index` of `program` as a module holding
+// LowerToRiscv: the kernel, one module per package holding
 //
 //   func.func @rvnpu_main() -> i32
 //
-// in scf / arith / func, with every MMIO access a volatile llvm.load /
-// llvm.store at an absolute address. It reads DATA_BASE, issues the
-// segment's jobs in the order npu_pynq's encodeGemm does (mi, kc, ni), then
-// reads FENCE and returns the MMIO error code (0 = success).
-OwningOpRef<ModuleOp> lowerToRiscv(MLIRContext *context, const Program &program,
-                                   int64_t index);
+// in scf / arith / func / llvm. It reads DATA_BASE (a volatile MMIO load),
+// the RVNPU_PARAM_* words of the parameter block there (plain loads), issues
+// the segment's jobs in the order npu_pynq's encodeGemm does (mi, kc, ni)
+// with volatile MMIO stores, then reads FENCE and returns the MMIO error code
+// (0 = success). It runs any Program and segment whose parameter block the
+// driver wrote.
+OwningOpRef<ModuleOp> lowerToRiscv(MLIRContext *context);
 
 // Upstream conversions from a LowerToRiscv module to the LLVM dialect
 // (32-bit index, as RV32).
@@ -95,15 +99,13 @@ llvm::StringRef crt0Source();
 llvm::StringRef linkScript();
 std::string mmioEquates();
 
-// rv_programs.bin (every segment's flat binary, each at an 8-byte aligned
-// offset), rv_programs.txt (the table librv_npu_rt reads) and
-// rv_programs.json (the same, for people and tools). binaries[p][s] is the
-// image of program p's segment s; memBytes[p][s] what it uses when it runs
-// (image, .bss and stack).
+// rv_programs.bin (the kernel's flat binary, zero-padded to a multiple of 8
+// bytes: bin_bytes), rv_programs.txt (format 2, the table librv_npu_rt reads)
+// and rv_programs.json (the same, for people and tools). `memBytes` is what the kernel uses when it runs (image, .bss and
+// stack). A package without programs may pass an empty binary and 0.
 bool writePrograms(const std::string &dir, const Limits &limits,
                    int64_t segmentBytes, const std::vector<Program> &programs,
-                   const std::vector<std::vector<std::vector<uint8_t>>> &binaries,
-                   const std::vector<std::vector<int64_t>> &memBytes,
+                   const std::vector<uint8_t> &binary, int64_t memBytes,
                    std::string &error);
 
 } // namespace mlir::rvnpu

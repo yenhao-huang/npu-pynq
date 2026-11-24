@@ -21,8 +21,16 @@ Copied from src/vendors/npu_pynq/spec/layout.py (risc_v_npu keeps its own
 copy; plan 2026-1112-003 section 6.2). Changes from the source: ``align``,
 ``Limits`` and ``LayoutError`` are defined here instead of coming from
 npu_pynq's ``isa.py`` (this device has no 64-bit ISA), the ISA encoder
-``encode`` is left out (the RISC-V program replaces it), and ``DataLayout``
-states where A, C and the staged B segment sit relative to ``data_base``.
+``encode`` is left out (the RISC-V kernel replaces it), and ``DataLayout``
+states where the kernel's parameter block, A, C and the staged B segment sit
+relative to ``data_base``.
+
+One parameterized RV32IMC kernel serves every task and segment of a package
+(issue #206). Before each segment run the driver writes ``PARAM_BYTES`` bytes
+at ``data_base``: ``PARAM_WORDS`` little-endian int32 words, word ``i`` at
+``data_base + 4 * i``, indexed by the ``PARAM_*`` constants below.
+spec/gen_mmio_header.py emits the same names into RvNpuMmio.h as byte
+offsets (``RVNPU_PARAM_<NAME>`` = ``4 * PARAM_<NAME>``).
 """
 
 from __future__ import annotations
@@ -189,16 +197,46 @@ def unpack_c(plan: GemmPlan, buffer: np.ndarray) -> np.ndarray:
 #: Alignment of the C planes and of the B stage window inside the data block.
 BLOCK_ALIGN = 64
 
+# -- kernel parameter block ---------------------------------------------------
+#: Word indices of the parameter block at ``data_base`` (one int32 each).
+PARAM_M = 0          #: plan.m
+PARAM_N = 1          #: plan.n
+PARAM_K = 2          #: plan.k
+PARAM_TM = 3         #: plan.tm
+PARAM_TN = 4         #: plan.tn
+PARAM_TK = 5         #: plan.tk
+PARAM_MT = 6         #: ceil(M / TM)
+PARAM_KT = 7         #: ceil(K / TK)
+PARAM_NT = 8         #: ceil(N / TN)
+PARAM_NI_LO = 9      #: the segment's first column tile
+PARAM_NI_HI = 10     #: the segment's end column tile (exclusive)
+PARAM_A_BASE = 11    #: DataLayout.a_base (= PARAM_BYTES)
+PARAM_C_BASE = 12    #: DataLayout.c_base
+PARAM_B_BASE = 13    #: DataLayout.b_base (not biased by NI_LO; the kernel subtracts NI_LO * B_PANEL)
+PARAM_B_PANEL = 14   #: plan.b_panel
+PARAM_C_PLANE = 15   #: plan.c_plane_bytes()
+
+#: Parameter names in word order (``PARAM_NAMES[i]`` is word ``i``).
+PARAM_NAMES = ('M', 'N', 'K', 'TM', 'TN', 'TK', 'MT', 'KT', 'NT', 'NI_LO', 'NI_HI',
+               'A_BASE', 'C_BASE', 'B_BASE', 'B_PANEL', 'C_PLANE')
+PARAM_WORDS = len(PARAM_NAMES)
+#: Bytes of the parameter block; A starts right after it.
+PARAM_BYTES = 64
+assert 4 * PARAM_WORDS == PARAM_BYTES
+assert all(globals()[f'PARAM_{name}'] == i for i, name in enumerate(PARAM_NAMES))
+
 
 @dataclass(frozen=True)
 class DataLayout:
     """One delegate's data block, as offsets from ``data_base``.
 
     Unlike npu_pynq, whose loader patches every ADDR_B word to wherever the
-    stage buffer sits, a RISC-V program is not patched after it is linked: it
-    reads ``DATA_BASE`` and adds these constant offsets. So the staged B
+    stage buffer sits, the RISC-V kernel is not patched after it is linked: it
+    reads ``DATA_BASE`` and adds the offsets it finds in the parameter block
+    at ``data_base`` (``PARAM_BYTES`` bytes, before A). So the staged B
     segment lives inside the same block, after C. The driver copies segment
-    ``s``'s weights to ``data_base + b_base`` before running segment ``s``.
+    ``s``'s weights to ``data_base + b_base`` and writes its parameter block
+    before running segment ``s``.
     """
 
     a_base: int
@@ -214,8 +252,23 @@ class DataLayout:
 
 
 def data_layout(plan: GemmPlan, segment_limit: int) -> DataLayout:
-    """A at 0, C at the next 64-byte boundary, the B stage window after C."""
-    c_base = align(plan.a_bytes, BLOCK_ALIGN)
+    """Parameters at 0, A at ``PARAM_BYTES``, C at the next 64-byte boundary,
+    the B stage window after C."""
+    a_base = PARAM_BYTES
+    c_base = align(a_base + plan.a_bytes, BLOCK_ALIGN)
     b_base = align(c_base + plan.c_bytes, BLOCK_ALIGN)
     b_bytes = max((hi - lo) * plan.b_panel for lo, hi in plan.segments(segment_limit))
-    return DataLayout(0, plan.a_bytes, c_base, plan.c_bytes, b_base, b_bytes)
+    return DataLayout(a_base, plan.a_bytes, c_base, plan.c_bytes, b_base, b_bytes)
+
+
+def param_block(plan: GemmPlan, layout: DataLayout, ni_lo: int, ni_hi: int) -> np.ndarray:
+    """The ``PARAM_WORDS`` int32 words the driver writes at ``data_base`` before
+    running the segment ``[ni_lo, ni_hi)`` of ``plan``."""
+    words = np.zeros(PARAM_WORDS, '<i4')
+    words[[PARAM_M, PARAM_N, PARAM_K]] = plan.m, plan.n, plan.k
+    words[[PARAM_TM, PARAM_TN, PARAM_TK]] = plan.tm, plan.tn, plan.tk
+    words[[PARAM_MT, PARAM_KT, PARAM_NT]] = plan.mt, plan.kt, plan.nt
+    words[[PARAM_NI_LO, PARAM_NI_HI]] = ni_lo, ni_hi
+    words[[PARAM_A_BASE, PARAM_C_BASE, PARAM_B_BASE]] = layout.a_base, layout.c_base, layout.b_base
+    words[[PARAM_B_PANEL, PARAM_C_PLANE]] = plan.b_panel, plan.c_plane_bytes()
+    return words

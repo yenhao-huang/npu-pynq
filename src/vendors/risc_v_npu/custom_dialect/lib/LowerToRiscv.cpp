@@ -1,16 +1,20 @@
-//===- LowerToRiscv.cpp - rvnpu.matmul as a CVA6 program ------------------===//
+//===- LowerToRiscv.cpp - rvnpu.matmul as one CVA6 kernel -----------------===//
 //
-// One RV32IMC program per segment of an rvnpu.matmul (plan 2026-1112-003
-// section 6.2). Where npu_pynq's Encode.cpp writes ISA words (ADDR_A, ADDR_B,
-// ADDR_C, INCR, SHAPE, REPEAT, GEMM), this builds the loops that issue the
-// same jobs, in the same order, through the MMIO window (RvNpuMmio.h):
+// One parameterized RV32IMC kernel per package (issue #206; plan
+// 2026-1112-003 section 6.2). Where npu_pynq's Encode.cpp writes ISA words
+// (ADDR_A, ADDR_B, ADDR_C, INCR, SHAPE, REPEAT, GEMM), this builds the loops
+// that issue the same jobs, in the same order, through the MMIO window
+// (RvNpuMmio.h). Before every segment run the driver writes that task's and
+// segment's numbers to the parameter block at DATA_BASE (RVNPU_PARAM_*,
+// spec/layout.py), so one image runs every (task, segment):
 //
 //   func.func @rvnpu_main() -> i32 {
 //     %db = load volatile DATA_BASE
-//     scf.for %mi = 0 to mt {             M tiles
-//       scf.for %kc = 0 to kt {           K chunks
+//     %M, %N, ... = load %db + RVNPU_PARAM_*   the 16 parameter words
+//     scf.for %mi = 0 to MT {             M tiles
+//       scf.for %kc = 0 to KT {           K chunks
 //         store volatile SHAPE_K, ADDR_A
-//         scf.for %ni = niLo to niHi {    the segment's column tiles
+//         scf.for %ni = NI_LO to NI_HI {  the segment's column tiles
 //           store volatile SHAPE_MN, ADDR_B, ADDR_C, DOORBELL
 //     }}}
 //     %f = load volatile FENCE            returns once every job is written back
@@ -18,10 +22,19 @@
 //   }
 //
 // Addresses are DATA_BASE plus the offsets of spec/layout.py (DataLayout and
-// GemmPlan): A at 0, C at cBase, the segment's staged B block at bBase. The
-// shapes are static, so every bound and stride is a constant; only the loop
-// counters are computed at run time. Everything is i32: RV32 has no wider
-// registers, and the MMIO registers are 32 bits wide.
+// GemmPlan): parameters at 0, A at A_BASE, C at C_BASE, the segment's staged
+// B block at B_BASE. The bounds and strides the per-task programs used to
+// carry as constants are computed from the parameters once, before the loops
+// (RV32IMC has mul); the loop bodies do the same arithmetic as before, so a
+// (task, segment) issues the same jobs as its old program did. Everything is
+// i32: RV32 has no wider registers, and the MMIO registers are 32 bits wide.
+//
+// The parameter words are read with plain (non-volatile) loads: they are
+// ordinary DDR memory, not device registers, and nothing writes them while
+// the kernel runs. CVA6 is held in reset between runs, so its caches start
+// cold and a load never sees a stale line from the previous segment's block.
+// Plain loads leave LLVM free to schedule them; each is read once, into an SSA
+// value, at entry.
 //
 //===----------------------------------------------------------------------===//
 
@@ -43,11 +56,12 @@ using namespace mlir::rvnpu;
 
 Program mlir::rvnpu::planProgram(int64_t id, const GemmPlan &plan,
                                  int64_t weightOffset, int64_t segmentBytes) {
-  // spec/layout.py data_layout: A at 0, C and the B stage window each on the
-  // next 64-byte boundary.
+  // spec/layout.py data_layout: the parameter block at 0, A right after it,
+  // C and the B stage window each on the next 64-byte boundary.
   constexpr int64_t kBlockAlign = 64;
+  constexpr int64_t aBase = RVNPU_PARAM_BYTES;
   Program program{id, plan, weightOffset, {}, {}};
-  int64_t cBase = align(plan.aBytes(), kBlockAlign);
+  int64_t cBase = align(aBase + plan.aBytes(), kBlockAlign);
   int64_t bBase = align(cBase + plan.cBytes(), kBlockAlign);
   int64_t perSegment = std::max<int64_t>(1, segmentBytes / plan.bPanel());
   int64_t largest = 0;
@@ -58,7 +72,7 @@ Program mlir::rvnpu::planProgram(int64_t id, const GemmPlan &plan,
                                 plan.mt() * plan.kt() * (hi - lo)});
     largest = std::max(largest, bytes);
   }
-  program.data = {plan.aBytes(), cBase, plan.cBytes(), bBase, largest};
+  program.data = {aBase, plan.aBytes(), cBase, plan.cBytes(), bBase, largest};
   return program;
 }
 
@@ -80,10 +94,12 @@ public:
   Value shr(Value x, int64_t s) { return arith::ShRUIOp::create(b, loc, x, c(s)); }
   Value align8(Value x) { return andi(add(x, c(7)), c(~int64_t{7})); }
 
-  Value reg(int64_t offset) {
-    Value address = c(static_cast<int64_t>(RVNPU_MMIO_BASE) + offset);
+  Value pointer(Value address) {
     return LLVM::IntToPtrOp::create(b, loc, LLVM::LLVMPointerType::get(b.getContext()),
                                     address);
+  }
+  Value reg(int64_t offset) {
+    return pointer(c(static_cast<int64_t>(RVNPU_MMIO_BASE) + offset));
   }
   void store(int64_t offset, Value v) {
     LLVM::StoreOp::create(b, loc, v, reg(offset), /*alignment=*/4, /*isVolatile=*/true);
@@ -91,6 +107,12 @@ public:
   Value load(int64_t offset) {
     return LLVM::LoadOp::create(b, loc, b.getI32Type(), reg(offset), /*alignment=*/4,
                                 /*isVolatile=*/true);
+  }
+  // The parameter word at byte `offset` of the block at `base`: plain DDR
+  // memory, so a plain load (see the file header).
+  Value param(Value base, int64_t offset) {
+    return LLVM::LoadOp::create(b, loc, b.getI32Type(), pointer(add(base, c(offset))),
+                                /*alignment=*/4);
   }
 
   // scf.for %iv = lo to hi, with the builder left inside its body.
@@ -107,15 +129,10 @@ private:
 
 } // namespace
 
-OwningOpRef<ModuleOp> mlir::rvnpu::lowerToRiscv(MLIRContext *context,
-                                                const Program &program,
-                                                int64_t index) {
+OwningOpRef<ModuleOp> mlir::rvnpu::lowerToRiscv(MLIRContext *context) {
   context->loadDialect<arith::ArithDialect, func::FuncDialect, LLVM::LLVMDialect,
                        scf::SCFDialect>();
-  const GemmPlan &p = program.plan;
-  const Segment &seg = program.segments.at(index);
-  Location loc = NameLoc::get(StringAttr::get(
-      context, "rvnpu.program." + std::to_string(program.id) + "." + std::to_string(index)));
+  Location loc = NameLoc::get(StringAttr::get(context, "rvnpu.kernel"));
   OwningOpRef<ModuleOp> module = ModuleOp::create(loc);
   OpBuilder b(context);
   b.setInsertionPointToEnd(module->getBody());
@@ -124,38 +141,61 @@ OwningOpRef<ModuleOp> mlir::rvnpu::lowerToRiscv(MLIRContext *context,
   Emitter e(b, loc);
 
   Value db = e.load(RVNPU_MMIO_DATA_BASE);
-  // Loop-invariant bases. ADDR_B is the segment's block: tile ni sits at
-  // (ni - niLo) * bPanel inside it, so fold -niLo * bPanel into the base.
-  Value cBase = e.add(db, e.c(program.data.cBase));
-  Value bBase = e.add(db, e.c(program.data.bBase - seg.niLo * p.bPanel()));
+  Value m = e.param(db, RVNPU_PARAM_M);
+  Value n = e.param(db, RVNPU_PARAM_N);
+  Value k = e.param(db, RVNPU_PARAM_K);
+  Value tm = e.param(db, RVNPU_PARAM_TM);
+  Value tn = e.param(db, RVNPU_PARAM_TN);
+  Value tk = e.param(db, RVNPU_PARAM_TK);
+  Value mt = e.param(db, RVNPU_PARAM_MT);
+  Value kt = e.param(db, RVNPU_PARAM_KT);
+  Value nt = e.param(db, RVNPU_PARAM_NT);
+  Value niLo = e.param(db, RVNPU_PARAM_NI_LO);
+  Value niHi = e.param(db, RVNPU_PARAM_NI_HI);
+  Value aOff = e.param(db, RVNPU_PARAM_A_BASE);
+  Value cOff = e.param(db, RVNPU_PARAM_C_BASE);
+  Value bOff = e.param(db, RVNPU_PARAM_B_BASE);
+  Value bPanel = e.param(db, RVNPU_PARAM_B_PANEL);
+  Value cPlane = e.param(db, RVNPU_PARAM_C_PLANE);
 
-  Value mi = e.loop(e.c(0), e.c(p.mt()));
+  // Loop invariants: what the per-task programs carried as constants.
+  // ADDR_B is the segment's block: tile ni sits at (ni - niLo) * bPanel
+  // inside it, so fold -niLo * bPanel into the base.
+  Value aBase = e.add(db, aOff);
+  Value cBase = e.add(db, cOff);
+  Value bBase = e.sub(e.add(db, bOff), e.mul(niLo, bPanel));
+  Value aRowStride = e.mul(kt, e.align8(e.mul(tm, tk)));          // kt * align(tm * tk)
+  Value cRowStride = e.mul(nt, e.align8(e.shl(e.mul(tm, tn), 2))); // nt * align(4 * tm * tn)
+  Value bChunk = e.align8(e.mul(tk, tn));                         // align(tk * tn)
+  Value tn4 = e.shl(tn, 2);                                       // 4 * tn
+
+  Value mi = e.loop(e.c(0), mt);
   {
-    Value mI = e.min(e.c(p.tm), e.sub(e.c(p.m), e.mul(mi, e.c(p.tm))));
+    Value mI = e.min(tm, e.sub(m, e.mul(mi, tm)));
     // aOffset(mi, kc) = mi * kt * align(tm * tk) + kc * align(mI * tk)
-    Value aRow = e.add(db, e.mul(mi, e.c(p.kt() * align(p.tm * p.tk))));
-    Value aStep = e.align8(e.mul(mI, e.c(p.tk)));
+    Value aRow = e.add(aBase, e.mul(mi, aRowStride));
+    Value aStep = e.align8(e.mul(mI, tk));
     // cOffset(kc, mi, ni) = kc * cPlane + mi * nt * align(4 * tm * tn)
     //                       + ni * align(4 * mI * tn)   (every row before mi is full)
-    Value cRow = e.add(cBase, e.mul(mi, e.c(p.nt() * align(4 * p.tm * p.tn))));
-    Value cStride = e.align8(e.mul(mI, e.c(4 * p.tn)));
+    Value cRow = e.add(cBase, e.mul(mi, cRowStride));
+    Value cStride = e.align8(e.mul(mI, tn4));
     Value shapeM = mI;
 
-    Value kc = e.loop(e.c(0), e.c(p.kt()));
+    Value kc = e.loop(e.c(0), kt);
     {
-      Value kC = e.min(e.c(p.tk), e.sub(e.c(p.k), e.mul(kc, e.c(p.tk))));
+      Value kC = e.min(tk, e.sub(k, e.mul(kc, tk)));
       e.store(RVNPU_MMIO_SHAPE_K, kC);
       e.store(RVNPU_MMIO_ADDR_A, e.add(aRow, e.mul(kc, aStep)));
       // bOffset(kc, ni) = ni * bPanel + kc * align(tk * tn)
-      Value bK = e.add(bBase, e.mul(kc, e.c(align(p.tk * p.tn))));
-      Value cK = e.add(cRow, e.mul(kc, e.c(p.cPlaneBytes())));
+      Value bK = e.add(bBase, e.mul(kc, bChunk));
+      Value cK = e.add(cRow, e.mul(kc, cPlane));
 
-      Value ni = e.loop(e.c(seg.niLo), e.c(seg.niHi));
+      Value ni = e.loop(niLo, niHi);
       {
-        Value nI = e.min(e.c(p.tn), e.sub(e.c(p.n), e.mul(ni, e.c(p.tn))));
+        Value nI = e.min(tn, e.sub(n, e.mul(ni, tn)));
         e.store(RVNPU_MMIO_SHAPE_MN,
                 arith::OrIOp::create(b, loc, shapeM, e.shl(nI, RVNPU_SHAPE_N_SHIFT)));
-        e.store(RVNPU_MMIO_ADDR_B, e.add(bK, e.mul(ni, e.c(p.bPanel()))));
+        e.store(RVNPU_MMIO_ADDR_B, e.add(bK, e.mul(ni, bPanel)));
         e.store(RVNPU_MMIO_ADDR_C, e.add(cK, e.mul(ni, cStride)));
         e.store(RVNPU_MMIO_DOORBELL, e.c(1));
       }

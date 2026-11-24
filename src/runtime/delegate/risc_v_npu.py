@@ -1,10 +1,11 @@
 """The risc_v_npu delegate backend: librv_npu_rt (src/vendors/risc_v_npu/driver/rv_npu_rt).
 
 The device is the NPU built with the CVA6 RISC-V scalar core: each delegate
-call runs RISC-V binaries on CVA6, which issue the GEMM jobs. As for npu, the
-overlay is loaded with ``pynq.Overlay`` and the buffers CVA6 and the NPU reach
-are allocated with ``pynq.allocate``; they are handed to ``rv_npu_rt_load``
-through its C interface. There is no simulator: npu_pynq's SIM is a model of
+call runs the package's one RISC-V GEMM kernel on CVA6 once per segment,
+reading a parameter block librv_npu_rt writes first; the kernel issues the
+GEMM jobs. As for npu, the overlay is loaded with ``pynq.Overlay`` and the
+buffers CVA6 and the NPU reach are allocated with ``pynq.allocate``; they are
+handed to ``rv_npu_rt_load`` through its C interface. There is no simulator: npu_pynq's SIM is a model of
 the 64-bit ISA and cannot run RISC-V, so a package for risc_v_npu runs only on
 the board with the CVA6 overlay.
 

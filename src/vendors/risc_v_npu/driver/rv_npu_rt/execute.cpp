@@ -1,12 +1,14 @@
-/* One delegate call: pack A, run the program's segments, unpack C.
+/* One delegate call: pack A, run the kernel once per segment, unpack C.
  *
  * A and C tile layouts are those of src/vendors/risc_v_npu/spec/layout.py
- * (the same as npu_pynq's): A tiles per (row tile, K chunk), 8-byte aligned;
- * C as one plane of INT32 tiles per K chunk. Unpacking sums the planes, so
- * the caller's output is the M x N INT32 product, the delegated subgraph's
+ * (the same as npu_pynq's): A tiles per (row tile, K chunk), 8-byte aligned,
+ * from io + 64 (DataLayout.a_base; the parameter block takes io + 0); C as
+ * one plane of INT32 tiles per K chunk. Unpacking sums the planes, so the
+ * caller's output is the M x N INT32 product, the delegated subgraph's
  * result. The sum wraps modulo 2^32, exactly as libnpu_rt's reduceOutput
- * (src/vendors/npu_pynq/driver/npu_rt/execute.cpp). Each segment's B block is
- * copied to io + b_base before its binary runs.
+ * (src/vendors/npu_pynq/driver/npu_rt/execute.cpp). Before each segment run
+ * its B block is copied to io + b_base and the parameter block (rv_npu_rt.h
+ * ParamWord) is written to io + 0.
  */
 #include "rv_npu_rt.h"
 
@@ -17,19 +19,16 @@ using namespace rv_npu_rt;
 
 namespace {
 
-int32_t align8(int32_t v) { return (v + 7) & ~7; }
-int32_t cdiv(int32_t a, int32_t b) { return (a + b - 1) / b; }
 int32_t rowsOf(const Program &p, int32_t mi) { return std::min(p.tm, p.m - mi * p.tm); }
 int32_t colsOf(const Program &p, int32_t ni) { return std::min(p.tn, p.n - ni * p.tn); }
 int32_t depthOf(const Program &p, int32_t kc) { return std::min(p.tk, p.k - kc * p.tk); }
 
 int32_t aOffset(const Program &p, int32_t mi, int32_t kc) {
-  return mi * cdiv(p.k, p.tk) * align8(p.tm * p.tk) + kc * align8(rowsOf(p, mi) * p.tk);
+  return mi * ceilDiv(p.k, p.tk) * align8(p.tm * p.tk) + kc * align8(rowsOf(p, mi) * p.tk);
 }
-int32_t cTileStride(const Program &p, int32_t mi) { return align8(4 * rowsOf(p, mi) * p.tn); }
 
 void prepareActivation(const Program &p, const int8_t *a, uint8_t *dst) {
-  int32_t mt = cdiv(p.m, p.tm), kt = cdiv(p.k, p.tk);
+  int32_t mt = ceilDiv(p.m, p.tm), kt = ceilDiv(p.k, p.tk);
   for (int32_t mi = 0; mi < mt; ++mi) {
     int32_t rows = rowsOf(p, mi);
     for (int32_t kc = 0; kc < kt; ++kc) {
@@ -43,10 +42,8 @@ void prepareActivation(const Program &p, const int8_t *a, uint8_t *dst) {
 }
 
 void reduceOutput(const Program &p, const uint8_t *src, int32_t *c) {
-  int32_t mt = cdiv(p.m, p.tm), nt = cdiv(p.n, p.tn), kt = cdiv(p.k, p.tk);
-  int32_t plane = 0;
-  for (int32_t mi = 0; mi < mt; ++mi)
-    plane += nt * cTileStride(p, mi);
+  int32_t mt = ceilDiv(p.m, p.tm), nt = ceilDiv(p.n, p.tn), kt = ceilDiv(p.k, p.tk);
+  const int32_t plane = cPlane(p);
   for (int32_t kc = 0; kc < kt; ++kc) {
     int32_t rowBase = 0;
     for (int32_t mi = 0; mi < mt; ++mi) {
@@ -74,8 +71,34 @@ void reduceOutput(const Program &p, const uint8_t *src, int32_t *c) {
   }
 }
 
+/* The 16 words the kernel reads from DATA_BASE + 0 for this segment. */
+void writeParams(const Program &p, const Segment &g, uint8_t *io) {
+  int32_t words[PARAM_WORDS];
+  words[PARAM_M] = p.m;
+  words[PARAM_N] = p.n;
+  words[PARAM_K] = p.k;
+  words[PARAM_TM] = p.tm;
+  words[PARAM_TN] = p.tn;
+  words[PARAM_TK] = p.tk;
+  words[PARAM_MT] = ceilDiv(p.m, p.tm);
+  words[PARAM_KT] = ceilDiv(p.k, p.tk);
+  words[PARAM_NT] = ceilDiv(p.n, p.tn);
+  words[PARAM_NI_LO] = g.niLo;
+  words[PARAM_NI_HI] = g.niHi;
+  words[PARAM_A_BASE] = static_cast<int32_t>(kParamBytes);
+  words[PARAM_C_BASE] = p.cBase;
+  words[PARAM_B_BASE] = p.bBase;   // not biased by NI_LO: the kernel subtracts NI_LO * B_PANEL
+  words[PARAM_B_PANEL] = bPanel(p);
+  words[PARAM_C_PLANE] = cPlane(p);
+  // io is uncached; the ARM is little-endian, as the block is defined.
+  std::memcpy(io, words, kParamBytes);
+}
+
+/* Stage segment g: its B block at io + b_base, then its parameter block. */
 void prepareWeights(const Program &p, const Segment &g) {
-  std::memcpy(static_cast<uint8_t *>(rt.io.virt) + p.bBase, rt.weights + g.weightOffset, g.bBytes);
+  uint8_t *io = static_cast<uint8_t *>(rt.io.virt);
+  std::memcpy(io + p.bBase, rt.weights + g.weightOffset, g.bBytes);
+  writeParams(p, g, io);
 }
 
 int fail(int64_t index, int32_t status) {
@@ -98,7 +121,7 @@ int executeProfiled(int64_t index, const Program &p, void **buffers) {
   uint8_t *io = static_cast<uint8_t *>(rt.io.virt);
 
   const int64_t begin = nowNs();
-  prepareActivation(p, static_cast<const int8_t *>(buffers[0]), io);
+  prepareActivation(p, static_cast<const int8_t *>(buffers[0]), io + kParamBytes);
   int64_t t = nowNs();
   recordEvent(index, PREPARE_ACTIVATION, begin, t);
   const int64_t packed = t;
@@ -106,7 +129,7 @@ int executeProfiled(int64_t index, const Program &p, void **buffers) {
     const int64_t t0 = t;
     prepareWeights(p, g);
     const int64_t t1 = nowNs();
-    int32_t status = pynqRun(g);
+    int32_t status = pynqRun();
     t = nowNs();
     recordEvent(index, PREPARE_WEIGHTS, t0, t1);
     recordEvent(index, NPU_RUN, t1, t);
@@ -135,7 +158,7 @@ int executeProfiled(int64_t index, const Program &p, void **buffers) {
   s.jobs += rt.jobs - jobs;
   s.prepareActivationBytes += static_cast<int64_t>(p.m) * p.k;
   s.prepareWeightsBytes += prepareWeightsBytes;
-  s.reduceOutputBytes += static_cast<int64_t>(cdiv(p.k, p.tk)) * p.m * p.n * 4;
+  s.reduceOutputBytes += static_cast<int64_t>(ceilDiv(p.k, p.tk)) * p.m * p.n * 4;
   return 0;
 }
 
@@ -150,10 +173,10 @@ extern "C" int rv_npu_rt_execute(int64_t index, void **buffers, int count) {
   if (rt.profile)
     return executeProfiled(index, p, buffers);
   uint8_t *io = static_cast<uint8_t *>(rt.io.virt);
-  prepareActivation(p, static_cast<const int8_t *>(buffers[0]), io);
+  prepareActivation(p, static_cast<const int8_t *>(buffers[0]), io + kParamBytes);
   for (const Segment &g : p.segments) {
     prepareWeights(p, g);
-    int32_t status = pynqRun(g);
+    int32_t status = pynqRun();
     if (status)
       return fail(index, status);
   }

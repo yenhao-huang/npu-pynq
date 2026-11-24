@@ -2,8 +2,9 @@
 
 spec/abi.py is checked against the RTL that implements it
 (scalar_core/cva6/cva6_npu_mmio.sv, cva6_config.sv, csr/csr.sv), the checked-in
-RvNpuMmio.h against its generator, librv_npu_rt's constants against the spec,
-and the copied layout against npu_pynq's. The driver test at the end builds
+RvNpuMmio.h against its generator, librv_npu_rt's constants (registers and the
+kernel's parameter block) against the spec, and the copied layout against
+npu_pynq's. The driver test at the end builds
 librv_npu_rt and runs it against a fake CSR window; it needs Linux and a C++
 compiler and is skipped elsewhere.
 """
@@ -170,6 +171,14 @@ class HeaderTests(unittest.TestCase):
         self.assertEqual(defines['RVNPU_STATUS_ERROR_CODE_SHIFT'], 8)
         self.assertEqual(defines['RVNPU_ERR_MISALIGNED'], 0x12)
 
+    def test_parameter_block_offsets_match_the_layout(self) -> None:
+        # The kernel reads RVNPU_PARAM_<NAME> (byte offsets from DATA_BASE);
+        # spec/layout.py holds the word indices the driver writes.
+        text = HEADER.read_text(encoding='utf-8')
+        defines = {n: int(v, 16) for n, v in re.findall(r'#define RVNPU_PARAM_(\w+)\s+0x([0-9A-F]+)', text)}
+        self.assertEqual(defines.pop('BYTES'), layout.PARAM_BYTES)
+        self.assertEqual(defines, {name: 4 * getattr(layout, f'PARAM_{name}') for name in layout.PARAM_NAMES})
+
 
 class DriverSourceTests(unittest.TestCase):
     def test_rv_npu_rt_registers_and_bits_match_the_spec(self) -> None:
@@ -191,6 +200,15 @@ class DriverSourceTests(unittest.TestCase):
         self.assertIn('CAP_RISCV_SCALAR_CORE = 1u << 7', source)
         self.assertEqual(int(re.search(r'kCva6DdrBytes = (0x[0-9A-Fa-f]+)', (DRIVER / 'load.cpp').read_text())
                              .group(1), 16), abi.DDR_BYTES)
+
+    def test_rv_npu_rt_parameter_block_matches_the_layout(self) -> None:
+        # librv_npu_rt cannot include RvNpuMmio.h (the board builds it from
+        # driver/ and spec/ only), so it mirrors the numbers in rv_npu_rt.h.
+        source = (DRIVER / 'rv_npu_rt.h').read_text(encoding='utf-8')
+        self.assertEqual(int(re.search(r'kParamBytes = (\d+);', source).group(1)), layout.PARAM_BYTES)
+        found = {name: int(value) for name, value in re.findall(r'\bPARAM_(\w+) = (\d+)', source)}
+        self.assertEqual(found.pop('WORDS'), layout.PARAM_WORDS)
+        self.assertEqual(found, {name: getattr(layout, f'PARAM_{name}') for name in layout.PARAM_NAMES})
 
     def test_the_runtime_takes_the_register_map_from_the_spec(self) -> None:
         source = (ROOT / 'src/runtime/delegate/risc_v_npu.py').read_text(encoding='utf-8')
@@ -225,11 +243,39 @@ class LayoutCopyTests(unittest.TestCase):
     def test_data_layout_does_not_overlap(self) -> None:
         plan = layout.plan_gemm(33, 20, 320)
         d = layout.data_layout(plan, 4096)
-        self.assertEqual(d.a_base, 0)
-        self.assertGreaterEqual(d.c_base, d.a_bytes)
+        self.assertEqual(d.a_base, layout.PARAM_BYTES)   # the parameter block comes first
+        self.assertGreaterEqual(d.c_base, d.a_base + d.a_bytes)
         self.assertGreaterEqual(d.b_base, d.c_base + d.c_bytes)
         self.assertEqual((d.c_base % 64, d.b_base % 64), (0, 0))
         self.assertEqual(d.b_bytes, plan.b_panel)   # one panel per 4 KiB segment here
+
+
+class ParameterBlockTests(unittest.TestCase):
+    """The 64-byte block the driver writes at DATA_BASE before each segment run (issue #206)."""
+
+    def test_word_order_is_the_contract(self) -> None:
+        self.assertEqual(layout.PARAM_NAMES, ('M', 'N', 'K', 'TM', 'TN', 'TK', 'MT', 'KT', 'NT', 'NI_LO',
+                                              'NI_HI', 'A_BASE', 'C_BASE', 'B_BASE', 'B_PANEL', 'C_PLANE'))
+        self.assertEqual((layout.PARAM_WORDS, layout.PARAM_BYTES), (16, 64))
+        for i, name in enumerate(layout.PARAM_NAMES):
+            self.assertEqual(getattr(layout, f'PARAM_{name}'), i, name)
+
+    def test_param_block_values(self) -> None:
+        plan = layout.plan_gemm(1, 192, 576)
+        d = layout.data_layout(plan, plan.b_panel)
+        words = layout.param_block(plan, d, 11, 12)
+        self.assertEqual(words.dtype, np.dtype('<i4'))
+        self.assertEqual(words.tolist(), [1, 192, 576, 1, 16, 256, 1, 3, 12, 11, 12, 64, 640, 2944, 9216, 768])
+
+    def test_param_block_matches_the_backend_tests_statement(self) -> None:
+        from src.test.tests.test_risc_v_npu_backend import PARAM_BYTES, PARAM_NAMES, param_block
+        self.assertEqual((PARAM_NAMES, PARAM_BYTES), (layout.PARAM_NAMES, layout.PARAM_BYTES))
+        for m, n, k, tk, limit in ((33, 20, 320, None, 4096), (5, 17, 7, 4, 1), (40, 50, 600, None, 1)):
+            plan = layout.plan_gemm(m, n, k, tk=tk)
+            d = layout.data_layout(plan, limit)
+            for lo, hi in plan.segments(limit):
+                self.assertEqual(layout.param_block(plan, d, lo, hi).tobytes(),
+                                 param_block(plan, lo, hi, d.c_base, d.b_base))
 
 
 class OverlayTests(unittest.TestCase):
@@ -308,22 +354,17 @@ class _Platform(ctypes.Structure):
 
 
 def write_package(root: Path, plan: layout.GemmPlan, b: np.ndarray, segment_limit: int,
-                  binaries: list[bytes], mem_bytes: int) -> layout.DataLayout:
-    """A one-delegate rv_programs.* package with the given segment binaries."""
+                  kernel: bytes, mem_bytes: int) -> layout.DataLayout:
+    """A one-delegate rv_programs.* package (format 2) holding ``kernel``."""
     data = layout.data_layout(plan, segment_limit)
     segments = plan.segments(segment_limit)
-    assert len(segments) == len(binaries)
     weights = layout.pack_b(plan, b).tobytes()
-    blob, records = b'', []
-    for (lo, hi), binary in zip(segments, binaries):
-        records.append((len(blob), len(binary), mem_bytes, lo * plan.b_panel, (hi - lo) * plan.b_panel))
-        blob += binary + bytes(-len(binary) % 8)
-    lines = [f'rv-programs 1 16 16 256 {len(blob)} 1',
+    lines = [f'rv-programs 2 16 16 256 {len(kernel)} {mem_bytes} 1',
              f'task 0 {plan.m} {plan.n} {plan.k} {plan.tm} {plan.tn} {plan.tk} {plan.a_bytes} '
              f'{data.c_base} {plan.c_bytes} {data.b_base} {len(segments)}']
-    lines += ['seg ' + ' '.join(map(str, r)) for r in records]
+    lines += [f'seg {lo} {hi} {lo * plan.b_panel} {(hi - lo) * plan.b_panel}' for lo, hi in segments]
     (root / 'rv_programs.txt').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-    (root / 'rv_programs.bin').write_bytes(blob)
+    (root / 'rv_programs.bin').write_bytes(kernel)
     (root / 'weights.bin').write_bytes(weights)
     return data
 
@@ -350,9 +391,9 @@ def wrapping_sum(planes: np.ndarray) -> np.ndarray:
 @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('g++'), 'needs Linux and g++')
 class DriverOnHostTests(unittest.TestCase):
     """librv_npu_rt against a fake CSR window that reports DONE at once: checks
-    the overlay check, the SIM refusal, the code and data placement, the CSR
-    writes and the C unpacking, which sums the K planes into the M x N output
-    (nothing computes the GEMM)."""
+    the overlay check, the SIM refusal, the format check, the code and data
+    placement, the parameter block, the CSR writes and the C unpacking, which
+    sums the K planes into the M x N output (nothing computes the GEMM)."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -376,9 +417,11 @@ class DriverOnHostTests(unittest.TestCase):
     def setUp(self) -> None:
         self.lib.rv_npu_rt_close()
 
-    def _platform(self, root: Path, capabilities: int):
+    def _platform(self, root: Path, capabilities: int, check: bool = True):
         sizes = (ctypes.c_uint32 * 2)()
-        self.assertEqual(self.lib.rv_npu_rt_requirements(str(root).encode(), sizes), 0)
+        if self.lib.rv_npu_rt_requirements(str(root).encode(), sizes) != 0:
+            self.assertFalse(check, self.lib.rv_npu_rt_error())
+            sizes[0], sizes[1] = 1 << 16, 1 << 12
         regs = np.zeros(64, np.uint32)
         regs[0x00 // 4], regs[0x04 // 4], regs[0x08 // 4] = abi.ABI_MAGIC, 0x00020000, capabilities
         regs[abi.IsaRegister.STATUS // 4] = abi.IsaStatus.DONE
@@ -391,14 +434,43 @@ class DriverOnHostTests(unittest.TestCase):
     def test_sim_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             plan = layout.plan_gemm(4, 4, 4)
-            write_package(Path(tmp), plan, np.zeros((4, 4), np.int8), 4096, [b'\x13\x00\x00\x00'], 64)
+            write_package(Path(tmp), plan, np.zeros((4, 4), np.int8), 4096, b'\x13\x00\x00\x00', 64)
             self.assertEqual(self.lib.rv_npu_rt_load(str(tmp).encode(), None), -1)
             self.assertIn(b'no SIM backend', self.lib.rv_npu_rt_error())
+
+    def test_format_1_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = layout.plan_gemm(4, 4, 4)
+            write_package(root, plan, np.zeros((4, 4), np.int8), 4096, b'\x13\x00\x00\x00', 64)
+            table = root / 'rv_programs.txt'
+            table.write_text(table.read_text().replace('rv-programs 2', 'rv-programs 1'), encoding='utf-8')
+            platform, *_ = self._platform(root, 0xFB, check=False)
+            self.assertEqual(self.lib.rv_npu_rt_load(str(tmp).encode(), ctypes.byref(platform)), -1)
+            self.assertIn(b'format 1', self.lib.rv_npu_rt_error())
+
+    def test_an_inconsistent_table_is_refused(self) -> None:
+        plan = layout.plan_gemm(20, 40, 300)
+        data = layout.data_layout(plan, 1 << 20)   # one segment, column tiles [0, 3)
+        for old, new, message in ((f'seg 0 3 0 {3 * plan.b_panel}', f'seg 0 3 0 {plan.b_panel}', b'bad segment'),
+                                  # C over A's last bytes: c_base must be >= PARAM_BYTES + a_bytes.
+                                  (f' {plan.a_bytes} {data.c_base} ', f' {plan.a_bytes} {plan.a_bytes} ',
+                                   b'overlapping')):
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                write_package(root, plan, np.zeros((plan.k, plan.n), np.int8), 1 << 20, b'\x13\x00\x00\x00', 64)
+                table = root / 'rv_programs.txt'
+                text = table.read_text()
+                self.assertIn(old, text)
+                table.write_text(text.replace(old, new), encoding='utf-8')
+                platform, *_ = self._platform(root, 0xFB, check=False)
+                self.assertEqual(self.lib.rv_npu_rt_load(str(tmp).encode(), ctypes.byref(platform)), -1)
+                self.assertIn(message, self.lib.rv_npu_rt_error())
 
     def test_a_custom_overlay_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             plan = layout.plan_gemm(4, 4, 4)
-            write_package(Path(tmp), plan, np.zeros((4, 4), np.int8), 4096, [b'\x13\x00\x00\x00'], 64)
+            write_package(Path(tmp), plan, np.zeros((4, 4), np.int8), 4096, b'\x13\x00\x00\x00', 64)
             platform, *_ = self._platform(Path(tmp), 0x7B)
             self.assertEqual(self.lib.rv_npu_rt_load(str(tmp).encode(), ctypes.byref(platform)), -1)
             self.assertIn(b'bit 7', self.lib.rv_npu_rt_error())
@@ -409,15 +481,20 @@ class DriverOnHostTests(unittest.TestCase):
         a = rng.integers(-128, 128, (plan.m, plan.k), dtype=np.int8)
         b = rng.integers(-128, 128, (plan.k, plan.n), dtype=np.int8)
         limit = plan.b_panel * 2               # two segments: tiles [0, 2) and [2, 3)
-        binaries = [bytes(range(1, 11)), bytes(range(50, 70))]
+        kernel = bytes(range(1, 21))
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            data = write_package(root, plan, b, limit, binaries, 256)
+            data = write_package(root, plan, b, limit, kernel, 200)
+            self.assertEqual(data.a_base, layout.PARAM_BYTES)
+            sizes = (ctypes.c_uint32 * 2)()
+            self.assertEqual(self.lib.rv_npu_rt_requirements(str(root).encode(), sizes), 0)
+            self.assertEqual(list(sizes), [data.total_bytes, 256])   # one slot: mem_bytes rounded to 64
             platform, regs, io, code = self._platform(root, 0xFB)
+            code[:] = 0xA5
             self.assertEqual(self.lib.rv_npu_rt_load(str(root).encode(), ctypes.byref(platform)), 0,
                              self.lib.rv_npu_rt_error())
-            self.assertEqual(code[:10].tobytes(), binaries[0])        # slot 0
-            self.assertEqual(code[256:276].tobytes(), binaries[1])    # slot 1 (mem_bytes 256)
+            self.assertEqual(code[:20].tobytes(), kernel)        # the one kernel, at offset 0
+            self.assertFalse(code[20:256].any())                  # .bss and stack zeroed
             # K = 300 > MAX_K: two planes, summed into the M x N output.
             self.assertEqual(plan.kt, 2)
             planes = rng.integers(-2**31, 2**31, (plan.kt, plan.m, plan.n), dtype=np.int64).astype(np.int32)
@@ -426,14 +503,18 @@ class DriverOnHostTests(unittest.TestCase):
             out = np.full((plan.m + 1, plan.n), 0x5A5A5A5A, np.int32)
             buffers = (ctypes.c_void_p * 2)(a.ctypes.data, out.ctypes.data)
             self.assertEqual(self.lib.rv_npu_rt_execute(0, buffers, 2), 0)
-            np.testing.assert_array_equal(io[:plan.a_bytes], layout.pack_a(plan, a).view(np.uint8))
+            a0 = data.a_base
+            np.testing.assert_array_equal(io[a0:a0 + plan.a_bytes], layout.pack_a(plan, a).view(np.uint8))
             last = plan.segments(limit)[-1]
+            # The parameter block of the last segment run, at DATA_BASE + 0.
+            np.testing.assert_array_equal(io[:layout.PARAM_BYTES].view('<i4'),
+                                          layout.param_block(plan, data, *last))
             staged = layout.pack_b(plan, b)[last[0] * plan.b_panel:last[1] * plan.b_panel].view(np.uint8)
             np.testing.assert_array_equal(io[data.b_base:data.b_base + staged.size], staged)
             np.testing.assert_array_equal(out[:plan.m], wrapping_sum(planes))
             self.assertTrue((out[plan.m] == 0x5A5A5A5A).all())
-            self.assertEqual(regs[abi.IsaRegister.PROG_ADDR // 4], 0x1800_0000 + 256)   # the last segment
-            self.assertEqual(regs[abi.IsaRegister.PROG_LEN // 4], abi.prog_len_words(20))
+            self.assertEqual(regs[abi.IsaRegister.PROG_ADDR // 4], 0x1800_0000)   # the kernel, every run
+            self.assertEqual(regs[abi.IsaRegister.PROG_LEN // 4], abi.prog_len_words(len(kernel)))
             self.assertEqual(regs[abi.IsaRegister.DATA_BASE // 4], 0x1000_0000)
             self.assertEqual(regs[abi.IsaRegister.CONTROL // 4], 1)
             stats = (ctypes.c_int64 * 7)()
@@ -455,7 +536,7 @@ class DriverOnHostTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             data = write_package(root, plan, np.zeros((plan.k, plan.n), np.int8), 1 << 20,
-                                 [b'\x13\x00\x00\x00'], 64)
+                                 b'\x13\x00\x00\x00', 64)
             platform, regs, io, code = self._platform(root, 0xFB)
             self.assertEqual(self.lib.rv_npu_rt_load(str(root).encode(), ctypes.byref(platform)), 0,
                              self.lib.rv_npu_rt_error())
@@ -471,7 +552,7 @@ class DriverOnHostTests(unittest.TestCase):
     def test_an_error_code_is_returned(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             plan = layout.plan_gemm(4, 4, 4)
-            write_package(Path(tmp), plan, np.zeros((4, 4), np.int8), 4096, [b'\x13\x00\x00\x00'], 64)
+            write_package(Path(tmp), plan, np.zeros((4, 4), np.int8), 4096, b'\x13\x00\x00\x00', 64)
             platform, regs, *_ = self._platform(Path(tmp), 0xFB)
             self.assertEqual(self.lib.rv_npu_rt_load(str(tmp).encode(), ctypes.byref(platform)), 0)
             regs[abi.IsaRegister.STATUS // 4] = abi.IsaStatus.DONE | abi.IsaStatus.ERROR
