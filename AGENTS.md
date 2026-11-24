@@ -64,12 +64,6 @@ and on what may not be added.
 - Every RTL change needs a corresponding testbench change, or a note in the
   commit explaining why coverage is unchanged.
 - Run `make -C src/test lint sim` before pushing. CI runs the same two targets.
-- When you change the software stack (export, runtime, or driver), update the
-  Software Stack figure in `README.md`
-  (`docs/assets/npu-compilation-stack.svg`) and the text under it.
-- When you change the hardware architecture (`src/hw/`), update the Hardware
-  Architecture figure in `README.md`
-  (`docs/assets/npu-hardware-architecture.svg`) and the text under it.
 - The tools under `tools/ic/` give second-scale RTL feedback: `ic lint` after
   every edit, `ic sim` for a verdict plus a waveform handle, and
   `ic first_mismatch` to locate a divergence without opening the waveform.
@@ -98,6 +92,12 @@ and on what may not be added.
   prepare the promotion pull request, and merge it with a merge commit.
   Publishing is the `publish` workflow, never a hand-published Release. The
   `release-npu-pynq` skill under `.codex/skills/deploy/` has the full procedure.
+- When you prepare a `dev` → `main` merge, remind the person to check the
+  figures in `README.md`. If the software stack (export, runtime, or driver)
+  changed, the Software Stack figure (`docs/assets/npu-compilation-stack.svg`)
+  may need a change. If the hardware (`src/hw/`) changed, the Hardware
+  Architecture figure (`docs/assets/npu-hardware-architecture.svg`) may need a
+  change. Do not redraw the figures yourself.
 - Agents may read `docs/human/`, but must obtain explicit human confirmation
   for the exact batch before creating, editing, appending, formatting,
   renaming, moving, or deleting anything under it. Code, issue, PR, merge, and
