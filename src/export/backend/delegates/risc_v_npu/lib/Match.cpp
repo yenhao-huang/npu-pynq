@@ -1,7 +1,7 @@
 //===- Match.cpp - the contractions risc_v_npu runs -----------------------===//
 //
 // The claim rule, shared by the middle end's device assignment
-// (pynqo-assign-devices), --rvnpu-claim and the risc_v_npu delegate.
+// (pynqo-assign-devices) and the risc_v_npu delegate.
 // Upstream dialects only.
 //
 // Copied from src/export/backend/delegates/npu/lib/Match.cpp and renamed

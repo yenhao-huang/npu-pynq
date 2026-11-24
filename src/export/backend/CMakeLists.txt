@@ -1,5 +1,5 @@
 # pynqo-backend: the back end, built out of tree against an installed LLVM 22
-# with MLIR. It links each device's dialect library (delegates/npu,
+# with MLIR. It links each device's codegen library (delegates/npu,
 # delegates/risc_v_npu); src/export/pipeline.py builds it when
 # stale. The risc_v_npu delegate compiles RV32IMC in process and needs LLVM's
 # RISCV target; without it the back end still builds, and
@@ -41,7 +41,7 @@ add_executable(pynqo-backend
   delegates/risc_v_npu/rv_codegen.cpp)
 llvm_update_compile_flags(pynqo-backend)
 target_include_directories(pynqo-backend PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(pynqo-backend PRIVATE NpuDialect RvNpuDialect MLIR LLVM)
+target_link_libraries(pynqo-backend PRIVATE NpuCodegen RvNpuCodegen MLIR LLVM)
 
 # LLVM's RISCV target is part of the LLVM shared library when it was built
 # (the apt.llvm.org packages build every target).

@@ -3,7 +3,8 @@
 // torch._int_mm is W8A8's INT8 x INT8 -> INT32 contraction. This torch-mlir has
 // no lowering for it; upstream later added this same rewrite. Eager torch.mm
 // returns the operand dtype while _int_mm returns int32, so the int32 result
-// type is kept, and --npu-claim sees an i8 x i8 -> i32 linalg.matmul.
+// type is kept, and the device claim (AssignDevices, with each device's
+// isClaimable) sees an i8 x i8 -> i32 linalg.matmul.
 //
 //===----------------------------------------------------------------------===//
 #include "torch/transforms/Passes.h"

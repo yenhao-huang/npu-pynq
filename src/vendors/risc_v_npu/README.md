@@ -10,13 +10,11 @@ sections 5 and 6.
 A package exported for `devices: [cpu, risc_v_npu]` uses this vendor; one for
 `[cpu, npu]` uses `npu_pynq`. The two never import each other: the matrix-core
 knowledge (`spec/layout.py`, `quant.py`, `board.py`, and on the compiler side
-`Match.cpp` / `Claim.cpp` / `Pack.cpp`) is copied, with a note naming the
-source file.
+`Match.cpp` / `Pack.cpp`) is copied, with a note naming the source file.
 
 This folder holds what the device needs at run time: `spec/` (hardware facts,
 read by both export and runtime) and `driver/` (board side). Its compile-time
-code (the `rvnpu` dialect, the claim rule, the lowering to RISC-V, the program
-encoding, `crt0.S` / `link.ld` and the MMIO header generator) lives in the
+code (the claim rule, the lowering to RISC-V, the program encoding, `crt0.S` / `link.ld` and the MMIO header generator) lives in the
 export tree under `backend/delegates/risc_v_npu/`; see
 [docs/rules/filetree.md](../../../docs/rules/filetree.md). Nothing here refers
 to that side: the dependency runs from export to this `spec/` only.
@@ -39,11 +37,11 @@ exactly as `npu` does:
 2. **Back end: the delegate.** pynqo-backend's `delegates/risc_v_npu/`
    compiles `delegates/risc_v_npu.mlir` only: per `@risc_v_npu_<id>` in id
    order it checks the subgraph (one activation argument, one claimable
-   matmul on it, its result returned), rewrites it with `rvnpu::claim` into
-   `rvnpu.matmul {tk}` (M x N INT32 result), packs B and plans the GEMM and
-   its segments. The package holds one RV32IMC kernel, the same for every
-   delegate and segment; the plan reaches it at run time through the
-   parameter block (below), not as code. It contributes no CPU code; the CPU
+   matmul on it, its result returned), reads M, K, N, the constant weight
+   and tk = min(K, MAX_K) off that matmul (M x N INT32 result), packs B and
+   plans the GEMM and its segments. The package holds one RV32IMC kernel,
+   the same for every delegate and segment; the plan reaches it at run time
+   through the parameter block (below), not as code. It contributes no CPU code; the CPU
    graph only calls `__delegate__(id, in, out)`.
 3. **Runtime: the output contract.** `in` is the subgraph's M x K INT8
    argument and `out` its M x N INT32 result, so the delegate table has
@@ -75,8 +73,8 @@ run RISC-V. A risc_v_npu package runs only on the board with the CVA6 overlay.
 | `driver/overlay/` | manifest (`build.py`) and verification (`verify.py`) of the CVA6 overlay |
 
 The compile-time side, `backend/delegates/risc_v_npu/` in the export tree, holds
-`RvNpuMatch` (the claim rule the middle end links), the `rvnpu` dialect,
-`claim`, `LowerToRiscv`, `runtime/crt0.S` / `runtime/link.ld`, and
+`RvNpuMatch` (the claim rule the middle end links), `RvNpuCodegen` (`Pack`,
+`LowerToRiscv`, `Programs`), `runtime/crt0.S` / `runtime/link.ld`, and
 `gen_mmio_header.py`, which writes `include/RvNpu/RvNpuMmio.h` from this
 folder's `spec/abi.py` and the parameter block of `spec/layout.py` (`--check`
 compares).

@@ -40,7 +40,7 @@ IREE's VM bytecode (plan 2026-1112-004).
   the runtime ABI) and everything below it belongs to the back end.
 - **The middle end may know which devices exist, never how they compile.** It
   links only a device's match predicate (`src/export/backend/delegates/<device>/`), not its
-  dialect lowering or encoder. Rewrites under `middle-end/torch/transforms/`
+  lowering or encoder. Rewrites under `middle-end/torch/transforms/`
   stay device-neutral ([register_pass.md](register_pass.md)).
 - **The back end decides nothing about placement.** It reads the delegate
   declarations, device modules and attributes the middle end wrote and keeps

@@ -1,12 +1,12 @@
-//===- lower.cpp - the risc_v_npu delegate: the adapter to src/export/backend/delegates/risc_v_npu ===//
+//===- lower.cpp - the risc_v_npu delegate: entry point -----===//
 //
 //   compile(ir/delegates/risc_v_npu.mlir), one @risc_v_npu_<id> function per
 //   delegate id, in id order (the device's program index):
 //     check         one argument (the activation), one claimable
-//                   linalg.matmul on it, its result returned
-//     Claim         rvnpu::claim (backend/delegates/risc_v_npu/lib/Claim.cpp): rvnpu.matmul
-//                   {tk}, the same M x N result (librv_npu_rt sums the K
-//                   chunks)
+//                   linalg.matmul on it, its result returned; M, K, N, the
+//                   constant weight and tk = min(K, MAX_K) are read off that
+//                   matmul (the NPU runs K in chunks of tk; librv_npu_rt sums
+//                   them into the M x N result)
 //     Pack          its weight as B tiles, into the arena
 //     planProgram   its segments and data block (spec/layout.py)
 //   then, once per package (issue #206):
@@ -17,8 +17,8 @@
 //     link.ld, flattened
 //   and rv_programs.bin / rv_programs.txt / rv_programs.json
 //
-// Modelled on delegates/npu/lower.cpp. The device dialect never includes
-// the back end; this file is the only place the two meet.
+// Modelled on delegates/npu/lower.cpp. The device code (this folder)
+// never includes the back end; this file is the only place the two meet.
 //
 //===----------------------------------------------------------------------===//
 
@@ -28,7 +28,6 @@
 
 #include "../../package.h"
 
-#include "RvNpu/RvNpuDialect.h"
 #include "RvNpu/RvNpuMatch.h"
 #include "RvNpu/RvNpuPasses.h"
 
@@ -49,9 +48,19 @@ constexpr int kLayoutBTiles = 1;
 // Written by the middle end (middle-end/linalg/transforms/Passes.h).
 constexpr llvm::StringLiteral kDelegateIdAttr = "pynqo.delegate_id";
 
+// One claimed matmul, as the device runs it: lhs [m, k] @ weight [k, n] ->
+// [m, n], K in chunks of tk.
+struct Gemm {
+  linalg::MatmulOp matmul;
+  arith::ConstantOp weight;
+  int64_t m, k, n, tk;
+};
+
 // The subgraph the device runs: %y = linalg.matmul(%arg0, constant) into a
 // zero accumulator, returned. The activation is the delegate's only input.
-FailureOr<linalg::MatmulOp> subgraph(func::FuncOp fn) {
+// rvnpu::isClaimable checks static 2-D INT8 operands and a static 2-D INT32
+// accumulator; the shapes must also agree, and tk be positive.
+FailureOr<Gemm> subgraph(func::FuncOp fn, int64_t maxK) {
   SmallVector<linalg::MatmulOp> matmuls;
   fn.walk([&](linalg::MatmulOp op) { matmuls.push_back(op); });
   if (fn.isExternal() || fn.getNumArguments() != 1 || matmuls.size() != 1 ||
@@ -67,7 +76,18 @@ FailureOr<linalg::MatmulOp> subgraph(func::FuncOp fn) {
     fn.emitError("a risc_v_npu function must return the matmul of its argument");
     return failure();
   }
-  return matmul;
+  auto lhs = cast<RankedTensorType>(matmul.getInputs()[0].getType());
+  auto rhs = cast<RankedTensorType>(matmul.getInputs()[1].getType());
+  auto out = cast<RankedTensorType>(matmul->getResult(0).getType());
+  int64_t m = lhs.getDimSize(0), k = lhs.getDimSize(1), n = rhs.getDimSize(1);
+  int64_t tk = std::min<int64_t>(k, maxK);
+  if (rhs.getDimSize(0) != k || out.getDimSize(0) != m || out.getDimSize(1) != n ||
+      tk <= 0) {
+    matmul.emitError("a risc_v_npu matmul must be [M, K] x [K, N] -> [M, N] with K and MAX_K "
+                     "positive");
+    return failure();
+  }
+  return Gemm{matmul, matmul.getInputs()[1].getDefiningOp<arith::ConstantOp>(), m, k, n, tk};
 }
 
 class RiscvNpuDelegate : public Delegate {
@@ -94,27 +114,23 @@ public:
     std::string runtimeAsm = rvnpu::mmioEquates() + rvnpu::crt0Source().str();
     std::string work = out + "/risc_v_npu";
     for (auto [id, fn] : functions) {
-      auto found = subgraph(fn);
-      if (failed(found))
+      auto gemm = subgraph(fn, options.maxK);
+      if (failed(gemm))
         return failure();
-      rvnpu::MatmulOp op = rvnpu::claim(*found, options.maxK);
-      auto constant = op.getRhs().getDefiningOp<arith::ConstantOp>();
-      auto data = constantBytes(constant.getValue());
+      auto data = constantBytes(gemm->weight.getValue());
       if (failed(data)) {
-        op.emitError("risc_v_npu weight is not a dense constant");
+        gemm->matmul.emitError("risc_v_npu weight is not a dense constant");
         return failure();
       }
-      auto lhs = op.getLhs().getType();
-      auto rhs = op.getRhs().getType();
-      int64_t m = lhs.getDimSize(0), k = lhs.getDimSize(1), n = rhs.getDimSize(1);
       // The B layout depends only on (k, n, tk): pack with m = 1 once.
-      rvnpu::GemmPlan layout = rvnpu::GemmPlan::make(1, n, k, limits, op.getTk());
+      rvnpu::GemmPlan layout = rvnpu::GemmPlan::make(1, gemm->n, gemm->k, limits, gemm->tk);
       std::vector<int8_t> tiles =
           rvnpu::packB(layout, reinterpret_cast<const int8_t *>(data->data()));
       int64_t offset = arena.add(
-          constant.getValue().getAsOpaquePointer(), kLayoutBTiles,
+          gemm->weight.getValue().getAsOpaquePointer(), kLayoutBTiles,
           llvm::ArrayRef<char>(reinterpret_cast<const char *>(tiles.data()), tiles.size()));
-      rvnpu::GemmPlan plan = rvnpu::GemmPlan::make(m, n, k, limits, op.getTk());
+      rvnpu::GemmPlan plan =
+          rvnpu::GemmPlan::make(gemm->m, gemm->n, gemm->k, limits, gemm->tk);
       int64_t index = static_cast<int64_t>(programs.size());
       programs.push_back(rvnpu::planProgram(index, plan, offset, options.segmentBytes));
       ids.push_back(id);

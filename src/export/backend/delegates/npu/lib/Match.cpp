@@ -1,7 +1,7 @@
 //===- Match.cpp - the contractions the NPU runs --------------------------===//
 //
 // The claim rule, shared by the middle end's device assignment
-// (pynqo-assign-devices) and --npu-claim. Upstream dialects only.
+// (pynqo-assign-devices) and the npu delegate. Upstream dialects only.
 //
 //===----------------------------------------------------------------------===//
 

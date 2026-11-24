@@ -1,10 +1,10 @@
-//===- RvNpuMatch.h - risc_v_npu's claim rule, without the dialect -*- C++ -*-===//
+//===- RvNpuMatch.h - risc_v_npu's claim rule -------------------*- C++ -*-===//
 //
 // The RvNpuMatch library: only the predicate that decides which operations
 // the risc_v_npu device runs. It needs upstream linalg, tensor and arith and
 // nothing generated, so the middle end (pynqo-middle-end) links it without
-// the rvnpu dialect, the RISC-V lowering, or the monolithic MLIR library.
-// --rvnpu-claim and the risc_v_npu delegate use the same predicate.
+// the RISC-V lowering or the monolithic MLIR library. The risc_v_npu
+// delegate uses the same predicate.
 //
 // Copied from src/export/backend/delegates/npu/include/Npu/NpuMatch.h
 // (risc_v_npu keeps its own copy; plan 2026-1112-003 section 6.2). Keep the

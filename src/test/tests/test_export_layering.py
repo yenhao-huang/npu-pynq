@@ -13,13 +13,13 @@ import unittest
 
 FRONTEND = Path(__file__).resolve().parents[2] / 'export' / 'frontend'
 EXPORT = FRONTEND.parent
-# Each device's compile-time code (claim rule, dialect, lowering) lives in its
-# delegate, src/export/backend/delegates/<device>/; src/vendors/ keeps only
-# spec/ and driver/.
+# Each device's compile-time code (claim rule, layout, packing, program
+# generation) lives in its delegate, src/export/backend/delegates/<device>/;
+# src/vendors/ keeps only spec/ and driver/.
 DEVICES = EXPORT / 'backend' / 'delegates'
-# Each device's claim library, its dialect library, and the folder they live in.
-DEVICE_LIBRARIES = (('NpuMatch', 'NpuDialect', DEVICES / 'npu', 'Npu'),
-                    ('RvNpuMatch', 'RvNpuDialect', DEVICES / 'risc_v_npu', 'RvNpu'))
+# Each device's claim library, its codegen library, and the folder they live in.
+DEVICE_LIBRARIES = (('NpuMatch', 'NpuCodegen', DEVICES / 'npu', 'Npu'),
+                    ('RvNpuMatch', 'RvNpuCodegen', DEVICES / 'risc_v_npu', 'RvNpu'))
 ABOVE = ('src.export.pipeline', 'src.export.cli')
 STAGES = ('load', 'quantization', 'export_graph', 'to_mlir')
 
@@ -139,28 +139,28 @@ def link_libraries(cmake: Path, target: str) -> list[str]:
 
 class ExportToolLinkTest(unittest.TestCase):
     """docs/rules/lib/export_stages.md: the middle end links a device's claim rule
-    (NpuMatch, RvNpuMatch), never its dialect, lowering or encoder (NpuDialect,
-    RvNpuDialect)."""
+    (NpuMatch, RvNpuMatch), never its lowering or encoder (NpuCodegen,
+    RvNpuCodegen)."""
 
     def test_middle_end_links_the_claim_rule_only(self):
         libraries = link_libraries(EXPORT / 'middle-end' / 'CMakeLists.txt', 'pynqo-middle-end')
-        for match, dialect, _, _ in DEVICE_LIBRARIES:
+        for match, codegen, _, _ in DEVICE_LIBRARIES:
             with self.subTest(library=match):
                 self.assertIn(match, libraries)
-                self.assertNotIn(dialect, libraries)
+                self.assertNotIn(codegen, libraries)
         self.assertNotIn('MLIR', libraries)
 
     def test_claim_rule_brings_no_mlir_of_its_own(self):
         # Each consumer supplies MLIR in its own link style; a match library links nothing.
-        for match, dialect, folder, include in DEVICE_LIBRARIES:
+        for match, codegen, folder, include in DEVICE_LIBRARIES:
             cmake = folder / 'CMakeLists.txt'
             with self.subTest(library=match):
                 self.assertEqual(link_libraries(cmake, match), [])
-                self.assertIn(match, link_libraries(cmake, dialect))
+                self.assertIn(match, link_libraries(cmake, codegen))
             for path in (folder / 'lib' / 'Match.cpp', folder / 'include' / include / f'{match}.h'):
                 with self.subTest(path=str(path.relative_to(folder.parent))):
                     self.assertNotRegex(path.read_text(encoding='utf-8'),
-                                        rf'{dialect}|NpuEncoder|RvNpuPasses|RvNpuLayout|\.inc"')
+                                        rf'{codegen}|NpuEncoder|RvNpuPasses|RvNpuLayout|\.inc"')
 
     def test_device_attributes_are_spelled_alike_in_both_tools(self):
         spelled = re.compile(r'"(pynqo\.\w+)"')

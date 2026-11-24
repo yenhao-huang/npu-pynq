@@ -32,10 +32,6 @@
 #include "device_register.h"
 #include "package.h"
 
-#include "Npu/NpuDialect.h"
-#include "Npu/NpuPasses.h"
-#include "RvNpu/RvNpuDialect.h"
-
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
@@ -215,13 +211,12 @@ int main(int argc, char **argv) {
 
   // 0. Context and input.
   // model.mlir holds only upstream dialects, so torch-mlir is not needed here.
-  // The npu and rvnpu dialects are registered for the delegates' npu.matmul
-  // and rvnpu.matmul; the LLVM IR translations for CPU codegen; all passes
-  // because codegen builds its pipeline from a string.
+  // Upstream dialects only (the delegates read each claimed linalg.matmul
+  // directly); the LLVM IR translations for CPU codegen; all passes because
+  // codegen builds its pipeline from a string.
   DialectRegistry registry;
   registerAllDialects(registry);
   registerAllExtensions(registry);
-  registry.insert<npu::NpuDialect, rvnpu::RvNpuDialect>();
   registerBuiltinDialectTranslation(registry);
   registerLLVMDialectTranslation(registry);
   registerAllPasses();

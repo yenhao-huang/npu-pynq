@@ -44,8 +44,8 @@ FetchContent_Declare(torch_mlir
 FetchContent_MakeAvailable(torch_mlir)
 
 # Each device's claim rule (NpuMatch, RvNpuMatch) for device assignment. Only
-# the match libraries are linked: the dialects, their lowering and encoders
-# (NpuDialect, RvNpuDialect) belong to pynqo-backend, and they link the
+# the match libraries are linked: the lowering and encoders (NpuCodegen,
+# RvNpuCodegen) belong to pynqo-backend, and they link the
 # monolithic MLIR library, which must not meet the static MLIR libraries
 # linked here.
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../backend/delegates/npu

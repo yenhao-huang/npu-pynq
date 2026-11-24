@@ -1,4 +1,4 @@
-//===- LowerToRiscv.cpp - rvnpu.matmul as one CVA6 kernel -----------------===//
+//===- LowerToRiscv.cpp - the claimed matmuls as one CVA6 kernel ----------===//
 //
 // One parameterized RV32IMC kernel per package (issue #206; plan
 // 2026-1112-003 section 6.2). Where npu_pynq's Encode.cpp writes ISA words

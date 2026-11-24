@@ -1,6 +1,6 @@
 //===- Encode.cpp - NPU contractions as ISA programs ----------------------===//
 //
-// One program per npu.matmul (its delegate id), split into segments: each
+// One program per claimed matmul (its delegate id), split into segments: each
 // segment covers a run of column tiles whose B panels form one contiguous
 // block of at most segmentBytes, so the runtime can stage it. ADDR_B words
 // hold offsets inside the segment's block; the loader relocates them to

@@ -1,10 +1,9 @@
-//===- NpuMatch.h - the NPU's claim rule, without the npu dialect -*- C++ -*-===//
+//===- NpuMatch.h - the NPU's claim rule ------------------------*- C++ -*-===//
 //
 // The NpuMatch library: only the predicate that decides which operations the
-// NPU runs. It needs upstream linalg, tensor and arith and nothing generated, so the
-// middle end (pynqo-middle-end) links it without the npu dialect, the
-// encoder, or the monolithic MLIR library. --npu-claim uses the same
-// predicate.
+// NPU runs. It needs upstream linalg, tensor and arith and nothing generated,
+// so the middle end (pynqo-middle-end) links it without the encoder or the
+// monolithic MLIR library. The npu delegate uses the same predicate.
 //
 //===----------------------------------------------------------------------===//
 #ifndef NPU_NPUMATCH_H

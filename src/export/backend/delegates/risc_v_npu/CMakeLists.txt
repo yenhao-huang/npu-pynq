@@ -1,31 +1,25 @@
 # Two static libraries (LLVM 22 / MLIR), added with add_subdirectory() by a
 # tool that has already found MLIR; laid out as ../npu.
-# Names (dialect, namespace, passes, targets) differ from npu_pynq's so both
-# link into one pynqo-backend and one pynqo-middle-end.
+# Names (namespace, targets) differ from ../npu's so both link into one
+# pynqo-backend and one pynqo-middle-end.
 #
 #   RvNpuMatch    rvnpu::isClaimable, risc_v_npu's claim rule. Upstream linalg,
 #                 tensor and arith headers only, and no link libraries: each
 #                 consumer supplies MLIR in its own form. pynqo-middle-end
 #                 links it with static MLIR components, pynqo-backend (through
-#                 RvNpuDialect) with the monolithic MLIR library. Never link
+#                 RvNpuCodegen) with the monolithic MLIR library. Never link
 #                 MLIR here; two link styles in one binary register everything
 #                 twice.
-#   RvNpuDialect  the rvnpu dialect, rvnpu::claim and --rvnpu-claim, and the
-#                 risc_v_npu delegate's Pack and LowerToRiscv steps; linked by
-#                 pynqo-backend only. pynqo-middle-end adds this folder
-#                 EXCLUDE_FROM_ALL and never builds it.
+#   RvNpuCodegen  the risc_v_npu delegate's Pack, planProgram, LowerToRiscv
+#                 (the kernel, built from upstream dialects) and Programs
+#                 (rv_programs.*) steps; linked by pynqo-backend only.
+#                 pynqo-middle-end adds this folder EXCLUDE_FROM_ALL and never
+#                 builds it.
 
 add_library(RvNpuMatch STATIC lib/Match.cpp)
 target_include_directories(RvNpuMatch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(RvNpuMatch PRIVATE ${LLVM_INCLUDE_DIRS} ${MLIR_INCLUDE_DIRS})
 llvm_update_compile_flags(RvNpuMatch)
-
-set(LLVM_TARGET_DEFINITIONS include/RvNpu/RvNpuOps.td)
-mlir_tablegen(include/RvNpu/RvNpuOps.h.inc -gen-op-decls)
-mlir_tablegen(include/RvNpu/RvNpuOps.cpp.inc -gen-op-defs)
-mlir_tablegen(include/RvNpu/RvNpuOpsDialect.h.inc -gen-dialect-decls -dialect=rvnpu)
-mlir_tablegen(include/RvNpu/RvNpuOpsDialect.cpp.inc -gen-dialect-defs -dialect=rvnpu)
-add_public_tablegen_target(RvNpuOpsIncGen)
 
 # runtime/crt0.S and runtime/link.ld, embedded as raw strings (lib/Runtime.cpp).
 # Reconfigures when either changes.
@@ -40,17 +34,13 @@ configure_file(${RVNPU_RUNTIME_INC}.tmp ${RVNPU_RUNTIME_INC} COPYONLY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/runtime/crt0.S ${CMAKE_CURRENT_SOURCE_DIR}/runtime/link.ld)
 
-add_library(RvNpuDialect STATIC
-  lib/RvNpuDialect.cpp
+add_library(RvNpuCodegen STATIC
   lib/Layout.cpp
-  lib/Claim.cpp
   lib/Pack.cpp
   lib/LowerToRiscv.cpp
   lib/Programs.cpp
   lib/Runtime.cpp)
-add_dependencies(RvNpuDialect RvNpuOpsIncGen)
-target_include_directories(RvNpuDialect PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR}/include)
-target_include_directories(RvNpuDialect PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-llvm_update_compile_flags(RvNpuDialect)
-target_link_libraries(RvNpuDialect PUBLIC RvNpuMatch MLIR)
+target_include_directories(RvNpuCodegen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(RvNpuCodegen PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+llvm_update_compile_flags(RvNpuCodegen)
+target_link_libraries(RvNpuCodegen PUBLIC RvNpuMatch MLIR)

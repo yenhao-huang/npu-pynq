@@ -1,43 +1,31 @@
-//===- RvNpuPasses.h - risc_v_npu passes and compile steps ------*- C++ -*-===//
+//===- RvNpuPasses.h - the risc_v_npu delegate's compile steps --*- C++ -*-===//
 //
-// The risc_v_npu delegate's compile-time steps (plan 2026-1112-003 section
-// 6.2): Claim and Pack are copies of npu_pynq's; LowerToRiscv replaces its
-// ISA encoder with one parameterized RV32IMC kernel per package (issue #206)
-// that issues every task's jobs through the CVA6 MMIO window (RvNpuMmio.h),
-// reading the task and segment from a parameter block at DATA_BASE. The back
-// end's delegate (src/export/backend/delegates/risc_v_npu/) drives them and
+// The RvNpuCodegen library (plan 2026-1112-003 section 6.2): the steps the
+// risc_v_npu delegate (src/export/backend/delegates/risc_v_npu/) calls on each
+// claimed linalg.matmul (rvnpu::isClaimable, RvNpu/RvNpuMatch.h), given M, N,
+// K, its constant weight and tk = min(K, MAX_K). Pack is a copy of
+// devices/npu's; LowerToRiscv replaces its ISA encoder with one parameterized
+// RV32IMC kernel per package (issue #206) that issues every task's jobs
+// through the CVA6 MMIO window (RvNpuMmio.h), reading the task and segment
+// from a parameter block at DATA_BASE. The delegate drives these steps and
 // compiles the kernel; nothing here includes the back end.
 //
 //===----------------------------------------------------------------------===//
 #ifndef RVNPU_RVNPUPASSES_H
 #define RVNPU_RVNPUPASSES_H
 
-#include "RvNpu/RvNpuDialect.h"
 #include "RvNpu/RvNpuLayout.h"
 
-#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/OwningOpRef.h"
-#include "mlir/Pass/Pass.h"
 
 #include "llvm/ADT/StringRef.h"
 
-#include <memory>
+#include <cstdint>
 #include <string>
 #include <vector>
 
 namespace mlir::rvnpu {
-
-// Rewrite one claimable matmul (rvnpu::isClaimable, RvNpu/RvNpuMatch.h) into
-// rvnpu.matmul {tk = min(K, maxK)} with the same M x N result; return it. The
-// matmul and its zero accumulator, if nothing else reads it, are erased.
-MatmulOp claim(linalg::MatmulOp op, int64_t maxK);
-
-// --rvnpu-claim: every INT8 x INT8 -> INT32 linalg.matmul whose right operand
-// is a constant and whose accumulator is zero becomes rvnpu.matmul
-// (isClaimable + claim).
-std::unique_ptr<Pass> createClaimPass(int64_t maxK = 256);
-void registerClaimPass();
 
 // Pack: a [K, N] INT8 weight as the B tiles the NPU reads (spec/layout.py).
 std::vector<int8_t> packB(const GemmPlan &plan, const int8_t *b);
@@ -66,7 +54,7 @@ struct Program {
   std::vector<Segment> segments;
 };
 
-// Split one rvnpu.matmul (its plan, and where Pack put its B tiles) into
+// Split one claimed matmul (its plan, and where Pack put its B tiles) into
 // segments and fix its data block.
 Program planProgram(int64_t id, const GemmPlan &plan, int64_t weightOffset,
                     int64_t segmentBytes);

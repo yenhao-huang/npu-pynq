@@ -1,36 +1,27 @@
-//===- NpuPasses.h - NPU passes and the delegate's compile steps -*- C++ -*-===//
+//===- NpuPasses.h - the npu delegate's compile steps -----------*- C++ -*-===//
+//
+// The NpuCodegen library: plain C++ the npu delegate
+// (src/export/backend/delegates/npu/) calls on each claimed linalg.matmul
+// (npu::isClaimable, Npu/NpuMatch.h), given M, N, K, its constant weight and
+// tk = min(K, MAX_K). The NPU runs K in chunks of tk; libnpu_rt sums the
+// chunks, so the delegate's result is the full M x N product.
+//
+//===----------------------------------------------------------------------===//
 #ifndef NPU_NPUPASSES_H
 #define NPU_NPUPASSES_H
 
-#include "Npu/NpuDialect.h"
 #include "Npu/NpuEncoder.h"
 
-#include "mlir/Dialect/Linalg/IR/Linalg.h"
-
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/Pass/Pass.h"
-
-#include <memory>
+#include <cstdint>
 #include <string>
 #include <vector>
 
 namespace mlir::npu {
 
-// Rewrite one claimable matmul (npu::isClaimable, Npu/NpuMatch.h) into
-// npu.matmul {tk = min(K, maxK)} with the same M x N result; return it. The
-// matmul and its zero accumulator, if nothing else reads it, are erased.
-MatmulOp claim(linalg::MatmulOp op, int64_t maxK);
-
-// --npu-claim: every INT8 x INT8 -> INT32 linalg.matmul whose right operand
-// is a constant and whose accumulator is zero becomes npu.matmul
-// (isClaimable + claim).
-std::unique_ptr<Pass> createClaimPass(int64_t maxK = 256);
-void registerClaimPass();
-
 // Pack: a [K, N] INT8 weight as the B tiles the NPU reads (spec/layout.py).
 std::vector<int8_t> packB(const GemmPlan &plan, const int8_t *b);
 
-// Encode: one npu.matmul as an ISA program, split into segments whose weight
+// Encode: one claimed matmul as an ISA program, split into segments whose weight
 // blocks fit `segmentBytes`. ADDR_B words hold offsets inside each segment's
 // block; the loader relocates them.
 struct Segment {
