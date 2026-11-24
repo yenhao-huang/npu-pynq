@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1790 350" role="img" aria-labelledby="title desc">
   <title id="title">Pynqo AI compilation stack</title>
-  <desc id="desc">Model format to PyTorch (torch.export, FX quantization) to Torch-MLIR to the Pynqo middle end (decomposition, fusion, lowering, device partition), which feeds a CPU backend and an NPU backend. The CPU backend emits LLVM IR, which LLVM (opt, llc, ld.lld) turns into a .so that the runtime runs on the ARM Cortex-A9 with NEON. The NPU backend emits NPU programs (an NPU ISA stream for the custom scalar core, or RV32 code for CVA6) that the driver runs on the NPU; the runtime reaches the driver through __delegate__.</desc>
+  <desc id="desc">Model format to PyTorch (torch.export, FX quantization) to Torch-MLIR to the Pynqo middle end (decomposition, fusion, lowering, device partition), which feeds a CPU backend (loop interchange, LLVM IR codegen) and an NPU backend (tiling, weight packing, NPU program codegen). The CPU backend emits LLVM IR, which LLVM (opt, llc, ld.lld) turns into a .so that the runtime runs on the ARM Cortex-A9. The NPU backend emits NPU programs (an NPU ISA stream for the custom scalar core, or RV32 code for CVA6) that the driver runs on the NPU; the runtime reaches the driver through __delegate__.</desc>
   <defs>
     <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5 0 10Z" fill="#3b3631"/></marker>
     <marker id="d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5 0 10Z" fill="#444"/></marker>
@@ -62,11 +62,15 @@
 
   <!-- CPU Backend -->
   <rect x="906" y="80" width="190" height="78" class="box"/>
-  <text x="1001" y="125" text-anchor="middle" class="ttl">CPU Backend</text>
+  <text x="1001" y="106" text-anchor="middle" class="ttl">CPU Backend</text>
+  <text x="1001" y="129" text-anchor="middle" class="lbl">Loop interchange,</text>
+  <text x="1001" y="148" text-anchor="middle" class="lbl">LLVM IR codegen</text>
 
   <!-- NPU Backend -->
   <rect x="906" y="176" width="190" height="78" class="box"/>
-  <text x="1001" y="221" text-anchor="middle" class="ttl">NPU Backend</text>
+  <text x="1001" y="202" text-anchor="middle" class="ttl">NPU Backend</text>
+  <text x="1001" y="225" text-anchor="middle" class="lbl">Tiling, weight packing,</text>
+  <text x="1001" y="244" text-anchor="middle" class="lbl">NPU program codegen</text>
 
   <!-- CPU line: CPU Backend -> LLVM -> Runtime -> CPU -->
   <path d="M1096 119H1182" class="ar" marker-end="url(#a)"/>
@@ -96,16 +100,13 @@
   <rect x="1570" y="79" width="200" height="80" class="dev"/>
   <svg x="1576" y="89" width="60" height="60" viewBox="0 -960 960 960"><path d="M360 -120v-80H260q-24 0-42-18t-18-42v-100h-80v-60h80v-124h-80v-60h80v-100q0-24 18-42t42-18h100v-76h60v76h124v-76h60v76h100q24 0 42 18t18 42v100h76v60h-76v124h76v60h-76v100q0 24-18 42t-42 18H604v80h-60v-80H420v80h-60Zm344-140v-444H260v444h444ZM480-480Z" fill="#fffdf9"/></svg>
   <text x="1606" y="123" text-anchor="middle" style="fill:#fffdf9;font-size:10px;font-weight:700">CPU</text>
-  <text x="1644" y="117" class="dt">ARM Cortex-A9</text>
-  <text x="1644" y="137" class="ds">+ NEON</text>
+  <text x="1644" y="125" class="dt">ARM Cortex-A9</text>
 
   <!-- NPU -->
   <rect x="1570" y="175" width="200" height="80" class="dev"/>
   <svg x="1576" y="185" width="60" height="60" viewBox="0 -960 960 960"><path d="M360 -120v-80H260q-24 0-42-18t-18-42v-100h-80v-60h80v-124h-80v-60h80v-100q0-24 18-42t42-18h100v-76h60v76h124v-76h60v76h100q24 0 42 18t18 42v100h76v60h-76v124h76v60h-76v100q0 24-18 42t-42 18H604v80h-60v-80H420v80h-60Zm344-140v-444H260v444h444ZM480-480Z" fill="#fffdf9"/></svg>
   <text x="1606" y="219" text-anchor="middle" style="fill:#fffdf9;font-size:10px;font-weight:700">NPU</text>
-  <text x="1644" y="205" class="dt">NPU</text>
-  <text x="1644" y="225" class="ds">custom core or CVA6</text>
-  <text x="1644" y="242" class="ds">+ 16x16 matrix core</text>
+  <text x="1644" y="221" class="dt">NPU</text>
 
   <text x="895" y="322" text-anchor="middle" class="cap">Figure 1: Pynqo — AI Compilation Stack (PYNQ-Z1)</text>
 </svg>
