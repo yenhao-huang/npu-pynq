@@ -1,7 +1,7 @@
 # Milestone: software stack features
 
 Status of the inference framework (`src/runtime/`, `src/vendors/npu_pynq/driver/`)
-and the compiler (`src/export/`, including `src/export/devices/npu/`), checked
+and the compiler (`src/export/`, including `src/export/backend/delegates/npu/`), checked
 against features common in mainstream inference frameworks and ML compilers
 (vLLM, TensorRT-LLM, llama.cpp, ExecuTorch, TVM, XLA, MLIR).
 

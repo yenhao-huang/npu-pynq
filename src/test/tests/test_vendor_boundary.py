@@ -3,7 +3,7 @@
 ``src/vendors/<vendor>/`` holds what one accelerator needs at run time:
 ``spec/`` (hardware facts, read by both export and runtime) and ``driver/``
 (board side). Compile-time code for a device lives under
-``src/export/devices/<device>/``."""
+``src/export/backend/delegates/<device>/``."""
 import ast
 from pathlib import Path
 import re
@@ -12,16 +12,16 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 VENDORS = ROOT / 'src/vendors'
-DEVICES = ROOT / 'src/export/devices'
+DEVICES = ROOT / 'src/export/backend/delegates'
 DELEGATES = ROOT / 'src/export/backend/delegates'
 
 # What a vendor folder may hold: its two run-time parts, plus the package
 # marker and a README. Anything else (a compiler, a dialect, a generator that
-# writes into export) belongs under src/export/devices/<device>/.
+# writes into export) belongs under src/export/backend/delegates/<device>/.
 VENDOR_DIRS = {'spec', 'driver'}
 VENDOR_FILES = {'__init__.py', 'README.md'}
 # A path or module name that reaches into the compile-time side.
-COMPILE_TIME = re.compile(r'src[/\\.]export|export/devices|custom_dialect')
+COMPILE_TIME = re.compile(r'src[/\\.]export|custom_dialect')
 SKIP_DIRS = {'__pycache__', 'build'}
 BINARY = {'.pyc', '.so', '.o', '.a', '.bit', '.hwh', '.elf', '.bin'}
 
@@ -67,19 +67,19 @@ class VendorBoundaryTests(unittest.TestCase):
 
 
 class VendorHoldsRunTimeOnlyTests(unittest.TestCase):
-    """The run-time / compile-time split between src/vendors and src/export/devices."""
+    """The run-time / compile-time split between src/vendors and src/export/backend/delegates."""
 
     def test_a_vendor_holds_only_spec_and_driver(self):
         self.assertTrue(vendors(), 'no vendor under src/vendors')
         for vendor in vendors():
             with self.subTest(vendor=vendor.name):
                 self.assertFalse((vendor / 'custom_dialect').exists(),
-                                 f'move {vendor.name}/custom_dialect to src/export/devices/<device>/')
+                                 f'move {vendor.name}/custom_dialect to src/export/backend/delegates/<device>/')
                 self.assertTrue((vendor / 'spec').is_dir(), f'{vendor.name} has no spec/')
                 dirs = {p.name for p in vendor.iterdir() if p.is_dir() and p.name not in SKIP_DIRS}
                 files = {p.name for p in vendor.iterdir() if p.is_file()}
                 self.assertLessEqual(dirs, VENDOR_DIRS,
-                                     f'{vendor.name}: compile-time code goes to src/export/devices/')
+                                     f'{vendor.name}: compile-time code goes to src/export/backend/delegates/')
                 self.assertLessEqual(files, VENDOR_FILES, f'{vendor.name}: unexpected top-level file')
 
     def test_nothing_in_vendors_references_the_compile_time_side(self):
@@ -96,13 +96,13 @@ class VendorHoldsRunTimeOnlyTests(unittest.TestCase):
                           for n, line in enumerate(text.splitlines(), 1) if COMPILE_TIME.search(line)]
         self.assertEqual(offenders, [], 'src/vendors must not reference src/export or custom_dialect')
 
-    def test_every_delegate_has_a_device_folder(self):
+    def test_every_delegate_builds_its_device_library(self):
         delegates = sorted(p.name for p in DELEGATES.iterdir() if p.is_dir())
         self.assertTrue(delegates, 'no delegate under src/export/backend/delegates')
         for name in delegates:
             with self.subTest(device=name):
                 self.assertTrue((DEVICES / name / 'CMakeLists.txt').is_file(),
-                                f'src/export/devices/{name}/ is missing its compile-time code')
+                                f'src/export/backend/delegates/{name}/ has no CMakeLists.txt for its device library')
 
 
 if __name__ == '__main__': unittest.main()

@@ -1,5 +1,5 @@
 # Two static libraries (LLVM 22 / MLIR), added with add_subdirectory() by a
-# tool that has already found MLIR; laid out as devices/npu.
+# tool that has already found MLIR; laid out as ../npu.
 # Names (dialect, namespace, passes, targets) differ from npu_pynq's so both
 # link into one pynqo-backend and one pynqo-middle-end.
 #

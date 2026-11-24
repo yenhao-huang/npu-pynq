@@ -13,9 +13,10 @@ import unittest
 
 FRONTEND = Path(__file__).resolve().parents[2] / 'export' / 'frontend'
 EXPORT = FRONTEND.parent
-# Each device's compile-time code (claim rule, dialect, lowering) lives under
-# src/export/devices/<device>/; src/vendors/ keeps only spec/ and driver/.
-DEVICES = EXPORT / 'devices'
+# Each device's compile-time code (claim rule, dialect, lowering) lives in its
+# delegate, src/export/backend/delegates/<device>/; src/vendors/ keeps only
+# spec/ and driver/.
+DEVICES = EXPORT / 'backend' / 'delegates'
 # Each device's claim library, its dialect library, and the folder they live in.
 DEVICE_LIBRARIES = (('NpuMatch', 'NpuDialect', DEVICES / 'npu', 'Npu'),
                     ('RvNpuMatch', 'RvNpuDialect', DEVICES / 'risc_v_npu', 'RvNpu'))

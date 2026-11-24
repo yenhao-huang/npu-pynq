@@ -4,7 +4,7 @@
 // (pynqo-assign-devices), --rvnpu-claim and the risc_v_npu delegate.
 // Upstream dialects only.
 //
-// Copied from src/export/devices/npu/lib/Match.cpp and renamed
+// Copied from src/export/backend/delegates/npu/lib/Match.cpp and renamed
 // to mlir::rvnpu; keep the two in step (plan 2026-1112-003 section 6.2).
 //
 //===----------------------------------------------------------------------===//

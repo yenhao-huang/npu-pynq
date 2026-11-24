@@ -48,10 +48,10 @@ FetchContent_MakeAvailable(torch_mlir)
 # (NpuDialect, RvNpuDialect) belong to pynqo-backend, and they link the
 # monolithic MLIR library, which must not meet the static MLIR libraries
 # linked here.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../devices/npu
-                 ${CMAKE_CURRENT_BINARY_DIR}/devices/npu EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../devices/risc_v_npu
-                 ${CMAKE_CURRENT_BINARY_DIR}/devices/risc_v_npu EXCLUDE_FROM_ALL)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../backend/delegates/npu
+                 ${CMAKE_CURRENT_BINARY_DIR}/delegates/npu EXCLUDE_FROM_ALL)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../backend/delegates/risc_v_npu
+                 ${CMAKE_CURRENT_BINARY_DIR}/delegates/risc_v_npu EXCLUDE_FROM_ALL)
 
 add_llvm_executable(pynqo-middle-end
   pynqo_middle_end.cpp

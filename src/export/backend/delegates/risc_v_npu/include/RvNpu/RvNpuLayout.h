@@ -1,6 +1,6 @@
 //===- RvNpuLayout.h - tiled-GEMM layout in DDR -----------------*- C++ -*-===//
 //
-// Copied from the GemmPlan part of src/export/devices/npu/include/Npu/
+// Copied from the GemmPlan part of src/export/backend/delegates/npu/include/Npu/
 // NpuEncoder.h (a C++ port of spec/layout.py), renamed to
 // mlir::rvnpu. The matrix core is the same in both builds, so the A, B and C
 // layouts are too; keep the two copies in step. There is no ISA encoder here:

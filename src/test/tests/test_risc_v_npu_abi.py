@@ -28,8 +28,8 @@ from src.vendors.risc_v_npu.spec import abi, layout
 
 ROOT = Path(__file__).resolve().parents[3]
 # The header generator is compile-time code: it lives with the device under
-# src/export/devices/ and reads the vendor's spec (export -> vendors).
-GENERATOR = ROOT / 'src/export/devices/risc_v_npu/gen_mmio_header.py'
+# src/export/backend/delegates/ and reads the vendor's spec (export -> vendors).
+GENERATOR = ROOT / 'src/export/backend/delegates/risc_v_npu/gen_mmio_header.py'
 _spec = importlib.util.spec_from_file_location('_rv_npu_gen_mmio_header', GENERATOR)
 _generator = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_generator)
@@ -167,7 +167,7 @@ class CsrTests(unittest.TestCase):
 class HeaderTests(unittest.TestCase):
     def test_checked_in_header_matches_the_generator(self) -> None:
         self.assertEqual(HEADER.read_text(encoding='utf-8'), render(),
-                         'RvNpuMmio.h is stale: run python src/export/devices/risc_v_npu/gen_mmio_header.py')
+                         'RvNpuMmio.h is stale: run python src/export/backend/delegates/risc_v_npu/gen_mmio_header.py')
 
     def test_generator_writes_into_its_device_folder(self) -> None:
         # The header belongs to the compile-time device, not to the vendor.

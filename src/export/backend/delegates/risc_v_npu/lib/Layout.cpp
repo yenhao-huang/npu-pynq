@@ -1,6 +1,6 @@
 //===- Layout.cpp - tiled-GEMM layout in DDR ------------------------------===//
 //
-// Copied from the GemmPlan part of src/export/devices/npu/lib/
+// Copied from the GemmPlan part of src/export/backend/delegates/npu/lib/
 // NpuEncoder.cpp, renamed to mlir::rvnpu. Keep the two copies in step.
 //
 //===----------------------------------------------------------------------===//

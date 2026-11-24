@@ -1,6 +1,6 @@
 # pynqo-backend: the back end, built out of tree against an installed LLVM 22
-# with MLIR. It links each device's dialect library (src/export/devices/npu,
-# src/export/devices/risc_v_npu); src/export/pipeline.py builds it when
+# with MLIR. It links each device's dialect library (delegates/npu,
+# delegates/risc_v_npu); src/export/pipeline.py builds it when
 # stale. The risc_v_npu delegate compiles RV32IMC in process and needs LLVM's
 # RISCV target; without it the back end still builds, and
 # --devices cpu,risc_v_npu reports the missing target.
@@ -24,10 +24,10 @@ include(HandleLLVMOptions)
 include_directories(${LLVM_INCLUDE_DIRS} ${MLIR_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../devices/npu
-                 ${CMAKE_CURRENT_BINARY_DIR}/devices/npu)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../devices/risc_v_npu
-                 ${CMAKE_CURRENT_BINARY_DIR}/devices/risc_v_npu)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/delegates/npu
+                 ${CMAKE_CURRENT_BINARY_DIR}/delegates/npu)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/delegates/risc_v_npu
+                 ${CMAKE_CURRENT_BINARY_DIR}/delegates/risc_v_npu)
 
 add_executable(pynqo-backend
   pynqo_backend.cpp

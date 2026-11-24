@@ -6,7 +6,7 @@
 // the rvnpu dialect, the RISC-V lowering, or the monolithic MLIR library.
 // --rvnpu-claim and the risc_v_npu delegate use the same predicate.
 //
-// Copied from src/export/devices/npu/include/Npu/NpuMatch.h
+// Copied from src/export/backend/delegates/npu/include/Npu/NpuMatch.h
 // (risc_v_npu keeps its own copy; plan 2026-1112-003 section 6.2). Keep the
 // two in step: both devices run the same matrix core.
 //

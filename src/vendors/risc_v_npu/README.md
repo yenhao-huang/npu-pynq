@@ -17,7 +17,7 @@ This folder holds what the device needs at run time: `spec/` (hardware facts,
 read by both export and runtime) and `driver/` (board side). Its compile-time
 code (the `rvnpu` dialect, the claim rule, the lowering to RISC-V, the program
 encoding, `crt0.S` / `link.ld` and the MMIO header generator) lives in the
-export tree under `devices/risc_v_npu/`; see
+export tree under `backend/delegates/risc_v_npu/`; see
 [docs/rules/filetree.md](../../../docs/rules/filetree.md). Nothing here refers
 to that side: the dependency runs from export to this `spec/` only.
 
@@ -27,7 +27,7 @@ The device follows the delegate framework of plan
 [2026-1113-001](../../../docs/plans/2026-1113-001-delegate-framework.md),
 exactly as `npu` does:
 
-1. **Middle end: the matcher.** `devices/risc_v_npu/include/RvNpu/RvNpuMatch.h`
+1. **Middle end: the matcher.** `backend/delegates/risc_v_npu/include/RvNpu/RvNpuMatch.h`
    and `lib/Match.cpp` (the `RvNpuMatch` library, upstream dialects only, no
    link libraries) define `rvnpu::isClaimable`, a copy of `npu::isClaimable`:
    an INT8 x INT8 -> INT32 `linalg.matmul` with static 2-D operands, a
@@ -74,7 +74,7 @@ run RISC-V. A risc_v_npu package runs only on the board with the CVA6 overlay.
 | `driver/rv_npu_rt/` | `librv_npu_rt`, the ARM-side delegate backend (packs A, writes the parameter block and runs the kernel per segment, sums the K planes of C into the M x N output) |
 | `driver/overlay/` | manifest (`build.py`) and verification (`verify.py`) of the CVA6 overlay |
 
-The compile-time side, `devices/risc_v_npu/` in the export tree, holds
+The compile-time side, `backend/delegates/risc_v_npu/` in the export tree, holds
 `RvNpuMatch` (the claim rule the middle end links), the `rvnpu` dialect,
 `claim`, `LowerToRiscv`, `runtime/crt0.S` / `runtime/link.ld`, and
 `gen_mmio_header.py`, which writes `include/RvNpu/RvNpuMmio.h` from this
@@ -238,7 +238,7 @@ cold caches and cannot see a stale line of a previous run's block.
 
 ### What the kernel does
 
-Contract with the compile-time side (`devices/risc_v_npu/`: LowerToRiscv,
+Contract with the compile-time side (`backend/delegates/risc_v_npu/`: LowerToRiscv,
 `crt0.S`, `link.ld`):
 
 1. It is position independent and loaded at `PROG_ADDR` (8-byte aligned, in
@@ -262,7 +262,7 @@ Contract with the compile-time side (`devices/risc_v_npu/`: LowerToRiscv,
 
 After changing `spec/abi.py` or the parameter block in `spec/layout.py`,
 regenerate `RvNpuMmio.h` with the export tree's
-`devices/risc_v_npu/gen_mmio_header.py` (`--check` only compares);
+`backend/delegates/risc_v_npu/gen_mmio_header.py` (`--check` only compares);
 `test_risc_v_npu_abi` fails until the header matches.
 
 ```bash

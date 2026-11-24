@@ -1,6 +1,6 @@
 //===- RvNpuDialect.cpp - risc_v_npu dialect ------------------------------===//
 //
-// Copied from src/export/devices/npu/lib/NpuDialect.cpp, renamed
+// Copied from src/export/backend/delegates/npu/lib/NpuDialect.cpp, renamed
 // to the rvnpu dialect. Keep the verifier in step with npu.matmul's.
 //
 //===----------------------------------------------------------------------===//

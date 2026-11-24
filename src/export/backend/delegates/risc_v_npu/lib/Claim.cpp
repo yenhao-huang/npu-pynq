@@ -1,6 +1,6 @@
 //===- Claim.cpp - rewrite a claimed contraction for risc_v_npu -----------===//
 //
-// Copied from src/export/devices/npu/lib/Claim.cpp and renamed to
+// Copied from src/export/backend/delegates/npu/lib/Claim.cpp and renamed to
 // the rvnpu dialect (mlir::rvnpu, --rvnpu-claim), so both devices link into one
 // pynqo-backend; keep the two in step (plan 2026-1112-003 section 6.2).
 //

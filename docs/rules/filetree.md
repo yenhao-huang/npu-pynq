@@ -99,20 +99,20 @@ npu_repo_in_pynq/
 |   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:
 |   |   |                        one file per rewrite on the torch dialect; linalg/transforms/: device
 |   |   |                        assignment, and partitioning into delegate calls and device modules
-|   |   |-- devices/             one folder per device, compile time only, never shipped to the board;
-|   |   |   |                    named like backend/delegates/<device>/
-|   |   |   |-- npu/             C++ (LLVM 22): NpuMatch (the claim rule, npu::isClaimable), linked by
-|   |   |   |                    both export tools; NpuDialect (the npu dialect, npu::claim,
-|   |   |   |                    --npu-claim, Pack, Encode), by pynqo-backend only
-|   |   |   `-- risc_v_npu/      C++ (LLVM 22): RvNpuMatch (the claim rule, rvnpu::isClaimable, a copy of
-|   |   |       |                NpuMatch), linked by both export tools; RvNpuDialect (the rvnpu dialect,
-|   |   |       |                rvnpu::claim, --rvnpu-claim, Pack, LowerToRiscv, Programs (rv_programs.*)),
-|   |   |       |                by pynqo-backend only; gen_mmio_header.py writes the generated
-|   |   |       |                include/RvNpu/RvNpuMmio.h from vendors/risc_v_npu/spec/
-|   |   |       `-- runtime/     crt0.S and link.ld, linked into the generated RISC-V GEMM kernel
-|   |   `-- backend/             C++ pynqo-backend: delegates/ (npu/, risc_v_npu/; each compiles its
-|   |                            device's module), package (weights.bin), cpu/delegate_calls (the
-|   |                            __delegate__ ABI), cpu/toolchain (LLVM IR, llc, link), device_register
+|   |   `-- backend/             C++ pynqo-backend: package (weights.bin), cpu/delegate_calls (the
+|   |       |                    __delegate__ ABI), cpu/toolchain (LLVM IR, llc, link), device_register
+|   |       `-- delegates/       one folder per device: all of its compile-time code, never shipped
+|   |           |                to the board; lower.cpp is the delegate's entry point
+|   |           |-- npu/         C++ (LLVM 22): NpuMatch (the claim rule, npu::isClaimable), linked by
+|   |           |                both export tools; NpuDialect (the npu dialect, npu::claim, Pack,
+|   |           |                Encode), by pynqo-backend only
+|   |           `-- risc_v_npu/  C++ (LLVM 22): RvNpuMatch (the claim rule, rvnpu::isClaimable, a copy
+|   |               |            of NpuMatch), linked by both export tools; RvNpuDialect (the rvnpu
+|   |               |            dialect, rvnpu::claim, Pack, LowerToRiscv, Programs (rv_programs.*)),
+|   |               |            by pynqo-backend only; rv_codegen (RV32IMC binary);
+|   |               |            gen_mmio_header.py writes include/RvNpu/RvNpuMmio.h from
+|   |               |            vendors/risc_v_npu/spec/
+|   |               `-- runtime/ crt0.S and link.ld, linked into the generated RISC-V GEMM kernel
 |   |-- deploy/                  deploy.sh (send to the board, or ARCHIVE= a release archive),
 |   |                            resnet18_assets.py and its pins
 |   |-- deprecate/               retired code, kept for reference; nothing active imports it
@@ -225,7 +225,7 @@ against it, and `Makefile` is what CI invokes.
 `src/vendors/<vendor>/` holds what one accelerator needs at run time:
 `spec/` (hardware facts, read by both export and runtime) and `driver/`
 (board side). Compile-time code for a device lives under
-`src/export/devices/<device>/`. A vendor folder is a layer below both
+`src/export/backend/delegates/<device>/`. A vendor folder is a layer below both
 `src/export/` and `src/runtime/`: export may read a vendor's `spec/`, the
 runtime may use its `spec/` and `driver/`, and a vendor references neither
 export nor runtime (no import, no path, no CMake `add_subdirectory`, no
@@ -270,17 +270,19 @@ remaining weights into `weights.bin`, and compiles the CPU graph for the
 Cortex-A9 and the host, one per-target pipeline from bufferization down. A
 delegate contributes no CPU code.
 
-`src/export/devices/<device>/` holds one device's compile-time code, named
-like its delegate under `backend/delegates/<device>/`: the MLIR dialect, the
-claim rule, the lowering and the program encoding. It is C++ against LLVM 22,
+`src/export/backend/delegates/<device>/` holds all of one device's
+compile-time code: the delegate's entry point (`lower.cpp`), the MLIR dialect,
+the claim rule, tiling and memory layout, the lowering and the program
+encoding. The middle end stays device-agnostic: it links only the claim rule,
+and tiling and layout stay with the delegate. It is C++ against LLVM 22,
 never shipped to the board, and may read its vendor's `spec/` but never its
-`driver/`. `devices/npu/` holds two libraries. `NpuMatch` is the claim rule
+`driver/`. `backend/delegates/npu/` holds two libraries. `NpuMatch` is the claim rule
 (`npu::isClaimable`: INT8 contractions on constant weights), built from
 upstream MLIR headers only and linked by both export tools. `NpuDialect`,
 linked by `pynqo-backend` only, rewrites a claimed contraction as
 `npu.matmul`, packs its weights as B tiles and encodes ISA programs; its C++
 encoder is a port of `src/vendors/npu_pynq/spec/isa.py` and `layout.py`.
-`devices/risc_v_npu/` mirrors it with `RvNpuMatch` and `RvNpuDialect`
+`backend/delegates/risc_v_npu/` mirrors it with `RvNpuMatch` and `RvNpuDialect`
 (`LowerToRiscv` and the RISC-V programs, with `runtime/crt0.S` and
 `runtime/link.ld` for the generated kernel); its `gen_mmio_header.py` writes
 `include/RvNpu/RvNpuMmio.h` from `src/vendors/risc_v_npu/spec/abi.py` and
@@ -288,8 +290,8 @@ encoder is a port of `src/vendors/npu_pynq/spec/isa.py` and `layout.py`.
 
 A new model is a new config; a new
 device is a matcher in `middle-end/linalg/transforms/AssignDevices.cpp`, a
-delegate under `backend/delegates/`, its compile-time folder under
-`devices/<device>/`, whose claim rule the middle end links without the
+delegate folder `backend/delegates/<device>/` with all of its compile-time
+code, whose claim rule the middle end links without the
 device's dialect or encoder, and a vendor folder for its `spec/` and
 `driver/`. Front-end stages
 do not import each other; only `pipeline.py` passes a model from one to the
