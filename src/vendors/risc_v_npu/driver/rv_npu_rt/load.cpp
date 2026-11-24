@@ -1,22 +1,25 @@
-/* Load a package: the program table, the RISC-V binaries, and the weights.
+/* Load a package: the program table, the one GEMM kernel, and the weights.
  *
- * rv_programs.txt (written by the back end's risc_v_npu delegate):
- *   rv-programs 1 <rows> <columns> <max_k> <bin_bytes> <count>
+ * rv_programs.txt (written by the back end's risc_v_npu delegate), format 2:
+ *   rv-programs 2 <rows> <columns> <max_k> <bin_bytes> <mem_bytes> <count>
  *   task <id> <m> <n> <k> <tm> <tn> <tk> <a_bytes> <c_base> <c_bytes> <b_base> <segments>
- *   seg <bin_offset> <bin_bytes> <mem_bytes> <weight_offset> <b_bytes>
+ *   seg <ni_lo> <ni_hi> <weight_offset> <b_bytes>
  *
- * rv_programs.bin holds every segment's flat RV32IMC binary, each starting at
- * an 8-byte aligned <bin_offset>. <mem_bytes> (>= <bin_bytes>) is what the
- * program uses from its load address while it runs: the image plus .bss and
- * the stack that crt0 places after it. Each binary gets a slot of mem_bytes
- * rounded up to 64 in the code buffer, filled once here; .data is not
- * reloaded between runs.
+ * rv_programs.bin is the package's single parameterized RV32IMC kernel
+ * (<bin_bytes>). <mem_bytes> (>= <bin_bytes>) is what it uses from its load
+ * address while it runs: the image plus .bss and the stack that crt0 places
+ * after it. The kernel gets one slot of mem_bytes rounded up to 64 at offset 0
+ * of the code buffer, filled once here; .data is not reloaded between runs.
+ * Format 1 (one binary per task and segment) is not read any more.
  *
  * The data block at DATA_BASE (the io buffer) is laid out as
- * src/vendors/risc_v_npu/spec/layout.py DataLayout says: A tiles at 0, C
- * planes at <c_base> (<c_bytes>: every K plane, which reduceOutput sums into the
- * M x N output), the staged B block of the running segment at <b_base>.
- * Nothing is relocated: the program adds these offsets to DATA_BASE itself.
+ * src/vendors/risc_v_npu/spec/layout.py DataLayout says: the 64-byte
+ * parameter block at 0 (rv_npu_rt.h kParam*, written by execute.cpp before
+ * every segment run), A tiles at 64, C planes at <c_base> (<c_bytes>: every K
+ * plane, which reduceOutput sums into the M x N output), the staged B block of
+ * the running segment (column tiles [ni_lo, ni_hi)) at <b_base>. Nothing is
+ * relocated: the kernel reads the parameter block and adds its offsets to
+ * DATA_BASE itself.
  */
 #include "rv_npu_rt.h"
 
@@ -41,7 +44,7 @@ constexpr uint32_t kSlotAlign = 64;
 
 uint32_t alignUp(uint32_t v, uint32_t to) { return (v + to - 1) / to * to; }
 
-bool parse(const std::string &dir, std::vector<Program> &programs, uint32_t &binBytes,
+bool parse(const std::string &dir, std::vector<Program> &programs, Kernel &kernel,
            int32_t limits[3], std::string &error) {
   std::ifstream in(dir + "/rv_programs.txt");
   if (!in) {
@@ -50,9 +53,21 @@ bool parse(const std::string &dir, std::vector<Program> &programs, uint32_t &bin
   }
   std::string tag;
   int version = 0, count = 0;
-  in >> tag >> version >> limits[0] >> limits[1] >> limits[2] >> binBytes >> count;
-  if (!in || tag != "rv-programs" || version != 1 || count < 0) {
+  in >> tag >> version;
+  if (!in || tag != "rv-programs") {
     error = "rv_programs.txt: unknown format";
+    return false;
+  }
+  if (version != 2) {
+    error = "rv_programs.txt: format " + std::to_string(version) +
+            " is not supported (this librv_npu_rt reads format 2, one parameterized kernel); "
+            "export the model again";
+    return false;
+  }
+  in >> limits[0] >> limits[1] >> limits[2] >> kernel.binBytes >> kernel.memBytes >> count;
+  // A package without risc_v_npu tasks has no kernel (bin_bytes 0); every other has one.
+  if (!in || count < 0 || (count > 0 && kernel.binBytes == 0) || kernel.memBytes < kernel.binBytes) {
+    error = "rv_programs.txt: bad header";
     return false;
   }
   programs.assign(count, Program{});
@@ -65,19 +80,26 @@ bool parse(const std::string &dir, std::vector<Program> &programs, uint32_t &bin
       error = "rv_programs.txt: tasks out of order";
       return false;
     }
-    if (p.cBase < p.aBytes || p.bBase < p.cBase + p.cBytes || segments < 1) {
+    if (std::min({p.m, p.n, p.k, p.tm, p.tn, p.tk}) < 1 || p.tm > p.m || p.tn > p.n ||
+        p.tk > p.k) {
+      error = "rv_programs.txt: task " + std::to_string(i) + " has a bad shape";
+      return false;
+    }
+    if (static_cast<int64_t>(p.cBase) < static_cast<int64_t>(kParamBytes) + p.aBytes ||
+        static_cast<int64_t>(p.bBase) < static_cast<int64_t>(p.cBase) + p.cBytes || segments < 1) {
       error = "rv_programs.txt: task " + std::to_string(i) + " has an overlapping data layout";
       return false;
     }
+    const int32_t nt = ceilDiv(p.n, p.tn), panel = bPanel(p);
     for (int s = 0; s < segments; ++s) {
       Segment g{};
-      in >> tag >> g.binOffset >> g.binBytes >> g.memBytes >> g.weightOffset >> g.bBytes;
+      in >> tag >> g.niLo >> g.niHi >> g.weightOffset >> g.bBytes;
       if (!in || tag != "seg") {
         error = "rv_programs.txt: bad segment";
         return false;
       }
-      if (g.binOffset % 8 || g.binBytes == 0 || g.memBytes < g.binBytes ||
-          static_cast<uint64_t>(g.binOffset) + g.binBytes > binBytes || g.bBytes < 0) {
+      if (g.niLo < 0 || g.niHi <= g.niLo || g.niHi > nt ||
+          static_cast<int64_t>(g.bBytes) != static_cast<int64_t>(g.niHi - g.niLo) * panel) {
         error = "rv_programs.txt: task " + std::to_string(i) + " has a bad segment record";
         return false;
       }
@@ -87,18 +109,16 @@ bool parse(const std::string &dir, std::vector<Program> &programs, uint32_t &bin
   return true;
 }
 
-void sizes(std::vector<Program> &programs, uint32_t out[2]) {
-  uint32_t io = 64, code = 0;
-  for (Program &p : programs) {
+void sizes(const std::vector<Program> &programs, const Kernel &kernel, uint32_t out[2]) {
+  uint32_t io = kParamBytes;
+  for (const Program &p : programs) {
+    io = std::max<uint32_t>(io, kParamBytes + p.aBytes);
     io = std::max<uint32_t>(io, p.cBase + p.cBytes);
-    for (Segment &g : p.segments) {
+    for (const Segment &g : p.segments)
       io = std::max<uint32_t>(io, p.bBase + g.bBytes);
-      g.codeOffset = code;
-      code += alignUp(g.memBytes, kSlotAlign);
-    }
   }
   out[0] = io;
-  out[1] = std::max<uint32_t>(8, code);
+  out[1] = std::max<uint32_t>(8, alignUp(kernel.memBytes, kSlotAlign));
 }
 
 bool inWindow(const rv_npu_rt_buffer &b) {
@@ -107,9 +127,9 @@ bool inWindow(const rv_npu_rt_buffer &b) {
 
 } // namespace
 
-bool readTable(const std::string &dir, std::vector<Program> &programs, uint32_t &binBytes,
+bool readTable(const std::string &dir, std::vector<Program> &programs, Kernel &kernel,
                int32_t limits[3], std::string &error) {
-  return parse(dir, programs, binBytes, limits, error);
+  return parse(dir, programs, kernel, limits, error);
 }
 
 } // namespace rv_npu_rt
@@ -118,11 +138,11 @@ using namespace rv_npu_rt;
 
 extern "C" int rv_npu_rt_requirements(const char *package_dir, uint32_t out[2]) {
   std::vector<Program> programs;
-  uint32_t binBytes = 0;
+  Kernel kernel;
   int32_t limits[3];
-  if (!readTable(package_dir, programs, binBytes, limits, rt.message))
+  if (!readTable(package_dir, programs, kernel, limits, rt.message))
     return -1;
-  sizes(programs, out);
+  sizes(programs, kernel, out);
   return 0;
 }
 
@@ -134,12 +154,11 @@ extern "C" int rv_npu_rt_load(const char *package_dir, const rv_npu_rt_platform 
     return -1;
   }
   std::string dir = package_dir;
-  uint32_t binBytes = 0;
   int32_t limits[3];
-  if (!parse(dir, rt.programs, binBytes, limits, rt.message))
+  if (!parse(dir, rt.programs, rt.kernel, limits, rt.message))
     return -1;
   uint32_t need[2];
-  sizes(rt.programs, need);
+  sizes(rt.programs, rt.kernel, need);
 
   if (!checkOverlay(platform->mmio, rt.message))
     return -1;
@@ -159,18 +178,17 @@ extern "C" int rv_npu_rt_load(const char *package_dir, const rv_npu_rt_platform 
     return -1;
   }
 
-  /* The binaries, each into its slot; the rest of the slot (.bss, stack) zeroed. */
+  /* The kernel into its one slot at offset 0; the rest of the slot (.bss,
+   * stack) zeroed. */
   std::ifstream bin(dir + "/rv_programs.bin", std::ios::binary);
-  std::vector<char> image(binBytes);
-  if (!bin.read(image.data(), static_cast<std::streamsize>(binBytes))) {
+  std::vector<char> image(rt.kernel.binBytes);
+  if (!bin.read(image.data(), static_cast<std::streamsize>(rt.kernel.binBytes))) {
     rt.message = "cannot read rv_programs.bin";
     return -1;
   }
   uint8_t *code = static_cast<uint8_t *>(rt.code.virt);
   std::memset(code, 0, need[1]);
-  for (const Program &p : rt.programs)
-    for (const Segment &g : p.segments)
-      std::memcpy(code + g.codeOffset, image.data() + g.binOffset, g.binBytes);
+  std::memcpy(code, image.data(), rt.kernel.binBytes);
 
   /* weights.bin, mapped read-only; pages load on demand. */
   std::string path = dir + "/weights.bin";

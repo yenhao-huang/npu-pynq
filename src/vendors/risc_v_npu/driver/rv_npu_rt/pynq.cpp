@@ -1,8 +1,9 @@
-/* The board backend: start one RISC-V binary on CVA6 and wait for it.
+/* The board backend: start the RISC-V kernel on CVA6 and wait for it.
  *
  * CSR window of the npu_accelerator (spec/abi.py, the npu_pynq ABI 2.0 plus
- * RISCV_SCALAR_CORE): PROG_ADDR is CVA6's boot address (the binary in the code
- * buffer), PROG_LEN its size in 64-bit words rounded up, DATA_BASE the io
+ * RISCV_SCALAR_CORE): PROG_ADDR is CVA6's boot address (the kernel's one slot
+ * at the start of the code buffer, the same for every run), PROG_LEN its
+ * image size in 64-bit words rounded up, DATA_BASE the io
  * buffer; ISA_CONTROL starts CVA6, ISA_STATUS reports RUNNING / DONE / ERROR /
  * BUSY. The run ends when the program writes DONE (0 = success, otherwise
  * ISA_ERROR = the code) or the MMIO block latches a fault.
@@ -69,11 +70,11 @@ bool rv_npu_rt::checkOverlay(volatile uint32_t *r, std::string &error) {
   return true;
 }
 
-int32_t rv_npu_rt::pynqRun(const Segment &g) {
+int32_t rv_npu_rt::pynqRun() {
   volatile uint32_t *r = rt.mmio;
   barrier();
-  r[REG_PROG_ADDR / 4] = rt.code.phys + g.codeOffset;
-  r[REG_PROG_LEN / 4] = (g.binBytes + 7u) / 8u;
+  r[REG_PROG_ADDR / 4] = rt.code.phys;
+  r[REG_PROG_LEN / 4] = (rt.kernel.binBytes + 7u) / 8u;
   r[REG_DATA_BASE / 4] = rt.io.phys;
   barrier();
   r[REG_ISA_CONTROL / 4] = 1;
@@ -86,7 +87,7 @@ int32_t rv_npu_rt::pynqRun(const Segment &g) {
     if (!(status & (STATUS_RUNNING | STATUS_BUSY)))
       break;
     if (rt.timeoutNs && (++spins & 0x3ff) == 0 && nowNs() - start > rt.timeoutNs) {
-      rt.message = "a RISC-V program did not finish within the timeout (no DONE write?)";
+      rt.message = "the RISC-V kernel did not finish within the timeout (no DONE write?)";
       return kTimeout;
     }
   }

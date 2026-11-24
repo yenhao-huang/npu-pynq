@@ -1,11 +1,17 @@
 //===- Programs.cpp - rv_programs.bin / .txt / .json ----------------------===//
 //
 // The risc_v_npu counterpart of npu_pynq's writePrograms (Encode.cpp): the
-// compiled segment binaries and the table librv_npu_rt reads
+// compiled kernel and the table librv_npu_rt reads
 // (src/vendors/risc_v_npu/driver/rv_npu_rt/load.cpp).
+//
+// Format 2 (issue #206): rv_programs.bin is the one parameterized kernel
+// (LowerToRiscv) that runs every task and segment; the table says what the
+// driver writes to the parameter block at DATA_BASE (RVNPU_PARAM_*) and where
+// it stages each segment's weights.
 //
 //===----------------------------------------------------------------------===//
 
+#include "RvNpu/RvNpuMmio.h"
 #include "RvNpu/RvNpuPasses.h"
 
 #include "llvm/Support/FileSystem.h"
@@ -14,27 +20,18 @@
 
 using namespace mlir::rvnpu;
 
-bool mlir::rvnpu::writePrograms(
-    const std::string &dir, const Limits &limits, int64_t segmentBytes,
-    const std::vector<Program> &programs,
-    const std::vector<std::vector<std::vector<uint8_t>>> &binaries,
-    const std::vector<std::vector<int64_t>> &memBytes, std::string &error) {
-  // Lay the binaries out back to back, each at an 8-byte aligned offset.
-  std::vector<std::vector<int64_t>> offsets(programs.size());
-  int64_t total = 0;
-  for (size_t p = 0; p < programs.size(); ++p) {
-    if (binaries[p].size() != programs[p].segments.size() ||
-        memBytes[p].size() != programs[p].segments.size()) {
-      error = "risc_v_npu: one binary per segment expected";
-      return false;
-    }
-    for (const std::vector<uint8_t> &image : binaries[p]) {
-      total = align(total, 8);
-      offsets[p].push_back(total);
-      total += static_cast<int64_t>(image.size());
-    }
+bool mlir::rvnpu::writePrograms(const std::string &dir, const Limits &limits,
+                                int64_t segmentBytes, const std::vector<Program> &programs,
+                                const std::vector<uint8_t> &binary, int64_t memBytes,
+                                std::string &error) {
+  if (!programs.empty() &&
+      (binary.empty() || memBytes < align(static_cast<int64_t>(binary.size()), 8))) {
+    error = "risc_v_npu: a kernel binary with mem_bytes >= bin_bytes expected";
+    return false;
   }
-  total = align(total, 8);
+  // The image, zero-padded to 8 bytes (the code buffer copies whole words;
+  // mem_bytes already covers the padding: .bss and the stack follow, aligned).
+  int64_t binBytes = align(static_cast<int64_t>(binary.size()), 8);
 
   std::error_code ec;
   {
@@ -43,42 +40,34 @@ bool mlir::rvnpu::writePrograms(
       error = "cannot write rv_programs.bin: " + ec.message();
       return false;
     }
-    int64_t at = 0;
-    for (size_t p = 0; p < programs.size(); ++p)
-      for (size_t s = 0; s < binaries[p].size(); ++s) {
-        for (; at < offsets[p][s]; ++at)
-          bin << '\0';
-        bin.write(reinterpret_cast<const char *>(binaries[p][s].data()),
-                  binaries[p][s].size());
-        at += static_cast<int64_t>(binaries[p][s].size());
-      }
-    for (; at < total; ++at)
+    bin.write(reinterpret_cast<const char *>(binary.data()), binary.size());
+    for (int64_t at = static_cast<int64_t>(binary.size()); at < binBytes; ++at)
       bin << '\0';
   }
 
   // rv_programs.txt: the table librv_npu_rt reads, one record per line.
-  //   rv-programs 1 <rows> <columns> <max_k> <bin_bytes> <count>
+  //   rv-programs 2 <rows> <columns> <max_k> <bin_bytes> <mem_bytes> <count>
   //   task <id> <m> <n> <k> <tm> <tn> <tk> <a_bytes> <c_base> <c_bytes> <b_base> <segments>
-  //   seg <bin_offset> <bin_bytes> <mem_bytes> <weight_offset> <b_bytes>
+  //   seg <ni_lo> <ni_hi> <weight_offset> <b_bytes>
+  // A is always at RVNPU_PARAM_BYTES, right after the parameter block.
   {
     llvm::raw_fd_ostream txt(dir + "/rv_programs.txt", ec, llvm::sys::fs::OF_Text);
     if (ec) {
       error = "cannot write rv_programs.txt: " + ec.message();
       return false;
     }
-    txt << "rv-programs 1 " << limits.rows << " " << limits.columns << " "
-        << limits.maxK << " " << total << " " << programs.size() << "\n";
-    for (size_t p = 0; p < programs.size(); ++p) {
-      const Program &pr = programs[p];
+    txt << "rv-programs 2 " << limits.rows << " " << limits.columns << " "
+        << limits.maxK << " " << binBytes << " " << memBytes << " " << programs.size()
+        << "\n";
+    for (const Program &pr : programs) {
       txt << "task " << pr.id << " " << pr.plan.m << " " << pr.plan.n << " "
           << pr.plan.k << " " << pr.plan.tm << " " << pr.plan.tn << " "
           << pr.plan.tk << " " << pr.data.aBytes << " " << pr.data.cBase << " "
           << pr.data.cBytes << " " << pr.data.bBase << " " << pr.segments.size()
           << "\n";
-      for (size_t s = 0; s < pr.segments.size(); ++s)
-        txt << "seg " << offsets[p][s] << " " << binaries[p][s].size() << " "
-            << memBytes[p][s] << " " << pr.segments[s].weightOffset << " "
-            << pr.segments[s].bBytes << "\n";
+      for (const Segment &g : pr.segments)
+        txt << "seg " << g.niLo << " " << g.niHi << " " << g.weightOffset << " "
+            << g.bBytes << "\n";
     }
   }
 
@@ -89,17 +78,18 @@ bool mlir::rvnpu::writePrograms(
   }
   llvm::json::OStream j(js, 1);
   j.object([&] {
-    j.attribute("format", "rv-programs/1");
+    j.attribute("format", "rv-programs/2");
     j.attribute("march", "rv32imc");
     j.attribute("mabi", "ilp32");
     j.attribute("rows", limits.rows);
     j.attribute("columns", limits.columns);
     j.attribute("max_k", limits.maxK);
-    j.attribute("bin_bytes", total);
+    j.attribute("bin_bytes", binBytes);
+    j.attribute("mem_bytes", memBytes);
+    j.attribute("param_bytes", static_cast<int64_t>(RVNPU_PARAM_BYTES));
     j.attribute("segment_bytes", segmentBytes);
     j.attributeArray("tasks", [&] {
-      for (size_t p = 0; p < programs.size(); ++p) {
-        const Program &pr = programs[p];
+      for (const Program &pr : programs) {
         j.object([&] {
           j.attribute("id", pr.id);
           j.attribute("m", pr.plan.m);
@@ -110,21 +100,18 @@ bool mlir::rvnpu::writePrograms(
           j.attribute("tk", pr.plan.tk);
           j.attribute("jobs", pr.plan.jobs());
           j.attribute("weight_offset", pr.weightOffset);
+          j.attribute("a_base", pr.data.aBase);
           j.attribute("a_bytes", pr.data.aBytes);
           j.attribute("c_base", pr.data.cBase);
           j.attribute("c_bytes", pr.data.cBytes);
           j.attribute("b_base", pr.data.bBase);
           j.attribute("b_bytes", pr.data.bBytes);
           j.attributeArray("segments", [&] {
-            for (size_t s = 0; s < pr.segments.size(); ++s) {
-              const Segment &g = pr.segments[s];
+            for (const Segment &g : pr.segments) {
               j.object([&] {
                 j.attribute("ni_lo", g.niLo);
                 j.attribute("ni_hi", g.niHi);
                 j.attribute("jobs", g.jobs);
-                j.attribute("bin_offset", offsets[p][s]);
-                j.attribute("bin_bytes", static_cast<int64_t>(binaries[p][s].size()));
-                j.attribute("mem_bytes", memBytes[p][s]);
                 j.attribute("weight_offset", g.weightOffset);
                 j.attribute("b_bytes", g.bBytes);
               });

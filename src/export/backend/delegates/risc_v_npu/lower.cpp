@@ -9,11 +9,13 @@
 //                   chunks)
 //     Pack          its weight as B tiles, into the arena
 //     planProgram   its segments and data block (spec/layout.py)
-//     per segment:
-//       LowerToRiscv  the job loops (scf + volatile MMIO stores)
-//       convertToLLVMDialect, then rv_codegen: RV32IMC, linked with crt0.S
-//       and link.ld, flattened
-//   then rv_programs.bin / rv_programs.txt / rv_programs.json
+//   then, once per package (issue #206):
+//     LowerToRiscv  the one parameterized kernel: the job loops (scf +
+//                   volatile MMIO stores), every bound read from the
+//                   parameter block the driver writes at DATA_BASE
+//     convertToLLVMDialect, then rv_codegen: RV32IMC, linked with crt0.S and
+//     link.ld, flattened
+//   and rv_programs.bin / rv_programs.txt / rv_programs.json
 //
 // Modelled on delegates/npu/lower.cpp. The vendor never includes the back
 // end; this file is the only place the two meet.
@@ -88,8 +90,6 @@ public:
 
     rvnpu::Limits limits{options.rows, options.columns, options.maxK};
     std::vector<rvnpu::Program> programs;
-    std::vector<std::vector<std::vector<uint8_t>>> binaries;
-    std::vector<std::vector<int64_t>> memBytes;
     std::vector<int64_t> ids;
     std::string runtimeAsm = rvnpu::mmioEquates() + rvnpu::crt0Source().str();
     std::string work = out + "/risc_v_npu";
@@ -116,44 +116,40 @@ public:
           llvm::ArrayRef<char>(reinterpret_cast<const char *>(tiles.data()), tiles.size()));
       rvnpu::GemmPlan plan = rvnpu::GemmPlan::make(m, n, k, limits, op.getTk());
       int64_t index = static_cast<int64_t>(programs.size());
-      rvnpu::Program program = rvnpu::planProgram(index, plan, offset, options.segmentBytes);
-
-      std::vector<std::vector<uint8_t>> images;
-      std::vector<int64_t> sizes;
-      for (int64_t s = 0; s < static_cast<int64_t>(program.segments.size()); ++s) {
-        OwningOpRef<ModuleOp> code = rvnpu::lowerToRiscv(module.getContext(), program, s);
-        std::string name = "program_" + std::to_string(index) + "_" + std::to_string(s);
-        if (options.keepIr) {
-          llvm::sys::fs::create_directories(work);
-          std::error_code ec;
-          llvm::raw_fd_ostream os(work + "/" + name + ".mlir", ec, llvm::sys::fs::OF_Text);
-          if (!ec)
-            code->print(os);
-        }
-        if (failed(rvnpu::convertToLLVMDialect(*code))) {
-          op.emitError("risc_v_npu: lowering the program to the LLVM dialect failed");
-          return failure();
-        }
-        RvImage image;
-        std::string error;
-        if (failed(rvCodegen(*code, RvTarget{}, runtimeAsm, rvnpu::linkScript(), work, name,
-                             options.llvmBin, options.keepIr, image, error))) {
-          op.emitError(error);
-          return failure();
-        }
-        images.push_back(std::move(image.bytes));
-        sizes.push_back(image.memBytes);
-      }
-      programs.push_back(std::move(program));
-      binaries.push_back(std::move(images));
-      memBytes.push_back(std::move(sizes));
+      programs.push_back(rvnpu::planProgram(index, plan, offset, options.segmentBytes));
       ids.push_back(id);
+    }
+
+    // The kernel does not depend on any task: compile it once, and only when
+    // there is something to run (a package without risc_v_npu tasks needs no
+    // RISCV target).
+    RvImage kernel;
+    if (!programs.empty()) {
+      OwningOpRef<ModuleOp> code = rvnpu::lowerToRiscv(module.getContext());
+      std::string name = "kernel";
+      if (options.keepIr) {
+        llvm::sys::fs::create_directories(work);
+        std::error_code ec;
+        llvm::raw_fd_ostream os(work + "/" + name + ".mlir", ec, llvm::sys::fs::OF_Text);
+        if (!ec)
+          code->print(os);
+      }
+      if (failed(rvnpu::convertToLLVMDialect(*code))) {
+        emitError(module.getLoc(), "risc_v_npu: lowering the kernel to the LLVM dialect failed");
+        return failure();
+      }
+      std::string error;
+      if (failed(rvCodegen(*code, RvTarget{}, runtimeAsm, rvnpu::linkScript(), work, name,
+                           options.llvmBin, options.keepIr, kernel, error))) {
+        emitError(module.getLoc(), error);
+        return failure();
+      }
     }
     if (!options.keepIr)
       llvm::sys::fs::remove(work);  // only succeeds when empty
     std::string error;
-    if (!rvnpu::writePrograms(out, limits, options.segmentBytes, programs, binaries, memBytes,
-                              error)) {
+    if (!rvnpu::writePrograms(out, limits, options.segmentBytes, programs, kernel.bytes,
+                              kernel.memBytes, error)) {
       emitError(module.getLoc(), error);
       return failure();
     }

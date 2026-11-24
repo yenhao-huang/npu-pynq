@@ -1,7 +1,8 @@
 /* Phase profiling: where one delegate call's time goes.
  *
  * rv_npu_rt_execute times prepareActivation, each segment's weight copy into
- * the B stage window (prepareWeights), each segment's run on CVA6 (start to
+ * the B stage window and parameter-block write (prepareWeights), each
+ * segment's kernel run on CVA6 (start to
  * done) and reduceOutput, and adds them to the program's PhaseStats. Off by
  * default; disabled, execute does one branch per call and nothing else.
  * Copied from npu_rt/profile.cpp.

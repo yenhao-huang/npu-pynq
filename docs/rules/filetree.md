@@ -81,9 +81,10 @@ npu_repo_in_pynq/
 |   |       |   |                NpuMatch), linked by both export tools; RvNpuDialect (the rvnpu dialect,
 |   |       |   |                rvnpu::claim, --rvnpu-claim, Pack, LowerToRiscv, Programs (rv_programs.*)),
 |   |       |   |                by pynqo-backend only; include/RvNpu/RvNpuMmio.h is generated
-|   |       |   `-- runtime/     crt0.S and link.ld, linked into every generated RISC-V program
+|   |       |   `-- runtime/     crt0.S and link.ld, linked into the generated RISC-V GEMM kernel
 |   |       `-- driver/          board side; follows spec/
-|   |           |-- rv_npu_rt/   librv_npu_rt (C++): loads RISC-V binaries, sums the K chunks into the
+|   |           |-- rv_npu_rt/   librv_npu_rt (C++): loads the RISC-V kernel, writes its parameter
+|   |           |                block per segment run, sums the K chunks into the
 |   |           |                delegate's M x N result, PYNQ backend only
 |   |           `-- overlay/     manifest and verification of the CVA6 overlay
 |   |-- export/                  host-side model -> package; never runs on the board

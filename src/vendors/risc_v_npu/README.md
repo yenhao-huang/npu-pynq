@@ -2,9 +2,9 @@
 
 `risc_v_npu` is the device for the NPU overlay built with
 `SCALAR_IMPL = "CVA6"`: the scalar core is a CVA6 RISC-V core
-(`src/hw/rtl/npu_accelerator/scalar_core/cva6/`) that runs a RISC-V program
-per delegate and drives the same matrix core through memory-mapped job
-registers. Plan: [docs/plans/2026-1112-003-cva6-scalar-core.md](../../../docs/plans/2026-1112-003-cva6-scalar-core.md),
+(`src/hw/rtl/npu_accelerator/scalar_core/cva6/`) that runs one parameterized
+RISC-V GEMM kernel for every delegate and drives the same matrix core through
+memory-mapped job registers. Plan: [docs/plans/2026-1112-003-cva6-scalar-core.md](../../../docs/plans/2026-1112-003-cva6-scalar-core.md),
 sections 5 and 6.
 
 A package exported for `devices: [cpu, risc_v_npu]` uses this vendor; one for
@@ -32,20 +32,22 @@ exactly as `npu` does:
    compiles `delegates/risc_v_npu.mlir` only: per `@risc_v_npu_<id>` in id
    order it checks the subgraph (one activation argument, one claimable
    matmul on it, its result returned), rewrites it with `rvnpu::claim` into
-   `rvnpu.matmul {tk}` (M x N INT32 result), packs B, plans the program and
-   lowers each segment to an RV32IMC binary. It contributes no CPU code; the
-   CPU graph only calls `__delegate__(id, in, out)`.
+   `rvnpu.matmul {tk}` (M x N INT32 result), packs B and plans the GEMM and
+   its segments. The package holds one RV32IMC kernel, the same for every
+   delegate and segment; the plan reaches it at run time through the
+   parameter block (below), not as code. It contributes no CPU code; the CPU
+   graph only calls `__delegate__(id, in, out)`.
 3. **Runtime: the output contract.** `in` is the subgraph's M x K INT8
    argument and `out` its M x N INT32 result, so the delegate table has
    `output_bytes = M*N*4`. The NPU still writes one partial plane per K chunk
-   (`tk = min(K, MAX_K)`; the RISC-V program is unchanged); librv_npu_rt sums
+   (`tk = min(K, MAX_K)`; the RISC-V kernel is unchanged); librv_npu_rt sums
    the planes while unpacking C, wrapping modulo 2^32 exactly as libnpu_rt.
 
 | | `npu_pynq` (A) | `risc_v_npu` (B) |
 |---|---|---|
-| Scalar core | CUSTOM: replays 64-bit ISA words | CVA6: runs an RV32IMC program |
-| Back end emits | `programs.bin` (ISA words) | `rv_programs.bin` (flat RISC-V binaries) |
-| B relocation | the loader patches each ADDR_B word to the stage buffer | none: the program adds constant offsets to DATA_BASE; B is staged inside the data block |
+| Scalar core | CUSTOM: replays 64-bit ISA words | CVA6: runs an RV32IMC kernel |
+| Back end emits | `programs.bin` (ISA words per task and segment) | `rv_programs.bin` (one flat RISC-V kernel per package) |
+| B relocation | the loader patches each ADDR_B word to the stage buffer | none: the kernel adds the offsets of the parameter block to DATA_BASE; B is staged inside the data block |
 | Driver | `libnpu_rt` (PYNQ and SIM backends) | `librv_npu_rt` (PYNQ only; no SIM) |
 | Platform buffers | io, stage, code | io, code |
 | Capability check | ISA_FRONTEND | ISA_FRONTEND and RISCV_SCALAR_CORE (bit 7) |
@@ -59,11 +61,11 @@ run RISC-V. A risc_v_npu package runs only on the board with the CVA6 overlay.
 | Path | Contents |
 |---|---|
 | `spec/abi.py` | the CSR window (npu_pynq ABI 2.0 plus `Capability.RISCV_SCALAR_CORE = 1 << 7`), the MMIO window (registers, access types, STATUS fields, error and DONE codes), CVA6's address map |
-| `spec/layout.py` | tiled A / B / C layout (copied), and `DataLayout`: where A, C and the staged B block sit from `data_base` |
+| `spec/layout.py` | tiled A / B / C layout (copied), `DataLayout`: where the parameter block, A, C and the staged B block sit from `data_base`, and the parameter block itself (`PARAM_*`, `param_block`) |
 | `spec/quant.py`, `spec/board.py` | copied from npu_pynq |
-| `spec/gen_mmio_header.py` | writes `custom_dialect/include/RvNpu/RvNpuMmio.h` from `spec/abi.py` (`--check` compares) |
+| `spec/gen_mmio_header.py` | writes `custom_dialect/include/RvNpu/RvNpuMmio.h` from `spec/abi.py` and the parameter block of `spec/layout.py` (`--check` compares) |
 | `custom_dialect/` | compile time: `RvNpuMatch` (the claim rule the middle end links), the `rvnpu` dialect, `claim`, `LowerToRiscv`, `crt0.S` / `link.ld` (agent C, #174) |
-| `driver/rv_npu_rt/` | `librv_npu_rt`, the ARM-side delegate backend (packs A, runs the segments, sums the K planes of C into the M x N output) |
+| `driver/rv_npu_rt/` | `librv_npu_rt`, the ARM-side delegate backend (packs A, writes the parameter block and runs the kernel per segment, sums the K planes of C into the M x N output) |
 | `driver/overlay/` | manifest (`build.py`) and verification (`verify.py`) of the CVA6 overlay |
 
 The runtime binds the device in `src/runtime/delegate/__init__.py`
@@ -74,8 +76,9 @@ package's delegate table; `src/runtime/delegate/risc_v_npu.py` loads
 ## The two register windows
 
 **CSR window** (AXI-Lite, ARM side). Unchanged from npu_pynq except that the
-CVA6 build reports bit 7 in `CAPABILITIES`. To run a program the driver writes
-`PROG_ADDR` (0x48) = the binary's DDR address (CVA6's boot address),
+CVA6 build reports bit 7 in `CAPABILITIES`. To run a segment the driver writes
+`PROG_ADDR` (0x48) = the kernel's DDR address (CVA6's boot address; the same
+for every run),
 `PROG_LEN` (0x4C) = its size in 64-bit words rounded up, `DATA_BASE` (0x50) =
 the data block, then `ISA_CONTROL` (0x40) = 1, and polls `ISA_STATUS` (0x44)
 until neither RUNNING nor BUSY is set. DONE without ERROR is success; otherwise
@@ -118,81 +121,126 @@ The `risc_v_npu` delegate of `pynqo-backend` writes, next to the shared
 
 | File | Read by | Contents |
 |---|---|---|
-| `rv_programs.bin` | librv_npu_rt | every segment's flat RV32IMC binary, concatenated, each starting 8-byte aligned (zero padding) |
+| `rv_programs.bin` | librv_npu_rt | the package's one flat RV32IMC GEMM kernel |
 | `rv_programs.txt` | librv_npu_rt | the program table, one record per line (below) |
 | `rv_programs.json` | people, tools | the same table as JSON (below); not read by the driver |
 
-This mirrors the npu delegate exactly: `programs.bin` + `programs.txt` (the
-table libnpu_rt parses) + `programs.json` (a summary). The coordination brief
-asked for a JSON table read by the driver; the driver reads the text table
-instead, as libnpu_rt does, so it needs no JSON parser on the board. The JSON
+This mirrors the npu delegate: `programs.bin` + `programs.txt` (the table
+libnpu_rt parses) + `programs.json` (a summary). The driver reads the text
+table, as libnpu_rt does, so it needs no JSON parser on the board. The JSON
 file carries the same fields.
 
-### rv_programs.txt
+Until issue #206 the back end emitted one RV32IMC binary per task and segment,
+with every bound and offset a constant (format 1). Format 1 is not read any
+more: librv_npu_rt refuses it and asks for the model to be exported again.
+
+### rv_programs.txt (format 2)
 
 ```
-rv-programs 1 <rows> <columns> <max_k> <bin_bytes> <count>
+rv-programs 2 <rows> <columns> <max_k> <bin_bytes> <mem_bytes> <count>
 task <id> <m> <n> <k> <tm> <tn> <tk> <a_bytes> <c_base> <c_bytes> <b_base> <segments>
-seg <bin_offset> <bin_bytes> <mem_bytes> <weight_offset> <b_bytes>
+seg <ni_lo> <ni_hi> <weight_offset> <b_bytes>
 ```
 
+- `bin_bytes`: the size of `rv_programs.bin`, the kernel. `PROG_LEN =
+  ceil(bin_bytes / 8)`.
+- `mem_bytes` (>= `bin_bytes`): what the kernel uses from its load address
+  while it runs: the image, `.bss` and the stack that `crt0.S` places after
+  it. The driver gives the kernel one slot of `mem_bytes` rounded up to 64 at
+  offset 0 of the code buffer, copies the image once at load and zeroes the
+  rest; `.data` is not reloaded between runs, so the kernel must not rely on
+  initialised writable data surviving a run (crt0 clears `.bss` itself).
 - One `task` line per delegate index `0..count-1` in order (the `index` of the
   package's delegate table), each followed by its `segments` `seg` lines.
 - `m n k tm tn tk` as `spec/layout.py` `plan_gemm` (and npu's `programs.txt`).
 - `a_bytes`, `c_base`, `c_bytes`, `b_base`: the data block, as
-  `spec/layout.py` `data_layout(plan, segment_bytes)`: A tiles at offset 0
-  (`a_bytes`), C planes at `c_base = align(a_bytes, 64)` (`c_bytes`, all
-  `ceil(k / tk)` planes, which the driver sums into the M x N output), the
-  staged B block at `b_base = align(c_base + c_bytes, 64)`. The driver checks
-  `c_base >= a_bytes` and `b_base >= c_base + c_bytes`. The delegate's output
-  size (`M*N*4`) is in the package's delegate table, not here.
-- A segment is one binary and one run, as an npu segment is one ISA program:
-  it covers a range of column tiles whose B panels form one contiguous block
-  of at most `segment_bytes` (`GemmPlan.segments`). With a large enough
-  `segment_bytes` there is one segment, so one binary per delegate.
-- `bin_offset`, `bin_bytes`: the binary in `rv_programs.bin` (`bin_offset`
-  8-byte aligned, `bin_bytes` > 0). `PROG_LEN = ceil(bin_bytes / 8)`.
-- `mem_bytes` (>= `bin_bytes`): what the program uses from its load address
-  while it runs: the image, `.bss` and the stack that `crt0.S` places after it.
-  The driver gives each binary a slot of `mem_bytes` rounded up to 64 in the
-  code buffer, copies the image once at load and zeroes the rest; `.data` is not
-  reloaded between runs, so programs must not rely on initialised writable data
-  surviving a run (crt0 clears `.bss` itself).
+  `spec/layout.py` `data_layout(plan, segment_bytes)`: the parameter block at
+  offset 0 (`PARAM_BYTES` = 64), A tiles at 64 (`a_bytes`), C planes at
+  `c_base = align(64 + a_bytes, 64)` (`c_bytes`, all `ceil(k / tk)` planes,
+  which the driver sums into the M x N output), the staged B block at
+  `b_base = align(c_base + c_bytes, 64)`. The driver checks
+  `c_base >= 64 + a_bytes` and `b_base >= c_base + c_bytes`. The delegate's
+  output size (`M*N*4`) is in the package's delegate table, not here.
+- A segment is one run of the kernel, as an npu segment is one ISA program:
+  column tiles `[ni_lo, ni_hi)`, whose B panels form one contiguous block of
+  at most `segment_bytes` (`GemmPlan.segments`). With a large enough
+  `segment_bytes` there is one segment, so one run per delegate call.
 - `weight_offset`, `b_bytes`: the segment's B block in `weights.bin`, packed as
   `spec/layout.py` `pack_b` (column-tile panels), exactly as npu's segment.
+  The driver checks `b_bytes = (ni_hi - ni_lo) * b_panel`.
 
 ### rv_programs.json
 
 ```json
 {
-  "format": "rv-programs/1",
+  "format": "rv-programs/2",
   "march": "rv32imc", "mabi": "ilp32",
   "rows": 16, "columns": 16, "max_k": 256,
-  "bin_bytes": 1234, "segment_bytes": 65536,
+  "bin_bytes": 312, "mem_bytes": 1336, "param_bytes": 64, "segment_bytes": 65536,
   "tasks": [
-    {"id": 0, "m": 1, "n": 64, "k": 64, "tm": 1, "tn": 16, "tk": 64,
-     "a_bytes": 64, "c_base": 64, "c_bytes": 256, "b_base": 320, "jobs": 4,
-     "weight_offset": 0,
-     "segments": [{"bin_offset": 0, "bin_bytes": 120, "mem_bytes": 1144,
+    {"id": 0, "m": 1, "n": 64, "k": 64, "tm": 1, "tn": 16, "tk": 64, "jobs": 4,
+     "weight_offset": 0, "a_base": 64, "a_bytes": 64, "c_base": 128,
+     "c_bytes": 256, "b_base": 384, "b_bytes": 4096,
+     "segments": [{"ni_lo": 0, "ni_hi": 4, "jobs": 4,
                    "weight_offset": 0, "b_bytes": 4096}]}
   ]
 }
 ```
 
-### What a program does
+(`bin_bytes` and `mem_bytes` above are illustrative.)
+
+### The parameter block
+
+Before every segment run librv_npu_rt writes 16 little-endian int32 words at
+`DATA_BASE + 0`, word `i` at byte `4 * i`, then starts the kernel.
+`spec/layout.py` is the single source of truth (`PARAM_BYTES`, `PARAM_<NAME>`
+word indices, `param_block(plan, layout, ni_lo, ni_hi)`); `gen_mmio_header.py`
+emits them into `RvNpuMmio.h` as `RVNPU_PARAM_BYTES` and `RVNPU_PARAM_<NAME>`
+(byte offsets), and `rv_npu_rt.h` mirrors them (`kParamBytes`, `ParamWord`)
+because the board builds the driver from `driver/` and `spec/` only.
+`test_risc_v_npu_abi` keeps all three in step.
+
+| Word | Name | Value |
+|---|---|---|
+| 0 | `M` | `plan.m` |
+| 1 | `N` | `plan.n` |
+| 2 | `K` | `plan.k` |
+| 3 | `TM` | `plan.tm` |
+| 4 | `TN` | `plan.tn` |
+| 5 | `TK` | `plan.tk` |
+| 6 | `MT` | `ceil(M / TM)` |
+| 7 | `KT` | `ceil(K / TK)` |
+| 8 | `NT` | `ceil(N / TN)` |
+| 9 | `NI_LO` | the segment's first column tile |
+| 10 | `NI_HI` | the segment's end column tile (exclusive) |
+| 11 | `A_BASE` | 64 (`PARAM_BYTES`, `DataLayout.a_base`) |
+| 12 | `C_BASE` | `c_base` |
+| 13 | `B_BASE` | `b_base`, the staged window; not biased by `NI_LO` |
+| 14 | `B_PANEL` | `plan.b_panel`: bytes of one column tile of B, all K |
+| 15 | `C_PLANE` | `plan.c_plane_bytes()`: one K chunk's C |
+
+The kernel reads the block with ordinary loads through CVA6's D$. That is
+safe because CVA6 is held in reset between runs, so every run starts with
+cold caches and cannot see a stale line of a previous run's block.
+
+### What the kernel does
 
 Contract with `custom_dialect/` (LowerToRiscv, `crt0.S`, `link.ld`):
 
 1. It is position independent and loaded at `PROG_ADDR` (8-byte aligned, in
-   DDR); `crt0.S` sets the stack inside the program's `mem_bytes`, clears
-   `.bss`, and jumps to the entry. It uses RV32IMC only (`-march=rv32imc
-   -mabi=ilp32`); no B or Zcb.
-2. It loads `DATA_BASE` (MMIO 0x24) and computes every operand address as
-   `DATA_BASE + offset`: A tile `(mi, kc)` at `a_offset(mi, kc)`, B tile
-   `(kc, ni)` at `b_base + b_offset(kc, ni) - b_offset(0, ni_lo)` for the
-   segment's first column tile `ni_lo` (the staged block starts at that
-   tile's panel), C tile `(kc, mi, ni)` at `c_base + c_offset(kc, mi, ni)`.
-3. Per job: store SHAPE_MN, SHAPE_K, ADDR_A, ADDR_B, ADDR_C, then DOORBELL.
+   DDR); `crt0.S` sets the stack inside `mem_bytes`, clears `.bss`, and jumps
+   to the entry. It uses RV32IMC only (`-march=rv32imc -mabi=ilp32`); no B
+   or Zcb.
+2. It loads `DATA_BASE` (MMIO 0x24) and the parameter block from it, and
+   computes every operand address as `DATA_BASE + offset`: A tile `(mi, kc)`
+   at `A_BASE + a_offset(mi, kc)`, B tile `(kc, ni)` at
+   `B_BASE + (ni - NI_LO) * B_PANEL + kc * align(TK * TN)` (the staged block
+   starts at column tile `NI_LO`'s panel), C tile `(kc, mi, ni)` at
+   `C_BASE + c_offset(kc, mi, ni)` (`kc * C_PLANE` plus the tile's place in
+   the plane).
+3. Loops `mi`, then `kc`, then `ni` over `[NI_LO, NI_HI)`; per job it sets
+   the job registers (SHAPE_MN, SHAPE_K, ADDR_A, ADDR_B, ADDR_C), then stores
+   DOORBELL. The job sequence is the npu ISA program's for the same segment.
 4. At the end: load FENCE, then store DONE = 0 (or a nonzero code). A trap
    should store DONE = `DoneCode.TRAP`.
 
@@ -207,12 +255,17 @@ python -m unittest src.test.tests.test_risc_v_npu_abi
 `test_risc_v_npu_abi` checks `spec/abi.py` against `cva6_npu_mmio.sv`,
 `cva6_config.sv` and `csr.sv`, the header against its generator, the driver's
 constants against the spec, the layout copy against npu_pynq, and the overlay
-manifest. On Linux with g++ it also builds librv_npu_rt and runs it against a
-fake CSR window (placement, CSR writes, B staging, C unpacking with the K
-planes summed, including wrap-around, error codes).
+manifest, and the parameter block in `spec/layout.py`, `RvNpuMmio.h` and
+`rv_npu_rt.h` against each other. On Linux with g++ it also builds
+librv_npu_rt and runs it against a fake CSR window (format 1 and inconsistent
+tables refused, kernel placement, the parameter block, CSR writes, B staging,
+C unpacking with the K planes summed, including wrap-around, error codes).
 `test_risc_v_npu_backend` feeds pynqo-backend what the middle end writes for
-one GEMM and checks that the RISC-V binaries issue the npu ISA program's jobs
-and that the delegate table gives `output_bytes = M*N*4`.
+one GEMM, runs the kernel on an RV32IMC interpreter once per segment with the
+parameter block the driver would write, checks that it issues the npu ISA
+program's jobs (offsets taken within the A, B and C regions) and reads nothing
+of the data block but its parameters, and that the delegate table gives
+`output_bytes = M*N*4`.
 
 ## Not verified
 
@@ -221,8 +274,10 @@ and that the delegate table gives `output_bytes = M*N*4`.
   `SCALAR_IMPL` that `verify.py` expects, the artifact names and the
   capability word in the manifest are this vendor's proposal, to be matched by
   the build.
-- That CVA6's reset invalidates its caches between runs (the driver rewrites
-  nothing in the code buffer after load, and A / B / C go through the DMA, not
-  CVA6's D$).
+- That CVA6's reset invalidates its caches between runs. The kernel reads the
+  parameter block through the D$, and the driver rewrites it before every run;
+  a stale line would hand the kernel the previous segment's parameters. (The
+  driver rewrites nothing in the code buffer after load, and A / B / C go
+  through the DMA, not CVA6's D$.)
 - `src/deploy/deploy.sh` copies only `src/vendors/npu_pynq/` to the board; it
   must also copy this vendor's `__init__.py`, `spec/` and `driver/`.

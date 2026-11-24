@@ -23,23 +23,26 @@ from src.vendors.npu_pynq.spec.layout import GemmPlan
 
 from . import DELEGATE_FN, DelegateError
 
-#: Device -> (program table, index of weight_offset in its ``seg`` lines);
-#: b_bytes follows it.
+#: Device -> (program table, its header (tag, format) or None when not
+#: checked, index of weight_offset in its ``seg`` lines); b_bytes follows it.
 #:   npu:        seg <word_offset> <length> <weight_offset> <b_bytes> <nrel> <rel>...
-#:   risc_v_npu: seg <bin_offset> <bin_bytes> <mem_bytes> <weight_offset> <b_bytes>
-TABLES = {'npu': ('programs.txt', 3), 'risc_v_npu': ('rv_programs.txt', 4)}
+#:   risc_v_npu: seg <ni_lo> <ni_hi> <weight_offset> <b_bytes>   (rv-programs format 2)
+TABLES = {'npu': ('programs.txt', None, 3), 'risc_v_npu': ('rv_programs.txt', ('rv-programs', '2'), 3)}
 
 
 def read_programs(package: Path, device: str) -> list[tuple[GemmPlan, list[tuple[int, int]]]]:
     """Per program index, its GEMM plan and its segments' (weight_offset, b_bytes)."""
     if device not in TABLES:
         raise DelegateError(f'the host backend does not know device {device!r}')
-    name, field = TABLES[device]
+    name, header, field = TABLES[device]
     path = Path(package) / name
     try:
         lines = path.read_text().split('\n')
     except OSError as error:
         raise DelegateError(f'cannot read {path}: {error}') from error
+    if header is not None and lines[0].split()[:2] != list(header):
+        raise DelegateError(f'{name}: expected format {" ".join(header)}, found {lines[0][:40]!r}; '
+                            'export the model again')
     programs = []
     for line in lines[1:]:
         words = line.split()

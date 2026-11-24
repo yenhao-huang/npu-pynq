@@ -39,9 +39,10 @@ def write_package(root: Path, device: str, shapes, segments_per_program: int = 1
             if device == 'npu':
                 lines.append(f'seg 0 0 {offset + start} {size} 0')
             else:
-                lines.append(f'seg 0 0 0 {offset + start} {size}')
+                lines.append(f'seg {lo} {hi} {offset + start} {size}')
         offset += packed.size
-    header = 'npu-programs 1 16 16 256 0' if device == 'npu' else 'rv-programs 1 16 16 256 0'
+    # rv_programs.txt is format 2 (one kernel; bin_bytes and mem_bytes are not read here).
+    header = 'npu-programs 1 16 16 256 0' if device == 'npu' else 'rv-programs 2 16 16 256 8 64'
     table = 'programs.txt' if device == 'npu' else 'rv_programs.txt'
     (root / table).write_text('\n'.join([f'{header} {len(shapes)}', *lines]) + '\n')
     (root / 'weights.bin').write_bytes(np.concatenate(blobs).tobytes())
