@@ -1,7 +1,7 @@
 //===- RvNpuLayout.h - tiled-GEMM layout in DDR -----------------*- C++ -*-===//
 //
-// Copied from the GemmPlan part of src/vendors/npu_pynq/custom_dialect/
-// include/Npu/NpuEncoder.h (a C++ port of spec/layout.py), renamed to
+// Copied from the GemmPlan part of src/export/backend/delegates/npu/include/Npu/
+// NpuEncoder.h (a C++ port of spec/layout.py), renamed to
 // mlir::rvnpu. The matrix core is the same in both builds, so the A, B and C
 // layouts are too; keep the two copies in step. There is no ISA encoder here:
 // on the CVA6 build the jobs are issued by a RISC-V program (LowerToRiscv).

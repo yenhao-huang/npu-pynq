@@ -10,8 +10,14 @@ sections 5 and 6.
 A package exported for `devices: [cpu, risc_v_npu]` uses this vendor; one for
 `[cpu, npu]` uses `npu_pynq`. The two never import each other: the matrix-core
 knowledge (`spec/layout.py`, `quant.py`, `board.py`, and on the compiler side
-`Match.cpp` / `Claim.cpp` / `Pack.cpp`) is copied, with a note naming the
-source file.
+`Match.cpp` / `Pack.cpp`) is copied, with a note naming the source file.
+
+This folder holds what the device needs at run time: `spec/` (hardware facts,
+read by both export and runtime) and `driver/` (board side). Its compile-time
+code (the claim rule, the lowering to RISC-V, the program encoding, `crt0.S` / `link.ld` and the MMIO header generator) lives in the
+export tree under `backend/delegates/risc_v_npu/`; see
+[docs/rules/filetree.md](../../../docs/rules/filetree.md). Nothing here refers
+to that side: the dependency runs from export to this `spec/` only.
 
 ## The device as a delegate
 
@@ -19,7 +25,7 @@ The device follows the delegate framework of plan
 [2026-1113-001](../../../docs/plans/2026-1113-001-delegate-framework.md),
 exactly as `npu` does:
 
-1. **Middle end: the matcher.** `custom_dialect/include/RvNpu/RvNpuMatch.h`
+1. **Middle end: the matcher.** `backend/delegates/risc_v_npu/include/RvNpu/RvNpuMatch.h`
    and `lib/Match.cpp` (the `RvNpuMatch` library, upstream dialects only, no
    link libraries) define `rvnpu::isClaimable`, a copy of `npu::isClaimable`:
    an INT8 x INT8 -> INT32 `linalg.matmul` with static 2-D operands, a
@@ -28,14 +34,14 @@ exactly as `npu` does:
    cpu,risc_v_npu` links it (`AssignDevices.cpp`), cuts each claimed matmul out
    into `delegates/risc_v_npu.mlir` as `@risc_v_npu_<id>` and leaves a bodiless
    `@__delegate_<id>` declaration and its call in the CPU graph.
-2. **Back end: the delegate.** `src/export/backend/delegates/risc_v_npu/`
+2. **Back end: the delegate.** pynqo-backend's `delegates/risc_v_npu/`
    compiles `delegates/risc_v_npu.mlir` only: per `@risc_v_npu_<id>` in id
    order it checks the subgraph (one activation argument, one claimable
-   matmul on it, its result returned), rewrites it with `rvnpu::claim` into
-   `rvnpu.matmul {tk}` (M x N INT32 result), packs B and plans the GEMM and
-   its segments. The package holds one RV32IMC kernel, the same for every
-   delegate and segment; the plan reaches it at run time through the
-   parameter block (below), not as code. It contributes no CPU code; the CPU
+   matmul on it, its result returned), reads M, K, N, the constant weight
+   and tk = min(K, MAX_K) off that matmul (M x N INT32 result), packs B and
+   plans the GEMM and its segments. The package holds one RV32IMC kernel,
+   the same for every delegate and segment; the plan reaches it at run time
+   through the parameter block (below), not as code. It contributes no CPU code; the CPU
    graph only calls `__delegate__(id, in, out)`.
 3. **Runtime: the output contract.** `in` is the subgraph's M x K INT8
    argument and `out` its M x N INT32 result, so the delegate table has
@@ -63,10 +69,15 @@ run RISC-V. A risc_v_npu package runs only on the board with the CVA6 overlay.
 | `spec/abi.py` | the CSR window (npu_pynq ABI 2.0 plus `Capability.RISCV_SCALAR_CORE = 1 << 7`), the MMIO window (registers, access types, STATUS fields, error and DONE codes), CVA6's address map |
 | `spec/layout.py` | tiled A / B / C layout (copied), `DataLayout`: where the parameter block, A, C and the staged B block sit from `data_base`, and the parameter block itself (`PARAM_*`, `param_block`) |
 | `spec/quant.py`, `spec/board.py` | copied from npu_pynq |
-| `spec/gen_mmio_header.py` | writes `custom_dialect/include/RvNpu/RvNpuMmio.h` from `spec/abi.py` and the parameter block of `spec/layout.py` (`--check` compares) |
-| `custom_dialect/` | compile time: `RvNpuMatch` (the claim rule the middle end links), the `rvnpu` dialect, `claim`, `LowerToRiscv`, `crt0.S` / `link.ld` (agent C, #174) |
 | `driver/rv_npu_rt/` | `librv_npu_rt`, the ARM-side delegate backend (packs A, writes the parameter block and runs the kernel per segment, sums the K planes of C into the M x N output) |
 | `driver/overlay/` | manifest (`build.py`) and verification (`verify.py`) of the CVA6 overlay |
+
+The compile-time side, `backend/delegates/risc_v_npu/` in the export tree, holds
+`RvNpuMatch` (the claim rule the middle end links), `RvNpuCodegen` (`Pack`,
+`LowerToRiscv`, `Programs`), `runtime/crt0.S` / `runtime/link.ld`, and
+`gen_mmio_header.py`, which writes `include/RvNpu/RvNpuMmio.h` from this
+folder's `spec/abi.py` and the parameter block of `spec/layout.py` (`--check`
+compares).
 
 The runtime binds the device in `src/runtime/delegate/__init__.py`
 (`BACKENDS`), which `src/runtime/share/loader.py` uses for every device in the
@@ -225,7 +236,8 @@ cold caches and cannot see a stale line of a previous run's block.
 
 ### What the kernel does
 
-Contract with `custom_dialect/` (LowerToRiscv, `crt0.S`, `link.ld`):
+Contract with the compile-time side (`backend/delegates/risc_v_npu/`: LowerToRiscv,
+`crt0.S`, `link.ld`):
 
 1. It is position independent and loaded at `PROG_ADDR` (8-byte aligned, in
    DDR); `crt0.S` sets the stack inside `mem_bytes`, clears `.bss`, and jumps
@@ -246,8 +258,12 @@ Contract with `custom_dialect/` (LowerToRiscv, `crt0.S`, `link.ld`):
 
 ## Building and checking
 
+After changing `spec/abi.py` or the parameter block in `spec/layout.py`,
+regenerate `RvNpuMmio.h` with the export tree's
+`backend/delegates/risc_v_npu/gen_mmio_header.py` (`--check` only compares);
+`test_risc_v_npu_abi` fails until the header matches.
+
 ```bash
-python src/vendors/risc_v_npu/spec/gen_mmio_header.py          # after changing spec/abi.py
 cmake -S src/vendors/risc_v_npu/driver/rv_npu_rt -B build/rv_npu_rt && cmake --build build/rv_npu_rt
 python -m unittest src.test.tests.test_risc_v_npu_abi
 ```

@@ -43,15 +43,15 @@ FetchContent_Declare(torch_mlir
   PATCH_COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/patch_torch_mlir.cmake)
 FetchContent_MakeAvailable(torch_mlir)
 
-# Each vendor's claim rule (NpuMatch, RvNpuMatch) for device assignment. Only
-# the match libraries are linked: the dialects, their lowering and encoders
-# (NpuDialect, RvNpuDialect) belong to pynqo-backend, and they link the
+# Each device's claim rule (NpuMatch, RvNpuMatch) for device assignment. Only
+# the match libraries are linked: the lowering and encoders (NpuCodegen,
+# RvNpuCodegen) belong to pynqo-backend, and they link the
 # monolithic MLIR library, which must not meet the static MLIR libraries
 # linked here.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../vendors/npu_pynq/custom_dialect
-                 ${CMAKE_CURRENT_BINARY_DIR}/custom_dialect EXCLUDE_FROM_ALL)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../vendors/risc_v_npu/custom_dialect
-                 ${CMAKE_CURRENT_BINARY_DIR}/risc_v_npu_custom_dialect EXCLUDE_FROM_ALL)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../backend/delegates/npu
+                 ${CMAKE_CURRENT_BINARY_DIR}/delegates/npu EXCLUDE_FROM_ALL)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../backend/delegates/risc_v_npu
+                 ${CMAKE_CURRENT_BINARY_DIR}/delegates/risc_v_npu EXCLUDE_FROM_ALL)
 
 add_llvm_executable(pynqo-middle-end
   pynqo_middle_end.cpp

@@ -28,8 +28,8 @@ import time
 PACKAGE_FORMAT = 'pynqo-package/3'
 REPO = Path(__file__).resolve().parents[2]
 BACKEND = REPO / 'src' / 'export' / 'backend'
-BACKEND_SOURCES = (BACKEND, REPO / 'src' / 'vendors' / 'npu_pynq' / 'custom_dialect',
-                   REPO / 'src' / 'vendors' / 'risc_v_npu' / 'custom_dialect')
+# Each delegate's device code lives in backend/delegates/<device>/, inside BACKEND.
+BACKEND_SOURCES = (BACKEND,)
 MIDDLE_END = REPO / 'src' / 'export' / 'middle-end'
 
 

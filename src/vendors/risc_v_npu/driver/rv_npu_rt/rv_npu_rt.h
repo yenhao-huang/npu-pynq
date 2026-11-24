@@ -101,10 +101,9 @@ namespace rv_npu_rt {
 
 /* The parameter block at DATA_BASE + 0: 16 little-endian int32 words, word i
  * at byte 4 * i. Mirrors src/vendors/risc_v_npu/spec/layout.py (PARAM_BYTES
- * and the word indices), the single source of truth, which
- * spec/gen_mmio_header.py also emits into custom_dialect/include/RvNpu/
- * RvNpuMmio.h as RVNPU_PARAM_BYTES and RVNPU_PARAM_<NAME> (byte offsets). That
- * header is not included here: the board builds this library from driver/
+ * and the word indices), the single source of truth, which the compiler's
+ * generated RvNpuMmio.h also carries as RVNPU_PARAM_BYTES and
+ * RVNPU_PARAM_<NAME> (byte offsets). That header is not included here: the board builds this library from driver/
  * and spec/ only. A test keeps the numbers in step. */
 constexpr uint32_t kParamBytes = 64;   /* A tiles start here (DataLayout.a_base) */
 enum ParamWord : uint32_t {

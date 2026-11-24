@@ -174,7 +174,7 @@ middle_end(torch.mlir, ir/model.mlir, devices)
        │    ├─ torch-function-to-torch-backend-pipeline
        │    └─ torch-backend-to-linalg-on-tensors-backend-pipeline
        ├─ pynqo-assign-devices    pynqo.device on each op a device claims   middle-end/linalg/transforms/
-       │                          (the NPU: npu::isClaimable, vendors/npu_pynq/custom_dialect/lib/Match.cpp)
+       │                          (the NPU: npu::isClaimable, backend/delegates/npu/lib/Match.cpp)
        ├─ pynqo-partition-devices each claimed op -> @npu_<id> in the device module,
        │                          a call to a bodiless @__delegate_<id> in its place
        ├─ device modules          -> ir/delegates/npu.mlir, removed from the graph
@@ -199,7 +199,8 @@ pynqo-backend model.mlir --out <dir> --devices cpu,npu --cpus arm-cortex-a9,nati
   │    device, input and output bytes (the subgraph's argument and result)
   ├─ npu delegate compile(ir/delegates/npu.mlir)     backend/delegates/npu/lower.cpp
   │    per @npu_<id> in id order:
-  │    ├─ npu::claim: linalg.matmul -> npu.matmul {tk}, same M x N result
+  │    ├─ subgraph: the claimed linalg.matmul's M, K, N, constant weight and
+  │    │    tk = min(K, MAX_K) (libnpu_rt sums the K chunks: M x N result)
   │    ├─ Pack:   its weight as B tiles, into the arena (weights.bin)
   │    └─ Encode: its ISA program, relocated against that weight block
   │    -> programs.bin, programs.txt, programs.json

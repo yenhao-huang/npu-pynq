@@ -63,12 +63,10 @@ npu_repo_in_pynq/
 |   |   |-- vectors/
 |   |   |   `-- risc_v_npu/      rv32asm.py, isa_to_rv.py: ISA test programs as RISC-V for the CVA6 bench
 |   |   `-- waves/
-|   |-- vendors/                 one folder per accelerator; imported by export and runtime, imports neither
+|   |-- vendors/                 one folder per accelerator, run time only: spec/ and driver/; read by
+|   |   |                        export and runtime, references neither
 |   |   `-- npu_pynq/
 |   |       |-- spec/            hardware facts: isa.py, abi.py (registers), layout.py, quant.py (schemes accepted), board.py
-|   |       |-- custom_dialect/  C++ (LLVM 22), never shipped to the board: NpuMatch (the claim rule,
-|   |       |                    npu::isClaimable), linked by both export tools; NpuDialect (the npu
-|   |       |                    dialect, npu::claim, --npu-claim, Pack, Encode), by pynqo-backend only
 |   |       `-- driver/          board side; follows spec/
 |   |           |-- npu_rt/      libnpu_rt (C++): the NPU delegate backend, PYNQ and SIM backends,
 |   |           |                built on the target with its own g++ and CMake
@@ -76,12 +74,7 @@ npu_repo_in_pynq/
 |   |   `-- risc_v_npu/          the same NPU with the CVA6 RISC-V scalar core (SCALAR_IMPL="CVA6");
 |   |       |                    fully separate from npu_pynq: matrix-core facts are copied, not imported
 |   |       |-- spec/            abi.py (CSR map + capability bit 7, MMIO job registers, address map),
-|   |       |                    layout.py, quant.py, board.py, gen_mmio_header.py
-|   |       |-- custom_dialect/  C++ (LLVM 22): RvNpuMatch (the claim rule, rvnpu::isClaimable, a copy of
-|   |       |   |                NpuMatch), linked by both export tools; RvNpuDialect (the rvnpu dialect,
-|   |       |   |                rvnpu::claim, --rvnpu-claim, Pack, LowerToRiscv, Programs (rv_programs.*)),
-|   |       |   |                by pynqo-backend only; include/RvNpu/RvNpuMmio.h is generated
-|   |       |   `-- runtime/     crt0.S and link.ld, linked into the generated RISC-V GEMM kernel
+|   |       |                    layout.py, quant.py, board.py
 |   |       `-- driver/          board side; follows spec/
 |   |           |-- rv_npu_rt/   librv_npu_rt (C++): loads the RISC-V kernel, writes its parameter
 |   |           |                block per segment run, sums the K chunks into the
@@ -106,9 +99,20 @@ npu_repo_in_pynq/
 |   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:
 |   |   |                        one file per rewrite on the torch dialect; linalg/transforms/: device
 |   |   |                        assignment, and partitioning into delegate calls and device modules
-|   |   `-- backend/             C++ pynqo-backend: delegates/ (npu/, risc_v_npu/; each compiles its
-|   |                            device's module), package (weights.bin), cpu/delegate_calls (the
-|   |                            __delegate__ ABI), cpu/toolchain (LLVM IR, llc, link), device_register
+|   |   `-- backend/             C++ pynqo-backend: package (weights.bin), cpu/delegate_calls (the
+|   |       |                    __delegate__ ABI), cpu/toolchain (LLVM IR, llc, link), device_register
+|   |       `-- delegates/       one folder per device: all of its compile-time code, never shipped
+|   |           |                to the board; lower.cpp is the delegate's entry point
+|   |           |-- npu/         C++ (LLVM 22): NpuMatch (the claim rule, npu::isClaimable), linked by
+|   |           |                both export tools; NpuCodegen (Pack, Encode, programs.*), by
+|   |           |                pynqo-backend only
+|   |           `-- risc_v_npu/  C++ (LLVM 22): RvNpuMatch (the claim rule, rvnpu::isClaimable, a copy
+|   |               |            of NpuMatch), linked by both export tools; RvNpuCodegen (Pack,
+|   |               |            LowerToRiscv, Programs (rv_programs.*)), by pynqo-backend only;
+|   |               |            rv_codegen (RV32IMC binary);
+|   |               |            gen_mmio_header.py writes include/RvNpu/RvNpuMmio.h from
+|   |               |            vendors/risc_v_npu/spec/
+|   |               `-- runtime/ crt0.S and link.ld, linked into the generated RISC-V GEMM kernel
 |   |-- deploy/                  deploy.sh (send to the board, or ARCHIVE= a release archive),
 |   |                            resnet18_assets.py and its pins
 |   |-- deprecate/               retired code, kept for reference; nothing active imports it
@@ -218,13 +222,16 @@ npu_repo_in_pynq/
 the numpy golden reference, `cocotb/` are the Python tests that compare RTL
 against it, and `Makefile` is what CI invokes.
 
-`src/vendors/` holds everything specific to one accelerator, one folder per
-vendor, as a layer below both `src/export/` and `src/runtime/`: both import
-it, and it imports neither. Inside a vendor, `spec/` states the hardware as
-data; `custom_dialect/` (compile time) and `driver/` (run time) follow it and
-never each other, so the board bundle ships `spec/` and `driver/` without the
-compiler. `python -m unittest src.test.tests.test_vendor_boundary` enforces
-these edges.
+`src/vendors/<vendor>/` holds what one accelerator needs at run time:
+`spec/` (hardware facts, read by both export and runtime) and `driver/`
+(board side). Compile-time code for a device lives under
+`src/export/backend/delegates/<device>/`. A vendor folder is a layer below both
+`src/export/` and `src/runtime/`: export may read a vendor's `spec/`, the
+runtime may use its `spec/` and `driver/`, and a vendor references neither
+export nor runtime (no import, no path, no CMake `add_subdirectory`, no
+generator writing into `src/export/`). `driver/` follows `spec/`, and the
+board bundle ships exactly `spec/` and `driver/`.
+`python -m unittest src.test.tests.test_vendor_boundary` enforces these edges.
 
 `src/vendors/npu_pynq/spec/` is the single definition of the NPU: `isa.py`
 encodes and decodes the instruction set, `abi.py` is everything around it that
@@ -234,12 +241,7 @@ checks the RTL and `driver/npu_rt/` against it), `layout.py` fixes how a tiled G
 maps onto DDR, `quant.py` names the quantization schemes the NPU accepts, and
 `board.py` the board's CPU. RTL opcodes must match `isa.py`;
 `src/test/tests/test_isa.py` enforces that against the golden model
-`src/test/model/isa_sim.py`. `custom_dialect/` holds two libraries. `NpuMatch`
-is the claim rule (`npu::isClaimable`: INT8 contractions on constant weights),
-built from upstream MLIR headers only and linked by both export tools.
-`NpuDialect`, linked by `pynqo-backend` only, rewrites a claimed contraction
-as `npu.matmul`, packs its weights as B tiles and encodes ISA programs; its C++
-encoder is a port of `isa.py` and `layout.py`.
+`src/test/model/isa_sim.py`.
 `driver/npu_rt/` is libnpu_rt, which the runtime's `__delegate__` dispatcher
 calls for every NPU delegate; it packs A, runs the program, and sums the
 NPU's K chunks into the delegate's M x N result. Its SIM backend is a C++
@@ -266,15 +268,38 @@ when stale) lets each device delegate compile its own module, turns every
 delegate call into `__delegate__(id, in, out)` on byte buffers, moves the
 remaining weights into `weights.bin`, and compiles the CPU graph for the
 Cortex-A9 and the host, one per-target pipeline from bufferization down. A
-delegate contributes no CPU code. A new model is a new config; a new
+delegate contributes no CPU code.
+
+`src/export/backend/delegates/<device>/` holds all of one device's
+compile-time code: the delegate's entry point (`lower.cpp`), the claim rule,
+tiling and memory layout, weight packing, the lowering and the program
+encoding. It defines no MLIR dialect: the delegate reads each claimed
+`linalg.matmul` directly. The middle end stays device-agnostic: it links only the claim rule,
+and tiling and layout stay with the delegate. It is C++ against LLVM 22,
+never shipped to the board, and may read its vendor's `spec/` but never its
+`driver/`. `backend/delegates/npu/` holds two libraries. `NpuMatch` is the claim rule
+(`npu::isClaimable`: INT8 contractions on constant weights), built from
+upstream MLIR headers only and linked by both export tools. `NpuCodegen`,
+linked by `pynqo-backend` only, packs a claimed contraction's weights as B
+tiles and encodes its ISA program; its C++ encoder is a port of
+`src/vendors/npu_pynq/spec/isa.py` and `layout.py`.
+`backend/delegates/risc_v_npu/` mirrors it with `RvNpuMatch` and `RvNpuCodegen`
+(`LowerToRiscv` and the RISC-V programs, with `runtime/crt0.S` and
+`runtime/link.ld` for the generated kernel); its `gen_mmio_header.py` writes
+`include/RvNpu/RvNpuMmio.h` from `src/vendors/risc_v_npu/spec/abi.py` and
+`layout.py`.
+
+A new model is a new config; a new
 device is a matcher in `middle-end/linalg/transforms/AssignDevices.cpp`, a
-delegate under `backend/delegates/`, and its vendor folder, whose claim rule
-the middle end links without the device's dialect or encoder. Front-end stages
+delegate folder `backend/delegates/<device>/` with all of its compile-time
+code, whose claim rule the middle end links without the
+device's lowering or encoder, and a vendor folder for its `spec/` and
+`driver/`. Front-end stages
 do not import each other; only `pipeline.py` passes a model from one to the
 next. `python -m unittest src.test.tests.test_export_layering` enforces that,
 that `src/runtime` and `src/vendors` never import `src/export`, that
-`pynqo-middle-end` links `NpuMatch` and `RvNpuMatch` and neither `NpuDialect`
-nor `RvNpuDialect`, and that both tools
+`pynqo-middle-end` links `NpuMatch` and `RvNpuMatch` and neither `NpuCodegen`
+nor `RvNpuCodegen`, and that both tools
 spell the delegate attributes alike.
 
 `src/deploy/deploy.sh` sends an export directory to the board: the package with

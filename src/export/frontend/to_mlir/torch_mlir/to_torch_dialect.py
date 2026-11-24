@@ -24,7 +24,8 @@ def to_torch_dialect(programs: dict[str, torch.export.ExportedProgram]):
     torch_d.register_dialect(context)
     importer = FxImporter(context=context)
     for name, ep in programs.items():
-        # torch._int_mm must survive this step, because --npu-claim matches what it lowers to.
+        # torch._int_mm must survive this step, because the middle end's device claim
+        # (AssignDevices, with each device's isClaimable) matches what it lowers to.
         # If it were decomposed, the contraction would stay on the CPU with no error.
         ep = ep.run_decompositions()
         # Non-persistent buffers (RoPE's inv_freq) live in ep.constants, where

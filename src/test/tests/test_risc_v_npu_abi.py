@@ -12,6 +12,7 @@ compiler and is skipped elsewhere.
 from __future__ import annotations
 
 import ctypes
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -24,9 +25,15 @@ import unittest
 import numpy as np
 
 from src.vendors.risc_v_npu.spec import abi, layout
-from src.vendors.risc_v_npu.spec.gen_mmio_header import HEADER, render
 
 ROOT = Path(__file__).resolve().parents[3]
+# The header generator is compile-time code: it lives with the device under
+# src/export/backend/delegates/ and reads the vendor's spec (export -> vendors).
+GENERATOR = ROOT / 'src/export/backend/delegates/risc_v_npu/gen_mmio_header.py'
+_spec = importlib.util.spec_from_file_location('_rv_npu_gen_mmio_header', GENERATOR)
+_generator = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_generator)
+HEADER, render = _generator.HEADER, _generator.render
 CVA6 = ROOT / 'src/hw/rtl/npu_accelerator/scalar_core/cva6'
 CSR = ROOT / 'src/hw/rtl/npu_accelerator/csr/csr.sv'
 DRIVER = ROOT / 'src/vendors/risc_v_npu/driver/rv_npu_rt'
@@ -160,7 +167,18 @@ class CsrTests(unittest.TestCase):
 class HeaderTests(unittest.TestCase):
     def test_checked_in_header_matches_the_generator(self) -> None:
         self.assertEqual(HEADER.read_text(encoding='utf-8'), render(),
-                         'RvNpuMmio.h is stale: run python src/vendors/risc_v_npu/spec/gen_mmio_header.py')
+                         'RvNpuMmio.h is stale: run python src/export/backend/delegates/risc_v_npu/gen_mmio_header.py')
+
+    def test_generator_writes_into_its_device_folder(self) -> None:
+        # The header belongs to the compile-time device, not to the vendor.
+        self.assertEqual(HEADER, GENERATOR.parent / 'include' / 'RvNpu' / 'RvNpuMmio.h')
+        self.assertTrue(HEADER.is_file())
+        self.assertFalse((ROOT / 'src/vendors/risc_v_npu/spec/gen_mmio_header.py').exists())
+
+    def test_generator_check_runs_as_a_script(self) -> None:
+        result = subprocess.run([sys.executable, str(GENERATOR), '--check'], cwd=ROOT,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_header_values(self) -> None:
         text = HEADER.read_text(encoding='utf-8')

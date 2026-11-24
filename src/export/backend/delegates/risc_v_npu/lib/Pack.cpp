@@ -1,6 +1,6 @@
 //===- Pack.cpp - weights as the B tiles the NPU reads (risc_v_npu) -------===//
 //
-// Copied from src/vendors/npu_pynq/custom_dialect/lib/Pack.cpp and renamed to
+// Copied from src/export/backend/delegates/npu/lib/Pack.cpp and renamed to
 // mlir::rvnpu; keep the two in step.
 //
 // Port of pack_b in src/vendors/risc_v_npu/spec/layout.py: for every K chunk and
