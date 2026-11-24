@@ -13,11 +13,12 @@ import unittest
 
 FRONTEND = Path(__file__).resolve().parents[2] / 'export' / 'frontend'
 EXPORT = FRONTEND.parent
-CUSTOM_DIALECT = EXPORT.parent / 'vendors' / 'npu_pynq' / 'custom_dialect'
-RV_CUSTOM_DIALECT = EXPORT.parent / 'vendors' / 'risc_v_npu' / 'custom_dialect'
+# Each device's compile-time code (claim rule, dialect, lowering) lives under
+# src/export/devices/<device>/; src/vendors/ keeps only spec/ and driver/.
+DEVICES = EXPORT / 'devices'
 # Each device's claim library, its dialect library, and the folder they live in.
-DEVICE_LIBRARIES = (('NpuMatch', 'NpuDialect', CUSTOM_DIALECT, 'Npu'),
-                    ('RvNpuMatch', 'RvNpuDialect', RV_CUSTOM_DIALECT, 'RvNpu'))
+DEVICE_LIBRARIES = (('NpuMatch', 'NpuDialect', DEVICES / 'npu', 'Npu'),
+                    ('RvNpuMatch', 'RvNpuDialect', DEVICES / 'risc_v_npu', 'RvNpu'))
 ABOVE = ('src.export.pipeline', 'src.export.cli')
 STAGES = ('load', 'quantization', 'export_graph', 'to_mlir')
 

@@ -7,8 +7,8 @@
 // same rewrite to every claimable matmul of a module. The op never reaches
 // CPU code: the CPU graph only calls the delegate.
 //
-// Same semantics as npu.matmul (src/vendors/npu_pynq/custom_dialect/include/
-// Npu/NpuOps.td); a separate dialect so both devices link into one
+// Same semantics as npu.matmul (src/export/devices/npu/include/Npu/
+// NpuOps.td); a separate dialect so both devices link into one
 // pynqo-backend (plan 2026-1112-003 section 6.2).
 //
 //===----------------------------------------------------------------------===//

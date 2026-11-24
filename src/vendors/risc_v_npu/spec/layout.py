@@ -29,7 +29,7 @@ One parameterized RV32IMC kernel serves every task and segment of a package
 (issue #206). Before each segment run the driver writes ``PARAM_BYTES`` bytes
 at ``data_base``: ``PARAM_WORDS`` little-endian int32 words, word ``i`` at
 ``data_base + 4 * i``, indexed by the ``PARAM_*`` constants below.
-spec/gen_mmio_header.py emits the same names into RvNpuMmio.h as byte
+The compiler's generated RvNpuMmio.h carries the same names as byte
 offsets (``RVNPU_PARAM_<NAME>`` = ``4 * PARAM_<NAME>``).
 """
 

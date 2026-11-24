@@ -1,10 +1,10 @@
-//===- lower.cpp - the risc_v_npu delegate: the adapter to src/vendors/risc_v_npu ===//
+//===- lower.cpp - the risc_v_npu delegate: the adapter to src/export/devices/risc_v_npu ===//
 //
 //   compile(ir/delegates/risc_v_npu.mlir), one @risc_v_npu_<id> function per
 //   delegate id, in id order (the device's program index):
 //     check         one argument (the activation), one claimable
 //                   linalg.matmul on it, its result returned
-//     Claim         rvnpu::claim (custom_dialect/lib/Claim.cpp): rvnpu.matmul
+//     Claim         rvnpu::claim (devices/risc_v_npu/lib/Claim.cpp): rvnpu.matmul
 //                   {tk}, the same M x N result (librv_npu_rt sums the K
 //                   chunks)
 //     Pack          its weight as B tiles, into the arena
@@ -17,8 +17,8 @@
 //     link.ld, flattened
 //   and rv_programs.bin / rv_programs.txt / rv_programs.json
 //
-// Modelled on delegates/npu/lower.cpp. The vendor never includes the back
-// end; this file is the only place the two meet.
+// Modelled on delegates/npu/lower.cpp. The device dialect never includes
+// the back end; this file is the only place the two meet.
 //
 //===----------------------------------------------------------------------===//
 

@@ -91,7 +91,7 @@ OwningOpRef<ModuleOp> lowerToRiscv(MLIRContext *context);
 // (32-bit index, as RV32).
 LogicalResult convertToLLVMDialect(ModuleOp module);
 
-// The CVA6 runtime linked into every program (custom_dialect/runtime/),
+// The CVA6 runtime linked into every program (devices/risc_v_npu/runtime/),
 // embedded at build time. crt0Source() is preceded by mmioEquates(): `.equ`
 // lines for the RvNpuMmio.h constants crt0.S uses, so the assembly needs no
 // preprocessor.

@@ -1,4 +1,5 @@
-"""Hardware vendors. Each folder holds everything one accelerator needs: its
-instruction set (``isa/``), its compiler backend (``compiler/``) and its
-board-side driver (``driver/``). ``src/export`` and ``src/runtime`` import
-from here; nothing here imports ``src.export`` or ``src.runtime``."""
+"""Hardware vendors. Each folder holds what one accelerator needs at run time:
+its hardware facts (``spec/``), read by both export and runtime, and its
+board-side driver (``driver/``). Compile-time code for a device belongs to the
+export tools, not here. Export and runtime import from here; nothing here
+imports either of them."""

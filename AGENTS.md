@@ -14,8 +14,9 @@ on-board runtime.
 | `src/hw/vivado_tcl/<design>/` | project-regenerating Tcl | yes |
 | `src/test/` | Makefile, golden model, cocotb tests, vectors | yes (not `build/`, not `waves/`) |
 | `src/deprecate/jit/` | deprecated self-contained just-in-time model, export, runtime and examples | yes |
-| `src/vendors/<vendor>/` | one accelerator's hardware spec, MLIR dialect (C++), and board driver; imported by export and runtime | yes |
-| `src/export/` | host-side model export: PyTorch front end (load, torch.export, FX-pass quantization, torch-mlir import), the C++ middle end `pynqo-middle-end` and the C++ back end `pynqo-backend` | yes |
+| `src/vendors/<vendor>/` | what one accelerator needs at run time: `spec/` (hardware facts) and `driver/` (board side); read by export and runtime, references neither | yes |
+| `src/export/` | host-side model export: PyTorch front end (load, torch.export, FX-pass quantization, torch-mlir import), the C++ middle end `pynqo-middle-end`, the C++ back end `pynqo-backend`, and each device's compile-time code under `devices/` | yes |
+| `src/export/devices/<device>/` | one device's compile-time code: MLIR dialect, claim rule, lowering and program encoding (C++); linked by `pynqo-middle-end` (claim rule only) and `pynqo-backend` | yes |
 | `src/deploy/` | board bundles and sealed release archives | yes |
 | `src/runtime/` | on-board overlay loading and execution | yes |
 | `examples/` | demos built on export and runtime | yes |

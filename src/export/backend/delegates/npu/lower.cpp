@@ -1,17 +1,17 @@
-//===- lower.cpp - the npu delegate: the adapter to src/vendors/npu_pynq --===//
+//===- lower.cpp - the npu delegate: the adapter to src/export/devices/npu ===//
 //
 //   compile(ir/delegates/npu.mlir), one @npu_<id> function per delegate id,
 //   in id order (the NPU's program index):
 //     check   one argument (the activation), one claimable linalg.matmul on
 //             it, its result returned
-//     Claim   npu::claim (custom_dialect/lib/Claim.cpp): npu.matmul {tk},
-//             the same M x N result (libnpu_rt sums the K chunks)
+//     Claim   npu::claim (devices/npu/lib/Claim.cpp): npu.matmul {tk}, the
+//             same M x N result (libnpu_rt sums the K chunks)
 //     Pack    its weight as B tiles, into the arena
 //     Encode  its ISA program, relocated against that block
 //   then programs.bin / programs.txt / programs.json
 //
-// The vendor never includes the back end; this file is the only place the
-// two meet.
+// The device dialect never includes the back end; this file is the only
+// place the two meet.
 //
 //===----------------------------------------------------------------------===//
 

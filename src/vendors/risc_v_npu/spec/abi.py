@@ -13,8 +13,8 @@ Two windows, seen by two processors:
   CVA6 uses to issue GEMM jobs to the matrix core and to end itself. It is not
   visible to the ARM CPU. ``src/hw/rtl/npu_accelerator/scalar_core/cva6/
   cva6_npu_mmio.sv`` implements it; ``src/test/tests/test_risc_v_npu_abi.py``
-  checks the two agree, and ``gen_mmio_header.py`` turns this file into the C
-  header the compiler and runtime code include.
+  checks the two agree, and the compiler generates its C header
+  (``RvNpuMmio.h``) from this file.
 
 The CSR part is copied from src/vendors/npu_pynq/spec/abi.py (risc_v_npu
 keeps its own copy; plan 2026-1112-003 section 6.2). Keep the two in step.
@@ -233,7 +233,7 @@ class DoneCode(IntEnum):
     ISA_STATUS.ERROR and ISA_ERROR = code; a latched MmioError wins over it."""
 
     SUCCESS = 0x00
-    #: Written by the runtime's trap handler (custom_dialect/runtime/crt0.S)
+    #: Written by the trap handler in crt0.S (linked into every program)
     #: when the program takes an exception. Proposed here; not in the RTL.
     TRAP = 0x20
 

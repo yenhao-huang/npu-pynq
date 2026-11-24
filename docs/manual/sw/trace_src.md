@@ -174,7 +174,7 @@ middle_end(torch.mlir, ir/model.mlir, devices)
        │    ├─ torch-function-to-torch-backend-pipeline
        │    └─ torch-backend-to-linalg-on-tensors-backend-pipeline
        ├─ pynqo-assign-devices    pynqo.device on each op a device claims   middle-end/linalg/transforms/
-       │                          (the NPU: npu::isClaimable, vendors/npu_pynq/custom_dialect/lib/Match.cpp)
+       │                          (the NPU: npu::isClaimable, export/devices/npu/lib/Match.cpp)
        ├─ pynqo-partition-devices each claimed op -> @npu_<id> in the device module,
        │                          a call to a bodiless @__delegate_<id> in its place
        ├─ device modules          -> ir/delegates/npu.mlir, removed from the graph

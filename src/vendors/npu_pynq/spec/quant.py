@@ -1,7 +1,7 @@
 """The quantization schemes the NPU accepts.
 
 The array multiplies INT8 by INT8 into INT32. The schemes themselves are defined
-in src/export/frontend/quantization/schemes.py; this names the ones it can run,
+by the export's quantization front end; this names the ones the NPU can run,
 and the export refuses any other when the package targets the NPU.
 """
 
