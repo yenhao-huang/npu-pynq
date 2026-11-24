@@ -114,14 +114,23 @@ Note:
 
 ## Hardware Architecture
 
-![PYNQ-Z1 NPU hardware architecture](docs/assets/npu-hardware-architecture.svg)
+![PYNQ-Z1 NPU hardware architecture with the CVA6 scalar core](docs/assets/npu-hardware-architecture-cva6.png)
 
-The diagram groups the hardware by function: the Zynq processing system
-controls the accelerator over AXI-Lite. The ISA front end fetches NPU programs
-from DDR, decodes them into matrix jobs, and moves the A/B tiles in and the C
-tiles out itself over its own AXI4 master on HP0. The accelerator contains the
-controller, double-buffered operand memory, and systolic array. The overlay
-defaults to a 16 x 16 array and also supports 8 x 8 and 2 x 2 builds.
+The diagram groups the hardware by function. The Zynq processing system (PS)
+controls the accelerator through `csr` over AXI-Lite and starts its program.
+In the programmable logic (PL), `scalar_core` runs that program and drives
+`matrix_core`, whose controller feeds A/B tiles from double-buffered operand
+memory into the systolic array. A tensor DMA moves the A/B tiles in and the C
+tiles out over the accelerator's own AXI4 master on HP0. The overlay defaults
+to a 16 x 16 array and also supports 8 x 8 and 2 x 2 builds.
+
+`scalar_core` has two implementations, chosen with `--scalar-impl` when the
+bitstream is built:
+
+| `--scalar-impl` | Scalar core | Program |
+| --- | --- | --- |
+| `CUSTOM` (default) | an ISA front end that fetches 64-bit NPU instructions from DDR and decodes them into matrix jobs ([earlier diagram](docs/assets/npu-hardware-architecture.svg)) | `programs.bin` (`npu` delegate) |
+| `CVA6` (shown above) | a CVA6 RV32IMC core at 50 MHz that issues matrix jobs through MMIO registers; its AXI port crosses to the 100 MHz accelerator clock through `axi_cdc` | `rv_programs.bin` (`risc_v_npu` delegate) |
 
 ## Supported target and contracts
 
