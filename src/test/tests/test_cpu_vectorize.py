@@ -1,4 +1,5 @@
-"""NEON vectorization of the CPU code (pynqo-backend, src/export/backend/cpu/toolchain.cpp).
+"""NEON vectorization of the CPU code (pynqo-backend: src/export/backend/cpu/lowering/interchange.cpp,
+src/export/backend/cpu/codegen/).
 
 The back end moves each linalg op's unit-stride dimension innermost, then
 asks LLVM to vectorize every innermost loop. The interchange keeps every

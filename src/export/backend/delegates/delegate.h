@@ -13,7 +13,7 @@
 //
 //   func.call @__delegate__(id, in, out)     (bytes in, bytes out)
 //
-// (cpu/delegate_calls.cpp), and the runtime dispatches it by id to the
+// (cpu/delegate_abi/delegate_calls.cpp), and the runtime dispatches it by id to the
 // device's runtime library (src/runtime). `in` holds the subgraph's argument
 // and `out` its result, so a device's own way of computing the result (for
 // the NPU, K chunks summed in libnpu_rt) stays inside the device.

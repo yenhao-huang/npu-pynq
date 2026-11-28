@@ -10,7 +10,7 @@
 // Codegen runs in process, so this pynqo-backend must be built against an
 // LLVM whose LLVM_TARGETS_TO_BUILD has RISCV (CMake defines
 // PYNQO_HAVE_RISCV). Linking uses the ld.lld executable, as the CPU path
-// (cpu/toolchain.cpp) already does: the LLVM 22 packages this repository
+// (cpu/codegen/toolchain.cpp) already does: the LLVM 22 packages this repository
 // builds against ship ld.lld but not lld's libraries. A single object plus a
 // linker script needs nothing lld-specific, so an in-process linker would
 // only add a dependency.

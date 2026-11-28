@@ -41,7 +41,7 @@ pynqo-backend <model.mlir> --out <dir> --devices cpu,npu --cpus arm-cortex-a9,na
 | Output | in `<dir>`: `weights.bin`, `programs.bin/.json/.txt` (NPU only), `<cpu>/model.so` per `--cpus`, `compile.json` |
 | `--devices` | must equal the middle end's `--devices`; each delegate compiles its device's module |
 | `--cpus` | `arm-cortex-a9` for the board (cross-compiled), `native` for this host |
-| CPU code | each linalg op's unit-stride dimension moved innermost, lowered to loops, then `opt` (canonicalize, then loop-vectorize) and `llc` for the CPU: NEON on the board; results bit-identical to scalar code but for NEON's flush-to-zero (`src/export/backend/cpu/toolchain.cpp`, [kernel profile](../perf/kernel-profile-neon-vectorization.md)) |
+| CPU code | each linalg op's unit-stride dimension moved innermost, lowered to loops, then `opt` (canonicalize, then loop-vectorize) and `llc` for the CPU: NEON on the board; results bit-identical to scalar code but for NEON's flush-to-zero (`src/export/backend/cpu/lowering/`, `src/export/backend/cpu/codegen/`, [kernel profile](../perf/kernel-profile-neon-vectorization.md)) |
 | `--keep-ir` | also write `cpu.mlir` (the CPU graph with `__delegate__` calls and externalized weights) and each CPU's LLVM IR, before (`model.ll`) and after `opt` (`model.opt.bc`) |
 
 `pipeline.py` then adds argument names, the tokenizer and model metadata to

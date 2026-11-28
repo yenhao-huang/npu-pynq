@@ -99,8 +99,13 @@ npu_repo_in_pynq/
 |   |   |                        graph) + delegates/<device>.mlir; builds torch-mlir; torch/transforms/:
 |   |   |                        one file per rewrite on the torch dialect; linalg/transforms/: device
 |   |   |                        assignment, and partitioning into delegate calls and device modules
-|   |   `-- backend/             C++ pynqo-backend: package (weights.bin), cpu/delegate_calls (the
-|   |       |                    __delegate__ ABI), cpu/toolchain (LLVM IR, llc, link), device_register
+|   |   `-- backend/             C++ pynqo-backend: package (weights.bin), device_register
+|   |       |-- cpu/             the CPU code, grouped by stage:
+|   |       |                    delegate_abi/: delegate calls to the __delegate__ ABI, on tensors,
+|   |       |                    once; lowering/ (MLIR, per target): unit-stride interchange, then
+|   |       |                    bufferize, loops, LLVM dialect; codegen/ (LLVM, per target): LLVM IR,
+|   |       |                    vectorize hints, opt, llc, link model.so; profiling/: the
+|   |       |                    --profile-kernels probes
 |   |       `-- delegates/       one folder per device: all of its compile-time code, never shipped
 |   |           |                to the board; lower.cpp is the delegate's entry point
 |   |           |-- npu/         C++ (LLVM 22): NpuMatch (the claim rule, npu::isClaimable), linked by

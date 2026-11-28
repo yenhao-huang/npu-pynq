@@ -1,6 +1,6 @@
 //===- kernel_probes.h - time every CPU kernel ------------------*- C++ -*-===//
-#ifndef BACKEND_CPU_KERNEL_PROBES_H
-#define BACKEND_CPU_KERNEL_PROBES_H
+#ifndef BACKEND_CPU_PROFILING_KERNEL_PROBES_H
+#define BACKEND_CPU_PROFILING_KERNEL_PROBES_H
 
 #include "mlir/IR/BuiltinOps.h"
 
@@ -43,4 +43,4 @@ bool writeKernelTable(const std::string &path, const std::vector<KernelEntry> &t
 
 } // namespace backend
 
-#endif // BACKEND_CPU_KERNEL_PROBES_H
+#endif // BACKEND_CPU_PROFILING_KERNEL_PROBES_H

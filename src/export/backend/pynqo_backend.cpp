@@ -19,7 +19,7 @@
 //     -> externalize the remaining weights into weights.bin (`ws` argument)
 //     -> CPU codegen, once per CPU model: <dir>/<model>/model.so; with
 //        --profile-kernels every kernel the middle end numbered is timed and
-//        described in <dir>/<model>/kernels.json (cpu/kernel_probes.cpp)
+//        described in <dir>/<model>/kernels.json (cpu/profiling/kernel_probes.cpp)
 //     -> <dir>/compile.json: entry points, delegate table, weights, libraries
 //
 // src/export/pipeline.py runs it and adds what the front end knows (argument
@@ -27,8 +27,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "cpu/delegate_calls.h"
-#include "cpu/toolchain.h"
+#include "cpu/codegen/toolchain.h"
+#include "cpu/delegate_abi/delegate_calls.h"
+#include "cpu/lowering/pipeline.h"
 #include "device_register.h"
 #include "package.h"
 
@@ -313,7 +314,7 @@ int main(int argc, char **argv) {
       return fail("delegate '" + e.device + "' did not compile delegate " + std::to_string(e.id));
 
   // 5. CPU: every delegate call becomes func.call @__delegate__(id, in, out)
-  // on byte buffers (cpu/delegate_calls.cpp); the declarations go.
+  // on byte buffers (cpu/delegate_abi/delegate_calls.cpp); the declarations go.
   if (failed(backend::lowerDelegateCalls(*module)))
     return fail("lowering the delegate calls failed");
   // Every remaining large constant moves into the arena and is read back
@@ -330,8 +331,9 @@ int main(int argc, char **argv) {
     module->print(os, OpPrintingFlags().elideLargeElementsAttrs(16).elideLargeResourceString(64));
   }
 
-  // 6. CPU code, once per --cpus entry (cpu/toolchain.cpp): bufferize, lower
-  // to the LLVM dialect, llc for the target, link model.so. __delegate__
+  // 6. CPU code, once per --cpus entry: bufferize and lower to the LLVM
+  // dialect (cpu/lowering/pipeline.cpp), then LLVM IR, opt and llc for the
+  // target, and link model.so (cpu/codegen/toolchain.cpp). __delegate__
   // stays undefined; the runtime's dispatcher provides it. Only per-target
   // work belongs here: graph-level passes run once, in pynqo-middle-end.
   std::vector<std::pair<std::string, std::string>> libraries;
@@ -339,12 +341,13 @@ int main(int argc, char **argv) {
     auto target = backend::cpuTarget(name, error);
     if (failed(target))
       return fail(error);
-    // Each target needs its own copy: codegen lowers the module in place,
+    // Each target needs its own copy: lowering rewrites the module in place,
     // and index widths differ per target.
     // All libraries still share one weights.bin, with the same offsets.
     OwningOpRef<ModuleOp> copy = module->clone();
     std::string dir = out + "/" + target->model;
-    if (failed(backend::codegen(*copy, *target, dir, llvmBin, keepIr, profileKernels, error)))
+    if (failed(backend::lowerToLlvm(*copy, *target, dir, profileKernels, error)) ||
+        failed(backend::codegen(*copy, *target, dir, llvmBin, keepIr, error)))
       return fail(error);
     libraries.push_back({target->model, target->model + "/model.so"});
   }
