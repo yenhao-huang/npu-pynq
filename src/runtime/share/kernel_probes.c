@@ -1,5 +1,5 @@
 /* __prof_enter / __prof_exit: what a model.so exported with --profile-kernels
- * calls around every CPU kernel (src/export/backend/cpu/kernel_probes.cpp).
+ * calls around every CPU kernel (src/export/backend/cpu/profiling/kernel_probes.cpp).
  *
  *   void __prof_enter(int32_t id);
  *   void __prof_exit(int32_t id);

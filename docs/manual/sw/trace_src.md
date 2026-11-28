@@ -204,15 +204,18 @@ pynqo-backend model.mlir --out <dir> --devices cpu,npu --cpus arm-cortex-a9,nati
   │    ├─ Pack:   its weight as B tiles, into the arena (weights.bin)
   │    └─ Encode: its ISA program, relocated against that weight block
   │    -> programs.bin, programs.txt, programs.json
-  ├─ lowerDelegateCalls(module)                      backend/cpu/delegate_calls.cpp
+  ├─ lowerDelegateCalls(module)                      backend/cpu/delegate_abi/delegate_calls.cpp
   │    each call to @__delegate_<id> -> func.call @__delegate__(%id, %in, %out)
   │    (byte buffers in and out)
   ├─ externalizeWeights(module, arena)               backend/package.cpp
   │    every remaining large constant moves into the arena and is read back as
   │    memref.view %ws[offset]; ws becomes each entry point's first argument
   ├─ arena.write(weights.bin)
-  ├─ for each CPU in --cpus: codegen(clone, target)   backend/cpu/toolchain.cpp
-  │    bufferize -> loops -> LLVM dialect -> LLVM IR -> llc -> ld.lld
+  ├─ for each CPU in --cpus, on a clone of the module:
+  │    ├─ lowerToLlvm(clone, target)                 backend/cpu/lowering/pipeline.cpp
+  │    │    interchange -> bufferize -> loops -> LLVM dialect
+  │    └─ codegen(clone, target)                     backend/cpu/codegen/toolchain.cpp
+  │         LLVM IR -> opt -> llc -> ld.lld
   │    -> <model>/model.so   (__delegate__ stays undefined for the runtime)
   └─ compile.json: entry points, abi, delegate table, weights, libraries, npu_limits
 ```

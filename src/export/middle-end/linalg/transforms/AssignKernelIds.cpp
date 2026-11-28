@@ -18,7 +18,7 @@
 // As ExecuTorch's debug handles and IREE's dispatch regions, kernels are named
 // once here, on tensors, so every CPU target shares one numbering. The back
 // end only reads the attribute: with --profile-kernels it wraps each kernel in
-// timing calls (backend/cpu/kernel_probes.cpp). Lowering to loops drops the
+// timing calls (backend/cpu/profiling/kernel_probes.cpp). Lowering to loops drops the
 // attribute, so it changes no generated code.
 //
 //===----------------------------------------------------------------------===//

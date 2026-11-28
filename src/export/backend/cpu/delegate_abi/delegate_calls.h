@@ -1,6 +1,6 @@
 //===- delegate_calls.h - delegate calls to the runtime ABI -----*- C++ -*-===//
-#ifndef BACKEND_CPU_DELEGATE_CALLS_H
-#define BACKEND_CPU_DELEGATE_CALLS_H
+#ifndef BACKEND_CPU_DELEGATE_ABI_DELEGATE_CALLS_H
+#define BACKEND_CPU_DELEGATE_ABI_DELEGATE_CALLS_H
 
 #include "mlir/IR/BuiltinOps.h"
 
@@ -14,4 +14,4 @@ mlir::LogicalResult lowerDelegateCalls(mlir::ModuleOp module);
 
 } // namespace backend
 
-#endif // BACKEND_CPU_DELEGATE_CALLS_H
+#endif // BACKEND_CPU_DELEGATE_ABI_DELEGATE_CALLS_H

@@ -11,14 +11,14 @@
 //         %r = bufferization.to_tensor %out-view
 //
 // This runs on tensors, once, before the per-target pipeline in
-// toolchain.cpp bufferizes. The C interface of __delegate__, which
+// cpu/lowering/pipeline.cpp bufferizes. The C interface of __delegate__, which
 // src/runtime/delegate/dispatch.c defines, is
 //
 //   void _mlir_ciface___delegate__(int64_t id, memref_1d_i8 *in, memref_1d_i8 *out)
 //
 //===----------------------------------------------------------------------===//
 
-#include "delegate_calls.h"
+#include "cpu/delegate_abi/delegate_calls.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"

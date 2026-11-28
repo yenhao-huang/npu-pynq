@@ -2,8 +2,8 @@
 
 Where the board's CPU time goes, before and after the back end started
 vectorizing the CPU code for the Cortex-A9's NEON unit
-(`src/export/backend/cpu/toolchain.cpp`). Measured on the PYNQ-Z1 on
-2026-11-24.
+(`src/export/backend/cpu/lowering/interchange.cpp`,
+`src/export/backend/cpu/codegen/`). Measured on the PYNQ-Z1 on 2026-11-24.
 
 ## What changed
 

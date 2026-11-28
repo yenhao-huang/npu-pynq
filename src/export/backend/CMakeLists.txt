@@ -33,9 +33,12 @@ add_executable(pynqo-backend
   pynqo_backend.cpp
   device_register.cpp
   package.cpp
-  cpu/toolchain.cpp
-  cpu/delegate_calls.cpp
-  cpu/kernel_probes.cpp
+  cpu/delegate_abi/delegate_calls.cpp
+  cpu/lowering/interchange.cpp
+  cpu/lowering/pipeline.cpp
+  cpu/codegen/vectorize_hints.cpp
+  cpu/codegen/toolchain.cpp
+  cpu/profiling/kernel_probes.cpp
   delegates/npu/lower.cpp
   delegates/risc_v_npu/lower.cpp
   delegates/risc_v_npu/rv_codegen.cpp)
